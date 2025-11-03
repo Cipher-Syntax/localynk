@@ -94,7 +94,7 @@ const AuthForm = ({ route, method }) => {
                         control={control}
                         name="username"
                         defaultValue="" 
-                        rules={{ required: 'Username is required' }}
+                        // rules={{ required: 'Username is required' }}
                         render={({ field: { onChange, value } }) => (
                             <TextInput
                                 placeholder="Username"
@@ -134,7 +134,7 @@ const AuthForm = ({ route, method }) => {
                         control={control}
                         name="password"
                         defaultValue="" 
-                        rules={{ required: 'Password is required' }}
+                        // rules={{ required: 'Password is required' }}
                         render={({ field: { onChange, value } }) => (
                             <TextInput
                                 placeholder="Password"
