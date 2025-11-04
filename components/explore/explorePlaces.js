@@ -1,9 +1,15 @@
 import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, StatusBar, Image, Text, TouchableOpacity } from 'react-native';
+import { View, ScrollView, StyleSheet, StatusBar, Image, Text, TouchableOpacity, ImageBackground } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
 import { User } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+
+import places_1 from '../../assets/localynk_images/places_1.png';
+import places_2 from '../../assets/localynk_images/places_2.png';
+import places_3 from '../../assets/localynk_images/places_3.png';
+import places_4 from '../../assets/localynk_images/places_4.png';
+import places_5 from '../../assets/localynk_images/places_5.png';
 
 const ExplorePlaces = () => {
     const router = useRouter();
@@ -56,6 +62,29 @@ const ExplorePlaces = () => {
             price: "₱1,600/day",
         },
     ];
+    
+    const places = [
+        {
+            id: 1,
+            image: places_1
+        },
+        {
+            id: 2,
+            image: places_2
+        },
+        {
+            id: 3,
+            image: places_3
+        },
+        {
+            id: 4,
+            image: places_4
+        },
+        {
+            id: 5,
+            image: places_5
+        },
+    ]
 
     return (
         <ScrollView style={styles.container}>
@@ -140,21 +169,20 @@ const ExplorePlaces = () => {
 
                 {activeTab === 'places' && (
                     <View>
-                        <View style={styles.placesContainer}>
-                            <Text style={styles.placesText}>PLACES SECTION</Text>
-                        </View>
+                        {
+                            places.map((place) => (
+                                <ImageBackground 
+                                    key={place.id}
+                                    source={place.image}
+                                    style={styles.placesContainer}
+                                    imageStyle={styles.placesImage}
+                                >
+                                    <View style={styles.placesOverlay} />
+                                    <Text style={styles.placesText}>PLACES SECTION</Text>
+                                </ImageBackground>
+                            ))
+                        }
 
-                        <View style={styles.placesContainer}>
-                            <Text style={styles.placesText}>PLACES SECTION</Text>
-                        </View>
-
-                        <View style={styles.placesContainer}>
-                            <Text style={styles.placesText}>PLACES SECTION</Text>
-                        </View>
-
-                        <View style={styles.placesContainer}>
-                            <Text style={styles.placesText}>PLACES SECTION</Text>
-                        </View>
                     </View>
 
                     
@@ -321,11 +349,21 @@ const styles = StyleSheet.create({
         borderRadius: 15,
         borderWidth: 1,
         borderColor: '#E0E6ED',
-        marginBottom: 15
+        marginBottom: 15,
     },
     placesText: {
         fontSize: 16,
-        color: '#8B98A8',
+        color: '#fff',
         fontWeight: '500',
     },
+    placesImage: {
+        borderRadius: 15,
+        resizeMode: 'cover',
+    },
+    placesOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        borderRadius: 15,
+    },
+
 });

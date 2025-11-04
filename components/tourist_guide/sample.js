@@ -1,10 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Image, Text, TouchableOpacity, StatusBar, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-// import { IsTourist, RegisterModalForm } from '../tourist_guide';
-import IsTourist from './IsTourist';
-import RegisterModalForm from './RegisterOpenModalForm';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { IsTourist, RegisterModalForm } from '../tourist_guide';
 
 const Action = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -20,7 +17,7 @@ const Action = () => {
     }
 
     return (
-        <View style={styles.container}>
+        <ScrollView style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
             <View>
@@ -67,7 +64,7 @@ const Action = () => {
                     <RegisterModalForm isModalOpen={isModalOpen} setIsOpenModal={setIsModalOpen} onSubmit={handleFormSubmit}/>
                 )
             }
-        </View>
+        </ScrollView>
     );
 };
 
@@ -108,11 +105,9 @@ const styles = StyleSheet.create({
         backgroundColor: "#D9E2E9",
         borderTopRightRadius: 60,
         borderTopLeftRadius: 60,
-        height: 490,
+        height: 500,
         paddingTop: 10,
         flex: 1,
-        flexShrink: 0,
-        flexGrow: 1,
         alignItems: 'center',
         justifyContent: 'center',
     },
