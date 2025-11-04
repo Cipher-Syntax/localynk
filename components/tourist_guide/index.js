@@ -1,6 +1,10 @@
-import Action from '../tourist_guide/Action';
+import Action from "./Action"
+import RegisterModalForm from "./RegisterOpenModalForm";
+import IsTourist from './IsTourist';
 
 export {
     Action,
+    RegisterModalForm,
+    IsTourist,
 }
 

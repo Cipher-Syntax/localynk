@@ -1,10 +1,23 @@
-import React from 'react';
-import { View, StyleSheet, Image, Text, TouchableOpacity, StatusBar } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet, Image, Text, TouchableOpacity, StatusBar, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { IsTourist, RegisterModalForm } from '../tourist_guide';
 
 const Action = () => {
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isTourist, setIsTourist] = useState(false);
+
+    const handleFormSubmit = () => {
+        setIsModalOpen(false);
+        setIsTourist(true);
+    };
+
+    if (isTourist) {
+        return <IsTourist />;
+    }
+
     return (
-        <View>
+        <ScrollView style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
             <View>
@@ -17,7 +30,6 @@ const Action = () => {
                         colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
                         style={styles.overlay}
                     />
-    
                     <Text style={styles.headerTitle}>TOUR GUIDES</Text>
                 </View>
             </View>
@@ -28,7 +40,10 @@ const Action = () => {
                     Join our community of locals showing off their hometown pride.
                 </Text>
 
-                <TouchableOpacity activeOpacity={0.8}>
+                <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => setIsModalOpen(true)}
+                >
                     <LinearGradient
                         colors={['#00C6FF', '#0072FF']}
                         start={{ x: 0, y: 0 }}
@@ -43,7 +58,13 @@ const Action = () => {
                     <Text style={styles.secondaryButtonText}>View Requirements</Text>
                 </TouchableOpacity>
             </View>
-        </View>
+
+            {
+                isModalOpen && (
+                    <RegisterModalForm isModalOpen={isModalOpen} setIsOpenModal={setIsModalOpen} onSubmit={handleFormSubmit}/>
+                )
+            }
+        </ScrollView>
     );
 };
 
@@ -52,7 +73,6 @@ export default Action;
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#D9E2E9',
     },
     header: {
         position: 'relative',

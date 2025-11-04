@@ -120,6 +120,27 @@ const HomeLayout = () => {
                     ),
                 }}
             />
+            <Tabs.Screen
+                name="attractionDetails"
+                options={{
+                    title: "Attraction Details",
+                    href: null
+                }}
+            />
+            <Tabs.Screen
+                name="touristGuideDetails"
+                options={{
+                    title: "Tourist Guide Details",
+                    href: null
+                }}
+            />
+            <Tabs.Screen
+                name="payment"
+                options={{
+                    title: "Payment",
+                    href: null
+                }}
+            />
         </Tabs>
     );
 }

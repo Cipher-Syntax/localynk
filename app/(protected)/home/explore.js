@@ -1,13 +1,10 @@
-import { View, Text } from "react-native";
+import { View, Text, ScrollView } from "react-native";
+import { ExplorePlaces } from "../../../components/explore";
 
 export default function Home() {
     return (
-        <View style={{
-            flex: 1,
-            alignItems: "center",
-            justifyContent: "center"
-        }}>
-            <Text style={{textAlign: "center", fontWeight: 900, fontSize: 30}}>Explore Screen</Text>
-        </View>
+        <ScrollView>
+            <ExplorePlaces />
+        </ScrollView>
     );
 }

@@ -13,10 +13,13 @@ import DiscoverPlace2 from '../../assets/localynk_images/discover2.png';
 import DiscoverPlace3 from '../../assets/localynk_images/discover3.png';
 import DiscoverPlace4 from '../../assets/localynk_images/discover4.png';
 
+import { useRouter } from 'expo-router'
+
 const { width } = Dimensions.get('window');
 
 const FeaturedPlaces = () => {
     const [isActive, setIsActive] = useState(2);
+    const router = useRouter();
 
     const FeatureCards = [
         { id: 1, image: FeaturePlace1 },
@@ -28,10 +31,10 @@ const FeaturedPlaces = () => {
     ];
 
     const DiscoverWhatYouWant = [
-        { id: 1, image: DiscoverPlace1, name: 'BEACHES' },
-        { id: 2, image: DiscoverPlace2, name: 'MOUNTAINS' },
-        { id: 3, image: DiscoverPlace3, name: 'RIVERS' },
-        { id: 4, image: DiscoverPlace4, name: 'CITY' },
+        { id: 1, image: DiscoverPlace1, name: 'BEACHES', touristGuide: "Juan" },
+        { id: 2, image: DiscoverPlace2, name: 'MOUNTAINS', touristGuide: "Dela Cruz" },
+        { id: 3, image: DiscoverPlace3, name: 'RIVERS', touristGuide: "John" },
+        { id: 4, image: DiscoverPlace4, name: 'CITY' , touristGuide: "Doe"},
     ];
 
     return (
@@ -72,7 +75,14 @@ const FeaturedPlaces = () => {
                             <TouchableOpacity
                                 key={item.id}
                                 activeOpacity={0.9}
-                                onPress={() => setIsActive(item.id)}
+                                onPress={() => {
+                                    setIsActive(item.id);
+                                    router.push({
+                                        pathname: "/(protected)/home/attractionDetails",
+                                        params: { category: item.touristGuide },
+                                    });
+                                }}
+
                                 style={[
                                     styles.discoverItem,
                                     { flex: isActive === item.id ? 4 : 1 },
