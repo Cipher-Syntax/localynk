@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, Image, StyleSheet, FlatList, TouchableOpacity, Dimensions, } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, Image, StyleSheet, FlatList, TouchableOpacity, Dimensions, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,9 +17,35 @@ import { useRouter } from 'expo-router'
 
 const { width } = Dimensions.get('window');
 
+
 const FeaturedPlaces = () => {
     const [isActive, setIsActive] = useState(2);
     const router = useRouter();
+
+    const bounceValue = useRef(new Animated.Value(0)).current;
+
+    const startBounce = () => {
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(bounceValue, {
+                    toValue: -10,
+                    duration: 400,
+                    easing: Easing.linear,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(bounceValue, {
+                    toValue: 0,
+                    duration: 400,
+                    easing: Easing.linear,
+                    useNativeDriver: true,
+                }),
+            ])
+        ).start();
+    };
+
+    useEffect(() => {
+        startBounce();
+    }, [isActive]);
 
     const FeatureCards = [
         { id: 1, image: FeaturePlace1 },
@@ -77,10 +103,6 @@ const FeaturedPlaces = () => {
                                 activeOpacity={0.9}
                                 onPress={() => {
                                     setIsActive(item.id);
-                                    router.push({
-                                        pathname: "/(protected)/home/attractionDetails",
-                                        params: { category: item.touristGuide },
-                                    });
                                 }}
 
                                 style={[
@@ -133,11 +155,33 @@ const FeaturedPlaces = () => {
 
                                 {isActive === item.id && (
                                     <View style={styles.discoverBottom}>
-                                        <Text style={styles.discoverSubtext}>
-                                            Discover more breathtaking {item.name.toLowerCase()} spots
-                                        </Text>
+                                        <TouchableOpacity
+                                            onPress={() =>
+                                                router.push({
+                                                    pathname: "/(protected)/home/attractionDetails",
+                                                    params: { category: item.touristGuide },
+                                                })
+                                            }
+                                        >
+                                            <View style={{
+                                                position: "absolute",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                gap: 10
+                                            }}>
+                                                <Text style={styles.discoverSubtext}>
+                                                    Discover more breathtaking {item.name.toLowerCase()} spots
+                                                </Text>
+
+                                                <Animated.View style={{ transform: [{ translateY: bounceValue }] }}>
+                                                    <Ionicons name='arrow-down-outline' color="#00C6FF" size={25} />
+                                                </Animated.View>
+                                            </View>
+                                        </TouchableOpacity>
                                     </View>
                                 )}
+
                             </TouchableOpacity>
                         ))}
                     </View>
@@ -266,13 +310,13 @@ const styles = StyleSheet.create({
     },
     discoverBottom: {
         position: 'absolute',
-        bottom: 20,
+        bottom: 165,
         left: 20,
         right: 20,
     },
     discoverSubtext: {
         textAlign: 'center',
-        fontSize: 10,
+        fontSize: 13,
         color: '#00C6FF',
     },
     footer: {
