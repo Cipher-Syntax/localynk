@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Image, Text, StatusBar, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Image, Text, StatusBar, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -8,17 +8,19 @@ const IsTourist = () => {
         {
             id: 1,
             name: 'Francoise Minoville',
-            status: 'Pending',
+            status: 'Active',
             hopping: "Beach Hopping",
-            lastSeen: 'May 5, 2022',
+            start_date: '11/05/2025',
+            end_date: '11/11/2025',
             isOnline: true,
         },
         {
             id: 2,
             name: 'Justine Toang',
-            status: 'Active',
+            status: 'Pending',
             hopping: "Beach Hopping",
-            lastSeen: 'May 5, 2022',
+            start_date: '11/13/2025',
+            end_date: '11/20/2025',
             isOnline: false,
         },
         {
@@ -26,10 +28,28 @@ const IsTourist = () => {
             name: 'Charles Gumende',
             status: 'Pending',
             hopping: "Beach Hopping",
-            lastSeen: 'May 5, 2022',
+            start_date: '11/05/2025',
+            end_date: '11/15/2025',
             isOnline: false,
         },
     ]);
+
+    const handleDecision = (id, decision) => {
+        if (decision === 'accept') {
+            const hasActiveBooking = bookings.some(b => b.status === 'Active');
+            if (hasActiveBooking) {
+                Alert.alert(
+                    "Active Booking Found",
+                    "You still have an active booking. Try again after completing your current one."
+                );
+                return;
+            }
+        }
+
+        setBookings(prev =>
+            prev.map(b => b.id === id ? { ...b, status: decision === 'accept' ? 'Active' : 'Rejected' } : b )
+        );
+    };
 
     return (
         <ScrollView style={styles.container}>
@@ -61,7 +81,9 @@ const IsTourist = () => {
                     <Text style={styles.statLabel}>Completed Tours</Text>
                 </View>
                 <View style={styles.statCard}>
-                    <Text style={styles.statNumber}>4.8 <Ionicons name="star" size={20} color="#ffc107" /></Text>
+                    <Text style={styles.statNumber}>
+                        4.8 <Ionicons name="star" size={20} color="#ffc107" />
+                    </Text>
                     <Text style={styles.statLabel}>Average Rating</Text>
                 </View>
             </View>
@@ -82,7 +104,6 @@ const IsTourist = () => {
                                 {booking.isOnline && <View style={styles.onlineIndicator} />}
                             </View>
                             <View style={styles.bookingInfo}>
-                           
                                 <View style={styles.nameStatusRow}>
                                     <Text style={styles.guideNameWaiting}>{booking.name}</Text>
                                     <View style={styles.statusContainer}>
@@ -92,17 +113,51 @@ const IsTourist = () => {
                                         {booking.status === 'Active' && (
                                             <Ionicons name="checkmark-circle-outline" size={16} color="#00c853" />
                                         )}
+                                        {booking.status === 'Rejected' && (
+                                            <Ionicons name="close-circle-outline" size={16} color="#ff5252" />
+                                        )}
                                         <Text style={styles.statusText}>{booking.status}</Text>
                                     </View>
                                 </View>
                                 <View style={styles.metaInfo}>
                                     <Text style={styles.hopping}>{booking.hopping}</Text>
-                                    <Text style={styles.lastSeen}><Ionicons name="calendar" size={16} color="#ffffff" /> {booking.lastSeen}</Text>
+                                    <View style={styles.dates}>
+                                        <Text style={styles.startDate}>
+                                            <Ionicons name="calendar" size={16} color="#ffffff" /> {booking.start_date}
+                                        </Text>
+                                        <Text style={{color: "#fff", fontSize: 11 }}> - </Text>
+                                        <Text style={styles.endDate}>
+                                            <Ionicons name="calendar" size={16} color="#ffffff" /> {booking.end_date}
+                                        </Text>
+                                    </View>
                                 </View>
                             </View>
                         </View>
+
+                        {booking.status === 'Pending' && (
+                            <View style={styles.decisionRow}>
+                                <TouchableOpacity
+                                    style={[styles.decisionButton, styles.rejectButton]}
+                                    onPress={() => handleDecision(booking.id, 'reject')}
+                                >
+                                    <Ionicons name="close" size={14} color="#fff" />
+                                    <Text style={styles.decisionText}>Decline</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.decisionButton, styles.acceptButton]}
+                                    onPress={() => handleDecision(booking.id, 'accept')}
+                                >
+                                    <Ionicons name="checkmark" size={14} color="#fff" />
+                                    <Text style={styles.decisionText}>Accept</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+
                         <TouchableOpacity style={styles.messageButton}>
-                            <Text style={styles.messageButtonText}><Ionicons name="chatbubble-ellipses-outline" size={16} color="#ffffff" /> Message Client </Text>
+                            <Text style={styles.messageButtonText}>
+                                <Ionicons name="chatbubble-ellipses-outline" size={16} color="#ffffff" /> 
+                                Message Client
+                            </Text>
                         </TouchableOpacity>
                     </View>
                 ))}
@@ -114,13 +169,13 @@ const IsTourist = () => {
 export default IsTourist;
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
+    container: { 
+        flex: 1 
     },
-    header: {
-        position: 'relative',
-        height: 120,
-        justifyContent: 'center',
+    header: { 
+        position: 'relative', 
+        height: 120, 
+        justifyContent: 'center' 
     },
     headerImage: {
         width: '100%',
@@ -157,36 +212,36 @@ const styles = StyleSheet.create({
         padding: 16,
         justifyContent: 'center',
     },
-    statNumber: {
-        fontSize: 24,
-        fontWeight: '700',
-        color: '#fff',
+    statNumber: { 
+        fontSize: 24, 
+        fontWeight: '700', 
+        color: '#fff' 
     },
-    statLabel: {
-        fontSize: 12,
-        color: '#999',
-        marginTop: 4,
+    statLabel: { 
+        fontSize: 12, 
+        color: '#999', 
+        marginTop: 4 
     },
-    bookingsSection: {
-        padding: 15,
-        marginTop: 100,
+    bookingsSection: { 
+        padding: 15, 
+        marginTop: 100 
     },
     action: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 10
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 10,
     },
     addBtn: {
-        backgroundColor: "#0072FF",
+        backgroundColor: '#0072FF',
         paddingHorizontal: 20,
         paddingVertical: 10,
-        borderRadius: 50
+        borderRadius: 50,
     },
-    addBtnText: {
-        color: "#fff",
-        fontWeight: 900,
-    }, 
+    addBtnText: { 
+        color: '#fff', 
+        fontWeight: '900' 
+    },
     bookingsTitle: {
         fontSize: 14,
         fontWeight: '700',
@@ -205,15 +260,15 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
         marginBottom: 12,
     },
-    avatarContainer: {
-        position: 'relative',
-        marginRight: 12,
+    avatarContainer: { 
+        position: 'relative', 
+        marginRight: 12 
     },
-    avatar: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        backgroundColor: '#999',
+    avatar: { 
+        width: 50, 
+        height: 50, 
+        borderRadius: 25, 
+        backgroundColor: '#999' 
     },
     onlineIndicator: {
         position: 'absolute',
@@ -226,41 +281,76 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         borderColor: '#253347',
     },
-    bookingInfo: {
-        flex: 1,
+    bookingInfo: { 
+        flex: 1 
     },
     nameStatusRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
     },
-    statusContainer: {
+    statusContainer: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        gap: 4 
+    },
+    guideNameWaiting: { 
+        fontSize: 14, 
+        fontWeight: '600', 
+        color: '#fff' 
+    },
+    statusText: { 
+        fontSize: 12, 
+        color: '#fff', 
+        marginLeft: 4 
+    },
+    metaInfo: { 
+        flexDirection: 'column', 
+        marginTop: 6, 
+        gap: 5 
+    },
+    dates: {
+        flexDirection: "row",
+        gap: 10
+    },
+    startDate: { 
+        fontSize: 11, 
+        color: '#fff' 
+    },
+    endDate: { 
+        fontSize: 11, 
+        color: '#fff' 
+    },
+    hopping: { 
+        fontSize: 12, 
+        color: '#fff' 
+    },
+    decisionRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 10,
+    },
+    decisionButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 4,
+        justifyContent: 'center',
+        borderRadius: 8,
+        paddingVertical: 8,
+        paddingHorizontal: 15,
+        flex: 1,
+        marginHorizontal: 4,
     },
-    guideNameWaiting: {
-        fontSize: 14,
+    acceptButton: { 
+        backgroundColor: '#00c853' 
+    },
+    rejectButton: { 
+        backgroundColor: '#ff5252' 
+    },
+    decisionText: {
+        color: '#fff',
         fontWeight: '600',
-        color: '#fff',
-    },
-    statusText: {
         fontSize: 12,
-        color: '#fff',
-        marginLeft: 4,
-    },
-    metaInfo: {
-        flexDirection: 'column',
-        marginTop: 6,
-        gap: 5,
-    },
-    lastSeen: {
-        fontSize: 11,
-        color: '#fff',
-    },
-    hopping: {
-        fontSize: 12,
-        color: '#fff',
+        marginLeft: 6,
     },
     messageButton: {
         backgroundColor: '#0099ff',
@@ -269,9 +359,9 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         alignItems: 'center',
     },
-    messageButtonText: {
-        color: '#fff',
-        fontSize: 12,
-        fontWeight: '600',
+    messageButtonText: { 
+        color: '#fff', 
+        fontSize: 12, 
+        fontWeight: '600' 
     },
 });

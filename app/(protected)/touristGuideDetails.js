@@ -6,11 +6,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Swiper from 'react-native-swiper';
 
-import FeaturePlace1 from '../../assets/localynk_images/featured1.png';
-import FeaturePlace2 from '../../assets/localynk_images/featured2.png';
-import FeaturePlace3 from '../../assets/localynk_images/featured3.png';
-
-
+import FeaturePlace4 from '../../assets/localynk_images/featured4.png';
+import FeaturePlace5 from '../../assets/localynk_images/featured5.png';
+import FeaturePlace6 from '../../assets/localynk_images/featured6.png';
 import House1 from '../../assets/localynk_images/login_background.png';
 import House2 from '../../assets/localynk_images/register_background.png';
 import House3 from '../../assets/localynk_images/featured1.png';
@@ -30,13 +28,12 @@ const TouristGuideDetails = () => {
         experience: "8 years",
         price: "₱1,500/day",
         featuredPlaces: [
-            { id: 1, image: FeaturePlace1 },
-            { id: 2, image: FeaturePlace2 },
-            { id: 3, image: FeaturePlace3 },
+            { id: 1, image: FeaturePlace4 },
+            { id: 2, image: FeaturePlace5 },
+            { id: 3, image: FeaturePlace6 },
         ],
         accommodationImages: [House1, House2, House3],
     };
-
 
     useEffect(() => {
         const timer = setTimeout(() => setLoading(false), 2000);
@@ -45,12 +42,7 @@ const TouristGuideDetails = () => {
 
     if (loading) {
         return (
-            <View style={{
-                flex: 1,
-                justifyContent: "center",
-                alignItems: "center",
-                backgroundColor: "#fff"
-            }}>
+            <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" }}>
                 <ActivityIndicator size="large" color="#0000ff" />
             </View>
         );
@@ -61,14 +53,8 @@ const TouristGuideDetails = () => {
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
             
             <View style={styles.header}>
-                <Image
-                    source={require('../../assets/localynk_images/header.png')}
-                    style={styles.headerImage}
-                />
-                <LinearGradient
-                    colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
-                    style={styles.overlay}
-                />
+                <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} />
+                <LinearGradient colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']} style={styles.overlay} />
                 <Text style={styles.headerTitle}>EXPLORE PERFECT GUIDE FOR YOU</Text>
             </View>
 
@@ -93,7 +79,7 @@ const TouristGuideDetails = () => {
                             <Ionicons name="person" size={14} color="#fff" />
                             <Text style={styles.viewProfileText}>View Profile</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.sendMessageButton} onPress={() => router.push({pathname: "/(protected)/message"})}>
+                        <TouchableOpacity style={styles.sendMessageButton} onPress={() => router.push({ pathname: "/(protected)/message" })}>
                             <Ionicons name="chatbubble" size={14} color="#fff" />
                             <Text style={styles.sendMessageText}>Send Message</Text>
                         </TouchableOpacity>
@@ -126,11 +112,11 @@ const TouristGuideDetails = () => {
 
                     <View style={styles.accommodationContainer}>
                         <Text style={styles.featuredTitle}>ACCOMMODATION</Text>
-                        <Swiper 
-                            style={styles.swiper} 
-                            autoplay 
-                            loop 
-                            showsPagination 
+                        <Swiper
+                            style={styles.swiper}
+                            autoplay
+                            loop
+                            showsPagination
                             autoplayTimeout={5}
                             showsButtons={true}
                         >
@@ -149,9 +135,29 @@ const TouristGuideDetails = () => {
                         <Text style={styles.priceText}>Price: {guide.price}</Text>
                     </View>
 
+                    <View style={styles.detailsSection}>
+                        <Text style={styles.detailsHeader}>Guide Details</Text>
 
+                        <View style={styles.infoItem}>
+                            <Ionicons name="language" size={16} color="#1A2332" />
+                            <Text style={styles.detailText}><Text style={styles.detailLabel}>Language: </Text>{guide.language}</Text>
+                        </View>
 
-                    <TouchableOpacity style={styles.bookButton} activeOpacity={0.8} onPress={() => router.push({pathname: "/(protected)/payment"})}>
+                        <View style={styles.infoItem}>
+                            <Ionicons name="compass" size={16} color="#1A2332" />
+                            <Text style={styles.detailText}><Text style={styles.detailLabel}>Specialty: </Text>{guide.specialty}</Text>
+                        </View>
+
+                        <View style={styles.infoItem}>
+                            <Ionicons name="time" size={16} color="#1A2332" />
+                            <Text style={styles.detailText}><Text style={styles.detailLabel}>Experience: </Text>{guide.experience}</Text>
+                        </View>
+
+                        <Text style={styles.noteText}>
+                            Price includes guiding services, local assistance, and safety gear. Accommodation and meals not included.
+                        </Text>
+                    </View>
+                    <TouchableOpacity style={styles.bookButton} activeOpacity={0.8} onPress={() => router.push({ pathname: "/(protected)/payment" })}>
                         <Text style={styles.bookButtonText}>BOOK NOW</Text>
                     </TouchableOpacity>
                 </View>
@@ -332,41 +338,51 @@ const styles = StyleSheet.create({
     },
     pricingContainer: {
         marginTop: 20,
-        alignItems: 'center',
     },
     priceText: {
-        fontSize: 22,
+        fontSize: 20,
         fontWeight: '800',
-        color: '#00A8FF',
         letterSpacing: 0.5,
-        borderBottomWidth: 1,
-        borderBottomColor: '#00A8FF',
         paddingBottom: 4,
     },
-
+    detailsSection: {
+        marginTop: 10,
+        paddingVertical: 8,
+        borderTopWidth: 1,
+        borderTopColor: '#E0E6ED',
+    },
+    detailsHeader: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#1A2332',
+        marginBottom: 6,
+    },
     infoItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
-        marginBottom: 5
+        marginBottom: 4,
     },
-    label: {
-        fontSize: 16,
+    detailText: {
+        fontSize: 13,
+        color: '#1A2332',
+        marginLeft: 6,
+    },
+    detailLabel: {
         fontWeight: '600',
         color: '#1A2332',
     },
-    value: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#1A2332',
+    noteText: {
+        fontSize: 11,
+        color: '#8B98A8',
+        marginTop: 8,
+        lineHeight: 16,
     },
-
     bookButton: {
         backgroundColor: '#00A8FF',
         paddingVertical: 12,
         borderRadius: 8,
         alignItems: 'center',
-        marginTop: 30
+        marginVertical: 30,
     },
     bookButtonText: {
         color: '#fff',
