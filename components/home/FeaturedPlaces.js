@@ -59,7 +59,9 @@ const FeaturedPlaces = () => {
         { id: 1, image: DiscoverPlace1, name: 'BEACHES', touristGuide: "Juan" },
         { id: 2, image: DiscoverPlace2, name: 'MOUNTAINS', touristGuide: "Dela Cruz" },
         { id: 3, image: DiscoverPlace3, name: 'RIVERS', touristGuide: "John" },
-        { id: 4, image: DiscoverPlace4, name: 'CITY', touristGuide: "Doe" },
+        { id: 4, image: DiscoverPlace4, name: 'BEACHES', touristGuide: "Doe" },
+        // { id: 5, image: DiscoverPlace4, name: 'MOUNTAINS', touristGuide: "Doe" },
+        // { id: 6, image: DiscoverPlace4, name: 'RIVERS', touristGuide: "Doe" },
     ];
 
     return (

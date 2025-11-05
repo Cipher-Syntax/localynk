@@ -26,7 +26,7 @@ const TouristGuideDetails = () => {
         language: "English, Tagalog",
         specialty: "Mountain Guiding",
         experience: "8 years",
-        price: "₱1,500/day",
+        price: "₱ 500/day",
         featuredPlaces: [
             { id: 1, image: FeaturePlace4 },
             { id: 2, image: FeaturePlace5 },
@@ -133,7 +133,12 @@ const TouristGuideDetails = () => {
 
                     <View style={styles.pricingContainer}>
                         <Text style={styles.priceText}>Price: {guide.price}</Text>
+                        <Text style={styles.priceNote}>
+                            Solo: ₱ 1,500/day{'\n'}
+                            Multiple: Additional ₱ 100 per head/day
+                        </Text>
                     </View>
+
 
                     <View style={styles.detailsSection}>
                         <Text style={styles.detailsHeader}>Guide Details</Text>
@@ -344,6 +349,12 @@ const styles = StyleSheet.create({
         fontWeight: '800',
         letterSpacing: 0.5,
         paddingBottom: 4,
+    },
+    priceNote: {
+        fontSize: 12,
+        color: '#000',
+        marginTop: 2,
+        lineHeight: 16,
     },
     detailsSection: {
         marginTop: 10,
