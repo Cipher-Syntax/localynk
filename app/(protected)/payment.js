@@ -99,7 +99,6 @@ const Payment = () => {
                         </Pressable>
                     </View>
 
-                    {/* Start Date Picker */}
                     <DateTimePickerModal
                         isVisible={isStartPickerVisible}
                         mode="date"
@@ -110,7 +109,6 @@ const Payment = () => {
                         onCancel={() => setStartPickerVisible(false)}
                     />
 
-                    {/* End Date Picker */}
                     <DateTimePickerModal
                         isVisible={isEndPickerVisible}
                         mode="date"
@@ -122,7 +120,6 @@ const Payment = () => {
                     />
                 </View>
 
-                {/* Price Card */}
                 <View style={styles.priceCard}>
                     <View style={styles.priceRow}>
                         <Text style={styles.priceLabel}>Base Price ({Math.max(Math.round(Math.abs((endDate - startDate) / (24*60*60*1000))) + 1, 1)} day(s))</Text>

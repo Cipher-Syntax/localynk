@@ -61,13 +61,18 @@ const IsTourist = () => {
                     <Text style={styles.statLabel}>Completed Tours</Text>
                 </View>
                 <View style={styles.statCard}>
-                    <Text style={styles.statNumber}>4.8</Text>
+                    <Text style={styles.statNumber}>4.8 <Ionicons name="star" size={20} color="#ffc107" /></Text>
                     <Text style={styles.statLabel}>Average Rating</Text>
                 </View>
             </View>
 
             <View style={styles.bookingsSection}>
-                <Text style={styles.bookingsTitle}>BOOKINGS</Text>
+                <View style={styles.action}>
+                    <Text style={styles.bookingsTitle}>BOOKINGS</Text>
+                    <TouchableOpacity style={styles.addBtn}>
+                        <Text style={styles.addBtnText}>Add Accommodation</Text>
+                    </TouchableOpacity>
+                </View>
 
                 {bookings.map((booking) => (
                     <View key={booking.id} style={styles.bookingCard}>
@@ -166,6 +171,22 @@ const styles = StyleSheet.create({
         padding: 15,
         marginTop: 100,
     },
+    action: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 10
+    },
+    addBtn: {
+        backgroundColor: "#0072FF",
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 50
+    },
+    addBtnText: {
+        color: "#fff",
+        fontWeight: 900,
+    }, 
     bookingsTitle: {
         fontSize: 14,
         fontWeight: '700',

@@ -11,17 +11,16 @@ export default function Message() {
     useEffect(() => {
         const timer = setTimeout(() => {
             setMessages([
-                { id: 1, sender: "John", text: "Hey! How are you doing?", timestamp: "10:30 AM", isSent: false },
-                { id: 2, sender: "You", text: "I'm doing great, thanks for asking!", timestamp: "10:32 AM", isSent: true },
-                { id: 3, sender: "John", text: "That's awesome! Want to grab coffee later?", timestamp: "10:35 AM", isSent: false },
-                { id: 4, sender: "You", text: "Sure! How about 3 PM?", timestamp: "10:36 AM", isSent: true },
-                { id: 5, sender: "Sarah", text: "Hi there! Did you see the project update?", timestamp: "11:00 AM", isSent: false },
-                { id: 6, sender: "You", text: "Yes, looks good! I'll review it tonight.", timestamp: "11:02 AM", isSent: true },
+                { id: 1, sender: "You", text: "Good Morning Sir!", timestamp: "10:30 AM", isSent: true },
+                { id: 3, sender: "Francis", text: "Good Morning sir, how may I help you? ", timestamp: "10:40 AM", isSent: false },
+                { id: 3, sender: "You", text: "Is your accommodation good for a family of 5? ", timestamp: "10:40 AM", isSent: true },
+                { id: 4, sender: "Francis", text: "yes sir my place can accommodate up to 7 people", timestamp: "10:40 AM", isSent: false },
             ]);
             setLoading(false);
         }, 1500);
         return () => clearTimeout(timer);
     }, []);
+
 
     const handleSendMessage = () => {
         if (inputText.trim() === "") return;
@@ -175,7 +174,7 @@ const styles = StyleSheet.create({
         padding: 15,
     },
     messageBox: {
-        marginBottom: 12,
+        marginBottom: 25,
     },
     sentMessage: {
         alignItems: "flex-end",
