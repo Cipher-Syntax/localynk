@@ -81,7 +81,16 @@ const FeaturedPlaces = () => {
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.featureList}
                     renderItem={({ item }) => (
-                        <TouchableOpacity activeOpacity={0.8}>
+                        <TouchableOpacity activeOpacity={0.8} onPress={() => {
+                            router.push({
+                                pathname: "/(protected)/home/featuredPlacesDetails",
+                                params: { 
+                                    id: item.id.toString(),
+                                    image: Image.resolveAssetSource(item.image).uri,
+                                },
+                            });
+                        }}
+                        >
                             <View style={styles.featureCard}>
                                 <Image source={item.image} style={styles.featureImage} />
                                 <View style={styles.featureOverlay} />

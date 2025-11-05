@@ -141,6 +141,13 @@ const HomeLayout = () => {
                     href: null
                 }}
             />
+            <Tabs.Screen
+                name="featuredPlacesDetails"
+                options={{
+                    title: "Featured Places Details",
+                    href: null
+                }}
+            />
         </Tabs>
     );
 }
