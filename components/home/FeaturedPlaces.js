@@ -17,7 +17,6 @@ import { useRouter } from 'expo-router'
 
 const { width } = Dimensions.get('window');
 
-
 const FeaturedPlaces = () => {
     const [isActive, setIsActive] = useState(2);
     const router = useRouter();
@@ -60,7 +59,7 @@ const FeaturedPlaces = () => {
         { id: 1, image: DiscoverPlace1, name: 'BEACHES', touristGuide: "Juan" },
         { id: 2, image: DiscoverPlace2, name: 'MOUNTAINS', touristGuide: "Dela Cruz" },
         { id: 3, image: DiscoverPlace3, name: 'RIVERS', touristGuide: "John" },
-        { id: 4, image: DiscoverPlace4, name: 'CITY' , touristGuide: "Doe"},
+        { id: 4, image: DiscoverPlace4, name: 'CITY', touristGuide: "Doe" },
     ];
 
     return (
@@ -84,7 +83,7 @@ const FeaturedPlaces = () => {
                         <TouchableOpacity activeOpacity={0.8} onPress={() => {
                             router.push({
                                 pathname: "/(protected)/home/featuredPlacesDetails",
-                                params: { 
+                                params: {
                                     id: item.id.toString(),
                                     image: Image.resolveAssetSource(item.image).uri,
                                 },
@@ -113,57 +112,37 @@ const FeaturedPlaces = () => {
                                 onPress={() => {
                                     setIsActive(item.id);
                                 }}
-
                                 style={[
                                     styles.discoverItem,
-                                    { flex: isActive === item.id ? 4 : 1 },
+                                    { 
+                                        flex: isActive === item.id ? 4 : 1,
+                                    },
                                 ]}
                             >
                                 <Image
                                     source={item.image}
                                     style={[
                                         styles.discoverImage,
-                                        { opacity: isActive === item.id ? 1 : 0.7 },
+                                        { opacity: isActive === item.id ? 1 : 0.8 },
                                     ]}
                                 />
 
-                                <View style={styles.discoverCenter}>
-                                    <MaskedView
-                                        maskElement={
-                                            <Text
-                                                style={[
-                                                    styles.discoverText,
-                                                    isActive === item.id
-                                                        ? styles.activeDiscoverText
-                                                        : styles.inactiveDiscoverText,
-                                                ]}
-                                            >
-                                                {item.name}
-                                            </Text>
-                                        }
-                                    >
-                                        <LinearGradient
-                                            colors={['#FFFFFF', '#00C6FF']}
-                                            start={{ x: 0, y: 0 }}
-                                            end={{ x: 1, y: 1 }}
-                                        >
-                                            <Text
-                                                style={[
-                                                    styles.discoverText,
-                                                    isActive === item.id
-                                                        ? styles.activeDiscoverText
-                                                        : styles.inactiveDiscoverText,
-                                                    { opacity: 0 },
-                                                ]}
-                                            >
-                                                {item.name}
-                                            </Text>
-                                        </LinearGradient>
-                                    </MaskedView>
-                                </View>
+                                {isActive !== item.id && (
+                                    <View style={styles.rotatedTextContainer}>
+                                        <Text style={styles.inactiveDiscoverText} numberOfLines={1}>
+                                            {item.name}
+                                        </Text>
+                                    </View>
+                                )}
 
                                 {isActive === item.id && (
-                                    <View style={styles.discoverBottom}>
+                                    <View style={styles.activeItemContainer}>
+                                        <View style={styles.titleOverlay}>
+                                            <Text style={styles.activeTitle}>
+                                                {item.name}
+                                            </Text>
+                                        </View>
+
                                         <TouchableOpacity
                                             onPress={() =>
                                                 router.push({
@@ -171,26 +150,17 @@ const FeaturedPlaces = () => {
                                                     params: { category: item.touristGuide },
                                                 })
                                             }
+                                            style={styles.descriptionOverlay}
                                         >
-                                            <View style={{
-                                                position: "absolute",
-                                                display: "flex",
-                                                alignItems: "center",
-                                                justifyContent: "center",
-                                                gap: 10
-                                            }}>
-                                                <Text style={styles.discoverSubtext}>
-                                                    Discover more breathtaking {item.name.toLowerCase()} spots
-                                                </Text>
-
-                                                <Animated.View style={{ transform: [{ translateY: bounceValue }] }}>
-                                                    <Ionicons name='arrow-down-outline' color="#00C6FF" size={25} />
-                                                </Animated.View>
-                                            </View>
+                                            <Text style={styles.discoverSubtext}>
+                                                Discover more breathtaking{'\n'}{item.name.toLowerCase()} spots
+                                            </Text>
+                                            <Animated.View style={{ transform: [{ translateY: bounceValue }], marginTop: 10 }}>
+                                                <Ionicons name='arrow-down-outline' color="#00C6FF" size={25} />
+                                            </Animated.View>
                                         </TouchableOpacity>
                                     </View>
                                 )}
-
                             </TouchableOpacity>
                         ))}
                     </View>
@@ -281,20 +251,19 @@ const styles = StyleSheet.create({
         width: '100%',
         height: 400,
         overflow: 'hidden',
+        // borderRadius: 10,
     },
     discoverItem: {
         position: 'relative',
         height: '100%',
         overflow: 'hidden',
-        transition: 'flex 0.5s ease-in-out',
-        width: "100"
     },
     discoverImage: {
         width: '100%',
         height: '100%',
         resizeMode: 'cover',
     },
-    discoverCenter: {
+    rotatedTextContainer: {
         position: 'absolute',
         top: 0,
         bottom: 0,
@@ -302,31 +271,54 @@ const styles = StyleSheet.create({
         right: 0,
         justifyContent: 'center',
         alignItems: 'center',
-        overflow: 'visible',
-    },
-    discoverText: {
-        fontWeight: '600',
-        letterSpacing: 1,
-    },
-    activeDiscoverText: {
-        fontSize: 20,
-        color: '#00C6FF',
+        zIndex: 5,
     },
     inactiveDiscoverText: {
-        fontSize: 24,
-        transform: [{ rotate: '-90deg' }],
+        fontSize: 22,
+        fontWeight: '700',
         color: '#ffffff',
+        transform: [{ rotate: '-90deg' }],
+        letterSpacing: 2,
     },
-    discoverBottom: {
+    activeItemContainer: {
         position: 'absolute',
-        bottom: 165,
-        left: 20,
-        right: 20,
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0,
+        justifyContent: 'space-between',
+        zIndex: 10,
+    },
+    titleOverlay: {
+        paddingTop: 20,
+        paddingHorizontal: 15,
+        justifyContent: 'flex-start',
+    },
+    activeTitle: {
+        fontSize: 28,
+        fontWeight: '700',
+        color: '#ffffff',
+        textAlign: 'center',
+        letterSpacing: 1,
+        textShadowColor: 'rgba(0, 0, 0, 0.5)',
+        textShadowOffset: { width: 1, height: 1 },
+        textShadowRadius: 3,
+    },
+    descriptionOverlay: {
+        paddingBottom: 40,
+        paddingHorizontal: 15,
+        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        paddingVertical: 15,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center"
     },
     discoverSubtext: {
         textAlign: 'center',
-        fontSize: 13,
+        fontSize: 14,
         color: '#00C6FF',
+        fontWeight: '500',
+        lineHeight: 20,
     },
     footer: {
         paddingHorizontal: 15,

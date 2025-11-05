@@ -1,27 +1,16 @@
-import React from 'react';
-import { 
-    View, 
-    ScrollView, 
-    StyleSheet, 
-    StatusBar, 
-    Image, 
-    Text, 
-    TouchableOpacity, 
-    FlatList, 
-    Dimensions 
-} from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, ScrollView, StyleSheet, StatusBar, Image, Text, TouchableOpacity, FlatList, Dimensions, ActivityIndicator } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
 import { User } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Swiper from 'react-native-swiper';
 
-// Images for featured places
 import FeaturePlace1 from '../../../assets/localynk_images/featured1.png';
 import FeaturePlace2 from '../../../assets/localynk_images/featured2.png';
 import FeaturePlace3 from '../../../assets/localynk_images/featured3.png';
 
-// Images for guide accommodation swiper
+
 import House1 from '../../../assets/localynk_images/login_background.png';
 import House2 from '../../../assets/localynk_images/register_background.png';
 import House3 from '../../../assets/localynk_images/featured1.png';
@@ -29,6 +18,7 @@ import House3 from '../../../assets/localynk_images/featured1.png';
 const { width } = Dimensions.get('window');
 
 const TouristGuideDetails = () => {
+    const [loading, setLoading] = useState(true);
     const router = useRouter();
 
     const guide = {
@@ -46,6 +36,25 @@ const TouristGuideDetails = () => {
         ],
         accommodationImages: [House1, House2, House3],
     };
+
+
+    useEffect(() => {
+        const timer = setTimeout(() => setLoading(false), 2000);
+        return () => clearTimeout(timer);
+    }, []);
+
+    if (loading) {
+        return (
+            <View style={{
+                flex: 1,
+                justifyContent: "center",
+                alignItems: "center",
+                backgroundColor: "#fff"
+            }}>
+                <ActivityIndicator size="large" color="#0000ff" />
+            </View>
+        );
+    }
 
     return (
         <ScrollView style={styles.container}>

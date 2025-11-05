@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ScrollView, View, Text, Image, StyleSheet, StatusBar, FlatList, TouchableOpacity, Animated, Easing } from 'react-native';
+import { ScrollView, View, Text, Image, StyleSheet, StatusBar, FlatList, TouchableOpacity, Animated, Easing, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { User } from 'lucide-react-native';
@@ -10,10 +10,13 @@ import FeaturePlace2 from '../../../assets/localynk_images/featured2.png';
 import FeaturePlace3 from '../../../assets/localynk_images/featured3.png';
 
 const FeaturedPlacesDetails = () => {
+    const [loading, setLoading] = useState(true);
+    
+    
     const router = useRouter();
     const params = useLocalSearchParams();
     const bounceValue = useRef(new Animated.Value(0)).current;
-
+    
     const startBounce = () => {
         Animated.loop(
             Animated.sequence([
@@ -32,35 +35,35 @@ const FeaturedPlacesDetails = () => {
             ])
         ).start();
     };
-
+    
     useEffect(() => {
         startBounce();
     }, []);
-
+    
     const getDestinationImage = () => {
         if (params.image) {
             return { uri: params.image };
         }
         // return FeaturePlace1;
     };
-
+    
     const destinationImage = getDestinationImage();
-
-
+    
+    
     const destinationInfo = {
         title: 'BAGACAY FALLS',
         description:
-            "Tucked away in the greenery of Zamboanga City, Bagacay Falls offers a refreshing escape with its clear waters and calm, natural pool. Surrounded by rocks and trees, it’s a peaceful spot for swimming, relaxing, or simply enjoying nature’s quiet charm.",
+        "Tucked away in the greenery of Zamboanga City, Bagacay Falls offers a refreshing escape with its clear waters and calm, natural pool. Surrounded by rocks and trees, it’s a peaceful spot for swimming, relaxing, or simply enjoying nature’s quiet charm.",
         image: destinationImage,
     };
-
+    
     const featuredImages = [
         { id: 1, image: destinationImage, title: 'Selected Destination' },
         { id: 2, image: destinationImage, title: 'Mountain Peak' },
         { id: 3, image: destinationImage, title: 'Urban Escape' },
         { id: 4, image: destinationImage, title: 'Hidden Gem' },
     ];
-
+    
 
     const guideCards = [
         {
@@ -115,6 +118,24 @@ const FeaturedPlacesDetails = () => {
         },
     ];
 
+    useEffect(() => {
+        const timer = setTimeout(() => setLoading(false), 2000);
+        return () => clearTimeout(timer);
+    }, []);
+    
+    if (loading) {
+        return (
+            <View style={{
+                flex: 1,
+                justifyContent: "center",
+                alignItems: "center",
+                backgroundColor: "#fff"
+            }}>
+                <ActivityIndicator size="large" color="#0000ff" />
+            </View>
+        );
+    }
+    
     return (
         <ScrollView style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -123,7 +144,7 @@ const FeaturedPlacesDetails = () => {
                 <Image
                     source={require('../../../assets/localynk_images/header.png')}
                     style={styles.headerImage}
-                />
+                    />
                 <LinearGradient
                     colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
                     style={styles.overlay}
