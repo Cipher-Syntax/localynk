@@ -159,7 +159,7 @@ const ExplorePlaces = () => {
                                     </View>
                                 </View>
 
-                                <TouchableOpacity style={styles.buttonContainer} activeOpacity={0.8} onPress={() => router.push({pathname: "/(protected)/home/touristGuideDetails",})}>
+                                <TouchableOpacity style={styles.buttonContainer} activeOpacity={0.8} onPress={() => router.push({pathname: "/(protected)/touristGuideDetails",})}>
                                     <Text style={styles.bookButton}>LEARN MORE</Text>
                                 </TouchableOpacity>
                             </View>

@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { User } from 'lucide-react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
-import { PaymentReviewModal } from '../../../components/payment';
+import { PaymentReviewModal } from '../../components/payment';
 
 const Payment = () => {
     const [loading, setLoading] = useState(true);
@@ -62,7 +62,7 @@ const Payment = () => {
             
             <View style={styles.header}>
                 <Image
-                    source={require('../../../assets/localynk_images/header.png')}
+                    source={require('../../assets/localynk_images/header.png')}
                     style={styles.headerImage}
                 />
                 <LinearGradient

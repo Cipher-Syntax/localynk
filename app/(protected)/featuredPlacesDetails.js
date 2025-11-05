@@ -5,9 +5,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { User } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
-import FeaturePlace1 from '../../../assets/localynk_images/featured1.png';
-import FeaturePlace2 from '../../../assets/localynk_images/featured2.png';
-import FeaturePlace3 from '../../../assets/localynk_images/featured3.png';
 
 const FeaturedPlacesDetails = () => {
     const [loading, setLoading] = useState(true);
@@ -142,7 +139,7 @@ const FeaturedPlacesDetails = () => {
 
             <View style={styles.header}>
                 <Image
-                    source={require('../../../assets/localynk_images/header.png')}
+                    source={require('../../assets/localynk_images/header.png')}
                     style={styles.headerImage}
                     />
                 <LinearGradient
@@ -239,7 +236,7 @@ const FeaturedPlacesDetails = () => {
                                 activeOpacity={0.8}
                                 onPress={() =>
                                     router.push({
-                                        pathname: "/(protected)/home/touristGuideDetails",
+                                        pathname: "/(protected)/touristGuideDetails",
                                     })
                                 }
                             >

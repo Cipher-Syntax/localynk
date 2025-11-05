@@ -6,14 +6,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Swiper from 'react-native-swiper';
 
-import FeaturePlace1 from '../../../assets/localynk_images/featured1.png';
-import FeaturePlace2 from '../../../assets/localynk_images/featured2.png';
-import FeaturePlace3 from '../../../assets/localynk_images/featured3.png';
+import FeaturePlace1 from '../../assets/localynk_images/featured1.png';
+import FeaturePlace2 from '../../assets/localynk_images/featured2.png';
+import FeaturePlace3 from '../../assets/localynk_images/featured3.png';
 
 
-import House1 from '../../../assets/localynk_images/login_background.png';
-import House2 from '../../../assets/localynk_images/register_background.png';
-import House3 from '../../../assets/localynk_images/featured1.png';
+import House1 from '../../assets/localynk_images/login_background.png';
+import House2 from '../../assets/localynk_images/register_background.png';
+import House3 from '../../assets/localynk_images/featured1.png';
 
 const { width } = Dimensions.get('window');
 
@@ -62,7 +62,7 @@ const TouristGuideDetails = () => {
             
             <View style={styles.header}>
                 <Image
-                    source={require('../../../assets/localynk_images/header.png')}
+                    source={require('../../assets/localynk_images/header.png')}
                     style={styles.headerImage}
                 />
                 <LinearGradient
@@ -93,7 +93,7 @@ const TouristGuideDetails = () => {
                             <Ionicons name="person" size={14} color="#fff" />
                             <Text style={styles.viewProfileText}>View Profile</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.sendMessageButton}>
+                        <TouchableOpacity style={styles.sendMessageButton} onPress={() => router.push({pathname: "/(protected)/message"})}>
                             <Ionicons name="chatbubble" size={14} color="#fff" />
                             <Text style={styles.sendMessageText}>Send Message</Text>
                         </TouchableOpacity>
@@ -151,7 +151,7 @@ const TouristGuideDetails = () => {
 
 
 
-                    <TouchableOpacity style={styles.bookButton} activeOpacity={0.8} onPress={() => router.push({pathname: "/(protected)/home/payment"})}>
+                    <TouchableOpacity style={styles.bookButton} activeOpacity={0.8} onPress={() => router.push({pathname: "/(protected)/payment"})}>
                         <Text style={styles.bookButtonText}>BOOK NOW</Text>
                     </TouchableOpacity>
                 </View>

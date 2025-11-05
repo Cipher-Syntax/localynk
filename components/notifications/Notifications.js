@@ -1,13 +1,5 @@
 import React from 'react';
-import {
-    View,
-    StyleSheet,
-    Image,
-    Text,
-    TouchableOpacity,
-    StatusBar,
-    ScrollView,
-} from 'react-native';
+import { View, StyleSheet, Image, Text, TouchableOpacity, StatusBar, ScrollView, } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 

@@ -1,7 +1,6 @@
 import { Tabs } from "expo-router";
 import { Search, User, Map, Settings, Home, Bell } from "lucide-react-native";
 import { View } from "react-native";
-import Profile from "./profile";
 
 const HomeLayout = () => {
     return (
@@ -118,34 +117,6 @@ const HomeLayout = () => {
                             <User color={color} size={22} />
                         </View>
                     ),
-                }}
-            />
-            <Tabs.Screen
-                name="attractionDetails"
-                options={{
-                    title: "Attraction Details",
-                    href: null
-                }}
-            />
-            <Tabs.Screen
-                name="touristGuideDetails"
-                options={{
-                    title: "Tourist Guide Details",
-                    href: null
-                }}
-            />
-            <Tabs.Screen
-                name="payment"
-                options={{
-                    title: "Payment",
-                    href: null
-                }}
-            />
-            <Tabs.Screen
-                name="featuredPlacesDetails"
-                options={{
-                    title: "Featured Places Details",
-                    href: null
                 }}
             />
         </Tabs>

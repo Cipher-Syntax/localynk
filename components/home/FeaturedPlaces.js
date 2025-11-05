@@ -82,7 +82,7 @@ const FeaturedPlaces = () => {
                     renderItem={({ item }) => (
                         <TouchableOpacity activeOpacity={0.8} onPress={() => {
                             router.push({
-                                pathname: "/(protected)/home/featuredPlacesDetails",
+                                pathname: "/(protected)/featuredPlacesDetails",
                                 params: {
                                     id: item.id.toString(),
                                     image: Image.resolveAssetSource(item.image).uri,
@@ -146,7 +146,7 @@ const FeaturedPlaces = () => {
                                         <TouchableOpacity
                                             onPress={() =>
                                                 router.push({
-                                                    pathname: "/(protected)/home/attractionDetails",
+                                                    pathname: "/(protected)/attractionDetails",
                                                     params: { category: item.touristGuide },
                                                 })
                                             }

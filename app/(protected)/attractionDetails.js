@@ -82,7 +82,7 @@ const AttractionDetails = () => {
             
             <View style={styles.header}>
                 <Image
-                    source={require('../../../assets/localynk_images/header.png')}
+                    source={require('../../assets/localynk_images/header.png')}
                     style={styles.headerImage}
                 />
                 <LinearGradient
@@ -128,7 +128,7 @@ const AttractionDetails = () => {
                             </View>
                         </View>
 
-                        <TouchableOpacity style={styles.buttonContainer} activeOpacity={0.8} onPress={() => router.push({pathname: "/(protected)/home/touristGuideDetails",})}>
+                        <TouchableOpacity style={styles.buttonContainer} activeOpacity={0.8} onPress={() => router.push({pathname: "/(protected)/touristGuideDetails",})}>
                             <Text style={styles.bookButton}>BOOK NOW</Text>
                         </TouchableOpacity>
                     </View>
