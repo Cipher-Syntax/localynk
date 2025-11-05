@@ -10,6 +10,19 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
     const router = useRouter();
 
     const handleConfirm = () => {
+        // --- THIS IS YOUR NEW LOGIC ---
+        if (paymentData?.paymentMethod) {
+            // This is a FINAL payment.
+            // TODO: Call your payment API (e.g., callGcashAPI(paymentData))
+            console.log("Processing payment...", paymentData);
+        } else {
+            // This is a BOOKING REQUEST.
+            // TODO: Save to your database with status: 'Pending'
+            // e.g., saveBookingRequest(paymentData);
+            console.log("Submitting booking request...", paymentData);
+        }
+        // --- END OF YOUR LOGIC ---
+
         setShowAlert(true);
         Animated.timing(slideAnim, {
             toValue: 0,
@@ -28,7 +41,14 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         }).start(() => {
             setShowAlert(false);
             setIsModalOpen(false);
-            router.replace('/(protected)/home');
+            
+            if (paymentData?.paymentMethod) {
+                // This was a FINAL payment.
+                router.replace('/(protected)/home'); // Or a "Bookings" page
+            } else {
+                // This was a REQUEST.
+                router.replace('/(protected)/home'); // Or a "Request Sent" page
+            }
         });
     };
 
@@ -42,6 +62,12 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 
     const days = calculateDays();
     const guideEarnings = totalPrice - serviceFee;
+
+    // Use a dynamic title for the alert
+    const alertTitle = paymentData?.paymentMethod ? "Booking Confirmed!" : "Request Sent!";
+    const alertMessage = paymentData?.paymentMethod 
+        ? "Your booking has been successfully confirmed." 
+        : "Your request has been sent to the guide. You will be notified when they respond.";
 
     return (
         <Modal visible={isModalOpen} animationType="slide">
@@ -165,12 +191,15 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 
                     </View>
 
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Payment Method</Text>
-                        <View style={styles.paymentCard}>
-                            <Text style={styles.paymentMethod}>{paymentMethod?.toUpperCase()}</Text>
+                    {/* ----- CONDITIONAL PAYMENT SECTION ----- */}
+                    {paymentMethod && (
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>Payment Method</Text>
+                            <View style={styles.paymentCard}>
+                                <Text style={styles.paymentMethod}>{paymentMethod.toUpperCase()}</Text>
+                            </View>
                         </View>
-                    </View>
+                    )}
 
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Billing Information</Text>
@@ -203,7 +232,10 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                     </View>
 
                     <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
-                        <Text style={styles.confirmButtonText}>Confirm</Text>
+                        <Text style={styles.confirmButtonText}>
+                            {/* ----- DYNAMIC BUTTON TEXT ----- */}
+                            {paymentMethod ? "Confirm & Pay" : "Send Booking Request"}
+                        </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.cancelButton} onPress={() => setIsModalOpen(false)}>
@@ -215,10 +247,8 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                 <Modal transparent visible={showAlert} animationType="none">
                     <View style={styles.alertOverlay}>
                         <Animated.View style={[styles.alertBox, { transform: [{ translateY: slideAnim }] }]}>
-                            <Text style={styles.alertTitle}>Booking Confirmed!</Text>
-                            <Text style={styles.alertMessage}>
-                                Your booking has been successfully confirmed.
-                            </Text>
+                            <Text style={styles.alertTitle}>{alertTitle}</Text>
+                            <Text style={styles.alertMessage}>{alertMessage}</Text>
                             <TouchableOpacity style={styles.alertButton} onPress={handleAlertOk}>
                                 <Text style={styles.alertButtonText}>OK</Text>
                             </TouchableOpacity>
@@ -231,7 +261,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 };
 
 export default PaymentReviewModal;
-
 const styles = StyleSheet.create({
     container: { 
         flex: 1, 

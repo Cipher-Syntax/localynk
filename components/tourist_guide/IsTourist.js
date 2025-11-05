@@ -3,6 +3,19 @@ import { View, StyleSheet, Image, Text, StatusBar, ScrollView, TouchableOpacity,
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
+
+const parseDate = (dateString) => {
+    const [month, day, year] = dateString.split('/').map(Number);
+    return new Date(year, month - 1, day);
+};
+
+const checkOverlap = (a, b) => {
+    const aEnd = new Date(a.end.setHours(23, 59, 59, 999));
+    const bEnd = new Date(b.end.setHours(23, 59, 59, 999));
+    
+    return a.start <= bEnd && aEnd >= b.start;
+};
+
 const IsTourist = () => {
     const [bookings, setBookings] = useState([
         {
@@ -19,7 +32,7 @@ const IsTourist = () => {
             name: 'Justine Toang',
             status: 'Pending',
             hopping: "Beach Hopping",
-            start_date: '11/13/2025',
+            start_date: '11/13/2025', 
             end_date: '11/20/2025',
             isOnline: false,
         },
@@ -28,7 +41,7 @@ const IsTourist = () => {
             name: 'Charles Gumende',
             status: 'Pending',
             hopping: "Beach Hopping",
-            start_date: '11/05/2025',
+            start_date: '11/08/2025',
             end_date: '11/15/2025',
             isOnline: false,
         },
@@ -36,18 +49,48 @@ const IsTourist = () => {
 
     const handleDecision = (id, decision) => {
         if (decision === 'accept') {
-            const hasActiveBooking = bookings.some(b => b.status === 'Active');
-            if (hasActiveBooking) {
-                Alert.alert(
-                    "Active Booking Found",
-                    "You still have an active booking. Try again after completing your current one."
-                );
-                return;
+            const pendingBooking = bookings.find(b => b.id === id);
+            if (!pendingBooking) return; 
+
+            const pendingRange = {
+                start: parseDate(pendingBooking.start_date),
+                end: parseDate(pendingBooking.end_date)
+            };
+
+            const activeBookings = bookings.filter(b => b.status === 'Active');
+
+            for (const activeBooking of activeBookings) {
+                const activeRange = {
+                    start: parseDate(activeBooking.start_date),
+                    end: parseDate(activeBooking.end_date)
+                };
+
+                if (checkOverlap(pendingRange, activeRange)) {
+                    Alert.alert(
+                        "Booking Conflict",
+                        `This booking (${pendingBooking.start_date} - ${pendingBooking.end_date}) conflicts with an active booking for ${activeBooking.name} (${activeBooking.start_date} - ${activeBooking.end_date}).`
+                    );
+                    return;
+                }
             }
         }
 
         setBookings(prev =>
-            prev.map(b => b.id === id ? { ...b, status: decision === 'accept' ? 'Active' : 'Rejected' } : b )
+            prev.map(b => {
+                if (b.id === id) {
+                    const newStatus = decision === 'accept' ? 'Accepted' : 'Rejected';
+                    
+                    // TODO: Send a push notification to the user
+                    if (newStatus === 'Accepted') {
+                        // sendPushNotification(user.id, "Your booking was accepted!", { bookingId: b.id });
+                    } else {
+                        // sendPushNotification(user.id, "Your booking was rejected.", { bookingId: b.id });
+                    }
+
+                    return { ...b, status: newStatus };
+                }
+                return b;
+            })
         );
     };
 
@@ -110,6 +153,10 @@ const IsTourist = () => {
                                         {booking.status === 'Pending' && (
                                             <Ionicons name="time-outline" size={16} color="#ffc107" />
                                         )}
+
+                                        {booking.status === 'Accepted' && (
+                                            <Ionicons name="checkmark" size={16} color="#0099ff" />
+                                        )}
                                         {booking.status === 'Active' && (
                                             <Ionicons name="checkmark-circle-outline" size={16} color="#00c853" />
                                         )}
@@ -168,6 +215,7 @@ const IsTourist = () => {
 
 export default IsTourist;
 
+// Your styles are unchanged
 const styles = StyleSheet.create({
     container: { 
         flex: 1 
@@ -224,7 +272,7 @@ const styles = StyleSheet.create({
     },
     bookingsSection: { 
         padding: 15, 
-        marginTop: 100 
+        marginTop: 100
     },
     action: {
         flexDirection: 'row',

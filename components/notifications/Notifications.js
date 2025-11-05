@@ -2,46 +2,46 @@ import React from 'react';
 import { View, StyleSheet, Image, Text, TouchableOpacity, StatusBar, ScrollView, } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
 const Notifications = () => {
+    const router = useRouter();
     const todayNotifications = [
         {
+            id: "msg123",
             icon: <Ionicons name="chatbubble-ellipses-outline" size={28} color="#0A2342" />,
             title: "New Message",
             description: "Juan Dela Cruz: ‘Looking forward to our tour tomorrow! I’ll meet you at the hotel lobby.’",
             time: "3 hours ago",
+            action: () => router.push('/(protected)/message'),
         },
         {
+            id: "booking789",
             icon: <Ionicons name="calendar-outline" size={28} color="#0A2342" />,
-            title: "Booking Confirmed",
-            description: "Your tour with Juan Dela Cruz for Mountain Touring is confirmed for tomorrow at 8:00 AM.",
+            title: "Booking Accepted!",
+            description: "Your tour with Juan Dela Cruz is accepted. Complete your payment to confirm.",
             time: "4 hours ago",
+            action: () => router.push(`/(protected)/completePayment?bookingId=booking789`),
         },
     ];
 
     const weekNotifications = [
         {
+            id: "payment1",
             icon: <FontAwesome5 name="money-check-alt" size={24} color="#0A2342" />,
             title: "Payment Successful",
             description: "Payment of ₱1,500 for City Heritage Tour has been processed successfully.",
             time: "3 days ago",
-        },
-        {
-            icon: <MaterialIcons name="update" size={28} color="#0A2342" />,
-            title: "Guide Profile Update",
-            description: "Juan Dela Cruz updated their availability. Check out their new time slots.",
-            time: "3 days ago",
-        },
-        {
-            icon: <Ionicons name="star-outline" size={28} color="#0A2342" />,
-            title: "New Reviews Available",
-            description: "2 new reviews posted for guides you’ve bookmarked.",
-            time: "5 days ago",
+            action: () => router.push('/(protected)/bookings/payment1'),
         },
     ];
 
     const renderNotification = (item) => (
-        <View style={styles.notificationCard} key={item.title}>
+        <TouchableOpacity 
+            style={styles.notificationCard} 
+            key={item.id} 
+            onPress={item.action}
+        >
             <View style={styles.iconContainer}>{item.icon}</View>
                 <View style={styles.textContainer}>
                     <Text style={styles.notificationTitle}>{item.title}</Text>
@@ -49,7 +49,7 @@ const Notifications = () => {
                     <Text style={styles.notificationTime}>{item.time}</Text>
                 </View>
             <View style={styles.redDot} />
-        </View>
+        </TouchableOpacity>
     );
 
     return (
@@ -83,6 +83,7 @@ const Notifications = () => {
         </ScrollView>
     );
 };
+
 
 export default Notifications;
 

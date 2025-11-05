@@ -23,7 +23,7 @@ const Payment = () => {
     const [isStartPickerVisible, setStartPickerVisible] = useState(false);
     const [isEndPickerVisible, setEndPickerVisible] = useState(false);
 
-    const [paymentMethod, setPaymentMethod] = useState('gcash');
+    // const [paymentMethod, setPaymentMethod] = useState('gcash'); // <-- REMOVED
     const [selectedOption, setSelectedOption] = useState('solo');
     const [numPeople, setNumPeople] = useState(1);
 
@@ -73,7 +73,7 @@ const Payment = () => {
                     colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
                     style={styles.overlay}
                 />
-                <Text style={styles.headerTitle}>PROCESS YOUR PAYMENT HERE</Text>
+                <Text style={styles.headerTitle}>REQUEST TO BOOK</Text>
             </View>
 
             <View style={styles.contentContainer}>
@@ -223,16 +223,7 @@ const Payment = () => {
                     </View>
                 </View>
 
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Payment Options</Text>
-                    <TouchableOpacity
-                        style={styles.paymentOption}
-                        onPress={() => setPaymentMethod('gcash')}
-                    >
-                        <View style={[styles.radioButton, paymentMethod === 'gcash' && styles.radioButtonActive]} />
-                        <Text style={styles.paymentOptionText}>Gcash</Text>
-                    </TouchableOpacity>
-                </View>
+                {/* ----- PAYMENT OPTIONS REMOVED ----- */}
 
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Billing Information</Text>
@@ -278,18 +269,38 @@ const Payment = () => {
                 </View>
 
                 <TouchableOpacity style={styles.confirmButton} onPress={() => setIsModalOpen(true)}>
-                    <Text style={styles.confirmButtonText}>Review and Confirm</Text>
+                    <Text style={styles.confirmButtonText}>Review Booking Request</Text>
                 </TouchableOpacity>
             </View>
 
             {isModalOpen && (
-                <PaymentReviewModal isModalOpen={isModalOpen} setIsModalOpen={setIsModalOpen} />
+                <PaymentReviewModal 
+                    isModalOpen={isModalOpen} 
+                    setIsModalOpen={setIsModalOpen}
+                    paymentData={{
+                        guide: guide,
+                        startDate: startDate,
+                        endDate: endDate,
+                        firstName: firstName,
+                        lastName: lastName,
+                        phoneNumber: phoneNumber,
+                        country: country,
+                        email: email,
+                        basePrice: guide.basePrice,
+                        serviceFee: guide.serviceFee,
+                        totalPrice: totalPrice,
+                        paymentMethod: null, // <-- Set to null, as this is a request
+                        groupType: selectedOption,
+                        numberOfPeople: numPeople,
+                    }}
+                />
             )}
         </ScrollView>
     );
 };
 
 export default Payment;
+
 const styles = StyleSheet.create({
     container: { 
         flex: 1, 
