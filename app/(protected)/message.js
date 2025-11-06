@@ -13,7 +13,7 @@ export default function Message() {
         const timer = setTimeout(() => {
             setMessages([
                 { id: 1, sender: "You", text: "Good Morning Sir!", timestamp: "10:30 AM", isSent: true },
-                { id: 3, sender: "Francis", text: "Good Morning sir, how may I help you? ", timestamp: "10:40 AM", isSent: false },
+                { id: 2, sender: "Francis", text: "Good Morning sir, how may I help you? ", timestamp: "10:40 AM", isSent: false },
                 { id: 3, sender: "You", text: "Is your accommodation good for a family of 5? ", timestamp: "10:40 AM", isSent: true },
                 { id: 4, sender: "Francis", text: "yes sir my place can accommodate up to 7 people", timestamp: "10:40 AM", isSent: false },
             ]);
@@ -46,91 +46,89 @@ export default function Message() {
 
     return (
         <View style={styles.container}>
-            <SafeAreaView>
-                <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-                <View style={styles.header}>
-                    <Image
-                        source={require("../../assets/localynk_images/header.png")}
-                        style={styles.headerImage}
-                    />
-                    <LinearGradient
-                        colors={["rgba(0,0,0,0.6)", "rgba(0,0,0,0.2)", "transparent"]}
-                        style={styles.overlay}
-                    />
-                    <Text style={styles.headerTitle}>Message</Text>
-                </View>
+            <View style={styles.header}>
+                <Image
+                    source={require("../../assets/localynk_images/header.png")}
+                    style={styles.headerImage}
+                />
+                <LinearGradient
+                    colors={["rgba(0,0,0,0.6)", "rgba(0,0,0,0.2)", "transparent"]}
+                    style={styles.overlay}
+                />
+                <Text style={styles.headerTitle}>Message</Text>
+            </View>
 
-                <ScrollView
-                    style={styles.messagesContainer}
-                    showsVerticalScrollIndicator={false}
-                >
-                    {messages.map((message) => (
+            <ScrollView
+                style={styles.messagesContainer}
+                showsVerticalScrollIndicator={false}
+            >
+                {messages.map((message) => (
+                    <View
+                        key={message.id}
+                        style={[
+                            styles.messageBox,
+                            message.isSent ? styles.sentMessage : styles.receivedMessage,
+                        ]}
+                    >
+                        {!message.isSent && (
+                            <Text style={styles.senderName}>{message.sender}</Text>
+                        )}
                         <View
-                            key={message.id}
                             style={[
-                                styles.messageBox,
-                                message.isSent ? styles.sentMessage : styles.receivedMessage,
+                                styles.messageBubble,
+                                message.isSent
+                                    ? styles.sentBubble
+                                    : styles.receivedBubble,
                             ]}
                         >
-                            {!message.isSent && (
-                                <Text style={styles.senderName}>{message.sender}</Text>
-                            )}
-                            <View
+                            <Text
                                 style={[
-                                    styles.messageBubble,
+                                    styles.messageText,
                                     message.isSent
-                                        ? styles.sentBubble
-                                        : styles.receivedBubble,
+                                        ? styles.sentText
+                                        : styles.receivedText,
                                 ]}
                             >
-                                <Text
-                                    style={[
-                                        styles.messageText,
-                                        message.isSent
-                                            ? styles.sentText
-                                            : styles.receivedText,
-                                    ]}
-                                >
-                                    {message.text}
-                                </Text>
-                            </View>
-                            <Text style={styles.timestamp}>{message.timestamp}</Text>
+                                {message.text}
+                            </Text>
                         </View>
-                    ))}
-                </ScrollView>
-
-                <View style={styles.inputContainer}>
-                    <TouchableOpacity style={styles.iconButton}>
-                        <Ionicons name="camera-outline" size={22} color="#555" />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.iconButton}>
-                        <Ionicons name="image-outline" size={22} color="#555" />
-                    </TouchableOpacity>
-
-                    <View style={styles.textInputWrapper}>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Aa"
-                            placeholderTextColor="#777"
-                            value={inputText}
-                            onChangeText={setInputText}
-                            multiline
-                        />
+                        <Text style={styles.timestamp}>{message.timestamp}</Text>
                     </View>
+                ))}
+            </ScrollView>
 
-                    <TouchableOpacity style={styles.iconButton}>
-                        <Ionicons name="happy-outline" size={22} color="#555" />
-                    </TouchableOpacity>
+            <View style={styles.inputContainer}>
+                <TouchableOpacity style={styles.iconButton}>
+                    <Ionicons name="camera-outline" size={22} color="#555" />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.iconButton}>
+                    <Ionicons name="image-outline" size={22} color="#555" />
+                </TouchableOpacity>
 
-                    <TouchableOpacity
-                        style={[styles.iconButton, styles.sendButton]}
-                        onPress={handleSendMessage}
-                    >
-                        <Ionicons name="send-outline" size={20} color="#fff" />
-                    </TouchableOpacity>
+                <View style={styles.textInputWrapper}>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Aa"
+                        placeholderTextColor="#777"
+                        value={inputText}
+                        onChangeText={setInputText}
+                        multiline
+                    />
                 </View>
-            </SafeAreaView>
+
+                <TouchableOpacity style={styles.iconButton}>
+                    <Ionicons name="happy-outline" size={22} color="#555" />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[styles.iconButton, styles.sendButton]}
+                    onPress={handleSendMessage}
+                >
+                    <Ionicons name="send-outline" size={20} color="#fff" />
+                </TouchableOpacity>
+            </View>
         </View>
     );
 }

@@ -11,7 +11,7 @@ const HomeLayout = () => {
                 tabBarStyle: {
                     backgroundColor: "#0C1424",
                     borderTopWidth: 0,
-                    height: 100,
+                    height: 130,
                     paddingBottom: 10,
                 },
                 tabBarActiveTintColor: "#fff",

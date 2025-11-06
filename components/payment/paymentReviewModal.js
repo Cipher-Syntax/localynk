@@ -3,6 +3,7 @@ import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, StatusBar,
 import { Ionicons } from '@expo/vector-icons';
 import { User } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
     const [showAlert, setShowAlert] = useState(false);
@@ -73,188 +74,189 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         <Modal visible={isModalOpen} animationType="slide">
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
             <ScrollView style={styles.container}>
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => setIsModalOpen(false)}>
-                        <Ionicons name="close" size={28} color="#1A2332" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>BOOKING SUMMARY</Text>
-                    <View style={{ width: 28 }} />
-                </View>
-
-                <View style={styles.contentContainer}>
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Booking Details</Text>
-
-                        {accommodation && (
-                            <View style={styles.detailCard}>
-                                <View style={styles.detailHeader}>
-                                    <View style={styles.detailIcon}>
-                                        <Ionicons name="home" size={20} color="#fff" />
-                                    </View>
-                                    <View style={styles.detailInfo}>
-                                        <Text style={styles.detailLabel}>Accommodation</Text>
-                                        <Text style={styles.detailName}>{accommodation.name}</Text>
-                                        <Text style={styles.detailText}>{accommodation.location}</Text>
-                                    </View>
-                                </View>
-                            </View>
-                        )}
-
-                        {guide && (
-                            <View style={styles.detailCard}>
-                                <View style={styles.detailHeader}>
-                                    <View style={styles.detailIcon}>
-                                        <User size={20} color="#fff" />
-                                    </View>
-                                    <View style={styles.detailInfo}>
-                                        <Text style={styles.detailLabel}>Tourist Guide</Text>
-                                        <Text style={styles.detailName}>{guide.name}</Text>
-                                        <Text style={styles.detailText}>{guide.purpose}</Text>
-                                    </View>
-                                </View>
-                            </View>
-                        )}
+                <SafeAreaView>
+                    <View style={styles.header}>
+                        <TouchableOpacity onPress={() => setIsModalOpen(false)}>
+                            <Ionicons name="close" size={28} color="#1A2332" />
+                        </TouchableOpacity>
+                        <Text style={styles.headerTitle}>BOOKING SUMMARY</Text>
+                        <View style={{ width: 28 }} />
                     </View>
 
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Booking Dates</Text>
-                        <View style={styles.dateCard}>
-                            <View style={styles.dateItem}>
-                                <Text style={styles.dateLabel}>Check-in</Text>
-                                <Text style={styles.dateValue}>{startDate?.toLocaleDateString()}</Text>
-                            </View>
-                            <View style={styles.dateDivider} />
-                            <View style={styles.dateItem}>
-                                <Text style={styles.dateLabel}>Check-out</Text>
-                                <Text style={styles.dateValue}>{endDate?.toLocaleDateString()}</Text>
-                            </View>
-                            <View style={styles.dateDivider} />
-                            <View style={styles.dateItem}>
-                                <Text style={styles.dateLabel}>Duration</Text>
-                                <Text style={styles.dateValue}>{days} day(s)</Text>
-                            </View>
-                        </View>
-                    </View>
-
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Price Breakdown</Text>
-                        <View style={styles.priceCard}>
-                        <View style={styles.priceRow}>
-                            <Text style={styles.priceLabel}>Base Price</Text>
-                            <Text style={styles.priceValue}>
-                                ₱ {guide?.basePrice ? guide.basePrice.toLocaleString() : '0'}
-                            </Text>
-                        </View>
-
-                        {groupType === 'group' && (
-                            <View style={styles.priceRow}>
-                                <Text style={styles.priceLabel}>Group Size</Text>
-                                <Text style={styles.priceValue}>{numberOfPeople} person(s)</Text>
-                            </View>
-                        )}
-
-
-                        <View style={styles.priceRow}>
-                            <Text style={styles.priceLabel}>Days</Text>
-                            <Text style={styles.priceValue}>
-                                {Math.max(Math.round(Math.abs((endDate - startDate) / (24 * 60 * 60 * 1000))) + 1, 1)} day(s)
-                            </Text>
-                        </View>
-
-                        <View style={styles.priceDivider} />
-
-                        <View style={styles.priceRow}>
-                            <Text style={styles.priceLabel}>Guide Earnings (after fee)</Text>
-                            <Text style={styles.priceValue}>
-                                ₱ {guide?.serviceFee && totalPrice
-                                    ? (totalPrice - guide.serviceFee).toLocaleString()
-                                    : '0'}
-                            </Text>
-                        </View>
-
-                        <View style={styles.priceRow}>
-                            <Text style={styles.priceLabel}>App Service Fee</Text>
-                            <Text style={styles.priceValue}>
-                                ₱ {guide?.serviceFee ? guide.serviceFee.toLocaleString() : '0'}
-                            </Text>
-                        </View>
-
-                        <View style={styles.priceDivider} />
-
-                        <View style={styles.priceRow}>
-                            <Text style={styles.totalLabel}>Total to Pay</Text>
-                            <Text style={styles.totalValue}>
-                                ₱ {totalPrice ? totalPrice.toLocaleString() : '0'}
-                            </Text>
-                        </View>
-                    </View>
-
-                    </View>
-
-                    {/* ----- CONDITIONAL PAYMENT SECTION ----- */}
-                    {paymentMethod && (
+                    <View style={styles.contentContainer}>
                         <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>Payment Method</Text>
-                            <View style={styles.paymentCard}>
-                                <Text style={styles.paymentMethod}>{paymentMethod.toUpperCase()}</Text>
+                            <Text style={styles.sectionTitle}>Booking Details</Text>
+
+                            {accommodation && (
+                                <View style={styles.detailCard}>
+                                    <View style={styles.detailHeader}>
+                                        <View style={styles.detailIcon}>
+                                            <Ionicons name="home" size={20} color="#fff" />
+                                        </View>
+                                        <View style={styles.detailInfo}>
+                                            <Text style={styles.detailLabel}>Accommodation</Text>
+                                            <Text style={styles.detailName}>{accommodation.name}</Text>
+                                            <Text style={styles.detailText}>{accommodation.location}</Text>
+                                        </View>
+                                    </View>
+                                </View>
+                            )}
+
+                            {guide && (
+                                <View style={styles.detailCard}>
+                                    <View style={styles.detailHeader}>
+                                        <View style={styles.detailIcon}>
+                                            <User size={20} color="#fff" />
+                                        </View>
+                                        <View style={styles.detailInfo}>
+                                            <Text style={styles.detailLabel}>Tourist Guide</Text>
+                                            <Text style={styles.detailName}>{guide.name}</Text>
+                                            <Text style={styles.detailText}>{guide.purpose}</Text>
+                                        </View>
+                                    </View>
+                                </View>
+                            )}
+                        </View>
+
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>Booking Dates</Text>
+                            <View style={styles.dateCard}>
+                                <View style={styles.dateItem}>
+                                    <Text style={styles.dateLabel}>Check-in</Text>
+                                    <Text style={styles.dateValue}>{startDate?.toLocaleDateString()}</Text>
+                                </View>
+                                <View style={styles.dateDivider} />
+                                <View style={styles.dateItem}>
+                                    <Text style={styles.dateLabel}>Check-out</Text>
+                                    <Text style={styles.dateValue}>{endDate?.toLocaleDateString()}</Text>
+                                </View>
+                                <View style={styles.dateDivider} />
+                                <View style={styles.dateItem}>
+                                    <Text style={styles.dateLabel}>Duration</Text>
+                                    <Text style={styles.dateValue}>{days} day(s)</Text>
+                                </View>
                             </View>
                         </View>
-                    )}
 
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Billing Information</Text>
-                        <View style={styles.billingCard}>
-                            <View style={styles.billingRow}>
-                                <View style={styles.billingItem}>
-                                    <Text style={styles.billingLabel}>First Name</Text>
-                                    <Text style={styles.billingValue}>{firstName}</Text>
-                                </View>
-                                <View style={styles.billingItem}>
-                                    <Text style={styles.billingLabel}>Last Name</Text>
-                                    <Text style={styles.billingValue}>{lastName}</Text>
-                                </View>
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>Price Breakdown</Text>
+                            <View style={styles.priceCard}>
+                            <View style={styles.priceRow}>
+                                <Text style={styles.priceLabel}>Base Price</Text>
+                                <Text style={styles.priceValue}>
+                                    ₱ {guide?.basePrice ? guide.basePrice.toLocaleString() : '0'}
+                                </Text>
                             </View>
-                            <View style={styles.billingRow}>
-                                <View style={styles.billingItem}>
-                                    <Text style={styles.billingLabel}>Phone Number</Text>
-                                    <Text style={styles.billingValue}>{phoneNumber}</Text>
+
+                            {groupType === 'group' && (
+                                <View style={styles.priceRow}>
+                                    <Text style={styles.priceLabel}>Group Size</Text>
+                                    <Text style={styles.priceValue}>{numberOfPeople} person(s)</Text>
                                 </View>
-                                <View style={styles.billingItem}>
-                                    <Text style={styles.billingLabel}>Country</Text>
-                                    <Text style={styles.billingValue}>{country}</Text>
-                                </View>
+                            )}
+
+
+                            <View style={styles.priceRow}>
+                                <Text style={styles.priceLabel}>Days</Text>
+                                <Text style={styles.priceValue}>
+                                    {Math.max(Math.round(Math.abs((endDate - startDate) / (24 * 60 * 60 * 1000))) + 1, 1)} day(s)
+                                </Text>
                             </View>
-                            <View style={styles.billingFullRow}>
-                                <Text style={styles.billingLabel}>Email</Text>
-                                <Text style={styles.billingValue}>{email}</Text>
+
+                            <View style={styles.priceDivider} />
+
+                            <View style={styles.priceRow}>
+                                <Text style={styles.priceLabel}>Guide Earnings (after fee)</Text>
+                                <Text style={styles.priceValue}>
+                                    ₱ {guide?.serviceFee && totalPrice
+                                        ? (totalPrice - guide.serviceFee).toLocaleString()
+                                        : '0'}
+                                </Text>
+                            </View>
+
+                            <View style={styles.priceRow}>
+                                <Text style={styles.priceLabel}>App Service Fee</Text>
+                                <Text style={styles.priceValue}>
+                                    ₱ {guide?.serviceFee ? guide.serviceFee.toLocaleString() : '0'}
+                                </Text>
+                            </View>
+
+                            <View style={styles.priceDivider} />
+
+                            <View style={styles.priceRow}>
+                                <Text style={styles.totalLabel}>Total to Pay</Text>
+                                <Text style={styles.totalValue}>
+                                    ₱ {totalPrice ? totalPrice.toLocaleString() : '0'}
+                                </Text>
                             </View>
                         </View>
+
+                        </View>
+
+                        {paymentMethod && (
+                            <View style={styles.section}>
+                                <Text style={styles.sectionTitle}>Payment Method</Text>
+                                <View style={styles.paymentCard}>
+                                    <Text style={styles.paymentMethod}>{paymentMethod.toUpperCase()}</Text>
+                                </View>
+                            </View>
+                        )}
+
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>Billing Information</Text>
+                            <View style={styles.billingCard}>
+                                <View style={styles.billingRow}>
+                                    <View style={styles.billingItem}>
+                                        <Text style={styles.billingLabel}>First Name</Text>
+                                        <Text style={styles.billingValue}>{firstName}</Text>
+                                    </View>
+                                    <View style={styles.billingItem}>
+                                        <Text style={styles.billingLabel}>Last Name</Text>
+                                        <Text style={styles.billingValue}>{lastName}</Text>
+                                    </View>
+                                </View>
+                                <View style={styles.billingRow}>
+                                    <View style={styles.billingItem}>
+                                        <Text style={styles.billingLabel}>Phone Number</Text>
+                                        <Text style={styles.billingValue}>{phoneNumber}</Text>
+                                    </View>
+                                    <View style={styles.billingItem}>
+                                        <Text style={styles.billingLabel}>Country</Text>
+                                        <Text style={styles.billingValue}>{country}</Text>
+                                    </View>
+                                </View>
+                                <View style={styles.billingFullRow}>
+                                    <Text style={styles.billingLabel}>Email</Text>
+                                    <Text style={styles.billingValue}>{email}</Text>
+                                </View>
+                            </View>
+                        </View>
+
+                        <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
+                            <Text style={styles.confirmButtonText}>
+                                {/* ----- DYNAMIC BUTTON TEXT ----- */}
+                                {paymentMethod ? "Confirm & Pay" : "Send Booking Request"}
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={styles.cancelButton} onPress={() => setIsModalOpen(false)}>
+                            <Text style={styles.cancelButtonText}>Edit Details</Text>
+                        </TouchableOpacity>
                     </View>
 
-                    <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
-                        <Text style={styles.confirmButtonText}>
-                            {/* ----- DYNAMIC BUTTON TEXT ----- */}
-                            {paymentMethod ? "Confirm & Pay" : "Send Booking Request"}
-                        </Text>
-                    </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.cancelButton} onPress={() => setIsModalOpen(false)}>
-                        <Text style={styles.cancelButtonText}>Edit Details</Text>
-                    </TouchableOpacity>
-                </View>
-
-
-                <Modal transparent visible={showAlert} animationType="none">
-                    <View style={styles.alertOverlay}>
-                        <Animated.View style={[styles.alertBox, { transform: [{ translateY: slideAnim }] }]}>
-                            <Text style={styles.alertTitle}>{alertTitle}</Text>
-                            <Text style={styles.alertMessage}>{alertMessage}</Text>
-                            <TouchableOpacity style={styles.alertButton} onPress={handleAlertOk}>
-                                <Text style={styles.alertButtonText}>OK</Text>
-                            </TouchableOpacity>
-                        </Animated.View>
-                    </View>
-                </Modal>
+                    <Modal transparent visible={showAlert} animationType="none">
+                        <View style={styles.alertOverlay}>
+                            <Animated.View style={[styles.alertBox, { transform: [{ translateY: slideAnim }] }]}>
+                                <Text style={styles.alertTitle}>{alertTitle}</Text>
+                                <Text style={styles.alertMessage}>{alertMessage}</Text>
+                                <TouchableOpacity style={styles.alertButton} onPress={handleAlertOk}>
+                                    <Text style={styles.alertButtonText}>OK</Text>
+                                </TouchableOpacity>
+                            </Animated.View>
+                        </View>
+                    </Modal>
+                </SafeAreaView>
             </ScrollView>
         </Modal>
     );
