@@ -179,7 +179,7 @@ export default TouristGuideDetails;
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#D9E2E9',
+        // backgroundColor: '#D9E2E9',
     },
     header: {
         position: 'relative',

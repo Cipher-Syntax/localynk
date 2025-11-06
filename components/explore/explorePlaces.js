@@ -119,131 +119,129 @@ const ExplorePlaces = () => {
 
     return (
         <ScrollView style={styles.container}>
-            <SafeAreaView>
-                <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-                
-                <View style={styles.header}>
-                    <Image
-                        source={require('../../assets/localynk_images/header.png')}
-                        style={styles.headerImage}
-                    />
-                    <LinearGradient
-                        colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
-                        style={styles.overlay}
-                    />
-                    <Text style={styles.headerTitle}>EXPLORE DIFFERENT GUIDES/PLACES</Text>
-                </View>
+            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+            
+            <View style={styles.header}>
+                <Image
+                    source={require('../../assets/localynk_images/header.png')}
+                    style={styles.headerImage}
+                />
+                <LinearGradient
+                    colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
+                    style={styles.overlay}
+                />
+                <Text style={styles.headerTitle}>EXPLORE DIFFERENT GUIDES/PLACES</Text>
+            </View>
 
-                <View style={styles.toggleContainer}>
-                    <TouchableOpacity 
-                        style={[styles.toggleButton, activeTab === 'guides' && styles.toggleButtonActive]}
-                        onPress={() => setActiveTab('guides')}
-                    >
-                        <Text style={[styles.toggleButtonText, activeTab === 'guides' && styles.toggleButtonTextActive]}>
-                            Tour Guides
-                        </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                        style={[styles.toggleButton, activeTab === 'places' && styles.toggleButtonActive]}
-                        onPress={() => setActiveTab('places')}
-                    >
-                        <Text style={[styles.toggleButtonText, activeTab === 'places' && styles.toggleButtonTextActive]}>
-                            Places
-                        </Text>
-                    </TouchableOpacity>
-                </View>
+            <View style={styles.toggleContainer}>
+                <TouchableOpacity 
+                    style={[styles.toggleButton, activeTab === 'guides' && styles.toggleButtonActive]}
+                    onPress={() => setActiveTab('guides')}
+                >
+                    <Text style={[styles.toggleButtonText, activeTab === 'guides' && styles.toggleButtonTextActive]}>
+                        Tour Guides
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                    style={[styles.toggleButton, activeTab === 'places' && styles.toggleButtonActive]}
+                    onPress={() => setActiveTab('places')}
+                >
+                    <Text style={[styles.toggleButtonText, activeTab === 'places' && styles.toggleButtonTextActive]}>
+                        Places
+                    </Text>
+                </TouchableOpacity>
+            </View>
 
-                <View style={styles.contentContainer}>
-                    {activeTab === 'guides' && (
-                        <>
-                            {guideCards.map((guide, index) => (
-                                <View key={index} style={styles.guideCard}>
-                                    <View style={styles.cardProfileSection}>
-                                        <View style={styles.iconWrapper}>
-                                            <User size={40} color="#8B98A8" />
-                                        </View>
-                                        <View style={styles.profileInfo}>
-                                            <Text style={styles.guideName}>{guide.name}</Text>
-                                            <Text style={styles.guideAddress}>{guide.address}</Text>
-                                            <Text style={styles.guideRating}>{
-                                                guide.rating} <Ionicons name="star" color="#C99700" />
-                                            </Text>
-                                        </View>
-                                        <Ionicons name="heart-outline" size={22} color="#FF5A5F" />
+            <View style={styles.contentContainer}>
+                {activeTab === 'guides' && (
+                    <>
+                        {guideCards.map((guide, index) => (
+                            <View key={index} style={styles.guideCard}>
+                                <View style={styles.cardProfileSection}>
+                                    <View style={styles.iconWrapper}>
+                                        <User size={40} color="#8B98A8" />
                                     </View>
-
-                                    <View style={styles.detailsGrid}>
-                                        <View style={styles.detailItem}>
-                                            <Text style={styles.detailLabel}>Language</Text>
-                                            <Text style={styles.detailValue}>{guide.language}</Text>
-                                        </View>
-                                        <View style={styles.detailItem}>
-                                            <Text style={styles.detailLabel}>Specialty</Text>
-                                            <Text style={styles.detailValue}>{guide.specialty}</Text>
-                                        </View>
-                                        <View style={styles.detailItem}>
-                                            <Text style={styles.detailLabel}>Years of Experience</Text>
-                                            <Text style={styles.detailValue}>{guide.experience}</Text>
-                                        </View>
-                                        <View style={styles.detailItem}>
-                                            <Text style={styles.detailLabel}>Price of Package</Text>
-                                            <Text style={styles.detailValue}>{guide.price}</Text>
-                                        </View>
+                                    <View style={styles.profileInfo}>
+                                        <Text style={styles.guideName}>{guide.name}</Text>
+                                        <Text style={styles.guideAddress}>{guide.address}</Text>
+                                        <Text style={styles.guideRating}>{
+                                            guide.rating} <Ionicons name="star" color="#C99700" />
+                                        </Text>
                                     </View>
-
-                                    <TouchableOpacity style={styles.buttonContainer} activeOpacity={0.8} onPress={() => router.push({pathname: "/(protected)/touristGuideDetails",})}>
-                                        <Text style={styles.bookButton}>LEARN MORE</Text>
-                                    </TouchableOpacity>
+                                    <Ionicons name="heart-outline" size={22} color="#FF5A5F" />
                                 </View>
-                            ))}
-                        </>
-                    )}
 
-                    {activeTab === 'places' && (
-                        <View>
-                            {
-                                places.map((place) => (
-                                    <ImageBackground 
-                                        key={place.id}
-                                        source={place.image}
-                                        style={styles.placesContainer}
-                                        imageStyle={styles.placesImage}
-                                    >
-                                        <View style={styles.placesOverlay} />
-                                        <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-                                            <MaskedView
-                                                maskElement={
-                                                <Text style={styles.placesText}>{place.name}</Text>
-                                                }
-                                            >
-                                                <LinearGradient
-                                                colors={['#FFFFFF', '#00C6FF']}
-                                                start={{ x: 0, y: 0 }}
-                                                end={{ x: 1, y: 1 }}
-                                                style={{ width: 300, height: 50 }}
-                                                />
-                                            </MaskedView>
-                                        </View>
+                                <View style={styles.detailsGrid}>
+                                    <View style={styles.detailItem}>
+                                        <Text style={styles.detailLabel}>Language</Text>
+                                        <Text style={styles.detailValue}>{guide.language}</Text>
+                                    </View>
+                                    <View style={styles.detailItem}>
+                                        <Text style={styles.detailLabel}>Specialty</Text>
+                                        <Text style={styles.detailValue}>{guide.specialty}</Text>
+                                    </View>
+                                    <View style={styles.detailItem}>
+                                        <Text style={styles.detailLabel}>Years of Experience</Text>
+                                        <Text style={styles.detailValue}>{guide.experience}</Text>
+                                    </View>
+                                    <View style={styles.detailItem}>
+                                        <Text style={styles.detailLabel}>Price of Package</Text>
+                                        <Text style={styles.detailValue}>{guide.price}</Text>
+                                    </View>
+                                </View>
 
-                                        <View style={{textAlign: "center", alignItems: "center", justifyContent: "center", marginTop: 2}}>
-                                            <Text style={{color: "#fff"}}>Discover More</Text>
-                                            <Animated.View style={{
-                                                transform: [{translateY: bounceValue}], marginTop: 10
-                                            }}>
-                                                <Ionicons name='arrow-down-outline' color="#00C6FF" size={18} />
-                                            </Animated.View>
-                                        </View>
+                                <TouchableOpacity style={styles.buttonContainer} activeOpacity={0.8} onPress={() => router.push({pathname: "/(protected)/touristGuideDetails",})}>
+                                    <Text style={styles.bookButton}>LEARN MORE</Text>
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+                    </>
+                )}
 
-                                    </ImageBackground>
-                                ))
-                            }
+                {activeTab === 'places' && (
+                    <View>
+                        {
+                            places.map((place) => (
+                                <ImageBackground 
+                                    key={place.id}
+                                    source={place.image}
+                                    style={styles.placesContainer}
+                                    imageStyle={styles.placesImage}
+                                >
+                                    <View style={styles.placesOverlay} />
+                                    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                                        <MaskedView
+                                            maskElement={
+                                            <Text style={styles.placesText}>{place.name}</Text>
+                                            }
+                                        >
+                                            <LinearGradient
+                                            colors={['#FFFFFF', '#00C6FF']}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 1 }}
+                                            style={{ width: 300, height: 50 }}
+                                            />
+                                        </MaskedView>
+                                    </View>
 
-                        </View>
+                                    <View style={{textAlign: "center", alignItems: "center", justifyContent: "center", marginTop: 2}}>
+                                        <Text style={{color: "#fff"}}>Discover More</Text>
+                                        <Animated.View style={{
+                                            transform: [{translateY: bounceValue}], marginTop: 10
+                                        }}>
+                                            <Ionicons name='arrow-down-outline' color="#00C6FF" size={18} />
+                                        </Animated.View>
+                                    </View>
 
-                        
-                    )}
-                </View>
-            </SafeAreaView>
+                                </ImageBackground>
+                            ))
+                        }
+
+                    </View>
+
+                    
+                )}
+            </View>
         </ScrollView>
     );
 };
@@ -253,7 +251,7 @@ export default ExplorePlaces;
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#D9E2E9',
+        // backgroundColor: '#D9E2E9',
     },
     header: {
         position: 'relative',

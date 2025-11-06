@@ -223,6 +223,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#00051A",
         paddingVertical: 10,
         paddingHorizontal: 10,
+        marginBottom: 60
     },
     iconButton: {
         paddingHorizontal: 6,
