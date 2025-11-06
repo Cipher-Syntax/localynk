@@ -1,6 +1,7 @@
 import { View, Text, ScrollView, ActivityIndicator } from "react-native";
 import { ExplorePlaces } from "../../../components/explore";
 import React, { useState, useEffect } from 'react';
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Explore() {
     const [loading, setLoading] = useState(true);
@@ -24,7 +25,9 @@ export default function Explore() {
     }
     return (
         <ScrollView>
-            <ExplorePlaces />
+            <SafeAreaView>
+                <ExplorePlaces />
+            </SafeAreaView>
         </ScrollView>
     );
 }

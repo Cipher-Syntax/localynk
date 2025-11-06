@@ -4,6 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { User } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const AttractionDetails = () => {
     const [loading, setLoading] = useState(true);
@@ -78,62 +79,64 @@ const AttractionDetails = () => {
 
     return (
         <ScrollView style={styles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-            
-            <View style={styles.header}>
-                <Image
-                    source={require('../../assets/localynk_images/header.png')}
-                    style={styles.headerImage}
-                />
-                <LinearGradient
-                    colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
-                    style={styles.overlay}
-                />
-                <Text style={styles.headerTitle}>EXPLORE PERFECT GUIDE FOR YOU</Text>
-            </View>
+            <SafeAreaView>
+                <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+                
+                <View style={styles.header}>
+                    <Image
+                        source={require('../../assets/localynk_images/header.png')}
+                        style={styles.headerImage}
+                    />
+                    <LinearGradient
+                        colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
+                        style={styles.overlay}
+                    />
+                    <Text style={styles.headerTitle}>EXPLORE PERFECT GUIDE FOR YOU</Text>
+                </View>
 
-            <View style={styles.contentContainer}>
-                {guideCards.map((guide, index) => (
-                    <View key={index} style={styles.guideCard}>
-                        <View style={styles.cardProfileSection}>
-                            <View style={styles.iconWrapper}>
-                                <User size={40} color="#8B98A8" />
+                <View style={styles.contentContainer}>
+                    {guideCards.map((guide, index) => (
+                        <View key={index} style={styles.guideCard}>
+                            <View style={styles.cardProfileSection}>
+                                <View style={styles.iconWrapper}>
+                                    <User size={40} color="#8B98A8" />
+                                </View>
+                                <View style={styles.profileInfo}>
+                                    <Text style={styles.guideName}>{guide.name}</Text>
+                                    <Text style={styles.guideAddress}>{guide.address}</Text>
+                                    <Text style={styles.guideRating}>{
+                                        guide.rating} <Ionicons name="star" color="#C99700" />
+                                    </Text>
+                                </View>
+                                <Ionicons name="heart-outline" size={22} color="#FF5A5F" />
                             </View>
-                            <View style={styles.profileInfo}>
-                                <Text style={styles.guideName}>{guide.name}</Text>
-                                <Text style={styles.guideAddress}>{guide.address}</Text>
-                                <Text style={styles.guideRating}>{
-                                    guide.rating} <Ionicons name="star" color="#C99700" />
-                                </Text>
+
+                            <View style={styles.detailsGrid}>
+                                <View style={styles.detailItem}>
+                                    <Text style={styles.detailLabel}>Language</Text>
+                                    <Text style={styles.detailValue}>{guide.language}</Text>
+                                </View>
+                                <View style={styles.detailItem}>
+                                    <Text style={styles.detailLabel}>Specialty</Text>
+                                    <Text style={styles.detailValue}>{guide.specialty}</Text>
+                                </View>
+                                <View style={styles.detailItem}>
+                                    <Text style={styles.detailLabel}>Years of Experience</Text>
+                                    <Text style={styles.detailValue}>{guide.experience}</Text>
+                                </View>
+                                <View style={styles.detailItem}>
+                                    <Text style={styles.detailLabel}>Price of Package</Text>
+                                    <Text style={styles.detailValue}>{guide.price}</Text>
+                                </View>
                             </View>
-                            <Ionicons name="heart-outline" size={22} color="#FF5A5F" />
+
+                            <TouchableOpacity style={styles.buttonContainer} activeOpacity={0.8} onPress={() => router.push({pathname: "/(protected)/touristGuideDetails",})}>
+                                <Text style={styles.bookButton}>BOOK NOW</Text>
+                            </TouchableOpacity>
                         </View>
-
-                        <View style={styles.detailsGrid}>
-                            <View style={styles.detailItem}>
-                                <Text style={styles.detailLabel}>Language</Text>
-                                <Text style={styles.detailValue}>{guide.language}</Text>
-                            </View>
-                            <View style={styles.detailItem}>
-                                <Text style={styles.detailLabel}>Specialty</Text>
-                                <Text style={styles.detailValue}>{guide.specialty}</Text>
-                            </View>
-                            <View style={styles.detailItem}>
-                                <Text style={styles.detailLabel}>Years of Experience</Text>
-                                <Text style={styles.detailValue}>{guide.experience}</Text>
-                            </View>
-                            <View style={styles.detailItem}>
-                                <Text style={styles.detailLabel}>Price of Package</Text>
-                                <Text style={styles.detailValue}>{guide.price}</Text>
-                            </View>
-                        </View>
-
-                        <TouchableOpacity style={styles.buttonContainer} activeOpacity={0.8} onPress={() => router.push({pathname: "/(protected)/touristGuideDetails",})}>
-                            <Text style={styles.bookButton}>BOOK NOW</Text>
-                        </TouchableOpacity>
-                    </View>
-                ))}
-            </View>
+                    ))}
+                </View>
+            </SafeAreaView>
         </ScrollView>
     );
 };

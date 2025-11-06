@@ -2,6 +2,7 @@ import { View, Text, ActivityIndicator, ScrollView, StyleSheet, StatusBar, Image
 import React, { useState, useEffect } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Message() {
     const [loading, setLoading] = useState(true);
@@ -45,89 +46,91 @@ export default function Message() {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+            <SafeAreaView>
+                <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-            <View style={styles.header}>
-                <Image
-                    source={require("../../assets/localynk_images/header.png")}
-                    style={styles.headerImage}
-                />
-                <LinearGradient
-                    colors={["rgba(0,0,0,0.6)", "rgba(0,0,0,0.2)", "transparent"]}
-                    style={styles.overlay}
-                />
-                <Text style={styles.headerTitle}>Message</Text>
-            </View>
-
-            <ScrollView
-                style={styles.messagesContainer}
-                showsVerticalScrollIndicator={false}
-            >
-                {messages.map((message) => (
-                    <View
-                        key={message.id}
-                        style={[
-                            styles.messageBox,
-                            message.isSent ? styles.sentMessage : styles.receivedMessage,
-                        ]}
-                    >
-                        {!message.isSent && (
-                            <Text style={styles.senderName}>{message.sender}</Text>
-                        )}
-                        <View
-                            style={[
-                                styles.messageBubble,
-                                message.isSent
-                                    ? styles.sentBubble
-                                    : styles.receivedBubble,
-                            ]}
-                        >
-                            <Text
-                                style={[
-                                    styles.messageText,
-                                    message.isSent
-                                        ? styles.sentText
-                                        : styles.receivedText,
-                                ]}
-                            >
-                                {message.text}
-                            </Text>
-                        </View>
-                        <Text style={styles.timestamp}>{message.timestamp}</Text>
-                    </View>
-                ))}
-            </ScrollView>
-
-            <View style={styles.inputContainer}>
-                <TouchableOpacity style={styles.iconButton}>
-                    <Ionicons name="camera-outline" size={22} color="#555" />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.iconButton}>
-                    <Ionicons name="image-outline" size={22} color="#555" />
-                </TouchableOpacity>
-
-                <View style={styles.textInputWrapper}>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Aa"
-                        placeholderTextColor="#777"
-                        value={inputText}
-                        onChangeText={setInputText}
-                        multiline
+                <View style={styles.header}>
+                    <Image
+                        source={require("../../assets/localynk_images/header.png")}
+                        style={styles.headerImage}
                     />
+                    <LinearGradient
+                        colors={["rgba(0,0,0,0.6)", "rgba(0,0,0,0.2)", "transparent"]}
+                        style={styles.overlay}
+                    />
+                    <Text style={styles.headerTitle}>Message</Text>
                 </View>
 
-                <TouchableOpacity style={styles.iconButton}>
-                    <Ionicons name="happy-outline" size={22} color="#555" />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={[styles.iconButton, styles.sendButton]}
-                    onPress={handleSendMessage}
+                <ScrollView
+                    style={styles.messagesContainer}
+                    showsVerticalScrollIndicator={false}
                 >
-                    <Ionicons name="send-outline" size={20} color="#fff" />
-                </TouchableOpacity>
-            </View>
+                    {messages.map((message) => (
+                        <View
+                            key={message.id}
+                            style={[
+                                styles.messageBox,
+                                message.isSent ? styles.sentMessage : styles.receivedMessage,
+                            ]}
+                        >
+                            {!message.isSent && (
+                                <Text style={styles.senderName}>{message.sender}</Text>
+                            )}
+                            <View
+                                style={[
+                                    styles.messageBubble,
+                                    message.isSent
+                                        ? styles.sentBubble
+                                        : styles.receivedBubble,
+                                ]}
+                            >
+                                <Text
+                                    style={[
+                                        styles.messageText,
+                                        message.isSent
+                                            ? styles.sentText
+                                            : styles.receivedText,
+                                    ]}
+                                >
+                                    {message.text}
+                                </Text>
+                            </View>
+                            <Text style={styles.timestamp}>{message.timestamp}</Text>
+                        </View>
+                    ))}
+                </ScrollView>
+
+                <View style={styles.inputContainer}>
+                    <TouchableOpacity style={styles.iconButton}>
+                        <Ionicons name="camera-outline" size={22} color="#555" />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.iconButton}>
+                        <Ionicons name="image-outline" size={22} color="#555" />
+                    </TouchableOpacity>
+
+                    <View style={styles.textInputWrapper}>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Aa"
+                            placeholderTextColor="#777"
+                            value={inputText}
+                            onChangeText={setInputText}
+                            multiline
+                        />
+                    </View>
+
+                    <TouchableOpacity style={styles.iconButton}>
+                        <Ionicons name="happy-outline" size={22} color="#555" />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.iconButton, styles.sendButton]}
+                        onPress={handleSendMessage}
+                    >
+                        <Ionicons name="send-outline" size={20} color="#fff" />
+                    </TouchableOpacity>
+                </View>
+            </SafeAreaView>
         </View>
     );
 }

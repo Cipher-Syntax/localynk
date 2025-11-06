@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { User } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 
 const FeaturedPlacesDetails = () => {
@@ -135,117 +136,119 @@ const FeaturedPlacesDetails = () => {
     
     return (
         <ScrollView style={styles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+            <SafeAreaView>
+                <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-            <View style={styles.header}>
-                <Image
-                    source={require('../../assets/localynk_images/header.png')}
-                    style={styles.headerImage}
+                <View style={styles.header}>
+                    <Image
+                        source={require('../../assets/localynk_images/header.png')}
+                        style={styles.headerImage}
+                        />
+                    <LinearGradient
+                        colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
+                        style={styles.overlay}
                     />
-                <LinearGradient
-                    colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
-                    style={styles.overlay}
-                />
-                <Text style={styles.headerTitle}>EXPLORE YOUR NEXT DESTINATION HERE</Text>
-            </View>
-
-            <View style={styles.destinationCard}>
-                {/* <Image source={destinationImage} style={styles.destinationCardImage} /> */}
-                <Image source={{ uri: params.image }} style={styles.destinationCardImage} />
-
-                <LinearGradient
-                    colors={['transparent', 'rgba(0,0,0,0.7)']}
-                    style={styles.destinationOverlay}
-                />
-                <View style={styles.destinationContent}>
-                    <Text style={styles.destinationTitle}>{destinationInfo.title}</Text>
-                    <Text style={styles.destinationDescription}>{destinationInfo.description}</Text>
-                </View>
-            </View>
-
-            <View style={styles.contentSection}>
-                <View style={styles.imageHeader}>
-                    <Text style={styles.sectionTitle}>DESTINATION PREVIEW</Text>
-                    <Text style={styles.sectionSubtitle}>Swipe to discover more</Text>
+                    <Text style={styles.headerTitle}>EXPLORE YOUR NEXT DESTINATION HERE</Text>
                 </View>
 
-                <FlatList
-                    horizontal
-                    data={featuredImages}
-                    keyExtractor={(item) => item.id.toString()}
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.imageList}
-                    renderItem={({ item }) => (
-                        <TouchableOpacity activeOpacity={0.8}>
-                            <View style={styles.imageCard}>
-                                <Image source={item.image} style={styles.imageCardImage} />
-                                <View style={styles.imageOverlay} />
-                                {/* <View style={styles.imageBottom}>
-                                    <Text style={styles.imageTitle}>{item.title}</Text>
-                                    <Ionicons name="arrow-forward" size={18} color="#fff" />
-                                </View> */}
-                            </View>
-                        </TouchableOpacity>
-                    )}
-                />
-            </View>
+                <View style={styles.destinationCard}>
+                    {/* <Image source={destinationImage} style={styles.destinationCardImage} /> */}
+                    <Image source={{ uri: params.image }} style={styles.destinationCardImage} />
 
-            <View style={styles.guideSection}>
-                <Text style={styles.sectionTitle}>Available Tourist Guides</Text>
-                <Text style={styles.sectionSubtitle}>Choose your perfect guide</Text>
+                    <LinearGradient
+                        colors={['transparent', 'rgba(0,0,0,0.7)']}
+                        style={styles.destinationOverlay}
+                    />
+                    <View style={styles.destinationContent}>
+                        <Text style={styles.destinationTitle}>{destinationInfo.title}</Text>
+                        <Text style={styles.destinationDescription}>{destinationInfo.description}</Text>
+                    </View>
+                </View>
 
-                <View style={styles.guideList}>
-                    {guideCards.map((guide) => (
-                        <View key={guide.id} style={styles.guideCard}>
-                            <View style={styles.cardProfileSection}>
-                                <View style={styles.iconWrapper}>
-                                    <User size={40} color="#8B98A8" />
+                <View style={styles.contentSection}>
+                    <View style={styles.imageHeader}>
+                        <Text style={styles.sectionTitle}>DESTINATION PREVIEW</Text>
+                        <Text style={styles.sectionSubtitle}>Swipe to discover more</Text>
+                    </View>
+
+                    <FlatList
+                        horizontal
+                        data={featuredImages}
+                        keyExtractor={(item) => item.id.toString()}
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.imageList}
+                        renderItem={({ item }) => (
+                            <TouchableOpacity activeOpacity={0.8}>
+                                <View style={styles.imageCard}>
+                                    <Image source={item.image} style={styles.imageCardImage} />
+                                    <View style={styles.imageOverlay} />
+                                    {/* <View style={styles.imageBottom}>
+                                        <Text style={styles.imageTitle}>{item.title}</Text>
+                                        <Ionicons name="arrow-forward" size={18} color="#fff" />
+                                    </View> */}
                                 </View>
-                                <View style={styles.profileInfo}>
-                                    <Text style={styles.guideName}>{guide.name}</Text>
-                                    <Text style={styles.guideAddress}>{guide.address}</Text>
-                                    <View style={styles.ratingContainer}>
-                                        <Text style={styles.guideRating}>{guide.rating}</Text>
-                                        <Ionicons name="star" size={14} color="#C99700" />
+                            </TouchableOpacity>
+                        )}
+                    />
+                </View>
+
+                <View style={styles.guideSection}>
+                    <Text style={styles.sectionTitle}>Available Tourist Guides</Text>
+                    <Text style={styles.sectionSubtitle}>Choose your perfect guide</Text>
+
+                    <View style={styles.guideList}>
+                        {guideCards.map((guide) => (
+                            <View key={guide.id} style={styles.guideCard}>
+                                <View style={styles.cardProfileSection}>
+                                    <View style={styles.iconWrapper}>
+                                        <User size={40} color="#8B98A8" />
+                                    </View>
+                                    <View style={styles.profileInfo}>
+                                        <Text style={styles.guideName}>{guide.name}</Text>
+                                        <Text style={styles.guideAddress}>{guide.address}</Text>
+                                        <View style={styles.ratingContainer}>
+                                            <Text style={styles.guideRating}>{guide.rating}</Text>
+                                            <Ionicons name="star" size={14} color="#C99700" />
+                                        </View>
+                                    </View>
+                                    <Ionicons name="heart-outline" size={22} color="#FF5A5F" />
+                                </View>
+
+                                <View style={styles.detailsGrid}>
+                                    <View style={styles.detailItem}>
+                                        <Text style={styles.detailLabel}>Language</Text>
+                                        <Text style={styles.detailValue}>{guide.language}</Text>
+                                    </View>
+                                    <View style={styles.detailItem}>
+                                        <Text style={styles.detailLabel}>Specialty</Text>
+                                        <Text style={styles.detailValue}>{guide.specialty}</Text>
+                                    </View>
+                                    <View style={styles.detailItem}>
+                                        <Text style={styles.detailLabel}>Experience</Text>
+                                        <Text style={styles.detailValue}>{guide.experience}</Text>
+                                    </View>
+                                    <View style={styles.detailItem}>
+                                        <Text style={styles.detailLabel}>Price</Text>
+                                        <Text style={styles.detailValue}>{guide.price}</Text>
                                     </View>
                                 </View>
-                                <Ionicons name="heart-outline" size={22} color="#FF5A5F" />
-                            </View>
 
-                            <View style={styles.detailsGrid}>
-                                <View style={styles.detailItem}>
-                                    <Text style={styles.detailLabel}>Language</Text>
-                                    <Text style={styles.detailValue}>{guide.language}</Text>
-                                </View>
-                                <View style={styles.detailItem}>
-                                    <Text style={styles.detailLabel}>Specialty</Text>
-                                    <Text style={styles.detailValue}>{guide.specialty}</Text>
-                                </View>
-                                <View style={styles.detailItem}>
-                                    <Text style={styles.detailLabel}>Experience</Text>
-                                    <Text style={styles.detailValue}>{guide.experience}</Text>
-                                </View>
-                                <View style={styles.detailItem}>
-                                    <Text style={styles.detailLabel}>Price</Text>
-                                    <Text style={styles.detailValue}>{guide.price}</Text>
-                                </View>
+                                <TouchableOpacity
+                                    style={styles.buttonContainer}
+                                    activeOpacity={0.8}
+                                    onPress={() =>
+                                        router.push({
+                                            pathname: "/(protected)/touristGuideDetails",
+                                        })
+                                    }
+                                >
+                                    <Text style={styles.bookButton}>BOOK NOW</Text>
+                                </TouchableOpacity>
                             </View>
-
-                            <TouchableOpacity
-                                style={styles.buttonContainer}
-                                activeOpacity={0.8}
-                                onPress={() =>
-                                    router.push({
-                                        pathname: "/(protected)/touristGuideDetails",
-                                    })
-                                }
-                            >
-                                <Text style={styles.bookButton}>BOOK NOW</Text>
-                            </TouchableOpacity>
-                        </View>
-                    ))}
+                        ))}
+                    </View>
                 </View>
-            </View>
+            </SafeAreaView>
         </ScrollView>
     );
 };

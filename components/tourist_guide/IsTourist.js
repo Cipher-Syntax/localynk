@@ -3,6 +3,7 @@ import { View, StyleSheet, Image, Text, StatusBar, ScrollView, TouchableOpacity,
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 
 const parseDate = (dateString) => {
@@ -98,131 +99,133 @@ const IsTourist = () => {
 
     return (
         <ScrollView style={styles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+            <SafeAreaView>
+                <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-            <View style={styles.header}>
-                <Image
-                    source={require('../../assets/localynk_images/header.png')}
-                    style={styles.headerImage}
-                />
-                <LinearGradient
-                    colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
-                    style={styles.overlay}
-                />
-                <Text style={styles.headerTitle}>TOUR GUIDES</Text>
-            </View>
-
-            <View style={{
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 100
-            }}>
-                <View style={styles.statsContainer}>
-                    <View style={styles.statCard}>
-                        <Text style={styles.statNumber}>127</Text>
-                        <Text style={styles.statLabel}>Total Bookings</Text>
-                    </View>
-                    <View style={styles.statCard}>
-                        <Text style={styles.statNumber}>3</Text>
-                        <Text style={styles.statLabel}>Bookings</Text>
-                    </View>
-                    <View style={styles.statCard}>
-                        <Text style={styles.statNumber}>15</Text>
-                        <Text style={styles.statLabel}>Completed Tours</Text>
-                    </View>
-                    <View style={styles.statCard}>
-                        <Text style={styles.statNumber}>
-                            4.8 <Ionicons name="star" size={20} color="#ffc107" />
-                        </Text>
-                        <Text style={styles.statLabel}>Average Rating</Text>
-                    </View>
+                <View style={styles.header}>
+                    <Image
+                        source={require('../../assets/localynk_images/header.png')}
+                        style={styles.headerImage}
+                    />
+                    <LinearGradient
+                        colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
+                        style={styles.overlay}
+                    />
+                    <Text style={styles.headerTitle}>TOUR GUIDES</Text>
                 </View>
 
-                <View style={[styles.bookingsSection, { width: "100%" }]}>
-                    <View style={styles.action}>
-                        <Text style={styles.bookingsTitle}>BOOKINGS</Text>
-                        <View style={{ alignItems: "center", justifyContent: "space-between", flexDirection: "row", gap: 7}}>
-                            <TouchableOpacity style={styles.addTourBtn}>
-                                <Text style={styles.addTourBtnText} onPress={() => router.push({pathname: "/(protected)/addTour"})}>Add Tour</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.addAccommodationBtn} onPress={() => router.push({pathname: "/(protected)/addAccommodation"})}>
-                                <Text style={styles.addAccommodationBtnText}>Add Accommodation</Text>
-                            </TouchableOpacity>
+                <View style={{
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 100
+                }}>
+                    <View style={styles.statsContainer}>
+                        <View style={styles.statCard}>
+                            <Text style={styles.statNumber}>127</Text>
+                            <Text style={styles.statLabel}>Total Bookings</Text>
+                        </View>
+                        <View style={styles.statCard}>
+                            <Text style={styles.statNumber}>3</Text>
+                            <Text style={styles.statLabel}>Bookings</Text>
+                        </View>
+                        <View style={styles.statCard}>
+                            <Text style={styles.statNumber}>15</Text>
+                            <Text style={styles.statLabel}>Completed Tours</Text>
+                        </View>
+                        <View style={styles.statCard}>
+                            <Text style={styles.statNumber}>
+                                4.8 <Ionicons name="star" size={20} color="#ffc107" />
+                            </Text>
+                            <Text style={styles.statLabel}>Average Rating</Text>
                         </View>
                     </View>
 
-                    {bookings.map((booking) => (
-                        <View key={booking.id} style={styles.bookingCard}>
-                            <View style={styles.bookingHeader}>
-                                <View style={styles.avatarContainer}>
-                                    <View style={styles.avatar} />
-                                    {booking.isOnline && <View style={styles.onlineIndicator} />}
-                                </View>
-                                <View style={styles.bookingInfo}>
-                                    <View style={styles.nameStatusRow}>
-                                        <Text style={styles.guideNameWaiting}>{booking.name}</Text>
-                                        <View style={styles.statusContainer}>
-                                            {booking.status === 'Pending' && (
-                                                <Ionicons name="time-outline" size={16} color="#ffc107" />
-                                            )}
-
-                                            {booking.status === 'Accepted' && (
-                                                <Ionicons name="checkmark" size={16} color="#0099ff" />
-                                            )}
-                                            {booking.status === 'Active' && (
-                                                <Ionicons name="checkmark-circle-outline" size={16} color="#00c853" />
-                                            )}
-                                            {booking.status === 'Rejected' && (
-                                                <Ionicons name="close-circle-outline" size={16} color="#ff5252" />
-                                            )}
-                                            <Text style={styles.statusText}>{booking.status}</Text>
-                                        </View>
-                                    </View>
-                                    <View style={styles.metaInfo}>
-                                        <Text style={styles.hopping}>{booking.hopping}</Text>
-                                        <View style={styles.dates}>
-                                            <Text style={styles.startDate}>
-                                                <Ionicons name="calendar" size={16} color="#ffffff" /> {booking.start_date}
-                                            </Text>
-                                            <Text style={{color: "#fff", fontSize: 11 }}> - </Text>
-                                            <Text style={styles.endDate}>
-                                                <Ionicons name="calendar" size={16} color="#ffffff" /> {booking.end_date}
-                                            </Text>
-                                        </View>
-                                    </View>
-                                </View>
+                    <View style={[styles.bookingsSection, { width: "100%" }]}>
+                        <View style={styles.action}>
+                            <Text style={styles.bookingsTitle}>BOOKINGS</Text>
+                            <View style={{ alignItems: "center", justifyContent: "space-between", flexDirection: "row", gap: 7}}>
+                                <TouchableOpacity style={styles.addTourBtn}>
+                                    <Text style={styles.addTourBtnText} onPress={() => router.push({pathname: "/(protected)/addTour"})}>Add Tour</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.addAccommodationBtn} onPress={() => router.push({pathname: "/(protected)/addAccommodation"})}>
+                                    <Text style={styles.addAccommodationBtnText}>Add Accommodation</Text>
+                                </TouchableOpacity>
                             </View>
-
-                            {booking.status === 'Pending' && (
-                                <View style={styles.decisionRow}>
-                                    <TouchableOpacity
-                                        style={[styles.decisionButton, styles.rejectButton]}
-                                        onPress={() => handleDecision(booking.id, 'reject')}
-                                    >
-                                        <Ionicons name="close" size={14} color="#fff" />
-                                        <Text style={styles.decisionText}>Decline</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.decisionButton, styles.acceptButton]}
-                                        onPress={() => handleDecision(booking.id, 'accept')}
-                                    >
-                                        <Ionicons name="checkmark" size={14} color="#fff" />
-                                        <Text style={styles.decisionText}>Accept</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            )}
-
-                            <TouchableOpacity style={styles.messageButton}>
-                                <Text style={styles.messageButtonText}>
-                                    <Ionicons name="chatbubble-ellipses-outline" size={16} color="#ffffff" /> 
-                                    Message Client
-                                </Text>
-                            </TouchableOpacity>
                         </View>
-                    ))}
+
+                        {bookings.map((booking) => (
+                            <View key={booking.id} style={styles.bookingCard}>
+                                <View style={styles.bookingHeader}>
+                                    <View style={styles.avatarContainer}>
+                                        <View style={styles.avatar} />
+                                        {booking.isOnline && <View style={styles.onlineIndicator} />}
+                                    </View>
+                                    <View style={styles.bookingInfo}>
+                                        <View style={styles.nameStatusRow}>
+                                            <Text style={styles.guideNameWaiting}>{booking.name}</Text>
+                                            <View style={styles.statusContainer}>
+                                                {booking.status === 'Pending' && (
+                                                    <Ionicons name="time-outline" size={16} color="#ffc107" />
+                                                )}
+
+                                                {booking.status === 'Accepted' && (
+                                                    <Ionicons name="checkmark" size={16} color="#0099ff" />
+                                                )}
+                                                {booking.status === 'Active' && (
+                                                    <Ionicons name="checkmark-circle-outline" size={16} color="#00c853" />
+                                                )}
+                                                {booking.status === 'Rejected' && (
+                                                    <Ionicons name="close-circle-outline" size={16} color="#ff5252" />
+                                                )}
+                                                <Text style={styles.statusText}>{booking.status}</Text>
+                                            </View>
+                                        </View>
+                                        <View style={styles.metaInfo}>
+                                            <Text style={styles.hopping}>{booking.hopping}</Text>
+                                            <View style={styles.dates}>
+                                                <Text style={styles.startDate}>
+                                                    <Ionicons name="calendar" size={16} color="#ffffff" /> {booking.start_date}
+                                                </Text>
+                                                <Text style={{color: "#fff", fontSize: 11 }}> - </Text>
+                                                <Text style={styles.endDate}>
+                                                    <Ionicons name="calendar" size={16} color="#ffffff" /> {booking.end_date}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                    </View>
+                                </View>
+
+                                {booking.status === 'Pending' && (
+                                    <View style={styles.decisionRow}>
+                                        <TouchableOpacity
+                                            style={[styles.decisionButton, styles.rejectButton]}
+                                            onPress={() => handleDecision(booking.id, 'reject')}
+                                        >
+                                            <Ionicons name="close" size={14} color="#fff" />
+                                            <Text style={styles.decisionText}>Decline</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={[styles.decisionButton, styles.acceptButton]}
+                                            onPress={() => handleDecision(booking.id, 'accept')}
+                                        >
+                                            <Ionicons name="checkmark" size={14} color="#fff" />
+                                            <Text style={styles.decisionText}>Accept</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
+
+                                <TouchableOpacity style={styles.messageButton}>
+                                    <Text style={styles.messageButtonText}>
+                                        <Ionicons name="chatbubble-ellipses-outline" size={16} color="#ffffff" /> 
+                                        Message Client
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+                    </View>
                 </View>
-            </View>
+            </SafeAreaView>
         </ScrollView>
     );
 };

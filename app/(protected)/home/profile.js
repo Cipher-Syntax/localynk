@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, AntDesign } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Profile() {
     const [loading, setLoading] = useState(true);
@@ -55,99 +56,101 @@ export default function Profile() {
 
     return (
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-            <StatusBar barStyle="light-content" backgroundColor="#1a2f5a" />
+            <SafeAreaView>
+                <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-            <View style={styles.header}>
-                <Image
-                    source={require('../../../assets/localynk_images/header.png')}
-                    style={styles.headerImage}
-                />
-                <LinearGradient
-                    colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
-                    style={styles.overlay}
-                />
-                <Text style={styles.headerTitle}>
-                    {isTourist ? "PROFILE" : "PROFILE"}
-                </Text>
-            </View>
-
-            <View style={styles.profileCard}>
-                <View style={styles.profileHeader}>
-                    <View style={styles.profileImagePlaceholder}>
-                        <Ionicons name="person-circle-outline" size={80} color="#1a2f5a" />
-                    </View>
-                    <Text style={styles.profileName}>{profileData.name}</Text>
-                    {/* {!isTourist && (
-                        <Text style={styles.badge}>PROFILE CUSTOMIZED</Text>
-                    )} */}
+                <View style={styles.header}>
+                    <Image
+                        source={require('../../../assets/localynk_images/header.png')}
+                        style={styles.headerImage}
+                    />
+                    <LinearGradient
+                        colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
+                        style={styles.overlay}
+                    />
+                    <Text style={styles.headerTitle}>
+                        {isTourist ? "PROFILE" : "PROFILE"}
+                    </Text>
                 </View>
 
-                {!isTourist && (
-                    <View style={styles.statsContainer}>
-                        <View style={styles.statItem}>
-                            <Ionicons name="map" size={20} color="#1a2f5a" />
-                            <Text style={styles.statNumber}>2</Text>
-                            <Text style={styles.statLabel}>Tours</Text>
+                <View style={styles.profileCard}>
+                    <View style={styles.profileHeader}>
+                        <View style={styles.profileImagePlaceholder}>
+                            <Ionicons name="person-circle-outline" size={80} color="#1a2f5a" />
                         </View>
-                        <View style={styles.statItem}>
-                            <AntDesign name="star" size={20} color="#FFD700" />
-                            <Text style={styles.statNumber}>10</Text>
-                            <Text style={styles.statLabel}>Completions</Text>
-                        </View>
-                        <View style={styles.statItem}>
-                            <Ionicons name="bookmark" size={20} color="#1a2f5a" />
-                            <Text style={styles.statNumber}>3</Text>
-                            <Text style={styles.statLabel}>Saved</Text>
-                        </View>
+                        <Text style={styles.profileName}>{profileData.name}</Text>
+                        {/* {!isTourist && (
+                            <Text style={styles.badge}>PROFILE CUSTOMIZED</Text>
+                        )} */}
                     </View>
-                )}
 
-                <View style={styles.recentToursSection}>
-                    <Text style={styles.sectionTitle}>Recent Tours</Text>
-                    {profileData.recentTours.map((tour) => (
-                        <View key={tour.id} style={styles.tourItem}>
-                            <Ionicons name="images" size={24} color="#1a2f5a" style={styles.tourIcon} />
-                            <View style={styles.tourInfo}>
-                                <Text style={styles.tourTitle}>{tour.title}</Text>
-                                <Text style={styles.tourDetails}>{tour.guide}</Text>
-                                <Text style={styles.tourDate}>{tour.date}</Text>
+                    {!isTourist && (
+                        <View style={styles.statsContainer}>
+                            <View style={styles.statItem}>
+                                <Ionicons name="map" size={20} color="#1a2f5a" />
+                                <Text style={styles.statNumber}>2</Text>
+                                <Text style={styles.statLabel}>Tours</Text>
                             </View>
-                            <View style={styles.ratingContainer}>
-                                <AntDesign name="star" size={16} color="#FFD700" />
-                                <Text style={styles.ratingNumber}>{tour.rating}.0</Text>
+                            <View style={styles.statItem}>
+                                <AntDesign name="star" size={20} color="#FFD700" />
+                                <Text style={styles.statNumber}>10</Text>
+                                <Text style={styles.statLabel}>Completions</Text>
+                            </View>
+                            <View style={styles.statItem}>
+                                <Ionicons name="bookmark" size={20} color="#1a2f5a" />
+                                <Text style={styles.statNumber}>3</Text>
+                                <Text style={styles.statLabel}>Saved</Text>
                             </View>
                         </View>
-                    ))}
-                </View>
+                    )}
 
-                <View style={styles.settingsSection}>
-                    <Text style={styles.sectionTitle}>Account Settings</Text>
-                    {(isTourist ? accountSettingsItems : tourGuideSettings).map((item) => (
-                        <TouchableOpacity key={item.id} style={styles.settingItem}>
-                            <View style={styles.settingLeft}>
-                                <Ionicons name={item.icon} size={20} color="#1a2f5a" />
-                                <Text style={styles.settingLabel}>{item.label}</Text>
-                            </View>
-                            {item.hasNotification ? (
-                                <View style={styles.notification}>
-                                    <Text style={styles.notificationText}>1</Text>
+                    <View style={styles.recentToursSection}>
+                        <Text style={styles.sectionTitle}>Recent Tours</Text>
+                        {profileData.recentTours.map((tour) => (
+                            <View key={tour.id} style={styles.tourItem}>
+                                <Ionicons name="images" size={24} color="#1a2f5a" style={styles.tourIcon} />
+                                <View style={styles.tourInfo}>
+                                    <Text style={styles.tourTitle}>{tour.title}</Text>
+                                    <Text style={styles.tourDetails}>{tour.guide}</Text>
+                                    <Text style={styles.tourDate}>{tour.date}</Text>
                                 </View>
-                            ) : (
-                                <Ionicons name="chevron-forward" size={20} color="#1a2f5a" />
-                            )}
-                        </TouchableOpacity>
-                    ))}
-                </View>
+                                <View style={styles.ratingContainer}>
+                                    <AntDesign name="star" size={16} color="#FFD700" />
+                                    <Text style={styles.ratingNumber}>{tour.rating}.0</Text>
+                                </View>
+                            </View>
+                        ))}
+                    </View>
 
-                <View style={styles.buttonContainer}>
-                    <TouchableOpacity style={styles.editButton}>
-                        <Text style={styles.buttonText}>Edit Profile</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.logoutButton} onPress={() => router.push({pathname: "/auth/login"})}>
-                        <Text style={styles.logoutButtonText}>Log Out</Text>
-                    </TouchableOpacity>
+                    <View style={styles.settingsSection}>
+                        <Text style={styles.sectionTitle}>Account Settings</Text>
+                        {(isTourist ? accountSettingsItems : tourGuideSettings).map((item) => (
+                            <TouchableOpacity key={item.id} style={styles.settingItem}>
+                                <View style={styles.settingLeft}>
+                                    <Ionicons name={item.icon} size={20} color="#1a2f5a" />
+                                    <Text style={styles.settingLabel}>{item.label}</Text>
+                                </View>
+                                {item.hasNotification ? (
+                                    <View style={styles.notification}>
+                                        <Text style={styles.notificationText}>1</Text>
+                                    </View>
+                                ) : (
+                                    <Ionicons name="chevron-forward" size={20} color="#1a2f5a" />
+                                )}
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+
+                    <View style={styles.buttonContainer}>
+                        <TouchableOpacity style={styles.editButton}>
+                            <Text style={styles.buttonText}>Edit Profile</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.logoutButton} onPress={() => router.push({pathname: "/auth/login"})}>
+                            <Text style={styles.logoutButtonText}>Log Out</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
-            </View>
+            </SafeAreaView>
         </ScrollView>
     );
 }

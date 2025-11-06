@@ -12,6 +12,7 @@ import FeaturePlace6 from '../../assets/localynk_images/featured6.png';
 import House1 from '../../assets/localynk_images/login_background.png';
 import House2 from '../../assets/localynk_images/register_background.png';
 import House3 from '../../assets/localynk_images/featured1.png';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
@@ -50,123 +51,125 @@ const TouristGuideDetails = () => {
 
     return (
         <ScrollView style={styles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-            
-            <View style={styles.header}>
-                <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} />
-                <LinearGradient colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']} style={styles.overlay} />
-                <Text style={styles.headerTitle}>EXPLORE PERFECT GUIDE FOR YOU</Text>
-            </View>
+            <SafeAreaView>
+                <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+                
+                <View style={styles.header}>
+                    <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} />
+                    <LinearGradient colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']} style={styles.overlay} />
+                    <Text style={styles.headerTitle}>EXPLORE PERFECT GUIDE FOR YOU</Text>
+                </View>
 
-            <View style={styles.contentContainer}>
-                <View style={styles.guideCard}>
-                    <View style={styles.cardProfileSection}>
-                        <View style={styles.iconWrapper}>
-                            <User size={40} color="#fff" />
+                <View style={styles.contentContainer}>
+                    <View style={styles.guideCard}>
+                        <View style={styles.cardProfileSection}>
+                            <View style={styles.iconWrapper}>
+                                <User size={40} color="#fff" />
+                            </View>
+                            <View style={styles.profileInfo}>
+                                <Text style={styles.guideName}>{guide.name}</Text>
+                                <Text style={styles.guideAddress}>{guide.address}</Text>
+                                <Text style={styles.guideRating}>
+                                    {guide.rating} <Ionicons name="star" color="#C99700" />
+                                </Text>
+                            </View>
+                            <Ionicons name="heart-outline" size={22} color="#FF5A5F" />
                         </View>
-                        <View style={styles.profileInfo}>
-                            <Text style={styles.guideName}>{guide.name}</Text>
-                            <Text style={styles.guideAddress}>{guide.address}</Text>
-                            <Text style={styles.guideRating}>
-                                {guide.rating} <Ionicons name="star" color="#C99700" />
+
+                        <View style={styles.buttonRow}>
+                            <TouchableOpacity style={styles.viewProfileButton}>
+                                <Ionicons name="person" size={14} color="#fff" />
+                                <Text style={styles.viewProfileText}>View Profile</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.sendMessageButton} onPress={() => router.push({ pathname: "/(protected)/message" })}>
+                                <Ionicons name="chatbubble" size={14} color="#fff" />
+                                <Text style={styles.sendMessageText}>Send Message</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.featuredSection}>
+                            <Text style={styles.featuredTitle}>FEATURED PLACES</Text>
+                            <Text style={styles.featuredDescription}>
+                                Handpicked by locals. Loved by travelers. Discover your next stop!
+                            </Text>
+
+                            <FlatList
+                                horizontal
+                                data={guide.featuredPlaces}
+                                keyExtractor={(item) => item.id.toString()}
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.featureList}
+                                renderItem={({ item }) => (
+                                    <View style={styles.featureCard}>
+                                        <Image source={item.image} style={styles.featureImage} />
+                                        <View style={styles.featureOverlay} />
+                                        <View style={styles.featureBottom}>
+                                            <Text style={styles.featureText}>Discover More</Text>
+                                            <Ionicons name="arrow-forward" size={16} color="#fff" />
+                                        </View>
+                                    </View>
+                                )}
+                            />
+                        </View>
+
+                        <View style={styles.accommodationContainer}>
+                            <Text style={styles.featuredTitle}>ACCOMMODATION</Text>
+                            <Swiper
+                                style={styles.swiper}
+                                autoplay
+                                loop
+                                showsPagination
+                                autoplayTimeout={5}
+                                showsButtons={true}
+                            >
+                                {guide.accommodationImages.map((image, index) => (
+                                    <Image
+                                        key={index}
+                                        source={image}
+                                        style={styles.accommodationImage}
+                                        resizeMode="cover"
+                                    />
+                                ))}
+                            </Swiper>
+                        </View>
+
+                        <View style={styles.pricingContainer}>
+                            <Text style={styles.priceText}>Price: {guide.price}</Text>
+                            <Text style={styles.priceNote}>
+                                Solo: ₱ 1,500/day{'\n'}
+                                Multiple: Additional ₱ 100 per head/day
                             </Text>
                         </View>
-                        <Ionicons name="heart-outline" size={22} color="#FF5A5F" />
-                    </View>
 
-                    <View style={styles.buttonRow}>
-                        <TouchableOpacity style={styles.viewProfileButton}>
-                            <Ionicons name="person" size={14} color="#fff" />
-                            <Text style={styles.viewProfileText}>View Profile</Text>
+
+                        <View style={styles.detailsSection}>
+                            <Text style={styles.detailsHeader}>Guide Details</Text>
+
+                            <View style={styles.infoItem}>
+                                <Ionicons name="language" size={16} color="#1A2332" />
+                                <Text style={styles.detailText}><Text style={styles.detailLabel}>Language: </Text>{guide.language}</Text>
+                            </View>
+
+                            <View style={styles.infoItem}>
+                                <Ionicons name="compass" size={16} color="#1A2332" />
+                                <Text style={styles.detailText}><Text style={styles.detailLabel}>Specialty: </Text>{guide.specialty}</Text>
+                            </View>
+
+                            <View style={styles.infoItem}>
+                                <Ionicons name="time" size={16} color="#1A2332" />
+                                <Text style={styles.detailText}><Text style={styles.detailLabel}>Experience: </Text>{guide.experience}</Text>
+                            </View>
+
+                            <Text style={styles.noteText}>
+                                Price includes guiding services, local assistance, and safety gear. Accommodation and meals not included.
+                            </Text>
+                        </View>
+                        <TouchableOpacity style={styles.bookButton} activeOpacity={0.8} onPress={() => router.push({ pathname: "/(protected)/payment" })}>
+                            <Text style={styles.bookButtonText}>BOOK NOW</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.sendMessageButton} onPress={() => router.push({ pathname: "/(protected)/message" })}>
-                            <Ionicons name="chatbubble" size={14} color="#fff" />
-                            <Text style={styles.sendMessageText}>Send Message</Text>
-                        </TouchableOpacity>
                     </View>
-
-                    <View style={styles.featuredSection}>
-                        <Text style={styles.featuredTitle}>FEATURED PLACES</Text>
-                        <Text style={styles.featuredDescription}>
-                            Handpicked by locals. Loved by travelers. Discover your next stop!
-                        </Text>
-
-                        <FlatList
-                            horizontal
-                            data={guide.featuredPlaces}
-                            keyExtractor={(item) => item.id.toString()}
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.featureList}
-                            renderItem={({ item }) => (
-                                <View style={styles.featureCard}>
-                                    <Image source={item.image} style={styles.featureImage} />
-                                    <View style={styles.featureOverlay} />
-                                    <View style={styles.featureBottom}>
-                                        <Text style={styles.featureText}>Discover More</Text>
-                                        <Ionicons name="arrow-forward" size={16} color="#fff" />
-                                    </View>
-                                </View>
-                            )}
-                        />
-                    </View>
-
-                    <View style={styles.accommodationContainer}>
-                        <Text style={styles.featuredTitle}>ACCOMMODATION</Text>
-                        <Swiper
-                            style={styles.swiper}
-                            autoplay
-                            loop
-                            showsPagination
-                            autoplayTimeout={5}
-                            showsButtons={true}
-                        >
-                            {guide.accommodationImages.map((image, index) => (
-                                <Image
-                                    key={index}
-                                    source={image}
-                                    style={styles.accommodationImage}
-                                    resizeMode="cover"
-                                />
-                            ))}
-                        </Swiper>
-                    </View>
-
-                    <View style={styles.pricingContainer}>
-                        <Text style={styles.priceText}>Price: {guide.price}</Text>
-                        <Text style={styles.priceNote}>
-                            Solo: ₱ 1,500/day{'\n'}
-                            Multiple: Additional ₱ 100 per head/day
-                        </Text>
-                    </View>
-
-
-                    <View style={styles.detailsSection}>
-                        <Text style={styles.detailsHeader}>Guide Details</Text>
-
-                        <View style={styles.infoItem}>
-                            <Ionicons name="language" size={16} color="#1A2332" />
-                            <Text style={styles.detailText}><Text style={styles.detailLabel}>Language: </Text>{guide.language}</Text>
-                        </View>
-
-                        <View style={styles.infoItem}>
-                            <Ionicons name="compass" size={16} color="#1A2332" />
-                            <Text style={styles.detailText}><Text style={styles.detailLabel}>Specialty: </Text>{guide.specialty}</Text>
-                        </View>
-
-                        <View style={styles.infoItem}>
-                            <Ionicons name="time" size={16} color="#1A2332" />
-                            <Text style={styles.detailText}><Text style={styles.detailLabel}>Experience: </Text>{guide.experience}</Text>
-                        </View>
-
-                        <Text style={styles.noteText}>
-                            Price includes guiding services, local assistance, and safety gear. Accommodation and meals not included.
-                        </Text>
-                    </View>
-                    <TouchableOpacity style={styles.bookButton} activeOpacity={0.8} onPress={() => router.push({ pathname: "/(protected)/payment" })}>
-                        <Text style={styles.bookButtonText}>BOOK NOW</Text>
-                    </TouchableOpacity>
                 </View>
-            </View>
+            </SafeAreaView>
         </ScrollView>
     );
 };

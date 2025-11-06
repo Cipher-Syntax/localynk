@@ -21,52 +21,54 @@ const Action = () => {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+            <SafeAreaView>
+                <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-            <View>
-                <View style={styles.header}>
-                    <Image
-                        source={require('../../assets/localynk_images/header.png')}
-                        style={styles.headerImage}
-                    />
-                    <LinearGradient
-                        colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
-                        style={styles.overlay}
-                    />
-                    <Text style={styles.headerTitle}>TOUR GUIDES</Text>
+                <View>
+                    <View style={styles.header}>
+                        <Image
+                            source={require('../../assets/localynk_images/header.png')}
+                            style={styles.headerImage}
+                        />
+                        <LinearGradient
+                            colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
+                            style={styles.overlay}
+                        />
+                        <Text style={styles.headerTitle}>TOUR GUIDES</Text>
+                    </View>
                 </View>
-            </View>
 
-            <View style={styles.body}>
-                <Text style={styles.title}>Want to be a local guide?</Text>
-                <Text style={styles.subtitle}>
-                    Join our community of locals showing off their hometown pride.
-                </Text>
+                <View style={styles.body}>
+                    <Text style={styles.title}>Want to be a local guide?</Text>
+                    <Text style={styles.subtitle}>
+                        Join our community of locals showing off their hometown pride.
+                    </Text>
 
-                <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() => setIsModalOpen(true)}
-                >
-                    <LinearGradient
-                        colors={['#00C6FF', '#0072FF']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.primaryButton}
+                    <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() => setIsModalOpen(true)}
                     >
-                        <Text style={styles.primaryButtonText}>Let's Go!</Text>
-                    </LinearGradient>
-                </TouchableOpacity>
+                        <LinearGradient
+                            colors={['#00C6FF', '#0072FF']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.primaryButton}
+                        >
+                            <Text style={styles.primaryButtonText}>Let's Go!</Text>
+                        </LinearGradient>
+                    </TouchableOpacity>
 
-                <TouchableOpacity activeOpacity={0.8} style={styles.secondaryButton}>
-                    <Text style={styles.secondaryButtonText}>View Requirements</Text>
-                </TouchableOpacity>
-            </View>
+                    <TouchableOpacity activeOpacity={0.8} style={styles.secondaryButton}>
+                        <Text style={styles.secondaryButtonText}>View Requirements</Text>
+                    </TouchableOpacity>
+                </View>
 
-            {
-                isModalOpen && (
-                    <RegisterModalForm isModalOpen={isModalOpen} setIsOpenModal={setIsModalOpen} onSubmit={handleFormSubmit}/>
-                )
-            }
+                {
+                    isModalOpen && (
+                        <RegisterModalForm isModalOpen={isModalOpen} setIsOpenModal={setIsModalOpen} onSubmit={handleFormSubmit}/>
+                    )
+                }
+            </SafeAreaView>
         </View>
     );
 };

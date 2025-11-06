@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { User } from 'lucide-react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { PaymentReviewModal } from '../../components/payment';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const fetchBookingDetails = async (bookingId) => {
     console.log("Fetching data for booking:", bookingId);
@@ -76,132 +77,134 @@ const CompletePayment = () => {
 
     return (
         <ScrollView style={styles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+            <SafeAreaView>
+                <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-            <View style={styles.header}>
-                 <Image
-                    source={require('../../assets/localynk_images/header.png')}
-                    style={styles.headerImage}
-                />
-                <LinearGradient
-                    colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
-                    style={styles.overlay}
-                />
-                <Text style={styles.headerTitle}>COMPLETE YOUR BOOKING</Text>
-            </View>
+                <View style={styles.header}>
+                    <Image
+                        source={require('../../assets/localynk_images/header.png')}
+                        style={styles.headerImage}
+                    />
+                    <LinearGradient
+                        colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
+                        style={styles.overlay}
+                    />
+                    <Text style={styles.headerTitle}>COMPLETE YOUR BOOKING</Text>
+                </View>
 
-            <View style={styles.contentContainer}>
-                {/* Guide Info (Read-only) */}
-                <View style={styles.guideInfoCard}>
-                    <View style={styles.guideHeader}>
-                        <View style={styles.guideIcon}>
-                            <User size={40} color="#fff" />
+                <View style={styles.contentContainer}>
+                    {/* Guide Info (Read-only) */}
+                    <View style={styles.guideInfoCard}>
+                        <View style={styles.guideHeader}>
+                            <View style={styles.guideIcon}>
+                                <User size={40} color="#fff" />
+                            </View>
+                            <View style={styles.guideInfo}>
+                                <Text style={styles.guideName}>{bookingData.guide.name}</Text>
+                                <Text style={styles.guideDetail}>{bookingData.guide.purpose}</Text>
+                                <Text style={styles.guideDetail}>{bookingData.guide.address}</Text>
+                            </View>
                         </View>
-                        <View style={styles.guideInfo}>
-                            <Text style={styles.guideName}>{bookingData.guide.name}</Text>
-                            <Text style={styles.guideDetail}>{bookingData.guide.purpose}</Text>
-                            <Text style={styles.guideDetail}>{bookingData.guide.address}</Text>
+                    </View>
+
+                    {/*Dates (Read-only) */}
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Booking Dates (Confirmed)</Text>
+                        <View style={styles.dateRow}>
+                            <Pressable style={[styles.dateInput, styles.readOnly]}>
+                                <Text style={styles.dateInputText}>{bookingData.startDate.toLocaleDateString()}</Text>
+                                <Ionicons name="calendar" size={18} color="#8B98A8" />
+                            </Pressable>
+                            <Pressable style={[styles.dateInput, styles.readOnly]}>
+                                <Text style={styles.dateInputText}>{bookingData.endDate.toLocaleDateString()}</Text>
+                                <Ionicons name="calendar" size={18} color="#8B98A8" />
+                            </Pressable>
                         </View>
                     </View>
-                </View>
 
-                {/*Dates (Read-only) */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Booking Dates (Confirmed)</Text>
-                    <View style={styles.dateRow}>
-                        <Pressable style={[styles.dateInput, styles.readOnly]}>
-                            <Text style={styles.dateInputText}>{bookingData.startDate.toLocaleDateString()}</Text>
-                            <Ionicons name="calendar" size={18} color="#8B98A8" />
-                        </Pressable>
-                        <Pressable style={[styles.dateInput, styles.readOnly]}>
-                            <Text style={styles.dateInputText}>{bookingData.endDate.toLocaleDateString()}</Text>
-                            <Ionicons name="calendar" size={18} color="#8B98A8" />
-                        </Pressable>
+                    {/* Booking Type (Read-only) */}
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Booking Type (Confirmed)</Text>
+                        <ReadOnlyField label="Type" value={bookingData.selectedOption === 'group' ? 'Group' : 'Solo'} />
+                        {bookingData.selectedOption === 'group' && (
+                            <ReadOnlyField label="Number of people" value={bookingData.numPeople} />
+                        )}
                     </View>
-                </View>
-
-                {/* Booking Type (Read-only) */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Booking Type (Confirmed)</Text>
-                     <ReadOnlyField label="Type" value={bookingData.selectedOption === 'group' ? 'Group' : 'Solo'} />
-                    {bookingData.selectedOption === 'group' && (
-                         <ReadOnlyField label="Number of people" value={bookingData.numPeople} />
-                    )}
-                </View>
-                
-                {/*Price Breakdown (Read-only) */}
-                <View style={styles.priceCard}>
-                    <View style={styles.priceRow}>
-                        <Text style={styles.priceLabel}>Base Price</Text>
-                        <Text style={styles.priceValue}>₱ {bookingData.guide.basePrice.toLocaleString()}</Text>
-                    </View>
-                     {bookingData.selectedOption === 'group' && (
+                    
+                    {/*Price Breakdown (Read-only) */}
+                    <View style={styles.priceCard}>
                         <View style={styles.priceRow}>
-                            <Text style={styles.priceLabel}>Group Size</Text>
-                            <Text style={styles.priceValue}>{bookingData.numPeople} person(s)</Text>
+                            <Text style={styles.priceLabel}>Base Price</Text>
+                            <Text style={styles.priceValue}>₱ {bookingData.guide.basePrice.toLocaleString()}</Text>
                         </View>
-                    )}
-                    <View style={styles.priceRow}>
-                        <Text style={styles.priceLabel}>Days</Text>
-                        <Text style={styles.priceValue}>{days} day(s)</Text>
+                        {bookingData.selectedOption === 'group' && (
+                            <View style={styles.priceRow}>
+                                <Text style={styles.priceLabel}>Group Size</Text>
+                                <Text style={styles.priceValue}>{bookingData.numPeople} person(s)</Text>
+                            </View>
+                        )}
+                        <View style={styles.priceRow}>
+                            <Text style={styles.priceLabel}>Days</Text>
+                            <Text style={styles.priceValue}>{days} day(s)</Text>
+                        </View>
+                        <View style={styles.priceDivider} />
+                        <View style={styles.priceRow}>
+                            <Text style={styles.priceLabel}>Guide Earnings (after fee)</Text>
+                            <Text style={styles.priceValue}>₱ {guideEarnings.toLocaleString()}</Text>
+                        </View>
+                        <View style={styles.priceRow}>
+                            <Text style={styles.priceLabel}>App Service Fee</Text>
+                            <Text style={styles.priceValue}>₱ {bookingData.guide.serviceFee.toLocaleString()}</Text>
+                        </View>
+                        <View style={styles.priceDivider} />
+                        <View style={styles.priceRow}>
+                            <Text style={styles.totalLabel}>Total to Pay</Text>
+                            <Text style={styles.totalValue}>₱ {bookingData.totalPrice.toLocaleString()}</Text>
+                        </View>
                     </View>
-                    <View style={styles.priceDivider} />
-                    <View style={styles.priceRow}>
-                        <Text style={styles.priceLabel}>Guide Earnings (after fee)</Text>
-                        <Text style={styles.priceValue}>₱ {guideEarnings.toLocaleString()}</Text>
-                    </View>
-                    <View style={styles.priceRow}>
-                        <Text style={styles.priceLabel}>App Service Fee</Text>
-                        <Text style={styles.priceValue}>₱ {bookingData.guide.serviceFee.toLocaleString()}</Text>
-                    </View>
-                    <View style={styles.priceDivider} />
-                    <View style={styles.priceRow}>
-                        <Text style={styles.totalLabel}>Total to Pay</Text>
-                        <Text style={styles.totalValue}>₱ {bookingData.totalPrice.toLocaleString()}</Text>
-                    </View>
-                </View>
 
-                {/* Billing Info (Read-only) */}
-                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Billing Information</Text>
-                    <ReadOnlyRow>
-                        <ReadOnlyField label="First Name" value={bookingData.billingInfo.firstName} />
-                        <ReadOnlyField label="Last Name" value={bookingData.billingInfo.lastName} />
-                    </ReadOnlyRow>
-                    <ReadOnlyRow>
-                        <ReadOnlyField label="Phone Number" value={bookingData.billingInfo.phoneNumber} />
-                        <ReadOnlyField label="Country" value={bookingData.billingInfo.country} />
-                    </ReadOnlyRow>
-                    <ReadOnlyField label="Email" value={bookingData.billingInfo.email} />
-                </View>
+                    {/* Billing Info (Read-only) */}
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Billing Information</Text>
+                        <ReadOnlyRow>
+                            <ReadOnlyField label="First Name" value={bookingData.billingInfo.firstName} />
+                            <ReadOnlyField label="Last Name" value={bookingData.billingInfo.lastName} />
+                        </ReadOnlyRow>
+                        <ReadOnlyRow>
+                            <ReadOnlyField label="Phone Number" value={bookingData.billingInfo.phoneNumber} />
+                            <ReadOnlyField label="Country" value={bookingData.billingInfo.country} />
+                        </ReadOnlyRow>
+                        <ReadOnlyField label="Email" value={bookingData.billingInfo.email} />
+                    </View>
 
-                {/* The only interactive part */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Payment Options</Text>
-                    <TouchableOpacity
-                        style={styles.paymentOption}
-                        onPress={() => setPaymentMethod('gcash')}
-                    >
-                        <View style={[styles.radioButton, paymentMethod === 'gcash' && styles.radioButtonActive]} />
-                        <Text style={styles.paymentOptionText}>Gcash</Text>
+                    {/* The only interactive part */}
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Payment Options</Text>
+                        <TouchableOpacity
+                            style={styles.paymentOption}
+                            onPress={() => setPaymentMethod('gcash')}
+                        >
+                            <View style={[styles.radioButton, paymentMethod === 'gcash' && styles.radioButtonActive]} />
+                            <Text style={styles.paymentOptionText}>Gcash</Text>
+                        </TouchableOpacity>
+                    </View>
+                    
+                    <TouchableOpacity style={styles.confirmButton} onPress={() => setIsModalOpen(true)}>
+                        <Text style={styles.confirmButtonText}>Review and Pay ₱{bookingData.totalPrice.toLocaleString()}</Text>
                     </TouchableOpacity>
                 </View>
-                
-                <TouchableOpacity style={styles.confirmButton} onPress={() => setIsModalOpen(true)}>
-                    <Text style={styles.confirmButtonText}>Review and Pay ₱{bookingData.totalPrice.toLocaleString()}</Text>
-                </TouchableOpacity>
-            </View>
 
-            {isModalOpen && (
-                <PaymentReviewModal 
-                    isModalOpen={isModalOpen} 
-                    setIsModalOpen={setIsModalOpen}
-                    paymentData={{
-                        ...bookingData,
-                        paymentMethod: paymentMethod,
-                    }} 
-                />
-            )}
+                {isModalOpen && (
+                    <PaymentReviewModal 
+                        isModalOpen={isModalOpen} 
+                        setIsModalOpen={setIsModalOpen}
+                        paymentData={{
+                            ...bookingData,
+                            paymentMethod: paymentMethod,
+                        }} 
+                    />
+                )}
+            </SafeAreaView>
         </ScrollView>
     );
 };
