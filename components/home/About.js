@@ -1,5 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
+import MaskedView from '@react-native-masked-view/masked-view';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const About = () => {
     return (
@@ -7,7 +9,22 @@ const About = () => {
             <View style={styles.contentRow}>
 
                 <View style={styles.logoContainer}>
-                    <Text style={styles.logoText}>LOGO HERE</Text>
+                    <Image source={require("../../assets/localynk_images/logo.png")} />
+                    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                        <MaskedView
+                            maskElement={
+                                <Text style={styles.logoText}>LOCALYNK</Text>
+                            }
+                        >
+                            <LinearGradient
+                            colors={['#0F172A', '#00C6FF']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={{ width: 300, height: 50 }}
+                            />
+                        </MaskedView>
+                    </View>
+
                 </View>
 
                 <View style={styles.textContainer}>
@@ -32,19 +49,20 @@ const styles = StyleSheet.create({
         justifyContent: "center"
     },
     logoContainer: {
-        width: 200,
+        width: 230,
         height: 300,
-        backgroundColor: '#00BCD4',
+        backgroundColor: '#D9E2E9',
         justifyContent: 'center',
         alignItems: 'center',
-        borderRadius: 4,
+        borderRadius: 10,
         flexShrink: 0,
     },
     logoText: {
         fontSize: 24,
-        fontWeight: 'bold',
+        fontWeight: 900,
         color: '#fff',
-        letterSpacing: 2,
+        letterSpacing: 3,
+        textAlign: "center"
     },
     textContainer: {
         flex: 1,

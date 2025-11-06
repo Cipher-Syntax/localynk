@@ -133,23 +133,33 @@ const ExplorePlaces = () => {
                 <Text style={styles.headerTitle}>EXPLORE DIFFERENT GUIDES/PLACES</Text>
             </View>
 
-            <View style={styles.toggleContainer}>
-                <TouchableOpacity 
-                    style={[styles.toggleButton, activeTab === 'guides' && styles.toggleButtonActive]}
-                    onPress={() => setActiveTab('guides')}
-                >
-                    <Text style={[styles.toggleButtonText, activeTab === 'guides' && styles.toggleButtonTextActive]}>
-                        Tour Guides
-                    </Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                    style={[styles.toggleButton, activeTab === 'places' && styles.toggleButtonActive]}
-                    onPress={() => setActiveTab('places')}
-                >
-                    <Text style={[styles.toggleButtonText, activeTab === 'places' && styles.toggleButtonTextActive]}>
-                        Places
-                    </Text>
-                </TouchableOpacity>
+            <TouchableOpacity 
+                style={styles.filterButton}
+                onPress={() => alert("Filter options coming soon!")}
+            >
+                <Ionicons name="options-outline" size={22} color="#00A8FF" />
+            </TouchableOpacity>
+
+            <View style={styles.toggleRow}>
+                <View style={styles.toggleContainer}>
+                    <TouchableOpacity
+                        style={[styles.toggleButton, activeTab === 'guides' && styles.toggleButtonActive]}
+                        onPress={() => setActiveTab('guides')}
+                    >
+                        <Text style={[styles.toggleButtonText, activeTab === 'guides' && styles.toggleButtonTextActive]}>
+                            Tour Guides
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.toggleButton, activeTab === 'places' && styles.toggleButtonActive]}
+                        onPress={() => setActiveTab('places')}
+                    >
+                        <Text style={[styles.toggleButtonText, activeTab === 'places' && styles.toggleButtonTextActive]}>
+                            Places
+                        </Text>
+                    </TouchableOpacity>
+                </View>
             </View>
 
             <View style={styles.contentContainer}>
@@ -309,6 +319,23 @@ const styles = StyleSheet.create({
     },
     toggleButtonTextActive: {
         color: '#fff',
+    },
+    filterButton: {
+        backgroundColor: '#EBF0F5',
+        padding: 10,
+        borderRadius: 10,
+        marginRight: 16,
+        marginTop: 10,
+        alignSelf: 'flex-end',
+        borderWidth: 1,
+        borderColor: '#D0DAE3',
+    },
+    toggleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 10,
     },
     contentContainer: {
         padding: 16,

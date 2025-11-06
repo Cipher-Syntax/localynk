@@ -6,8 +6,10 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
-    const [showAlert, setShowAlert] = useState(false);
-    const [slideAnim] = useState(new Animated.Value(200));
+    // --- MODIFIED STATE ---
+    // Removed showAlert and slideAnim
+    const [showConfirmationScreen, setShowConfirmationScreen] = useState(false);
+    const [isPayment, setIsPayment] = useState(false);
     const router = useRouter();
 
     const handleConfirm = () => {
@@ -22,35 +24,20 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
             // e.g., saveBookingRequest(paymentData);
             console.log("Submitting booking request...", paymentData);
         }
-        // --- END OF YOUR LOGIC ---
-
-        setShowAlert(true);
-        Animated.timing(slideAnim, {
-            toValue: 0,
-            duration: 300,
-            easing: Easing.out(Easing.ease),
-            useNativeDriver: true,
-        }).start();
+        
+        setIsPayment(!!paymentData?.paymentMethod);
+        setShowConfirmationScreen(true);
     };
 
-    const handleAlertOk = () => {
-        Animated.timing(slideAnim, {
-            toValue: 200,
-            duration: 300,
-            easing: Easing.in(Easing.ease),
-            useNativeDriver: true,
-        }).start(() => {
-            setShowAlert(false);
-            setIsModalOpen(false);
-            
-            if (paymentData?.paymentMethod) {
-                // This was a FINAL payment.
-                router.replace('/(protected)/home'); // Or a "Bookings" page
-            } else {
-                // This was a REQUEST.
-                router.replace('/(protected)/home'); // Or a "Request Sent" page
-            }
-        });
+    const handleConfirmationDismiss = () => {
+        setShowConfirmationScreen(false);
+        setIsModalOpen(false);
+        
+        if (isPayment) {
+            router.replace('/(protected)/home');
+        } else {
+            router.replace('/(protected)/home');
+        }
     };
 
     const { guide, accommodation, startDate, endDate, firstName, lastName, phoneNumber, country, email, basePrice, serviceFee, totalPrice, paymentMethod, groupType, numberOfPeople, } = paymentData || {};
@@ -63,12 +50,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 
     const days = calculateDays();
     const guideEarnings = totalPrice - serviceFee;
-
-    // Use a dynamic title for the alert
-    const alertTitle = paymentData?.paymentMethod ? "Booking Confirmed!" : "Request Sent!";
-    const alertMessage = paymentData?.paymentMethod 
-        ? "Your booking has been successfully confirmed." 
-        : "Your request has been sent to the guide. You will be notified when they respond.";
 
     return (
         <Modal visible={isModalOpen} animationType="slide">
@@ -243,26 +224,58 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                             <Text style={styles.cancelButtonText}>Edit Details</Text>
                         </TouchableOpacity>
                     </View>
-
-
-                    <Modal transparent visible={showAlert} animationType="none">
-                        <View style={styles.alertOverlay}>
-                            <Animated.View style={[styles.alertBox, { transform: [{ translateY: slideAnim }] }]}>
-                                <Text style={styles.alertTitle}>{alertTitle}</Text>
-                                <Text style={styles.alertMessage}>{alertMessage}</Text>
-                                <TouchableOpacity style={styles.alertButton} onPress={handleAlertOk}>
-                                    <Text style={styles.alertButtonText}>OK</Text>
-                                </TouchableOpacity>
-                            </Animated.View>
-                        </View>
-                    </Modal>
                 </SafeAreaView>
             </ScrollView>
+
+            <Modal
+                visible={showConfirmationScreen}
+                animationType="fade"
+                transparent={false}
+            >
+                <SafeAreaView style={styles.confirmationContainer}>
+                    <View style={styles.confirmationContent}>
+                        <Text style={styles.confirmationHeader}>
+                            {isPayment ? "CONFIRMATION" : "REQUEST SENT"}
+                        </Text>
+                        
+                        <Ionicons 
+                            name={isPayment ? "checkmark-circle" : "hourglass-outline"} 
+                            size={100} 
+                            style={[
+                                styles.confirmationIcon, 
+                                { color: isPayment ? '#00A8FF' : '#F5A623' }
+                            ]} 
+                        />
+                        
+                        <Text style={styles.confirmationTitle}>
+                            {isPayment ? "Successful!" : "Request Sent!"}
+                        </Text>
+                        
+                        <Text style={styles.confirmationMessage}>
+                            {isPayment
+                                ? "Your booking is confirmed. Thank you for booking with us!"
+                                : "Please wait for the tour guide to approve your booking request. You will receive a notification shortly."
+                            }
+                        </Text>
+
+                        <TouchableOpacity 
+                            style={styles.confirmationButton} 
+                            onPress={handleConfirmationDismiss}
+                        >
+                            <Text style={styles.confirmationButtonText}>
+                                {isPayment ? "Confirm" : "OK"}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </SafeAreaView>
+            </Modal>
         </Modal>
     );
 };
 
 export default PaymentReviewModal;
+
+// --- STYLES (Added new styles at the end) ---
 const styles = StyleSheet.create({
     container: { 
         flex: 1, 
@@ -467,41 +480,56 @@ const styles = StyleSheet.create({
         fontWeight: '700', 
         fontSize: 14 
     },
-    alertOverlay: { 
-        flex: 1, 
-        backgroundColor: 'rgba(0,0,0,0.3)', 
-        justifyContent: 'flex-end', 
-        alignItems: 'center' 
+
+    // --- REMOVED OLD ALERT STYLES ---
+    
+    // --- NEW CONFIRMATION MODAL STYLES ---
+    confirmationContainer: {
+        flex: 1,
+        backgroundColor: '#F5F7FA', // A light background color
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    alertBox: { 
-        width: '90%', 
-        backgroundColor: '#fff', 
-        borderRadius: 12, 
-        padding: 20, 
-        marginBottom: 30, 
-        alignItems: 'center' 
+    confirmationContent: {
+        width: '90%',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingBottom: 30,
     },
-    alertTitle: { 
-        fontSize: 16, 
-        fontWeight: '700', 
-        marginBottom: 8, 
-        color: '#1A2332' 
+    confirmationHeader: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#00A8FF',
+        letterSpacing: 1,
+        marginBottom: 40,
+        opacity: 0.8
     },
-    alertMessage: { 
-        fontSize: 13, 
-        color: '#8B98A8', 
-        textAlign: 'center', 
-        marginBottom: 16 
+    confirmationIcon: {
+        marginBottom: 24,
     },
-    alertButton: { 
-        backgroundColor: '#00A8FF', 
-        paddingVertical: 10, 
-        paddingHorizontal: 30, 
-        borderRadius: 8 
+    confirmationTitle: {
+        fontSize: 26,
+        fontWeight: '800',
+        color: '#1A2332',
+        marginBottom: 12,
     },
-    alertButtonText: { 
-        color: '#fff', 
-        fontWeight: '700', 
-        fontSize: 14 
+    confirmationMessage: {
+        fontSize: 15,
+        color: '#8B98A8',
+        textAlign: 'center',
+        lineHeight: 22,
+        marginBottom: 40,
+    },
+    confirmationButton: {
+        backgroundColor: '#00A8FF',
+        paddingVertical: 14,
+        borderRadius: 8,
+        alignItems: 'center',
+        width: '100%',
+    },
+    confirmationButtonText: {
+        color: '#fff',
+        fontWeight: '700',
+        fontSize: 16,
     },
 });

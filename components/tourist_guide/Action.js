@@ -5,10 +5,12 @@ import IsTourist from './IsTourist';
 import RegisterModalForm from './RegisterOpenModalForm';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaskedView from '@react-native-masked-view/masked-view'
+import { useRouter } from 'expo-router';
 
 const Action = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isTourist, setIsTourist] = useState(false);
+    const router = useRouter();
 
     const handleFormSubmit = () => {
         setIsModalOpen(false);
@@ -60,7 +62,8 @@ const Action = () => {
 
                 <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => setIsModalOpen(true)}
+                    // onPress={() => setIsModalOpen(true)}
+                    onPress={() => router.push({pathname: "/(protected)/termsAndAgreement"})}
                 >
                     <LinearGradient
                         colors={['#00C6FF', '#0072FF']}
@@ -72,7 +75,7 @@ const Action = () => {
                     </LinearGradient>
                 </TouchableOpacity>
 
-                <TouchableOpacity activeOpacity={0.8} style={styles.secondaryButton}>
+                <TouchableOpacity activeOpacity={0.8} style={styles.secondaryButton} onPress={() => router.push({pathname: "/(protected)/termsAndAgreement"})}>
                     <Text style={styles.secondaryButtonText}>View Requirements</Text>
                 </TouchableOpacity>
             </View>

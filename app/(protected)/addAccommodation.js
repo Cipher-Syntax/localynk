@@ -4,11 +4,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
 const AddAccommodation = () => {
     const [accommodationImage, setAccommodationImage] = useState(null);
     const [roomImage, setRoomImage] = useState(null);
     const [transportImage, setTransportImage] = useState(null);
+    const router = useRouter()
     const [formData, setFormData] = useState({
         name: '',
         type: 'Room',
@@ -51,6 +53,10 @@ const AddAccommodation = () => {
                 [offering]: !formData.offerings[offering],
             },
         });
+    };
+
+    const handleCancel = () => {
+        router.back();
     };
 
     return (
@@ -182,6 +188,10 @@ const AddAccommodation = () => {
                             <Text style={styles.submitText}>Submit</Text>
                         </LinearGradient>
                     </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
+                        <Text style={styles.cancelText}>CANCEL</Text>
+                    </TouchableOpacity>
                 </View>
             </SafeAreaView>
         </ScrollView>
@@ -300,5 +310,19 @@ const styles = StyleSheet.create({
     },
     checked: {
         backgroundColor: '#007AFF',
+    },
+    cancelButton: {
+        // marginHorizontal: 15,
+        // marginTop: 10,
+        marginBottom: 30,
+        borderRadius: 8,
+        paddingVertical: 14,
+        backgroundColor: '#E5E5EA',
+    },
+    cancelText: { 
+        color: '#333', 
+        fontWeight: '600', 
+        textAlign: 'center', 
+        fontSize: 14 
     },
 });

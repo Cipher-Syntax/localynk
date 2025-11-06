@@ -4,9 +4,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router'
 
 const AddTour = () => {
     const [featuredPlaces, setFeaturedPlaces] = useState([null, null]);
+
+    const router = useRouter();
     const [formData, setFormData] = useState({
         description: '',
         duration: '',
@@ -25,7 +28,7 @@ const AddTour = () => {
         }
 
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ['images'],
             allowsEditing: true,
             aspect: [4, 3],
             quality: 1,
@@ -33,9 +36,23 @@ const AddTour = () => {
 
         if (!result.canceled) {
             const newPlaces = [...featuredPlaces];
-            newPlaces[index] = result.assets[0].uri;
+            newPlaces[index] = { ...newPlaces[index], uri: result.assets[0].uri };
             setFeaturedPlaces(newPlaces);
         }
+    };
+
+    const addPlace = () => {
+        setFeaturedPlaces([...featuredPlaces, null]);
+    };
+
+    const removePlace = (index) => {
+        const newPlaces = [...featuredPlaces];
+        newPlaces.splice(index, 1);
+        setFeaturedPlaces(newPlaces);
+    };
+
+    const handleCancel = () => {
+        router.back();
     };
 
     return (
@@ -73,7 +90,13 @@ const AddTour = () => {
                     </View>
 
                     <View style={styles.formGroup}>
-                        <Text style={styles.label}>Featured Places</Text>
+                        <View style={styles.labelRow}>
+                            <Text style={styles.label}>Featured Places</Text>
+                            <TouchableOpacity style={styles.addButton} onPress={addPlace}>
+                                <Text style={styles.addButtonText}>+ Add Place</Text>
+                            </TouchableOpacity>
+                        </View>
+
                         <View style={styles.placesGrid}>
                             {featuredPlaces.map((place, index) => (
                                 <View key={index} style={styles.placeCard}>
@@ -81,9 +104,19 @@ const AddTour = () => {
                                         style={styles.imagePicker}
                                         onPress={() => pickImage(index)}
                                     >
-                                        {place && <Image source={{ uri: place }} style={styles.uploadedImage} />}
-                                        <Ionicons name="add-circle" size={28} color="#007AFF" style={styles.addIcon} />
+                                        {place?.uri ? (
+                                            <Image source={{ uri: place.uri }} style={styles.uploadedImage} />
+                                        ) : (
+                                            <Ionicons name="add-circle" size={28} color="#007AFF" />
+                                        )}
+                                        <TouchableOpacity
+                                            style={styles.removeIcon}
+                                            onPress={() => removePlace(index)}
+                                        >
+                                            <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                                        </TouchableOpacity>
                                     </TouchableOpacity>
+
                                     <TextInput
                                         style={styles.placeNameInput}
                                         placeholder={`Place ${index + 1} name`}
@@ -171,10 +204,15 @@ const AddTour = () => {
                     </View>
                 </View>
 
+                {/* BUTTONS */}
                 <TouchableOpacity style={styles.submitButton}>
                     <LinearGradient colors={['#00B2FF', '#006AFF']} style={styles.gradientButton}>
                         <Text style={styles.submitText}>SUBMIT</Text>
                     </LinearGradient>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
+                    <Text style={styles.cancelText}>CANCEL</Text>
                 </TouchableOpacity>
             </SafeAreaView>
         </ScrollView>
@@ -236,7 +274,23 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '600',
         color: '#555',
+    },
+    labelRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: 6,
+    },
+    addButton: {
+        backgroundColor: '#007AFF',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 6,
+    },
+    addButtonText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: '600',
     },
     input: {
         borderWidth: 1,
@@ -257,10 +311,11 @@ const styles = StyleSheet.create({
     },
     placesGrid: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
         gap: 12,
     },
     placeCard: {
-        flex: 1,
+        width: '48%',
         marginBottom: 10,
     },
     imagePicker: {
@@ -279,10 +334,14 @@ const styles = StyleSheet.create({
         height: '100%',
         borderRadius: 8,
     },
-    addIcon: {
+    removeIcon: {
         position: 'absolute',
-        bottom: 5,
-        right: 5,
+        top: 6,
+        right: 6,
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 3,
+        elevation: 2,
     },
     placeNameInput: {
         borderWidth: 1,
@@ -295,7 +354,7 @@ const styles = StyleSheet.create({
     },
     submitButton: {
         marginHorizontal: 15,
-        marginVertical: 20,
+        marginTop: 20,
         borderRadius: 8,
         overflow: 'hidden',
     },
@@ -305,6 +364,20 @@ const styles = StyleSheet.create({
     },
     submitText: {
         color: '#fff',
+        fontWeight: '600',
+        textAlign: 'center',
+        fontSize: 14,
+    },
+    cancelButton: {
+        marginHorizontal: 15,
+        marginTop: 10,
+        marginBottom: 30,
+        borderRadius: 8,
+        paddingVertical: 14,
+        backgroundColor: '#E5E5EA',
+    },
+    cancelText: {
+        color: '#333',
         fontWeight: '600',
         textAlign: 'center',
         fontSize: 14,

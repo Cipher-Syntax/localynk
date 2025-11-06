@@ -1,5 +1,17 @@
-import { View, Text, ActivityIndicator, ScrollView, StyleSheet, StatusBar, Image, TouchableOpacity, TextInput } from "react-native";
 import React, { useState, useEffect } from "react";
+import {
+    View,
+    Text,
+    ActivityIndicator,
+    ScrollView,
+    StyleSheet,
+    StatusBar,
+    Image,
+    TouchableOpacity,
+    TextInput,
+    Modal,
+    Alert,
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -8,20 +20,22 @@ export default function Message() {
     const [loading, setLoading] = useState(true);
     const [messages, setMessages] = useState([]);
     const [inputText, setInputText] = useState("");
+    const [isModalVisible, setModalVisible] = useState(false);
+    const [selectedReason, setSelectedReason] = useState("");
+    const [customReason, setCustomReason] = useState("");
 
     useEffect(() => {
         const timer = setTimeout(() => {
             setMessages([
-                { id: 1, sender: "You", text: "Good Morning Sir!", timestamp: "10:30 AM", isSent: true },
-                { id: 2, sender: "Francis", text: "Good Morning sir, how may I help you? ", timestamp: "10:40 AM", isSent: false },
-                { id: 3, sender: "You", text: "Is your accommodation good for a family of 5? ", timestamp: "10:40 AM", isSent: true },
-                { id: 4, sender: "Francis", text: "yes sir my place can accommodate up to 7 people", timestamp: "10:40 AM", isSent: false },
+                { id: 1, sender: "You", text: "Hi! Good morning!", timestamp: "10:20 AM", isSent: true },
+                { id: 2, sender: "Francis", text: "Good morning! How can I assist you today?", timestamp: "10:25 AM", isSent: false },
+                { id: 3, sender: "You", text: "Do you provide tours for families?", timestamp: "10:27 AM", isSent: true },
+                { id: 4, sender: "Francis", text: "Yes! My packages are family-friendly and customizable.", timestamp: "10:30 AM", isSent: false },
             ]);
             setLoading(false);
-        }, 1500);
+        }, 1200);
         return () => clearTimeout(timer);
     }, []);
-
 
     const handleSendMessage = () => {
         if (inputText.trim() === "") return;
@@ -36,6 +50,18 @@ export default function Message() {
         setInputText("");
     };
 
+    const handleReportConfirm = () => {
+        const reason = selectedReason === "Other" ? customReason : selectedReason;
+        if (!reason.trim()) {
+            Alert.alert("⚠️ Incomplete", "Please select or enter a reason for reporting.");
+            return;
+        }
+        setModalVisible(false);
+        setTimeout(() => {
+            Alert.alert("✅ Report Sent", "Your report has been successfully submitted.");
+        }, 300);
+    };
+
     if (loading) {
         return (
             <View style={styles.loadingContainer}>
@@ -45,7 +71,7 @@ export default function Message() {
     }
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
             <View style={styles.header}>
@@ -60,10 +86,14 @@ export default function Message() {
                 <Text style={styles.headerTitle}>Message</Text>
             </View>
 
-            <ScrollView
-                style={styles.messagesContainer}
-                showsVerticalScrollIndicator={false}
-            >
+            <View style={styles.guideInfo}>
+                <Text style={styles.guideName}>FRANCIS MIRAVILLA</Text>
+                <TouchableOpacity onPress={() => setModalVisible(true)}>
+                    <Ionicons name="flag-outline" size={22} color="#000" />
+                </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.messagesContainer} showsVerticalScrollIndicator={false}>
                 {messages.map((message) => (
                     <View
                         key={message.id}
@@ -78,17 +108,13 @@ export default function Message() {
                         <View
                             style={[
                                 styles.messageBubble,
-                                message.isSent
-                                    ? styles.sentBubble
-                                    : styles.receivedBubble,
+                                message.isSent ? styles.sentBubble : styles.receivedBubble,
                             ]}
                         >
                             <Text
                                 style={[
                                     styles.messageText,
-                                    message.isSent
-                                        ? styles.sentText
-                                        : styles.receivedText,
+                                    message.isSent ? styles.sentText : styles.receivedText,
                                 ]}
                             >
                                 {message.text}
@@ -99,6 +125,66 @@ export default function Message() {
                 ))}
             </ScrollView>
 
+            <Modal
+                visible={isModalVisible}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContainer}>
+                        <Text style={styles.modalTitle}>REPORT THIS TOURIST?</Text>
+
+                        <Text style={styles.reasonLabel}>Select Reason</Text>
+                        {["Rude Behavior", "Inappropriate Message", "Spam", "Other"].map((reason) => (
+                            <TouchableOpacity
+                                key={reason}
+                                style={[
+                                    styles.reasonOption,
+                                    selectedReason === reason && styles.selectedReason,
+                                ]}
+                                onPress={() => setSelectedReason(reason)}
+                            >
+                                <Text
+                                    style={[
+                                        styles.reasonText,
+                                        selectedReason === reason && styles.selectedReasonText,
+                                    ]}
+                                >
+                                    {reason}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+
+                        {selectedReason === "Other" && (
+                            <TextInput
+                                style={styles.reasonInput}
+                                placeholder="Enter your reason..."
+                                placeholderTextColor="#777"
+                                value={customReason}
+                                onChangeText={setCustomReason}
+                                multiline
+                            />
+                        )}
+
+                        <View style={styles.modalButtons}>
+                            <TouchableOpacity
+                                style={[styles.modalButton, styles.yesButton]}
+                                onPress={handleReportConfirm}
+                            >
+                                <Text style={styles.buttonText}>Submit</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.modalButton, styles.noButton]}
+                                onPress={() => setModalVisible(false)}
+                            >
+                                <Text style={styles.buttonText}>Cancel</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
             <View style={styles.inputContainer}>
                 <TouchableOpacity style={styles.iconButton}>
                     <Ionicons name="camera-outline" size={22} color="#555" />
@@ -106,7 +192,6 @@ export default function Message() {
                 <TouchableOpacity style={styles.iconButton}>
                     <Ionicons name="image-outline" size={22} color="#555" />
                 </TouchableOpacity>
-
                 <View style={styles.textInputWrapper}>
                     <TextInput
                         style={styles.input}
@@ -117,11 +202,9 @@ export default function Message() {
                         multiline
                     />
                 </View>
-
                 <TouchableOpacity style={styles.iconButton}>
                     <Ionicons name="happy-outline" size={22} color="#555" />
                 </TouchableOpacity>
-
                 <TouchableOpacity
                     style={[styles.iconButton, styles.sendButton]}
                     onPress={handleSendMessage}
@@ -129,7 +212,7 @@ export default function Message() {
                     <Ionicons name="send-outline" size={20} color="#fff" />
                 </TouchableOpacity>
             </View>
-        </View>
+        </SafeAreaView>
     );
 }
 
@@ -142,7 +225,7 @@ const styles = StyleSheet.create({
     },
     container: {
         flex: 1,
-        backgroundColor: "#f5f5f5",
+        backgroundColor: "#fff",
     },
     header: {
         position: "relative",
@@ -169,6 +252,21 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: "700",
         letterSpacing: 1,
+    },
+    guideInfo: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        backgroundColor: "#fff",
+        paddingVertical: 10,
+        paddingHorizontal: 15,
+        borderBottomWidth: 1,
+        borderColor: "#ddd",
+    },
+    guideName: {
+        fontSize: 14,
+        fontWeight: "700",
+        color: "#00051A",
     },
     messagesContainer: {
         flex: 1,
@@ -200,7 +298,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#00051A",
     },
     receivedBubble: {
-        backgroundColor: "#fff",
+        backgroundColor: "#E9EEF3",
     },
     messageText: {
         fontSize: 15,
@@ -217,13 +315,87 @@ const styles = StyleSheet.create({
         marginTop: 4,
         marginHorizontal: 10,
     },
+    modalOverlay: {
+        flex: 1,
+        justifyContent: "flex-end",
+        backgroundColor: "rgba(0,0,0,0.4)",
+    },
+    modalContainer: {
+        backgroundColor: "#fff",
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        padding: 20,
+    },
+    modalTitle: {
+        fontSize: 16,
+        fontWeight: "700",
+        color: "#00051A",
+        textAlign: "center",
+        marginBottom: 15,
+    },
+    reasonLabel: {
+        fontWeight: "600",
+        color: "#000",
+        marginBottom: 8,
+    },
+    reasonOption: {
+        borderWidth: 1,
+        borderColor: "#ccc",
+        borderRadius: 8,
+        paddingVertical: 8,
+        paddingHorizontal: 10,
+        marginBottom: 8,
+    },
+    selectedReason: {
+        borderColor: "#00051A",
+        backgroundColor: "#E9EEF3",
+    },
+    reasonText: {
+        color: "#333",
+        fontSize: 14,
+    },
+    selectedReasonText: {
+        color: "#00051A",
+        fontWeight: "700",
+    },
+    reasonInput: {
+        borderWidth: 1,
+        borderColor: "#ccc",
+        borderRadius: 8,
+        padding: 10,
+        height: 80,
+        textAlignVertical: "top",
+        marginBottom: 10,
+    },
+    modalButtons: {
+        flexDirection: "row",
+        justifyContent: "center",
+        marginTop: 10,
+    },
+    modalButton: {
+        borderRadius: 8,
+        paddingVertical: 10,
+        paddingHorizontal: 25,
+        marginHorizontal: 10,
+    },
+    yesButton: {
+        backgroundColor: "#00051A",
+    },
+    noButton: {
+        backgroundColor: "#555",
+    },
+    buttonText: {
+        color: "#fff",
+        fontSize: 14,
+        fontWeight: "600",
+    },
     inputContainer: {
         flexDirection: "row",
         alignItems: "center",
         backgroundColor: "#00051A",
         paddingVertical: 10,
         paddingHorizontal: 10,
-        marginBottom: 50
+        marginBottom: 40,
     },
     iconButton: {
         paddingHorizontal: 6,
