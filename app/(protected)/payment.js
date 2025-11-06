@@ -289,7 +289,7 @@ const Payment = () => {
                         basePrice: guide.basePrice,
                         serviceFee: guide.serviceFee,
                         totalPrice: totalPrice,
-                        paymentMethod: null, // <-- Set to null, as this is a request
+                        paymentMethod: null,
                         groupType: selectedOption,
                         numberOfPeople: numPeople,
                     }}
@@ -304,7 +304,7 @@ export default Payment;
 const styles = StyleSheet.create({
     container: { 
         flex: 1, 
-        backgroundColor: '#D9E2E9' 
+        // backgroundColor: '#D9E2E9' 
     },
 
     header: { 

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, StatusBar, Image, Text, TouchableOpacity, ImageBackground } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, ScrollView, StyleSheet, StatusBar, Image, Text, TouchableOpacity, ImageBackground, Animated, Easing, } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
 import { User } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
@@ -10,10 +10,35 @@ import places_2 from '../../assets/localynk_images/places_2.png';
 import places_3 from '../../assets/localynk_images/places_3.png';
 import places_4 from '../../assets/localynk_images/places_4.png';
 import places_5 from '../../assets/localynk_images/places_5.png';
+import MaskedView from '@react-native-masked-view/masked-view';
 
 const ExplorePlaces = () => {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState('guides');
+
+    const bounceValue = useRef(new Animated.Value(0)).current;
+    const startBounce = () => {
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(bounceValue, {
+                    toValue: -10,
+                    duration: 400,
+                    easing: Easing.linear,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(bounceValue, {
+                    toValue: 0,
+                    duration: 400,
+                    easing: Easing.linear,
+                    useNativeDriver: true,
+                }),
+            ])
+        ).start();
+    }
+
+    useEffect(() => {
+        startBounce();
+    }, [])
     
     const guideCards = [
         {
@@ -66,23 +91,28 @@ const ExplorePlaces = () => {
     const places = [
         {
             id: 1,
-            image: places_1
+            image: places_1,
+            name: "Limpapa Bridge",
         },
         {
             id: 2,
-            image: places_2
+            image: places_2,
+            name: "Pasonanca Night Market",
         },
         {
             id: 3,
-            image: places_3
+            image: places_3,
+            name: "Pasonanca River",
         },
         {
             id: 4,
-            image: places_4
+            image: places_4,
+            name: "Duyan Spot",
         },
         {
             id: 5,
-            image: places_5
+            image: places_5,
+            name: "Murok Trail",
         },
     ]
 
@@ -178,7 +208,30 @@ const ExplorePlaces = () => {
                                     imageStyle={styles.placesImage}
                                 >
                                     <View style={styles.placesOverlay} />
-                                    <Text style={styles.placesText}>PLACES SECTION</Text>
+                                    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                                        <MaskedView
+                                            maskElement={
+                                            <Text style={styles.placesText}>{place.name}</Text>
+                                            }
+                                        >
+                                            <LinearGradient
+                                            colors={['#FFFFFF', '#00C6FF']}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 1 }}
+                                            style={{ width: 300, height: 50 }}
+                                            />
+                                        </MaskedView>
+                                    </View>
+
+                                    <View style={{textAlign: "center", alignItems: "center", justifyContent: "center", marginTop: 2}}>
+                                        <Text style={{color: "#fff"}}>Discover More</Text>
+                                        <Animated.View style={{
+                                            transform: [{translateY: bounceValue}], marginTop: 10
+                                        }}>
+                                            <Ionicons name='arrow-down-outline' color="#00C6FF" size={18} />
+                                        </Animated.View>
+                                    </View>
+
                                 </ImageBackground>
                             ))
                         }
@@ -352,9 +405,10 @@ const styles = StyleSheet.create({
         marginBottom: 15,
     },
     placesText: {
-        fontSize: 16,
-        color: '#fff',
-        fontWeight: '500',
+        fontSize: 25,
+        fontWeight: 800,
+        letterSpacing: 2,
+        textAlign: "center"
     },
     placesImage: {
         borderRadius: 15,

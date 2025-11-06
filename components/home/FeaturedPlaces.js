@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Image, StyleSheet, FlatList, TouchableOpacity, Dimensions, Animated, Easing } from 'react-native';
+import { View, Text, Image, StyleSheet, FlatList, TouchableOpacity, Dimensions, Animated, Easing, ImageBackground } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,14 +14,40 @@ import DiscoverPlace3 from '../../assets/localynk_images/discover3.png';
 import DiscoverPlace4 from '../../assets/localynk_images/discover4.png';
 
 import { useRouter } from 'expo-router'
-
 const { width } = Dimensions.get('window');
+const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 const FeaturedPlaces = () => {
     const [isActive, setIsActive] = useState(2);
     const router = useRouter();
 
     const bounceValue = useRef(new Animated.Value(0)).current;
+
+    const DiscoverWhatYouWant = [
+        { id: 1, image: DiscoverPlace1, name: 'BEACHES', touristGuide: "Juan" },
+        { id: 2, image: DiscoverPlace2, name: 'MOUNTAINS', touristGuide: "Dela Cruz" },
+        { id: 3, image: DiscoverPlace3, name: 'RIVERS', touristGuide: "John" },
+        { id: 4, image: DiscoverPlace4, name: 'BEACHES', touristGuide: "Doe" },
+    ];
+
+    const flexAnimations = useRef(
+        DiscoverWhatYouWant.map(item =>
+            new Animated.Value(item.id === isActive ? 4 : 1)
+        )
+    ).current;
+
+    useEffect(() => {
+        const animations = DiscoverWhatYouWant.map((item, index) => {
+            return Animated.timing(flexAnimations[index], {
+                toValue: item.id === isActive ? 4 : 1,
+                duration: 500,
+                easing: Easing.inOut(Easing.cubic),
+                useNativeDriver: false,
+            });
+        });
+
+        Animated.parallel(animations).start();
+    }, [isActive, flexAnimations]);
 
     const startBounce = () => {
         Animated.loop(
@@ -55,15 +81,6 @@ const FeaturedPlaces = () => {
         { id: 6, image: FeaturePlace3 },
     ];
 
-    const DiscoverWhatYouWant = [
-        { id: 1, image: DiscoverPlace1, name: 'BEACHES', touristGuide: "Juan" },
-        { id: 2, image: DiscoverPlace2, name: 'MOUNTAINS', touristGuide: "Dela Cruz" },
-        { id: 3, image: DiscoverPlace3, name: 'RIVERS', touristGuide: "John" },
-        { id: 4, image: DiscoverPlace4, name: 'BEACHES', touristGuide: "Doe" },
-        // { id: 5, image: DiscoverPlace4, name: 'MOUNTAINS', touristGuide: "Doe" },
-        // { id: 6, image: DiscoverPlace4, name: 'RIVERS', touristGuide: "Doe" },
-    ];
-
     return (
         <View style={{ paddingBottom: 50, }}>
             <View style={styles.container}>
@@ -74,7 +91,6 @@ const FeaturedPlaces = () => {
                         Handpicked by locals. Loved by travelers. Discover your next stop!
                     </Text>
                 </View>
-
                 <FlatList
                     horizontal
                     data={FeatureCards}
@@ -104,11 +120,16 @@ const FeaturedPlaces = () => {
                     )}
                 />
 
+                <View style={{ width: "100%", height: 130, marginTop: 20 }}>
+                    <Image source={require('../../assets/localynk_images/travel.png')} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                </View>
+
                 <View style={styles.discoverSection}>
                     <Text style={styles.discoverTitle}>Discover What You Want</Text>
                     <View style={styles.discoverRow}>
-                        {DiscoverWhatYouWant.map((item) => (
-                            <TouchableOpacity
+
+                        {DiscoverWhatYouWant.map((item, index) => (
+                            <AnimatedTouchable 
                                 key={item.id}
                                 activeOpacity={0.9}
                                 onPress={() => {
@@ -116,8 +137,8 @@ const FeaturedPlaces = () => {
                                 }}
                                 style={[
                                     styles.discoverItem,
-                                    { 
-                                        flex: isActive === item.id ? 4 : 1,
+                                    {
+                                        flex: flexAnimations[index],
                                     },
                                 ]}
                             >
@@ -131,7 +152,7 @@ const FeaturedPlaces = () => {
 
                                 {isActive !== item.id && (
                                     <View style={styles.rotatedTextContainer}>
-                                        <Text style={styles.inactiveDiscoverText} numberOfLines={1}>
+                                        <Text style={[styles.inactiveDiscoverText, { width: 400, textAlign: "center", letterSpacing: 25, }]} numberOfLines={1}>
                                             {item.name}
                                         </Text>
                                     </View>
@@ -163,7 +184,7 @@ const FeaturedPlaces = () => {
                                         </TouchableOpacity>
                                     </View>
                                 )}
-                            </TouchableOpacity>
+                            </AnimatedTouchable>
                         ))}
                     </View>
                 </View>
@@ -277,10 +298,9 @@ const styles = StyleSheet.create({
     },
     inactiveDiscoverText: {
         fontSize: 22,
-        fontWeight: '700',
+        fontWeight: "900",
         color: '#ffffff',
         transform: [{ rotate: '-90deg' }],
-        letterSpacing: 2,
     },
     activeItemContainer: {
         position: 'absolute',

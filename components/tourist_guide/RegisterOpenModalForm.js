@@ -102,11 +102,11 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
                     onChangeText={(v) => handleInputChange("landline", v)}
                 />
 
-                {/* Image Upload Sections */}
                 {[
-                    { label: "Birth Certificate", key: "birthCertificate" },
                     { label: "Tour Guide Certificate", key: "tourGuideCert" },
+                    { label: "Proof of Recidency", key: "proofOfRecidency" },
                     { label: "Valid ID", key: "validId" },
+                    { label: "NBI Clearance", key: "nbiClearance" },
                 ].map(({ label, key }) => (
                     <View key={key} style={styles.uploadContainer}>
                         <Text style={styles.label}>{label}:</Text>
