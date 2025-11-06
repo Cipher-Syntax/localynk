@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Image, Text, TouchableOpacity, StatusBar, ScrollView } from 'react-native';
+import { View, StyleSheet, Image, Text, TouchableOpacity, StatusBar } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-// import { IsTourist, RegisterModalForm } from '../tourist_guide';
 import IsTourist from './IsTourist';
 import RegisterModalForm from './RegisterOpenModalForm';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import MaskedView from '@react-native-masked-view/masked-view'
 
 const Action = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -20,25 +20,40 @@ const Action = () => {
     }
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-            <View>
-                <View style={styles.header}>
-                    <Image
-                        source={require('../../assets/localynk_images/header.png')}
-                        style={styles.headerImage}
-                    />
-                    <LinearGradient
-                        colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
-                        style={styles.overlay}
-                    />
-                    <Text style={styles.headerTitle}>TOUR GUIDES</Text>
-                </View>
+            <View style={styles.header}>
+                <Image
+                    source={require('../../assets/localynk_images/header.png')}
+                    style={styles.headerImage}
+                />
+                <LinearGradient
+                    colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
+                    style={styles.overlay}
+                />
+                <Text style={styles.headerTitle}>TOUR GUIDES</Text>
             </View>
 
             <View style={styles.body}>
-                <Text style={styles.title}>Want to be a local guide?</Text>
+                <MaskedView
+                    maskElement={
+                        <Text style={[styles.title, { backgroundColor: 'transparent' }]}>
+                            Want to be a local guide?
+                        </Text>
+                    }
+                >
+                    <LinearGradient
+                        colors={['#00C6FF', '#0072FF']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                    >
+                        <Text style={[styles.title, { opacity: 0 }]}>
+                            Want to be a local guide?
+                        </Text>
+                    </LinearGradient>
+                </MaskedView>
+
                 <Text style={styles.subtitle}>
                     Join our community of locals showing off their hometown pride.
                 </Text>
@@ -62,12 +77,14 @@ const Action = () => {
                 </TouchableOpacity>
             </View>
 
-            {
-                isModalOpen && (
-                    <RegisterModalForm isModalOpen={isModalOpen} setIsOpenModal={setIsModalOpen} onSubmit={handleFormSubmit}/>
-                )
-            }
-        </View>
+            {isModalOpen && (
+                <RegisterModalForm
+                    isModalOpen={isModalOpen}
+                    setIsOpenModal={setIsModalOpen}
+                    onSubmit={handleFormSubmit}
+                />
+            )}
+        </SafeAreaView>
     );
 };
 
@@ -76,11 +93,13 @@ export default Action;
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        justifyContent: 'space-between',
+        backgroundColor: '#fff',
     },
     header: {
-        position: 'relative',
         height: 120,
         justifyContent: 'center',
+        position: 'relative',
     },
     headerImage: {
         width: '100%',
@@ -104,24 +123,23 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
     },
     body: {
-        marginTop: 250,
         backgroundColor: "#D9E2E9",
-        borderTopRightRadius: 60,
         borderTopLeftRadius: 60,
-        height: 490,
-        paddingTop: 10,
-        flex: 1,
-        flexShrink: 0,
-        flexGrow: 1,
+        borderTopRightRadius: 60,
+        paddingTop: 30,
         alignItems: 'center',
         justifyContent: 'center',
+        width: '100%',
+        paddingBottom: 20,
+        height: 490
     },
     title: {
-        fontSize: 24,
-        fontWeight: '800',
+        fontSize: 30,
+        fontWeight: '900',
         color: '#0F172A',
         textAlign: 'center',
         marginBottom: 5,
+        letterSpacing: 2
     },
     subtitle: {
         fontSize: 13,
@@ -152,5 +170,4 @@ const styles = StyleSheet.create({
         fontWeight: '500',
         fontSize: 13,
     },
-    
 });

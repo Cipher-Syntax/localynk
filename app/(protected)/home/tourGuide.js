@@ -24,11 +24,12 @@ export default function TourGuide() {
             </View>
         );
     }
+
     return (
-        <ScrollView>
-            <SafeAreaView>
+        <SafeAreaView style={{ flex: 1 }}>
+            <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
                 <Action />
-            </SafeAreaView>
-        </ScrollView>
+            </ScrollView>
+        </SafeAreaView>
     );
 }
