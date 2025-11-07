@@ -33,7 +33,7 @@ const AddAccommodation = () => {
 
     const pickImage = async (type) => {
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ['images'],
             allowsEditing: true,
             aspect: [4, 3],
             quality: 1,
@@ -74,6 +74,20 @@ const AddAccommodation = () => {
                         style={styles.overlay}
                     />
                     <Text style={styles.headerTitle}>ADD ACCOMMODATION</Text>
+                </View>
+
+                <View style={{
+                    width: "90%",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 1,
+                    marginHorizontal: "auto",
+                    padding: 4,
+                    borderRadius: 10,
+                    borderColor: "#FF8488"
+                }}>
+                    <Text style={{textAlign: "center", width: "80%", color: "gray", fontSize: 12}}>Before adding Accommodation Please Make sure you have an existing tour bundle</Text>
+                    <Text style={{ fontSize: 12, color: "#007AFF", fontWeight: 900, letterSpacing: 2, textDecorationLine: "underline", marginTop: 3 }} onPress={() => router.push({pathname: "/(protected)/addTour"})}>ADD TOUR</Text>
                 </View>
 
                 <View style={styles.section}>

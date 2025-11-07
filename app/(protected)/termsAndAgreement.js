@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ScrollView, View, Text, Image, StatusBar, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import RegisterModalForm from '../../components/tourist_guide/RegisterOpenModalForm';
 import IsTourist from '../../components/tourist_guide/IsTourist';
 import Action from "../../components/tourist_guide/Action";
@@ -11,6 +11,8 @@ const TermsAndAgreement = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isTourist, setIsTourist] = useState(false);
     const [action, setAction] = useState(false);
+
+    const { showActions } = useLocalSearchParams();
 
 
     const router = useRouter();
@@ -88,25 +90,28 @@ const TermsAndAgreement = () => {
                         By continuing to use the app, you accept any updates or changes made to these terms. For any questions or concerns, you may contact us at support@mflg.com.
                     </Text>
 
-                    <View style={styles.buttonContainer}>
-                        <TouchableOpacity
-                            style={[styles.button, styles.declineButton]}
-                            onPress={() => setAction(true)}
-                        >
-                            <Text style={styles.declineButtonText}>DECLINE</Text>
-                        </TouchableOpacity>
+                    {
+                        showActions === "true" && (
+                            <View style={styles.buttonContainer}>
+                                <TouchableOpacity
+                                    style={[styles.button, styles.declineButton]}
+                                    onPress={() => setAction(true)}
+                                >
+                                    <Text style={styles.declineButtonText}>DECLINE</Text>
+                                </TouchableOpacity>
 
-                        <TouchableOpacity
-                            style={[styles.button, styles.agreeButton]}
-                            onPress={() => setIsModalOpen(true)}
-                        >
-                            <Text style={styles.agreeButtonText}>AGREE</Text>
-                        </TouchableOpacity>
-                    </View>
+                                <TouchableOpacity
+                                    style={[styles.button, styles.agreeButton]}
+                                    onPress={() => setIsModalOpen(true)}
+                                >
+                                    <Text style={styles.agreeButtonText}>AGREE</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )
+                    }
                 </View>
             </ScrollView>
 
-            {/* Register Modal */}
             <RegisterModalForm
                 isModalOpen={isModalOpen}
                 setIsOpenModal={setIsModalOpen}

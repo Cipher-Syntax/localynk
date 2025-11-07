@@ -84,7 +84,7 @@ export default function Profile() {
                         )} */}
                     </View>
 
-                    {!isTourist && (
+                    {isTourist && (
                         <View style={styles.statsContainer}>
                             <View style={styles.statItem}>
                                 <Ionicons name="map" size={20} color="#1a2f5a" />

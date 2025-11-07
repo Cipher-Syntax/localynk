@@ -63,7 +63,7 @@ const Action = () => {
                 <TouchableOpacity
                     activeOpacity={0.8}
                     // onPress={() => setIsModalOpen(true)}
-                    onPress={() => router.push({pathname: "/(protected)/termsAndAgreement"})}
+                    onPress={() => router.push({pathname: "/(protected)/termsAndAgreement", params: {showActions: true}})}
                 >
                     <LinearGradient
                         colors={['#00C6FF', '#0072FF']}
@@ -75,7 +75,7 @@ const Action = () => {
                     </LinearGradient>
                 </TouchableOpacity>
 
-                <TouchableOpacity activeOpacity={0.8} style={styles.secondaryButton} onPress={() => router.push({pathname: "/(protected)/termsAndAgreement"})}>
+                <TouchableOpacity activeOpacity={0.8} style={styles.secondaryButton} onPress={() => router.push({pathname: "/(protected)/termsAndAgreement", params: {showActions: false}})}>
                     <Text style={styles.secondaryButtonText}>View Requirements</Text>
                 </TouchableOpacity>
             </View>

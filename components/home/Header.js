@@ -39,15 +39,15 @@ const Header = () => {
 
     return (
         <View style={{ flex: 1 }}>
-            <View style={[styles.headerBar, { width: width * 0.9, gap: 15 }]}>
-                <MaterialCommunityIcons name='menu' size={24} color="black" />
+            <View style={[styles.headerBar, { width: width * 1 }]}>
+                {/* <MaterialCommunityIcons name='menu' size={24} color="black" /> */}
                 <View style={styles.searchBox}>
                     <Feather name='search' size={18} color="gray" />
                     <TextInput placeholder='Explore new place...' style={styles.input}/>
                 </View>
             </View>
            
-            <View style={{ height: 400 }}>
+            <View style={{ height: 350 }}>
                 <Swiper 
                     autoplay 
                     loop 
