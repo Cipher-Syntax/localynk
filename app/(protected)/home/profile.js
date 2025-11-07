@@ -125,7 +125,7 @@ export default function Profile() {
                     <View style={styles.settingsSection}>
                         <Text style={styles.sectionTitle}>Account Settings</Text>
                         {(isTourist ? accountSettingsItems : tourGuideSettings).map((item) => (
-                            <TouchableOpacity key={item.id} style={styles.settingItem} onPress={() => router.push({pathname: "/(protected)/home/notification"})}>
+                            <TouchableOpacity key={item.id} style={styles.settingItem}>
                                 <View style={styles.settingLeft}>
                                     <Ionicons name={item.icon} size={20} color="#1a2f5a" />
                                     <Text style={styles.settingLabel}>{item.label}</Text>
