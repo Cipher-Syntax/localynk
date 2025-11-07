@@ -17,7 +17,7 @@ const About = () => {
                             }
                         >
                             <LinearGradient
-                            colors={['#0F172A', '#00C6FF']}
+                            colors={['#00C6FF', '#0072FF']}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 1 }}
                             style={{ width: 300, height: 50 }}
@@ -51,17 +51,17 @@ const styles = StyleSheet.create({
     logoContainer: {
         width: 230,
         height: 300,
-        backgroundColor: '#D9E2E9',
+        backgroundColor: '#0F172A',
         justifyContent: 'center',
         alignItems: 'center',
         borderRadius: 10,
         flexShrink: 0,
     },
     logoText: {
-        fontSize: 24,
+        fontSize: 28,
         fontWeight: 900,
-        color: '#fff',
-        letterSpacing: 3,
+        // color: '#fff',
+        letterSpacing: 4,
         textAlign: "center"
     },
     textContainer: {

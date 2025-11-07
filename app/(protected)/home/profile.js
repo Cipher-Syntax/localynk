@@ -40,7 +40,7 @@ export default function Profile() {
 
     const accountSettingsItems = [
         { id: 1, icon: "bookmark", label: "My Bookings", hasNotification: true },
-        { id: 2, icon: "heart", label: "Favorite Guides" },
+        { id: 2, icon: "heart", label: "View Accommodations" },
         { id: 3, icon: "card", label: "Payment Methods" },
         { id: 4, icon: "shield", label: "Privacy and Security" },
         { id: 5, icon: "help-circle", label: "Help and Support" }
@@ -125,7 +125,7 @@ export default function Profile() {
                     <View style={styles.settingsSection}>
                         <Text style={styles.sectionTitle}>Account Settings</Text>
                         {(isTourist ? accountSettingsItems : tourGuideSettings).map((item) => (
-                            <TouchableOpacity key={item.id} style={styles.settingItem}>
+                            <TouchableOpacity key={item.id} style={styles.settingItem} onPress={() => router.push({pathname: "/(protected)/home/notification"})}>
                                 <View style={styles.settingLeft}>
                                     <Ionicons name={item.icon} size={20} color="#1a2f5a" />
                                     <Text style={styles.settingLabel}>{item.label}</Text>
