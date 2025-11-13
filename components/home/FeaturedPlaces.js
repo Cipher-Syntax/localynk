@@ -129,7 +129,7 @@ const FeaturedPlaces = () => {
                     <View style={styles.discoverRow}>
 
                         {DiscoverWhatYouWant.map((item, index) => (
-                            <AnimatedTouchable 
+                            <AnimatedTouchable
                                 key={item.id}
                                 activeOpacity={0.9}
                                 onPress={() => {

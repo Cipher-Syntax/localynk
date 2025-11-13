@@ -4,11 +4,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, AntDesign } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from '../../../context/AuthContext'
 
 export default function Profile() {
     const [loading, setLoading] = useState(true);
     const [isTourist, setIsTourist] = useState(true);
     const [activeTab, setActiveTab] = useState("bookings");
+    const { logout } = useAuth();
     const router = useRouter()
 
     useEffect(() => {
@@ -145,9 +147,15 @@ export default function Profile() {
                         <TouchableOpacity style={styles.editButton}>
                             <Text style={styles.buttonText}>Edit Profile</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.logoutButton} onPress={() => router.push({pathname: "/auth/login"})}>
+                        <TouchableOpacity 
+                            style={styles.logoutButton} 
+                            onPress={async () => {
+                                await logout();
+                            }}
+                        >
                             <Text style={styles.logoutButtonText}>Log Out</Text>
                         </TouchableOpacity>
+
                     </View>
                 </View>
             </SafeAreaView>

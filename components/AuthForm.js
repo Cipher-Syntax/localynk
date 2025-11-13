@@ -5,72 +5,59 @@ import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useForm, Controller } from 'react-hook-form';
 import { useRouter } from 'expo-router';
-import api from '../api/api';
-import { ACCESS_TOKEN, REFRESH_TOKEN } from '../constants/constants';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '../context/AuthContext'; 
 
 const { height } = Dimensions.get('window');
 
-const AuthForm = ({ route, method }) => {
+const AuthForm = ({ method }) => {
+    
+    // --- Context Hook ---
+    const { login, register } = useAuth();
+    
     const { control, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm();
     const [remember, setRemember] = useState(false);
-    const [errorMessage, setErrorMessage] = useState('');
+    const [authError, setAuthError] = useState(''); // Local error state for context feedback
     const router = useRouter();
+    
     const bgImage = method === 'login' ? require('../assets/localynk_images/login_background.png') : require('../assets/localynk_images/register_background.png');
     const status = method === 'login' ? 'Welcome Back Adventurer' : 'Join The Adventure';
 
     const onSubmit = async (data) => {
-        try {
-            // const response = await api.post(route, data);
+        setAuthError(''); // Clear previous errors
 
-            if (method === 'login') {
-                // await AsyncStorage.setItem(ACCESS_TOKEN, response.data.access);
-                // await AsyncStorage.setItem(REFRESH_TOKEN, response.data.refresh);
-
-                // if (remember) {
-                //     setRemember(data.username)
-                // }
-                router.replace('/(protected)/home');
+        if (method === 'login') {
+            // 1. Call the global login function from AuthContext
+            const success = await login(data.username, data.password);
+            
+            if (success) {
+                // Redirection to /home is handled automatically by ProtectedLayout when context updates
+                router.replace('/(protected)/home')
             } else {
-                router.push('/auth/login');
+                // Display error feedback from the context/mock API failure
+                setAuthError("Login failed. Check your username and password.");
             }
-        } 
-        catch (error) {
-            if(error.response){
-                if(error.response.status === 401){
-                    const errorDetail = error.response.data.detail
-
-                    if(errorDetail === "No active account found with the given credentials"){
-                        setErrorMessage('Invalid username or password')
-                    }
-                    else{
-                        console.log(errorDetail)
-                    }
-                }
-                else if(error.response.status === 400){
-                    if(error.response.data.username){
-                        setErrorMessage(error.response.data.username[0])
-                    }
-                    else{
-                        setErrorMessage('Something went wrong')
-                    }
-                }
-                else{
-                    setErrorMessage('Network error. Please try again')
-                }
-            }
-            else{
-                setErrorMessage("Server Not Reach")
+        } else {
+            // Registration
+            // 1. Call the global register function from AuthContext
+            const success = await register(data);
+            
+            if (success) {
+                // 2. On successful registration, redirect to login page
+                router.replace('/auth/login');
+            } else {
+                // Display error feedback from the context/mock API failure
+                setAuthError("Registration failed. Please check your inputs.");
             }
         }
     };
-
+    
+    // Error cleanup effect
     useEffect(() => {
-        if (errorMessage) {
-            const timer = setTimeout(() => setErrorMessage(''), 2000);
+        if (authError) {
+            const timer = setTimeout(() => setAuthError(''), 3000);
             return () => clearTimeout(timer);
         }
-    }, [errorMessage]);
+    }, [authError]);
 
     return (
         <View style={styles.container}>
@@ -88,13 +75,14 @@ const AuthForm = ({ route, method }) => {
                         </LinearGradient>
                     </MaskedView>
 
-                    {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+                    {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
 
+                    {/* Username Input */}
                     <Controller
                         control={control}
                         name="username"
                         defaultValue="" 
-                        // rules={{ required: 'Username is required' }}
+                        rules={{ required: 'Username is required' }}
                         render={({ field: { onChange, value } }) => (
                             <TextInput
                                 placeholder="Username"
@@ -104,17 +92,23 @@ const AuthForm = ({ route, method }) => {
                             />
                         )}
                     />
-
                     {errors.username && <Text style={styles.errorText}>{errors.username.message}</Text>}
 
 
                     {method === 'register' && (
                         <>
+                            {/* Email Input (Required for registration) */}
                             <Controller
                                 control={control}
                                 name="email"
                                 defaultValue="" 
-                                rules={{ required: 'Email is required' }}
+                                rules={{ 
+                                    required: 'Email is required',
+                                    pattern: {
+                                        value: /^\S+@\S+$/i,
+                                        message: "Invalid email address"
+                                    }
+                                }}
                                 render={({ field: { onChange, value } }) => (
                                     <TextInput
                                         placeholder="Email"
@@ -130,11 +124,12 @@ const AuthForm = ({ route, method }) => {
                         </>
                     )}
 
+                    {/* Password Input */}
                     <Controller
                         control={control}
                         name="password"
                         defaultValue="" 
-                        // rules={{ required: 'Password is required' }}
+                        rules={{ required: 'Password is required', minLength: { value: 8, message: 'Password must be at least 8 characters' } }}
                         render={({ field: { onChange, value } }) => (
                             <TextInput
                                 placeholder="Password"
@@ -143,11 +138,11 @@ const AuthForm = ({ route, method }) => {
                                 onChangeText={onChange}
                                 style={styles.input}
                             />
-
                         )}
                     />
                     {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
 
+                    {/* Confirm Password (Registration Only) */}
                     {method === 'register' && (
                         <>
                             <Controller
@@ -158,13 +153,20 @@ const AuthForm = ({ route, method }) => {
                                     validate: (value) => value === watch('password') || 'Passwords do not match',
                                 }}
                                 render={({ field: { onChange, value } }) => (
-                                    <TextInput placeholder="Confirm Password" secureTextEntry style={styles.input} value={value} onChangeText={onChange} />
+                                    <TextInput 
+                                        placeholder="Confirm Password" 
+                                        secureTextEntry 
+                                        style={styles.input} 
+                                        value={value} 
+                                        onChangeText={onChange} 
+                                    />
                                 )}
                             />
-                            {errors.confirm && <Text style={styles.errorText}>{errors.confirm.message}</Text>}
+                            {errors.confirm_password && <Text style={styles.errorText}>{errors.confirm_password.message}</Text>}
                         </>
                     )}
 
+                    {/* Login Options (Login Only) */}
                     {method === 'login' && (
                         <View style={styles.optionsRow}>
                             <View style={styles.rememberRow}>
@@ -182,6 +184,7 @@ const AuthForm = ({ route, method }) => {
                         </View>
                     )}
 
+                    {/* Submit Button */}
                     <TouchableOpacity
                         style={[styles.button, isSubmitting && { opacity: 0.6 }]}
                         onPress={handleSubmit(onSubmit)}
@@ -192,6 +195,7 @@ const AuthForm = ({ route, method }) => {
                         </Text>
                     </TouchableOpacity>
 
+                    {/* Navigation Link */}
                     <View style={{ marginTop: 15 }}>
                         <Text style={styles.smallText}>
                             {method === 'login' ? `New to LocaLynk? ` : `Already have an account? `}
@@ -270,7 +274,11 @@ const styles = StyleSheet.create({
         color: 'red',
         fontSize: 12,
         marginBottom: 5,
+        textAlign: 'left', 
+        alignSelf: 'flex-start',
+        width: '100%',
     },
+
     optionsRow: {
         width: '100%',
         flexDirection: 'row',
