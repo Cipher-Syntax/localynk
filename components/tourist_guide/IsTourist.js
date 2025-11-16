@@ -83,12 +83,8 @@ const IsTourist = () => {
                 if (b.id === id) {
                     const newStatus = decision === 'accept' ? 'Accepted' : 'Rejected';
                     
-                    // TODO: Send a push notification to the user
-                    if (newStatus === 'Accepted') {
-                        // sendPushNotification(user.id, "Your booking was accepted!", { bookingId: b.id });
-                    } else {
-                        // sendPushNotification(user.id, "Your booking was rejected.", { bookingId: b.id });
-                    }
+                    // TODO: In a real app, you would send API call to update status
+                    // and trigger a notification to the tourist here.
 
                     return { ...b, status: newStatus };
                 }
@@ -289,7 +285,6 @@ const styles = StyleSheet.create({
     },
     bookingsSection: { 
         padding: 15, 
-        // marginTop: 100
     },
     action: {
         flexDirection: 'row',

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { View, ActivityIndicator, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Header, FeaturedPlaces, About } from "../../../components/home";
+import { Header, FeaturedPlaces, About, HomePlacesBrowse, DiscoverWhatYouWant } from "../../../components/home";
 
 const Home = () => {
     const [loading, setLoading] = useState(true);
@@ -29,6 +29,8 @@ const Home = () => {
             <SafeAreaView>
                 <Header />
                 <FeaturedPlaces />
+                <HomePlacesBrowse />
+                <DiscoverWhatYouWant />
                 <About />
             </SafeAreaView>
         </ScrollView>

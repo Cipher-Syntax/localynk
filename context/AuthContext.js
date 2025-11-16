@@ -12,13 +12,43 @@ const initialAuthState = {
     user: null,
     token: null,
     isLoading: true,
-    message: null,       // <-- added
-    messageType: null,   // <-- added ('success', 'error', 'info')
+    message: null,    
+    messageType: null,  // <-- added ('success', 'error', 'info')
 };
 
 export function AuthProvider({ children }) {
     const [state, setState] = useState(initialAuthState);
     const router = useRouter();
+
+    // --- Core function to fetch profile and update state ---
+    const fetchProfile = async () => {
+        try {
+            const response = await api.get('/api/profile/');
+            return response.data;
+        } catch (error) {
+            console.error('Profile fetch error:', error.response?.data || error.message);
+            throw error;
+        }
+    };
+
+    // --- Function exposed to components to manually refresh role/data ---
+    const refreshUser = async () => {
+        try {
+            const user = await fetchProfile();
+            setState(prev => ({ 
+                ...prev, 
+                user, 
+                isAuthenticated: true, 
+                message: 'Profile refreshed.',
+                messageType: 'info'
+            }));
+            return true;
+        } catch (e) {
+            console.error('Failed to refresh user profile:', e);
+            return false;
+        }
+    };
+    // -------------------------------------------------------------------
 
     // --- Load stored tokens and fetch profile on app startup
     useEffect(() => {
@@ -100,16 +130,6 @@ export function AuthProvider({ children }) {
         }
     };
 
-    const fetchProfile = async () => {
-        try {
-            const response = await api.get('/api/profile/');
-            return response.data;
-        } catch (error) {
-            console.error('Profile fetch error:', error.response?.data || error.message);
-            throw error;
-        }
-    };
-
     const logout = async () => {
         try {
             await AsyncStorage.removeItem(ACCESS_TOKEN);
@@ -119,8 +139,7 @@ export function AuthProvider({ children }) {
                 message: 'Logged out successfully',
                 messageType: 'info',
             });
-
-            router.replace('auth/login')
+            router.replace('/auth/login/') 
         } catch (error) {
             console.error('Logout error:', error);
         }
@@ -137,8 +156,9 @@ export function AuthProvider({ children }) {
         login,
         register,
         logout,
+        refreshUser, // Exposed refresh function
         role: getRole(state.user),
-        clearMessage: () => setState(prev => ({ ...prev, message: null, messageType: null })), // <-- added
+        clearMessage: () => setState(prev => ({ ...prev, message: null, messageType: null })), 
     }), [state]);
 
     // --- Render loading state while checking tokens/profile

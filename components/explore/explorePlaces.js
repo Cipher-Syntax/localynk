@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, ScrollView, StyleSheet, StatusBar, Image, Text, TouchableOpacity, ImageBackground, Animated, Easing, } from 'react-native';
+import { View, ScrollView, StyleSheet, StatusBar, Image, Text, TouchableOpacity, ImageBackground, Animated, Easing, TextInput } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
 import { User } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import places_1 from '../../assets/localynk_images/places_1.png';
 import places_2 from '../../assets/localynk_images/places_2.png';
@@ -15,7 +15,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 const ExplorePlaces = () => {
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState('guides');
+    const params = useLocalSearchParams();
+    const [activeTab, setActiveTab] = useState(params.tab || 'guides');
+    const [searchQuery, setSearchQuery] = useState('');
 
     const bounceValue = useRef(new Animated.Value(0)).current;
     const startBounce = () => {
@@ -40,6 +42,12 @@ const ExplorePlaces = () => {
     useEffect(() => {
         startBounce();
     }, [])
+
+    useEffect(() => {
+        if (params.tab) {
+            setActiveTab(params.tab);
+        }
+    }, [params.tab])
     
     const guideCards = [
         {
@@ -117,6 +125,16 @@ const ExplorePlaces = () => {
         },
     ]
 
+    const filteredGuides = guideCards.filter(guide =>
+        guide.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        guide.specialty.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        guide.address.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    const filteredPlaces = places.filter(place =>
+        place.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
     return (
         <ScrollView style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -133,12 +151,24 @@ const ExplorePlaces = () => {
                 <Text style={styles.headerTitle}>EXPLORE DIFFERENT GUIDES/PLACES</Text>
             </View>
 
-            <TouchableOpacity 
-                style={styles.filterButton}
-                onPress={() => alert("Filter options coming soon!")}
-            >
-                <Ionicons name="options-outline" size={22} color="#00A8FF" />
-            </TouchableOpacity>
+            <View style={styles.searchFilterRow}>
+                <View style={styles.searchContainer}>
+                    <Ionicons name="search" size={18} color="#8B98A8" style={styles.searchIcon} />
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Search guides or places..."
+                        placeholderTextColor="#8B98A8"
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                    />
+                </View>
+                <TouchableOpacity 
+                    style={styles.filterButton}
+                    onPress={() => alert("Filter options coming soon!")}
+                >
+                    <Ionicons name="options-outline" size={22} color="#00A8FF" />
+                </TouchableOpacity>
+            </View>
 
             <View style={styles.toggleRow}>
                 <View style={styles.toggleContainer}>
@@ -165,7 +195,7 @@ const ExplorePlaces = () => {
             <View style={styles.contentContainer}>
                 {activeTab === 'guides' && (
                     <>
-                        {guideCards.map((guide, index) => (
+                        {filteredGuides.map((guide, index) => (
                             <View key={index} style={styles.guideCard}>
                                 <View style={styles.cardProfileSection}>
                                     <View style={styles.iconWrapper}>
@@ -211,7 +241,7 @@ const ExplorePlaces = () => {
                 {activeTab === 'places' && (
                     <View>
                         {
-                            places.map((place) => (
+                            filteredPlaces.map((place) => (
                                 <ImageBackground 
                                     key={place.id}
                                     source={place.image}
@@ -324,11 +354,36 @@ const styles = StyleSheet.create({
         backgroundColor: '#EBF0F5',
         padding: 10,
         borderRadius: 10,
-        marginRight: 16,
-        marginTop: 10,
-        alignSelf: 'flex-end',
         borderWidth: 1,
         borderColor: '#D0DAE3',
+    },
+    searchFilterRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        gap: 10,
+    },
+    searchContainer: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#EBF0F5',
+        borderRadius: 10,
+        paddingHorizontal: 12,
+        borderWidth: 1,
+        borderColor: '#D0DAE3',
+    },
+    searchIcon: {
+        marginRight: 8,
+    },
+    searchInput: {
+        flex: 1,
+        paddingVertical: 10,
+        paddingHorizontal: 0,
+        fontSize: 14,
+        color: '#1A2332',
     },
     toggleRow: {
         flexDirection: 'row',

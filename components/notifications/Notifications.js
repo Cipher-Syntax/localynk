@@ -1,40 +1,107 @@
-import React from 'react';
-import { View, StyleSheet, Image, Text, TouchableOpacity, StatusBar, ScrollView, } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, Image, Text, TouchableOpacity, StatusBar, ScrollView, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import api from '../../api/api'; // Assuming correct path to your API utility
 
 const Notifications = () => {
     const router = useRouter();
-    const todayNotifications = [
-        {
-            id: "msg123",
-            icon: <Ionicons name="chatbubble-ellipses-outline" size={28} color="#0A2342" />,
-            title: "New Message",
-            description: "Juan Dela Cruz: ‘Looking forward to our tour tomorrow! I’ll meet you at the hotel lobby.’",
-            time: "3 hours ago",
-            action: () => router.push('/(protected)/message'),
-        },
-        {
-            id: "booking789",
-            icon: <Ionicons name="calendar-outline" size={28} color="#0A2342" />,
-            title: "Booking Accepted!",
-            description: "Your tour with Juan Dela Cruz is accepted. Complete your payment to confirm.",
-            time: "4 hours ago",
-            action: () => router.push(`/(protected)/completePayment?bookingId=booking789`),
-        },
-    ];
+    const [notifications, setNotifications] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-    const weekNotifications = [
-        {
-            id: "payment1",
-            icon: <FontAwesome5 name="money-check-alt" size={24} color="#0A2342" />,
-            title: "Payment Successful",
-            description: "Payment of ₱1,500 for City Heritage Tour has been processed successfully.",
-            time: "3 days ago",
-            action: () => router.push('/(protected)/bookings/payment1'),
-        },
-    ];
+    const notificationIcons = {
+        // Mapped to alert titles/types from the backend if possible, or object context
+        "New Guide Application": <Ionicons name="person-add-outline" size={28} color="#F5A623" />,
+        "Application Approved!": <Ionicons name="checkmark-done-circle-outline" size={28} color="#007AFF" />,
+        "Booking Accepted!": <Ionicons name="calendar-outline" size={28} color="#0A2342" />,
+        "New Message": <Ionicons name="chatbubble-ellipses-outline" size={28} color="#0A2342" />,
+        "Payment Successful": <FontAwesome5 name="money-check-alt" size={24} color="#0A2342" />,
+    };
+
+    const fetchNotifications = async () => {
+        try {
+            const response = await api.get('/api/alerts/');
+            // response.data should contain a list of SystemAlert objects
+            setNotifications(response.data);
+        } catch (error) {
+            console.error('Failed to fetch notifications:', error.response?.data || error.message);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const markAsRead = async (id) => {
+        try {
+            // Call the backend to mark this specific alert as read
+            await api.patch(`/api/alerts/${id}/read/`, { is_read: true });
+            
+            // Optimistically update the local state to remove the red dot
+            setNotifications(prev => 
+                prev.map(n => n.id === id ? { ...n, is_read: true } : n)
+            );
+        } catch (error) {
+            console.error('Failed to mark notification as read:', error.response?.data || error.message);
+        }
+    };
+
+    const handleNotificationPress = (item) => {
+        markAsRead(item.id);
+
+        if (item.title === "Application Approved!") {
+            // Use the notification's related_object_id or a fixed fee
+            // For now, we use a fixed mock fee, but you could pass actual fee data from the alert here.
+            router.push({pathname: '/(protected)/completeRegistrationFee', params: {feeAmount: '500.00'}});
+        } else if (item.title === "Booking Accepted!") {
+            // Uses the generic booking ID
+            router.push(`/(protected)/completePayment?bookingId=${item.related_object_id || 'booking789'}`);
+        } else if (item.title === "New Message") {
+            router.push('/(protected)/message');
+        } else {
+            // Fallback action or view specific detail
+            console.log('Viewing notification detail:', item);
+        }
+    };
+
+    useEffect(() => {
+        fetchNotifications();
+    }, []);
+
+    const categorizeNotifications = () => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const todayList = [];
+        const weekList = [];
+
+        notifications.forEach(item => {
+            const itemDate = new Date(item.created_at);
+            const timeDiff = today.getTime() - itemDate.getTime();
+            const diffDays = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+
+            // Use the hardcoded mock notifications for display until backend is fully integrated
+            // For now, we mock the data structure to include the necessary fields.
+            const displayItem = {
+                id: item.id,
+                icon: notificationIcons[item.title] || <Ionicons name="information-circle-outline" size={28} color="#0A2342" />,
+                title: item.title,
+                description: item.message, // Use message as description
+                time: `${diffDays === 0 ? 'Today' : diffDays + ' days ago'}`, // Simplified time
+                is_read: item.is_read,
+                action: () => handleNotificationPress(item),
+            };
+
+            if (diffDays === 0) {
+                todayList.push(displayItem);
+            } else if (diffDays < 7) {
+                weekList.push(displayItem);
+            }
+        });
+
+        return { today: todayList, week: weekList };
+    };
+
+    const { today: todayNotifications, week: weekNotifications } = categorizeNotifications();
 
     const renderNotification = (item) => (
         <TouchableOpacity 
@@ -43,14 +110,23 @@ const Notifications = () => {
             onPress={item.action}
         >
             <View style={styles.iconContainer}>{item.icon}</View>
-                <View style={styles.textContainer}>
-                    <Text style={styles.notificationTitle}>{item.title}</Text>
-                    <Text style={styles.notificationDesc}>{item.description}</Text>
-                    <Text style={styles.notificationTime}>{item.time}</Text>
-                </View>
-            <View style={styles.redDot} />
+            <View style={styles.textContainer}>
+                <Text style={styles.notificationTitle}>{item.title}</Text>
+                <Text style={styles.notificationDesc}>{item.description}</Text>
+                <Text style={styles.notificationTime}>{item.time}</Text>
+            </View>
+            {!item.is_read && <View style={styles.redDot} />}
         </TouchableOpacity>
     );
+
+    if (isLoading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#007AFF" />
+                <Text style={{ marginTop: 10, color: '#007AFF' }}>Loading notifications...</Text>
+            </View>
+        );
+    }
 
     return (
         <ScrollView style={styles.container}>
@@ -70,16 +146,34 @@ const Notifications = () => {
                 </View>
             </View>
 
-            <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>TODAY</Text>
-                <TouchableOpacity>
-                    <Text style={styles.markAll}>Mark all read</Text>
-                </TouchableOpacity>
-            </View>
-            {todayNotifications.map(renderNotification)}
+            {/* Today's Notifications */}
+            {todayNotifications.length > 0 && (
+                <>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>TODAY</Text>
+                        <TouchableOpacity onPress={() => console.log('Mark all read action placeholder')}>
+                            <Text style={styles.markAll}>Mark all read</Text>
+                        </TouchableOpacity>
+                    </View>
+                    {todayNotifications.map(renderNotification)}
+                </>
+            )}
 
-            <Text style={[styles.sectionTitle, { marginTop: 20 }]}>THIS WEEK</Text>
-            {weekNotifications.map(renderNotification)}
+            {/* This Week's Notifications */}
+            {weekNotifications.length > 0 && (
+                <>
+                    <Text style={[styles.sectionTitle, { marginTop: 20 }]}>THIS WEEK</Text>
+                    {weekNotifications.map(renderNotification)}
+                </>
+            )}
+
+            {/* No Notifications State */}
+            {todayNotifications.length === 0 && weekNotifications.length === 0 && (
+                <View style={styles.emptyContainer}>
+                    <Ionicons name="notifications-off-outline" size={50} color="#ccc" />
+                    <Text style={styles.emptyText}>You're all caught up! No new notifications.</Text>
+                </View>
+            )}
         </ScrollView>
     );
 };
@@ -88,6 +182,24 @@ const Notifications = () => {
 export default Notifications;
 
 const styles = StyleSheet.create({
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#F5F8FB',
+    },
+    emptyContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 50,
+        minHeight: 200,
+    },
+    emptyText: {
+        marginTop: 15,
+        fontSize: 16,
+        color: '#8B98A8',
+        textAlign: 'center',
+    },
     container: {
         flex: 1,
         backgroundColor: '#F5F8FB',
@@ -136,6 +248,8 @@ const styles = StyleSheet.create({
         color: '#007AFF',
         fontSize: 13,
         fontWeight: '600',
+        marginRight: 20,
+        marginTop: 10
     },
     notificationCard: {
         backgroundColor: '#fff',

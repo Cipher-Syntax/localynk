@@ -26,30 +26,32 @@ const AuthForm = ({ method }) => {
         setAuthError(''); // Clear previous errors
 
         if (method === 'login') {
-            // 1. Call the global login function from AuthContext
             const success = await login(data.username, data.password);
-            
             if (success) {
-                // Redirection to /home is handled automatically by ProtectedLayout when context updates
-                router.replace('/(protected)/home')
+                router.replace('/(protected)/home');
             } else {
-                // Display error feedback from the context/mock API failure
                 setAuthError("Login failed. Check your username and password.");
             }
         } else {
-            // Registration
-            // 1. Call the global register function from AuthContext
-            const success = await register(data);
-            
+            // Wrap all form fields into a single object
+            const userData = {
+                username: data.username,
+                email: data.email,
+                password: data.password,
+                confirm_password: data.confirm_password,
+            };
+
+            console.log('Registering user:', userData); // Optional: debug
+
+            const success = await register(userData);
             if (success) {
-                // 2. On successful registration, redirect to login page
                 router.replace('/auth/login');
             } else {
-                // Display error feedback from the context/mock API failure
                 setAuthError("Registration failed. Please check your inputs.");
             }
         }
     };
+
     
     // Error cleanup effect
     useEffect(() => {

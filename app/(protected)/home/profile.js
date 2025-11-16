@@ -4,56 +4,63 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, AntDesign } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAuth } from '../../../context/AuthContext'
+import { useAuth } from '../../../context/AuthContext' // <-- Using the AUTH CONTEXT
 
 export default function Profile() {
     const [loading, setLoading] = useState(true);
-    const [isTourist, setIsTourist] = useState(true);
-    const [activeTab, setActiveTab] = useState("bookings");
-    const { logout } = useAuth();
+    // Destructure role, user object, and loading state from AuthContext
+    const { role, isLoading: isAuthLoading, user, logout } = useAuth();
+    
+    // Derived state based on role
+    const isGuide = role === 'guide';
+    const isTourist = role === 'tourist';
+    
     const router = useRouter()
 
     useEffect(() => {
-        const timer = setTimeout(() => setLoading(false), 2000);
+        // Simulate initial screen fade/resource load
+        const timer = setTimeout(() => setLoading(false), 500);
         return () => clearTimeout(timer);
     }, []);
 
-    if (loading) {
+    // Combine local loading state with Auth loading state
+    if (loading || isAuthLoading) {
         return (
-            <View style={{
-                flex: 1,
-                justifyContent: "center",
-                alignItems: "center",
-                backgroundColor: "#fff"
-            }}>
+            <View style={styles.centerContainer}>
                 <ActivityIndicator size="large" color="#0000ff" />
             </View>
         );
     }
-
+    
+    // --- MOCK DATA (Should ideally be fetched via a dedicated API endpoint) ---
     const profileData = {
-        name: "Francis Minoville",
+        // Use real user data if available, otherwise fallback
+        name: user?.first_name && user?.last_name 
+            ? `${user.first_name} ${user.last_name}` 
+            : user?.username,
         recentTours: [
             { id: 1, title: "Historic City Walking Tour", rating: 5, guide: "Guide Joshua Jameson", date: "Oct 15, 2025" },
             { id: 2, title: "Mountain Hiking", rating: 3, guide: "Guide Frank Sabastine", date: "Sept 20, 2025" }
         ],
-        stats: isTourist ? null : { tours: 2, completions: 10, saved: 3 }
+        // Mock stats based on role
+        stats: isGuide ? { bookings: 12, completions: 50, rating: 4.8 } : null
     };
 
-    const accountSettingsItems = [
-        { id: 1, icon: "bookmark", label: "My Bookings", hasNotification: true },
-        { id: 2, icon: "heart", label: "View Accommodations" },
-        { id: 3, icon: "card", label: "Payment Methods" },
-        { id: 4, icon: "shield", label: "Privacy and Security" },
-        { id: 5, icon: "help-circle", label: "Help and Support" }
+    // Settings Menu Items (Adjusted based on standard user vs guide focus)
+    const touristSettingsItems = [
+        { id: 1, icon: "bookmarks-outline", label: "My Bookings", hasNotification: true },
+        { id: 2, icon: "heart-outline", label: "Favorite Guides" },
+        { id: 3, icon: "card-outline", label: "Payment Methods" },
+        { id: 4, icon: "shield-outline", label: "Privacy and Security" },
+        { id: 5, icon: "help-circle-outline", label: "Help and Support" }
     ];
 
-    const tourGuideSettings = [
-        { id: 1, icon: "bookmark", label: "My Bookings", hasNotification: true },
-        { id: 2, icon: "heart", label: "Favorite Guides" },
-        { id: 3, icon: "card", label: "Payment Methods" },
-        { id: 4, icon: "shield", label: "Privacy and Security" },
-        { id: 5, icon: "help-circle", label: "Help and Support" }
+    const guideSettingsItems = [
+        { id: 1, icon: "calendar-outline", label: "My Reservations", hasNotification: true },
+        { id: 2, icon: "home-outline", label: "View Accommodations" },
+        { id: 3, icon: "wallet-outline", label: "Earnings/Payouts" },
+        { id: 4, icon: "settings-outline", label: "Guide Profile Settings" },
+        { id: 5, icon: "shield-outline", label: "Privacy and Security" }
     ];
 
     return (
@@ -71,7 +78,7 @@ export default function Profile() {
                         style={styles.overlay}
                     />
                     <Text style={styles.headerTitle}>
-                        {isTourist ? "PROFILE" : "PROFILE"}
+                        {isGuide ? "GUIDE PROFILE" : "TOURIST PROFILE"}
                     </Text>
                 </View>
 
@@ -81,31 +88,37 @@ export default function Profile() {
                             <Ionicons name="person-circle-outline" size={80} color="#1a2f5a" />
                         </View>
                         <Text style={styles.profileName}>{profileData.name}</Text>
-                        {/* {!isTourist && (
-                            <Text style={styles.badge}>PROFILE CUSTOMIZED</Text>
-                        )} */}
+                        {
+                            isGuide ? (
+                                <Text style={styles.badge}>Tourist / Local Guide</Text>
+                            ) : (
+                                <Text style={styles.badge}>Tourist</Text>
+                            )
+                        }
                     </View>
 
-                    {isTourist && (
+                    {/* DYNAMIC STATS CONTAINER */}
+                    {isGuide && profileData.stats && (
                         <View style={styles.statsContainer}>
                             <View style={styles.statItem}>
                                 <Ionicons name="map" size={20} color="#1a2f5a" />
-                                <Text style={styles.statNumber}>2</Text>
-                                <Text style={styles.statLabel}>Tours</Text>
+                                <Text style={styles.statNumber}>{profileData.stats.tours}</Text>
+                                <Text style={styles.statLabel}>Tours Created</Text>
                             </View>
                             <View style={styles.statItem}>
                                 <AntDesign name="star" size={20} color="#FFD700" />
-                                <Text style={styles.statNumber}>10</Text>
-                                <Text style={styles.statLabel}>Completions</Text>
+                                <Text style={styles.statNumber}>{profileData.stats.rating}</Text>
+                                <Text style={styles.statLabel}>Avg. Rating</Text>
                             </View>
                             <View style={styles.statItem}>
-                                <Ionicons name="bookmark" size={20} color="#1a2f5a" />
-                                <Text style={styles.statNumber}>3</Text>
-                                <Text style={styles.statLabel}>Saved</Text>
+                                <Ionicons name="checkmark-circle" size={20} color="#00c853" />
+                                <Text style={styles.statNumber}>{profileData.stats.completions}</Text>
+                                <Text style={styles.statLabel}>Completed Tours</Text>
                             </View>
                         </View>
                     )}
-
+                    {/* END DYNAMIC STATS */}
+                    
                     <View style={styles.recentToursSection}>
                         <Text style={styles.sectionTitle}>Recent Tours</Text>
                         {profileData.recentTours.map((tour) => (
@@ -126,7 +139,7 @@ export default function Profile() {
 
                     <View style={styles.settingsSection}>
                         <Text style={styles.sectionTitle}>Account Settings</Text>
-                        {(isTourist ? accountSettingsItems : tourGuideSettings).map((item) => (
+                        {(isGuide ? guideSettingsItems : touristSettingsItems).map((item) => (
                             <TouchableOpacity key={item.id} style={styles.settingItem}>
                                 <View style={styles.settingLeft}>
                                     <Ionicons name={item.icon} size={20} color="#1a2f5a" />
@@ -166,7 +179,13 @@ export default function Profile() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        // backgroundColor: '#D9E2E9',
+        backgroundColor: '#F5F7FA', // Use a standard light background
+    },
+    centerContainer: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#fff"
     },
     header: {
         position: 'relative',
@@ -195,13 +214,19 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
     },
     profileCard: {
-        // backgroundColor: '#c8d5eb',
+        position: 'relative',
+        // backgroundColor: '#fff', // White background for the card
         marginHorizontal: 16,
-        marginTop: 50,
+        marginTop: 30,
         borderRadius: 20,
         paddingVertical: 20,
         paddingHorizontal: 16,
-        marginBottom: 80,
+        marginBottom: 20,
+        shadowColor: '#000',
+        shadowOpacity: 0.1,
+        // shadowOffset: { width: 0, height: 5 },
+        // shadowRadius: 10,
+        // elevation: 5,
     },
     profileHeader: {
         alignItems: 'center',
@@ -211,6 +236,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: 12,
+        backgroundColor: '#EBF0F5',
+        borderRadius: 50,
     },
     profileName: {
         fontSize: 20,
@@ -222,15 +249,16 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontWeight: '600',
         color: '#fff',
-        backgroundColor: '#1a2f5a',
+        backgroundColor: '#00A8FF', // Guide color
         paddingHorizontal: 8,
         paddingVertical: 4,
         borderRadius: 4,
+        textTransform: 'uppercase'
     },
     statsContainer: {
         flexDirection: 'row',
         justifyContent: 'space-around',
-        backgroundColor: '#fff',
+        backgroundColor: '#EBF0F5',
         borderRadius: 12,
         paddingVertical: 12,
         marginBottom: 20,
@@ -257,6 +285,7 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#1a2f5a',
         marginBottom: 12,
+        marginLeft: 4,
     },
     tourItem: {
         flexDirection: 'row',
@@ -265,6 +294,8 @@ const styles = StyleSheet.create({
         padding: 12,
         marginBottom: 10,
         alignItems: 'flex-start',
+        borderWidth: 1,
+        borderColor: '#E0E6ED'
     },
     tourIcon: {
         marginRight: 12,
@@ -310,7 +341,9 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         paddingVertical: 12,
         paddingHorizontal: 14,
-        marginBottom: 10,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: '#E0E6ED'
     },
     settingLeft: {
         flexDirection: 'row',
@@ -337,9 +370,11 @@ const styles = StyleSheet.create({
     },
     buttonContainer: {
         gap: 12,
+        paddingHorizontal: 4,
+        paddingBottom: 20
     },
     editButton: {
-        backgroundColor: '#1a2f5a',
+        backgroundColor: '#00A8FF',
         borderRadius: 12,
         paddingVertical: 15,
         alignItems: 'center',
@@ -350,7 +385,7 @@ const styles = StyleSheet.create({
         color: '#fff',
     },
     logoutButton: {
-        backgroundColor: '#1a2f5a',
+        backgroundColor: '#FF5A5F', // Use a distinct color for logout
         borderRadius: 12,
         paddingVertical: 15,
         alignItems: 'center',
@@ -360,22 +395,4 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#fff',
     },
-    bottomNav: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        alignItems: 'center',
-        backgroundColor: '#1a2f5a',
-        paddingVertical: 12,
-        borderTopWidth: 1,
-        borderTopColor: '#0f1e3f',
-    },
-    navItem: {
-        alignItems: 'center',
-        gap: 4,
-    },
-    navLabel: {
-        fontSize: 10,
-        color: '#666',
-        fontWeight: '500',
-    }
 });

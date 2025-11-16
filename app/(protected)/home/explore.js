@@ -1,5 +1,6 @@
-import { View, Text, ScrollView, ActivityIndicator } from "react-native";
-import { ExplorePlaces } from "../../../components/explore";
+import { View, Text, ScrollView, ActivityIndicator, StyleSheet } from "react-native";
+// import ExplorePlaces from "../../components/explore/ExplorePlaces"; // Corrected import path
+import { ExplorePlaces } from '../../../components/explore'
 import React, { useState, useEffect } from 'react';
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -13,21 +14,25 @@ export default function Explore() {
 
     if (loading) {
         return (
-            <View style={{
-                flex: 1,
-                justifyContent: "center",
-                alignItems: "center",
-                backgroundColor: "#fff"
-            }}>
+            <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#0000ff" />
             </View>
         );
     }
     return (
-        <ScrollView>
-            <SafeAreaView>
+        <ScrollView style={{ flex: 1 }}>
+            <SafeAreaView style={{ flex: 1 }}>
                 <ExplorePlaces />
             </SafeAreaView>
         </ScrollView>
     );
 }
+
+const styles = StyleSheet.create({
+    loadingContainer: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#fff"
+    }
+});
