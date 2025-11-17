@@ -90,7 +90,7 @@ const Notifications = () => {
 
             // Navigate to the new payment review screen
             router.push({ 
-                pathname: '/(protected)/agencyPaymentReviewModal', 
+                pathname: '/(protected)/agencyAssignedGuide', 
                 params: confirmedBookingData
             });
             

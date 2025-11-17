@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator, Alert, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -6,14 +6,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../api/api'; 
 // import { useAuth } from "../../context/AuthContext"; // Import if needed for user context
 
+// --- FEE CONSTANTS ---
+const BASE_PEOPLE_INCLUDED = 1; // Price confirmed by agency includes this many people
+const ADDITIONAL_PER_PERSON_FEE = 50.00; // Extra mandatory fee per person beyond the base included count
+
 const AgencyPaymentReviewModal = () => {
     const router = useRouter();
     const params = useLocalSearchParams(); 
     
-    // Destructure confirmed booking details passed from the notification
-    const { bookingId, totalPrice: confirmedPrice, guideName } = params; 
+    // Destructure confirmed booking details passed from the previous screens
+    const { bookingId, totalPrice: initialConfirmedPrice, guideName } = params; 
 
     // --- State and Interactive Data ---
+    const [numPeople, setNumPeople] = useState('1'); 
+    const [currentTotalPrice, setCurrentTotalPrice] = useState(parseFloat(initialConfirmedPrice || '0'));
+
     const [paymentData, setPaymentData] = useState({
         paymentMethod: 'Gcash', 
         firstName: 'John',
@@ -28,15 +35,31 @@ const AgencyPaymentReviewModal = () => {
     const [isSuccess, setIsSuccess] = useState(false); 
     const [isLoading, setIsLoading] = useState(false);
 
-    // Data calculation (using confirmedPrice from the notification)
-    const priceFloat = parseFloat(confirmedPrice || '0');
-    const baseTourPrice = priceFloat * 0.95; 
-    const serviceFee = priceFloat * 0.05; 
-    const totalPrice = priceFloat;
+    // Initial confirmed price and fee calculation (these remain fixed percentages of the INITIAL price)
+    const priceFloat = parseFloat(initialConfirmedPrice || '0');
+    const initialBaseTourPrice = priceFloat * 0.95; 
+    const initialServiceFee = priceFloat * 0.05; 
+    
 
     const handleInputChange = (field, value) => {
         setPaymentData(prev => ({ ...prev, [field]: value }));
     };
+    
+    const handleNumPeopleChange = (value) => {
+        const num = Number(value.replace(/[^0-9]/g, '')) || 1;
+        setNumPeople(num > 0 ? num.toString() : '1');
+    };
+
+    // --- EFFECT: Recalculate price when group size changes ---
+    useEffect(() => {
+        const peopleCount = parseInt(numPeople);
+        const extraPeople = Math.max(0, peopleCount - BASE_PEOPLE_INCLUDED);
+        const addedFee = extraPeople * ADDITIONAL_PER_PERSON_FEE;
+        
+        const newTotal = priceFloat + addedFee;
+        setCurrentTotalPrice(newTotal);
+
+    }, [numPeople, initialConfirmedPrice]);
 
 
     const handleConfirm = async () => {
@@ -49,11 +72,9 @@ const AgencyPaymentReviewModal = () => {
 
         // --- STATIC SIMULATION FOR UI TESTING ---
         try {
-            // Simulate a network delay
             await new Promise(resolve => setTimeout(resolve, 2000)); 
             
-            // Validate user input (Simple check before proceeding)
-            if (!paymentData.email || !paymentData.firstName) {
+            if (!paymentData.email || !paymentData.firstName || !numPeople) {
                 Alert.alert("Validation Error", "Please ensure all required fields are filled out.");
                 setIsLoading(false);
                 return;
@@ -86,9 +107,13 @@ const AgencyPaymentReviewModal = () => {
     const confirmationIconColor = isSuccess ? '#28A745' : '#FF3B30';
     const confirmationTitle = isSuccess ? "Tour Confirmed!" : "Payment Failed";
     const confirmationMessage = isSuccess
-        ? `Your booking (ID: ${bookingId}) with the agency is now complete! Your guide, **${guideName}**, will be ready for your tour. Enjoy your trip!`
+        ? `Your booking (ID: ${bookingId}) for ${numPeople} person(s) is now complete! Your guide, **${guideName}**, will be ready for your tour. Enjoy your trip!`
         : "The payment could not be processed. Please check your payment details or try again.";
-
+        
+    // --- Dynamic Fee Display ---
+    const extraPeopleCount = Math.max(0, parseInt(numPeople) - BASE_PEOPLE_INCLUDED);
+    const addedFeeAmount = extraPeopleCount * ADDITIONAL_PER_PERSON_FEE;
+    
     // Render logic for the main review content
     const renderPaymentContent = () => (
         <View style={styles.contentContainer}>
@@ -102,48 +127,95 @@ const AgencyPaymentReviewModal = () => {
                         <Text style={styles.priceValue}>{bookingId}</Text>
                     </View>
                     <View style={styles.priceRow}>
-                        <Text style={styles.priceLabel}>Assigned Guide</Text>
+                        <Text style={styles.priceLabel}>Assigned Guide Team</Text>
                         <Text style={styles.priceValue}>{guideName || 'N/A'}</Text>
-                    </View>
-                    
-                    <View style={styles.priceDivider} />
-                    <View style={styles.priceRow}>
-                        <Text style={styles.totalLabel}>Status</Text>
-                        <Text style={[styles.totalValue, { color: '#28A745' }]}>Awaiting Payment</Text>
                     </View>
                 </View>
             </View>
-
-            {/* Fee Breakdown (Display Only) */}
+            
+            {/* Group Size Input (DYNAMIC FEE) */}
             <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Payment Breakdown</Text>
+                <Text style={styles.sectionTitle}>Group Size Confirmation</Text>
+                <View style={styles.billingCard}>
+                    <View style={styles.billingFullRow}>
+                        <Text style={styles.billingLabel}>Number of People Covered by Booking*</Text>
+                        <TextInput
+                            style={styles.billingInput}
+                            value={numPeople}
+                            onChangeText={handleNumPeopleChange}
+                            keyboardType="numeric"
+                            placeholder="e.g., 5"
+                        />
+                    </View>
+                    
+                    {/* --- BULLETED FEE BREAKDOWN --- */}
+                    <View style={styles.infoBulletContainer}>
+                        <Text style={styles.infoTextGroupSize}>
+                            <Ionicons name="information-circle-outline" size={14} color="#666" /> Fee Structure:
+                        </Text>
+                        <View style={styles.bulletItem}>
+                            <Text style={styles.bulletPoint}>•</Text>
+                            <Text style={styles.bulletText}>Agency confirmed price covers **{BASE_PEOPLE_INCLUDED} person(s)**.</Text>
+                        </View>
+                        <View style={styles.bulletItem}>
+                            <Text style={styles.bulletPoint}>•</Text>
+                            <Text style={styles.bulletText}>Additional guests incur a **₱{ADDITIONAL_PER_PERSON_FEE.toFixed(2)}** fee each.</Text>
+                        </View>
+                        {extraPeopleCount > 0 && (
+                             <View style={styles.bulletItem}>
+                                <Text style={styles.bulletPoint}>•</Text>
+                                <Text style={[styles.bulletText, { fontWeight: '700', color: '#FF3B30' }]}>
+                                    Currently adding **₱{addedFeeAmount.toFixed(2).toLocaleString()}** for {extraPeopleCount} extra guest(s).
+                                </Text>
+                            </View>
+                        )}
+                    </View>
+                    {/* --- END BULLETED FEE BREAKDOWN --- */}
+                </View>
+            </View>
+
+            {/* Fee Breakdown (Dynamic) */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Final Payment Breakdown</Text>
                 <View style={styles.card}>
                     <View style={styles.priceRow}>
-                        <Text style={styles.priceLabel}>Base Tour Fee</Text>
+                        <Text style={styles.priceLabel}>Agency Base Price (Fixed)</Text>
                         <Text style={styles.priceValue}>
-                            ₱ {baseTourPrice.toFixed(2).toLocaleString()}
+                            ₱ {priceFloat.toFixed(2).toLocaleString()}
                         </Text>
                     </View>
 
+                    {addedFeeAmount > 0 && (
+                        <View style={styles.priceRow}>
+                            <Text style={[styles.priceLabel, { color: '#FF3B30' }]}>
+                                Additional Group Fee
+                            </Text>
+                            <Text style={[styles.priceValue, { color: '#FF3B30', fontWeight: '700' }]}>
+                                + ₱ {addedFeeAmount.toFixed(2).toLocaleString()}
+                            </Text>
+                        </View>
+                    )}
+                    
                     <View style={styles.priceRow}>
-                        <Text style={styles.priceLabel}>Agency/Service Fee</Text>
+                        <Text style={styles.priceLabel}>Service Fee (Included in Base)</Text>
                         <Text style={styles.priceValue}>
-                            ₱ {serviceFee.toFixed(2).toLocaleString()}
+                            ₱ {initialServiceFee.toFixed(2).toLocaleString()}
                         </Text>
                     </View>
+
 
                     <View style={styles.priceDivider} />
 
                     <View style={styles.priceRow}>
                         <Text style={styles.totalLabel}>Total Payment Due</Text>
                         <Text style={styles.totalValue}>
-                            ₱ {totalPrice.toFixed(2).toLocaleString()}
+                            ₱ {currentTotalPrice.toFixed(2).toLocaleString()}
                         </Text>
                     </View>
                 </View>
             </View>
 
-            {/* Payment Method Selection (Needs to be interactive if multiple options exist) */}
+            {/* Payment Method */}
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Payment Method</Text>
                 <View style={styles.paymentCard}>
@@ -151,12 +223,11 @@ const AgencyPaymentReviewModal = () => {
                 </View>
             </View>
 
-            {/* Billing Information (Now Interactive) */}
+            {/* Billing Information (Interactive) */}
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Billing and Contact Information</Text>
                 <View style={styles.billingCard}>
                     
-                    {/* First Name & Last Name */}
                     <View style={styles.billingRow}>
                         <View style={styles.billingItem}>
                             <Text style={styles.billingLabel}>First Name*</Text>
@@ -176,7 +247,6 @@ const AgencyPaymentReviewModal = () => {
                         </View>
                     </View>
                     
-                    {/* Email */}
                     <View style={styles.billingFullRow}>
                         <Text style={styles.billingLabel}>Email*</Text>
                         <TextInput
@@ -184,27 +254,6 @@ const AgencyPaymentReviewModal = () => {
                             value={paymentData.email}
                             onChangeText={(text) => handleInputChange('email', text)}
                             keyboardType="email-address"
-                        />
-                    </View>
-
-                    {/* Phone Number */}
-                    <View style={styles.billingFullRow}>
-                        <Text style={styles.billingLabel}>Phone Number</Text>
-                        <TextInput
-                            style={styles.billingInput}
-                            value={paymentData.phoneNumber}
-                            onChangeText={(text) => handleInputChange('phoneNumber', text)}
-                            keyboardType="phone-pad"
-                        />
-                    </View>
-
-                    {/* Country */}
-                    <View style={styles.billingFullRow}>
-                        <Text style={styles.billingLabel}>Country</Text>
-                        <TextInput
-                            style={styles.billingInput}
-                            value={paymentData.country}
-                            onChangeText={(text) => handleInputChange('country', text)}
                         />
                     </View>
                 </View>
@@ -219,7 +268,7 @@ const AgencyPaymentReviewModal = () => {
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.cancelButton} onPress={() => router.back()}>
-                <Text style={styles.cancelButtonText}>Go Back / Edit Details</Text>
+                <Text style={styles.cancelButtonText}>Go Back</Text>
             </TouchableOpacity>
         </View>
     );
@@ -233,7 +282,7 @@ const AgencyPaymentReviewModal = () => {
                         <TouchableOpacity onPress={() => router.back()}>
                             <Ionicons name="close" size={28} color="#1A2332" />
                         </TouchableOpacity>
-                        <Text style={styles.headerTitle}>AGENCY BOOKING PAYMENT</Text>
+                        <Text style={styles.headerTitle}>AGENCY PAYMENT REVIEW</Text>
                         <View style={{ width: 28 }} />
                     </View>
 
@@ -280,7 +329,7 @@ const styles = StyleSheet.create({
     priceValue: { fontSize: 12, color: '#1A2332', fontWeight: '600' },
     priceDivider: { height: 1, backgroundColor: '#E0E6ED', marginVertical: 10 },
     totalLabel: { fontSize: 13, fontWeight: '700', color: '#1A2332' },
-    totalValue: { fontSize: 13, fontWeight: '700', color: '#28A745' }, 
+    totalValue: { fontSize: 13, fontWeight: '700', color: '#28A745' }, // Highlight total in green
     
     paymentCard: { backgroundColor: '#F5F7FA', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#E0E6ED', alignItems: 'center' },
     paymentMethod: { fontSize: 13, fontWeight: '700', color: '#1A2332' },
@@ -301,6 +350,38 @@ const styles = StyleSheet.create({
         padding: 8,
         backgroundColor: '#F9F9FB'
     },
+    // --- NEW BULLET STYLES ---
+    infoTextGroupSize: {
+        fontSize: 12,
+        color: '#666',
+        fontWeight: '600',
+        paddingHorizontal: 5,
+        marginBottom: 5,
+    },
+    infoBulletContainer: {
+        paddingHorizontal: 5,
+        paddingBottom: 5,
+    },
+    bulletItem: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginBottom: 3,
+        paddingHorizontal: 5,
+    },
+    bulletPoint: {
+        fontSize: 12,
+        color: '#666',
+        width: 15, // Space for the bullet point
+        lineHeight: 18,
+    },
+    bulletText: {
+        flex: 1,
+        fontSize: 12,
+        color: '#666',
+        lineHeight: 18,
+    },
+    // --- END NEW BULLET STYLES ---
+
     
     // Buttons
     confirmButton: { backgroundColor: '#28A745', paddingVertical: 12, borderRadius: 8, alignItems: 'center', marginBottom: 10 },
