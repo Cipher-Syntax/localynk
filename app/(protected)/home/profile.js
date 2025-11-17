@@ -4,7 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, AntDesign } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAuth } from '../../../context/AuthContext' // <-- Using the AUTH CONTEXT
+import { useAuth } from '../../../context/AuthContext'
 
 export default function Profile() {
     const [loading, setLoading] = useState(true);

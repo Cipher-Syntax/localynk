@@ -31,7 +31,7 @@ const FeaturedPlaces = () => {
             activeOpacity={0.7}
             onPress={() =>
                 router.push({
-                    pathname: "/(protected)/featuredPlacesDetails",
+                    pathname: "/(protected)/placesDetails",
                     params: {
                         id: item.id.toString(),
                         image: Image.resolveAssetSource(item.image).uri,

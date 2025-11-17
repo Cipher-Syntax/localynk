@@ -14,34 +14,61 @@ const Notifications = () => {
         // Mapped to alert titles/types from the backend if possible, or object context
         "New Guide Application": <Ionicons name="person-add-outline" size={28} color="#F5A623" />,
         "Application Approved!": <Ionicons name="checkmark-done-circle-outline" size={28} color="#007AFF" />,
-        "Booking Accepted!": <Ionicons name="calendar-outline" size={28} color="#0A2342" />,
+        "Booking Accepted!": <Ionicons name="calendar-outline" size={28} color="#28A745" />, // Using the updated green color
         "New Message": <Ionicons name="chatbubble-ellipses-outline" size={28} color="#0A2342" />,
-        "Payment Successful": <FontAwesome5 name="money-check-alt" size={24} color="#0A2342" />,
+        "Payment Successful": <FontAwesome5 name="money-check-alt" size={24} color="#007AFF" />,
+    };
+
+    // --- STATIC MOCK DATA (for testing new agency flow) ---
+    const mockAgencyBookingNotification = {
+        id: 9999, // High ID to avoid conflict with real IDs
+        title: "Booking Accepted!",
+        message: "Your agency booking (ID: 123456789) has been confirmed! Tap to complete payment.",
+        is_read: false,
+        created_at: new Date().toISOString(),
+        related_object_id: '123456789', // Mock Booking ID
+        booking_total_price: '5800.00', // Mock Final Price
+        assigned_guide_name: 'Mica Dela Cruz', // Mock Guide Name
     };
 
     const fetchNotifications = async () => {
+        let fetchedData = [];
+
         try {
+            // **Attempt to fetch real data from Django backend**
             const response = await api.get('/api/alerts/');
-            // response.data should contain a list of SystemAlert objects
-            setNotifications(response.data);
+            if (response.data && response.data.length > 0) {
+                fetchedData = response.data;
+            }
         } catch (error) {
-            console.error('Failed to fetch notifications:', error.response?.data || error.message);
-        } finally {
-            setIsLoading(false);
+            console.warn('Backend notifications fetch failed, running with static data:', error.message);
         }
+
+        // **UNCONDITIONALLY ADD the static mock notification to the start of the list**
+        const finalNotifications = [mockAgencyBookingNotification, ...fetchedData];
+        
+        setNotifications(finalNotifications);
+        setIsLoading(false);
     };
 
     const markAsRead = async (id) => {
         try {
-            // Call the backend to mark this specific alert as read
-            await api.patch(`/api/alerts/${id}/read/`, { is_read: true });
+            // **Keep the backend call to mark as read**
+            // Check if it's the mock ID to avoid trying to mark a non-existent item on the backend
+            if (id !== mockAgencyBookingNotification.id) {
+                await api.patch(`/api/alerts/${id}/read/`, { is_read: true });
+            }
             
             // Optimistically update the local state to remove the red dot
             setNotifications(prev => 
                 prev.map(n => n.id === id ? { ...n, is_read: true } : n)
             );
         } catch (error) {
+            // Handle error, but still update UI if it was a mock notification
             console.error('Failed to mark notification as read:', error.response?.data || error.message);
+             setNotifications(prev => 
+                prev.map(n => n.id === id ? { ...n, is_read: true } : n)
+            );
         }
     };
 
@@ -49,12 +76,24 @@ const Notifications = () => {
         markAsRead(item.id);
 
         if (item.title === "Application Approved!") {
-            // Use the notification's related_object_id or a fixed fee
-            // For now, we use a fixed mock fee, but you could pass actual fee data from the alert here.
-            router.push({pathname: '/(protected)/completeRegistrationFee', params: {feeAmount: '500.00'}});
+            // Existing Guide Registration Fee flow
+            router.push({pathname: '/(protected)/completeRegistrationFee', params: {feeAmount: item.booking_total_price || '500.00'}});
         } else if (item.title === "Booking Accepted!") {
-            // Uses the generic booking ID
-            router.push(`/(protected)/completePayment?bookingId=${item.related_object_id || 'booking789'}`);
+            // **New Agency Booking Payment Flow**
+            
+            // Ensure the item carries the necessary data fields (from backend or mock)
+            const confirmedBookingData = {
+                bookingId: item.related_object_id,
+                totalPrice: item.booking_total_price, 
+                guideName: item.assigned_guide_name, 
+            };
+
+            // Navigate to the new payment review screen
+            router.push({ 
+                pathname: '/(protected)/agencyPaymentReviewModal', 
+                params: confirmedBookingData
+            });
+            
         } else if (item.title === "New Message") {
             router.push('/(protected)/message');
         } else {
@@ -79,8 +118,6 @@ const Notifications = () => {
             const timeDiff = today.getTime() - itemDate.getTime();
             const diffDays = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
 
-            // Use the hardcoded mock notifications for display until backend is fully integrated
-            // For now, we mock the data structure to include the necessary fields.
             const displayItem = {
                 id: item.id,
                 icon: notificationIcons[item.title] || <Ionicons name="information-circle-outline" size={28} color="#0A2342" />,
