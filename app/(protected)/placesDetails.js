@@ -171,7 +171,7 @@ export default function PlacesDetails() {
         <View style={{ paddingHorizontal: 15, paddingVertical: 20 }}>
           <TouchableOpacity style={styles.bookButton} onPress={() => router.push({ pathname: '/(protected)/bookingChoice' })}>
             <Calendar size={20} color="#fff" />
-            <Text style={styles.bookButtonText}>BOOK NOW</Text>
+            <Text style={styles.bookButtonText}>Choose A Guide</Text>
           </TouchableOpacity>
 
           {/* <TouchableOpacity style={styles.contactButton}>

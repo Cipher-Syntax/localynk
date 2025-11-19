@@ -12,59 +12,122 @@ const initialAuthState = {
     user: null,
     token: null,
     isLoading: true,
-    message: null,    
-    messageType: null,  // <-- added ('success', 'error', 'info')
+    message: null,    
+    messageType: null, // 'success', 'error', 'info'
 };
 
 export function AuthProvider({ children }) {
     const [state, setState] = useState(initialAuthState);
     const router = useRouter();
 
-    // --- Core function to fetch profile and update state ---
+    // --- Core function to fetch profile ---
     const fetchProfile = async () => {
         try {
             const response = await api.get('/api/profile/');
             return response.data;
         } catch (error) {
-            console.error('Profile fetch error:', error.response?.data || error.message);
+            if (
+                error.response?.status === 404 ||
+                error.response?.data?.code === 'user_not_found'
+            ) {
+                return null;
+            }
             throw error;
         }
     };
 
-    // --- Function exposed to components to manually refresh role/data ---
+    // ⭐ NEW FUNCTION: Handle PATCH request to update user profile
+    const updateUserProfile = async (profileData) => {
+        try {
+            const response = await api.patch('/api/profile/', profileData);
+            const updatedUser = response.data;
+
+            setState(prev => ({
+                ...prev,
+                user: updatedUser,
+                message: 'Profile updated successfully.',
+                messageType: 'success'
+            }));
+
+            // In a production app, you might want to re-save updated user data 
+            // to AsyncStorage if you store the entire user object there.
+
+            return true; // Success
+        } catch (error) {
+            console.error("Profile update failed:", error.response?.data || error);
+            // Return specific error message from backend if available
+            let errorMessage = 'Failed to update profile. Please check your inputs.';
+            if (error.response?.data) {
+                // Simplified error extraction, adjust based on your Django API format
+                errorMessage = JSON.stringify(error.response.data);
+            }
+            setState(prev => ({
+                ...prev,
+                message: errorMessage,
+                messageType: 'error'
+            }));
+            return false; // Failure
+        }
+    };
+
+
+    // --- Refresh user manually ---
     const refreshUser = async () => {
         try {
             const user = await fetchProfile();
-            setState(prev => ({ 
-                ...prev, 
-                user, 
-                isAuthenticated: true, 
-                message: 'Profile refreshed.',
-                messageType: 'info'
-            }));
+            if (user) {
+                setState(prev => ({ 
+                    ...prev, 
+                    user, 
+                    isAuthenticated: true, 
+                    message: 'Profile refreshed.',
+                    messageType: 'info'
+                }));
+            }
             return true;
         } catch (e) {
             console.error('Failed to refresh user profile:', e);
             return false;
         }
     };
-    // -------------------------------------------------------------------
 
-    // --- Load stored tokens and fetch profile on app startup
+    // --- Load stored tokens on app startup ---
     useEffect(() => {
         const loadStoredUser = async () => {
             try {
                 const access = await AsyncStorage.getItem(ACCESS_TOKEN);
                 const refresh = await AsyncStorage.getItem(REFRESH_TOKEN);
 
+                console.log('Checking stored tokens...', { access: !!access, refresh: !!refresh });
+
                 if (access && refresh) {
                     try {
                         const user = await fetchProfile();
-                        setState({ isAuthenticated: true, user, token: access, isLoading: false });
-                    } catch (error) {
+                        if (user) {
+                            console.log('User loaded from stored tokens:', user);
+                            setState({ 
+                                isAuthenticated: true, 
+                                user, 
+                                token: access, 
+                                isLoading: false,
+                                message: null,
+                                messageType: null
+                            });
+                        } else {
+                            // tokens exist but user is inactive/unverified
+                            console.log('Tokens exist but user not found or inactive');
+                            await AsyncStorage.removeItem(ACCESS_TOKEN);
+                            await AsyncStorage.removeItem(REFRESH_TOKEN);
+                            setState(prev => ({ ...prev, isLoading: false }));
+                        }
+                    } catch (profileError) {
+                        console.error('Error fetching profile:', profileError);
+                        await AsyncStorage.removeItem(ACCESS_TOKEN);
+                        await AsyncStorage.removeItem(REFRESH_TOKEN);
                         setState(prev => ({ ...prev, isLoading: false }));
                     }
                 } else {
+                    console.log('No stored tokens found');
                     setState(prev => ({ ...prev, isLoading: false }));
                 }
             } catch (error) {
@@ -75,8 +138,7 @@ export function AuthProvider({ children }) {
         loadStoredUser();
     }, []);
 
-    // --- API Calls ---
-
+    // --- LOGIN ---
     const login = async (username, password) => {
         setState(prev => ({ ...prev, isLoading: true }));
         try {
@@ -87,64 +149,100 @@ export function AuthProvider({ children }) {
             await AsyncStorage.setItem(ACCESS_TOKEN, access);
             await AsyncStorage.setItem(REFRESH_TOKEN, refresh);
 
+            // Fetch profile
             const user = await fetchProfile();
+
+            if (!user) {
+                setState({
+                    ...initialAuthState,
+                    isLoading: false,
+                    message: 'Account not verified. Check your email.',
+                    messageType: 'error',
+                });
+                return false;
+            }
 
             setState({
                 isAuthenticated: true,
-                user,
+                user, // Return user object for first-time check in AuthForm
                 token: access,
                 isLoading: false,
                 message: 'Login successful!',
                 messageType: 'success',
             });
-            return true;
-        } catch (error) {
+            return user; // ⭐ IMPORTANT: Return the user object on success
+        }
+        catch (error) {
             console.error('Login error:', error.response?.data || error.message);
+            
+            let errorMessage = 'Invalid username or password';
+            
+            if (error.response?.data?.detail?.includes('not active') || 
+                error.response?.data?.detail?.includes('verify your email')) {
+                errorMessage = 'Please verify your email before logging in. Check your inbox.';
+            }
+            
             setState(prev => ({
                 ...prev,
                 isLoading: false,
-                message: 'Invalid username or password',
+                message: errorMessage,
                 messageType: 'error',
             }));
             return false;
         }
     };
 
+    // --- REGISTER ---
     const register = async (userData) => {
         try {
             await api.post('/api/register/', userData);
             setState(prev => ({
                 ...prev,
-                message: 'Registration successful. You can now log in.',
+                message: 'Registration successful. Verify your email to log in.',
                 messageType: 'success',
             }));
-            return true;
+            return { success: true, message: 'Verify your email before logging in.' };
         } catch (error) {
-            console.error('Registration error:', error.response?.data || error.message);
+            console.error(
+                'Registration error:',
+                error?.response?.data ?? error?.message ?? error
+            );
+
+            let msg = 'Registration failed. Please check your info.';
+            if (error?.response?.data?.detail) {
+                msg = error.response.data.detail;
+            }
+
             setState(prev => ({
                 ...prev,
-                message: 'Failed to register. Please check your info.',
+                message: msg,
                 messageType: 'error',
             }));
-            return false;
+            return { success: false, message: msg };
         }
     };
 
+
+    // --- LOGOUT ---
     const logout = async () => {
         try {
             await AsyncStorage.removeItem(ACCESS_TOKEN);
             await AsyncStorage.removeItem(REFRESH_TOKEN);
             setState({
-                ...initialAuthState,
+                isAuthenticated: false,
+                user: null,
+                token: null,
+                isLoading: false,
                 message: 'Logged out successfully',
                 messageType: 'info',
             });
-            router.replace('/auth/login/') 
+            router.replace('/auth/landingPage');
         } catch (error) {
             console.error('Logout error:', error);
         }
     };
 
+    // --- ROLE DETECTION ---
     const getRole = (user) => {
         if (user?.is_local_guide && user?.guide_approved) return 'guide';
         if (user?.is_staff) return 'admin';
@@ -156,12 +254,12 @@ export function AuthProvider({ children }) {
         login,
         register,
         logout,
-        refreshUser, // Exposed refresh function
+        refreshUser,
+        updateUserProfile, // ⭐ EXPOSED FUNCTION
         role: getRole(state.user),
-        clearMessage: () => setState(prev => ({ ...prev, message: null, messageType: null })), 
+        clearMessage: () => setState(prev => ({ ...prev, message: null, messageType: null })),
     }), [state]);
 
-    // --- Render loading state while checking tokens/profile
     if (state.isLoading) {
         return (
             <View style={styles.loadingOverlay}>

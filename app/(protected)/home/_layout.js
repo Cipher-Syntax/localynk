@@ -1,21 +1,19 @@
 import { Tabs } from "expo-router";
-import { Search, User, Map, Bell, Home } from "lucide-react-native";
+import { User, Map, Home } from "lucide-react-native";
 import { View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const HomeLayout = () => {
     const TABS = [
-        { name: "index", title: "Home", icon: Home },
-        { name: "tourGuide", title: "Tour Guide", icon: Map },
-        { name: "notification", title: "Notification", icon: Bell },
-        { name: "explore", title: "Explore", icon: Search },
+        { name: "index", title: "Explore", icon: Home },
+        { name: "tourGuide", title: "Dashboard", icon: Map },
         { name: "profile", title: "Profile", icon: User },
     ];
 
-    const FOCUSED_COLOR = "#1A2238"; // same as before for active tab background
+    const FOCUSED_COLOR = "#1A2238";
 
     return (
-        <SafeAreaView style={{ flex: 1, justifyContent: "space-between" }}>
+        <SafeAreaView style={{ flex: 1 }}>
             <Tabs
                 screenOptions={{
                     headerShown: false,
@@ -41,7 +39,9 @@ const HomeLayout = () => {
                                 return (
                                     <View
                                         style={{
-                                            backgroundColor: focused ? FOCUSED_COLOR : "transparent",
+                                            backgroundColor: focused
+                                                ? FOCUSED_COLOR
+                                                : "transparent",
                                             borderWidth: focused ? 1 : 0,
                                             borderColor: focused ? "#fff" : "transparent",
                                             borderRadius: 9999,

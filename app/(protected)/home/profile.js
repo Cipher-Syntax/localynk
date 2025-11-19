@@ -165,6 +165,7 @@ export default function Profile() {
                             onPress={async () => {
                                 await logout();
                             }}
+                            // onPress={() => router.push({pathname: "/auth/login"})}
                         >
                             <Text style={styles.logoutButtonText}>Log Out</Text>
                         </TouchableOpacity>

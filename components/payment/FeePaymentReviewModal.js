@@ -1,78 +1,117 @@
-import React, { useState } from 'react';
-import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import api from '../../api/api'; 
-// import { useAuth } from "../../../context/AuthContext"; // Ensure correct import path
-import { useAuth } from "../../context/AuthContext"
+import * as Linking from 'expo-linking';
+import api from '../../api/api';
+import { useAuth } from "../../context/AuthContext";
 
 const FeePaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
-    const [showConfirmationScreen, setShowConfirmationScreen] = useState(false);
-    const [isSuccess, setIsSuccess] = useState(false); 
     const [isLoading, setIsLoading] = useState(false);
+    const [checkoutUrl, setCheckoutUrl] = useState('');
+    const [showPaymentLink, setShowPaymentLink] = useState(false);
+    const [paymentId, setPaymentId] = useState(null);
+    const [paymentStatus, setPaymentStatus] = useState(null);
 
     const router = useRouter();
-    const { refreshUser } = useAuth(); // <-- GETTING REFRESH FUNCTION
+    const { refreshUser } = useAuth();
+    const pollingRef = useRef(null);
 
-    const handleConfirm = async () => {
+    const handleInitiatePayment = async () => {
         setIsLoading(true);
         try {
             const payload = {
                 payment_type: 'RegistrationFee',
-                final_amount: paymentData.totalPrice, 
+                final_amount: paymentData.totalPrice,
                 payment_method: paymentData.paymentMethod,
             };
 
-            const initiateResponse = await api.post('/api/initiate/', payload);
-
-            if (initiateResponse.data.checkout_url) {
-                const transactionId = initiateResponse.data.transaction_id;
-                
-                await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate payment
-
-                const webhookPayload = {
-                    transaction_id: transactionId,
-                    status: 'succeeded',
-                };
-
-                const webhookResponse = await api.post('/api/webhook/', webhookPayload);
-
-                setIsSuccess(webhookResponse.status === 200);
-            } else {
-                setIsSuccess(false);
-            }
+            const response = await api.post('/api/payments/initiate/', payload);
             
-            setIsLoading(false);
-            setShowConfirmationScreen(true);
+            const responseData = response.data;
+            
+            console.log("LOG Full Response Data:", responseData);
+            console.log("LOG Checkout url:", responseData.checkout_url);
 
+            if (responseData.checkout_url) {
+                setCheckoutUrl(responseData.checkout_url);
+                setPaymentId(responseData.payment_id);
+                setShowPaymentLink(true);
+
+                startPolling(responseData.payment_id);
+            } else {
+                console.log("LOG Response data missing checkout URL:", responseData);
+                Alert.alert("Payment Error", "Could not retrieve payment link. The link was missing from the server response.");
+            }
         } catch (error) {
-            console.error('Payment initiation error:', error.response?.data || error.message);
+            const status = error.response?.status;
+            let errorMessage = "Failed to initiate payment. Check your internet or try again.";
+
+            if (status === 401) {
+                errorMessage = "Authentication Failed. Please log in again to process payment.";
+            } else if (status === 400 && error.response?.data?.detail) {
+                errorMessage = error.response.data.detail;
+            }
+
+            console.error("Payment initiation failed:", error.response?.data || error.message);
+            Alert.alert("Payment Error", errorMessage);
+        } finally {
             setIsLoading(false);
-            setIsSuccess(false);
-            setShowConfirmationScreen(true); 
         }
     };
 
-    const handleConfirmationDismiss = async () => {
-        setShowConfirmationScreen(false);
-        setIsModalOpen(false);
-        
-        if (isSuccess) {
-            await refreshUser(); 
-            router.replace('/(protected)/home'); 
-        } 
+    const startPolling = (id) => {
+        if (pollingRef.current) clearInterval(pollingRef.current);
+
+        pollingRef.current = setInterval(async () => {
+            try {
+                const statusResp = await api.get(`/api/payments/status/${id}/`);
+                const status = statusResp.data.status;
+
+                setPaymentStatus(status);
+
+                if (status === "succeeded" || status === "failed") {
+                    clearInterval(pollingRef.current);
+                    refreshUser();
+                    Alert.alert(
+                        status === "succeeded" ? "Payment Successful" : "Payment Failed",
+                        status === "succeeded"
+                            ? "Your registration fee payment has been confirmed!"
+                            : "Payment failed. Please try again."
+                    );
+                    setIsModalOpen(false);
+                    router.replace('/home');
+                }
+            } catch (err) {
+                console.error("Polling payment status failed:", err);
+            }
+        }, 3000);
     };
 
-    const { baseFee, serviceFee, totalPrice, paymentMethod, firstName, lastName, phoneNumber, country, email } = paymentData || {};
+    const handleExternalPayment = async () => {
+        if (!checkoutUrl) return;
 
-    const confirmationHeader = isSuccess ? "WELCOME ABOARD!" : "PAYMENT FAILED";
-    const confirmationIconName = isSuccess ? "checkmark-done-circle" : "close-circle";
-    const confirmationIconColor = isSuccess ? '#00A8FF' : '#FF3B30';
-    const confirmationTitle = isSuccess ? "Registration Complete!" : "Payment Failed";
-    const confirmationMessage = isSuccess
-        ? "Congratulations! Your guide account is now active. Welcome to the MFLG community!"
-        : "The payment could not be processed. Please check your payment details or try again.";
+        try {
+            await Linking.openURL(checkoutUrl);
+            Alert.alert(
+                "Redirected to Payment",
+                "You are being redirected to PayMongo. Payment status will update automatically."
+            );
+        } catch (error) {
+            console.error("Failed to open checkout:", error);
+            Alert.alert("Error", "Could not open payment link.");
+        }
+    };
+
+    useEffect(() => {
+        return () => {
+            if (pollingRef.current) clearInterval(pollingRef.current);
+        };
+    }, []);
+
+    // ⭐ FIX: Destructure paymentData to get the billing fields passed from CompleteRegistrationFee.js
+    const { baseFee, serviceFee, totalPrice, paymentMethod, firstName, lastName, phoneNumber, country, email } = paymentData || {};
 
     return (
         <Modal visible={isModalOpen} animationType="slide">
@@ -94,25 +133,16 @@ const FeePaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => 
                             <View style={styles.priceCard}>
                                 <View style={styles.priceRow}>
                                     <Text style={styles.priceLabel}>Base Registration Fee</Text>
-                                    <Text style={styles.priceValue}>
-                                        ₱ {baseFee ? baseFee.toFixed(2).toLocaleString() : '0.00'}
-                                    </Text>
+                                    <Text style={styles.priceValue}>₱ {baseFee?.toFixed(2).toLocaleString() || '0.00'}</Text>
                                 </View>
-
                                 <View style={styles.priceRow}>
                                     <Text style={styles.priceLabel}>App Service Fee</Text>
-                                    <Text style={styles.priceValue}>
-                                        ₱ {serviceFee ? serviceFee.toFixed(2).toLocaleString() : '0.00'}
-                                    </Text>
+                                    <Text style={styles.priceValue}>₱ {serviceFee?.toFixed(2).toLocaleString() || '0.00'}</Text>
                                 </View>
-
                                 <View style={styles.priceDivider} />
-
                                 <View style={styles.priceRow}>
                                     <Text style={styles.totalLabel}>Total to Pay</Text>
-                                    <Text style={styles.totalValue}>
-                                        ₱ {totalPrice ? totalPrice.toFixed(2).toLocaleString() : '0.00'}
-                                    </Text>
+                                    <Text style={styles.totalValue}>₱ {totalPrice?.toFixed(2).toLocaleString() || '0.00'}</Text>
                                 </View>
                             </View>
                         </View>
@@ -121,11 +151,11 @@ const FeePaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => 
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>Payment Method</Text>
                             <View style={styles.paymentCard}>
-                                <Text style={styles.paymentMethod}>{paymentMethod ? paymentMethod.toUpperCase() : 'N/A'}</Text>
+                                <Text style={styles.paymentMethod}>{paymentMethod?.toUpperCase() || 'N/A'}</Text>
                             </View>
                         </View>
 
-                        {/* Billing Information */}
+                        {/* Billing Info - NOW CORRECTLY DISPLAYING PROPS */}
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>Billing Information</Text>
                             <View style={styles.billingCard}>
@@ -156,13 +186,16 @@ const FeePaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => 
                             </View>
                         </View>
 
-                        <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm} disabled={isLoading}>
-                            {isLoading ? (
-                                <ActivityIndicator color="#fff" />
-                            ) : (
-                                <Text style={styles.confirmButtonText}>Confirm & Pay Registration Fee</Text>
-                            )}
-                        </TouchableOpacity>
+                        {/* Buttons */}
+                        {!showPaymentLink ? (
+                            <TouchableOpacity style={styles.confirmButton} onPress={handleInitiatePayment} disabled={isLoading}>
+                                {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.confirmButtonText}>Initiate Payment Link</Text>}
+                            </TouchableOpacity>
+                        ) : (
+                            <TouchableOpacity style={styles.confirmButton} onPress={handleExternalPayment}>
+                                <Text style={styles.confirmButtonText}>Go to PayMongo Checkout</Text>
+                            </TouchableOpacity>
+                        )}
 
                         <TouchableOpacity style={styles.cancelButton} onPress={() => setIsModalOpen(false)}>
                             <Text style={styles.cancelButtonText}>Edit Details</Text>
@@ -170,30 +203,12 @@ const FeePaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => 
                     </View>
                 </SafeAreaView>
             </ScrollView>
-
-            {/* Final Confirmation Modal */}
-            <Modal visible={showConfirmationScreen} animationType="fade" transparent={false}>
-                <SafeAreaView style={styles.confirmationContainer}>
-                    <View style={styles.confirmationContent}>
-                        <Text style={styles.confirmationHeader}>{confirmationHeader}</Text>
-                        
-                        <Ionicons name={confirmationIconName} size={100} style={[styles.confirmationIcon, { color: confirmationIconColor }]} />
-                        
-                        <Text style={styles.confirmationTitle}>{confirmationTitle}</Text>
-                        
-                        <Text style={styles.confirmationMessage}>{confirmationMessage}</Text>
-
-                        <TouchableOpacity style={styles.confirmationButton} onPress={handleConfirmationDismiss}>
-                            <Text style={styles.confirmationButtonText}>{isSuccess ? "Get Started" : "OK"}</Text>
-                        </TouchableOpacity>
-                    </View>
-                </SafeAreaView>
-            </Modal>
         </Modal>
     );
 };
 
 export default FeePaymentReviewModal;
+
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
@@ -226,7 +241,6 @@ const styles = StyleSheet.create({
     cancelButton: { backgroundColor: '#fff', paddingVertical: 12, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#00A8FF' },
     cancelButtonText: { color: '#00A8FF', fontWeight: '700', fontSize: 14 },
 
-    // Confirmation Modal Styles
     confirmationContainer: { flex: 1, backgroundColor: '#F5F7FA', justifyContent: 'center', alignItems: 'center' },
     confirmationContent: { width: '90%', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 30 },
     confirmationHeader: { fontSize: 18, fontWeight: '700', letterSpacing: 1, marginBottom: 40, opacity: 0.8, color: '#00A8FF' },

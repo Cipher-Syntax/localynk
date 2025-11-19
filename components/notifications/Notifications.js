@@ -1,110 +1,119 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Image, Text, TouchableOpacity, StatusBar, ScrollView, ActivityIndicator } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, StyleSheet, Image, Text, TouchableOpacity, StatusBar, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import api from '../../api/api'; // Assuming correct path to your API utility
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import { useRouter, useFocusEffect } from 'expo-router';
+import api from '../../api/api'; 
 
 const Notifications = () => {
     const router = useRouter();
     const [notifications, setNotifications] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
 
     const notificationIcons = {
-        // Mapped to alert titles/types from the backend if possible, or object context
+        // Matches the "title" we set in the Django Signal
         "New Guide Application": <Ionicons name="person-add-outline" size={28} color="#F5A623" />,
         "Application Approved!": <Ionicons name="checkmark-done-circle-outline" size={28} color="#007AFF" />,
-        "Booking Accepted!": <Ionicons name="calendar-outline" size={28} color="#28A745" />, // Using the updated green color
+        "Booking Accepted!": <Ionicons name="calendar-outline" size={28} color="#28A745" />,
         "New Message": <Ionicons name="chatbubble-ellipses-outline" size={28} color="#0A2342" />,
         "Payment Successful": <FontAwesome5 name="money-check-alt" size={24} color="#007AFF" />,
     };
 
-    // --- STATIC MOCK DATA (for testing new agency flow) ---
-    const mockAgencyBookingNotification = {
-        id: 9999, // High ID to avoid conflict with real IDs
-        title: "Booking Accepted!",
-        message: "Your agency booking (ID: 123456789) has been confirmed! Tap to complete payment.",
-        is_read: false,
-        created_at: new Date().toISOString(),
-        related_object_id: '123456789', // Mock Booking ID
-        booking_total_price: '5800.00', // Mock Final Price
-        assigned_guide_name: 'Mica Dela Cruz', // Mock Guide Name
-    };
-
     const fetchNotifications = async () => {
-        let fetchedData = [];
-
         try {
-            // **Attempt to fetch real data from Django backend**
             const response = await api.get('/api/alerts/');
-            if (response.data && response.data.length > 0) {
-                fetchedData = response.data;
+            if (response.data) {
+                // Sort by created_at desc (newest first) just in case backend doesn't
+                const sortedData = response.data.sort((a, b) => 
+                    new Date(b.created_at) - new Date(a.created_at)
+                );
+                setNotifications(sortedData);
             }
         } catch (error) {
-            console.warn('Backend notifications fetch failed, running with static data:', error.message);
+            console.warn('Backend notifications fetch failed:', error.message);
+        } finally {
+            setIsLoading(false);
+            setRefreshing(false);
         }
-
-        // **UNCONDITIONALLY ADD the static mock notification to the start of the list**
-        const finalNotifications = [mockAgencyBookingNotification, ...fetchedData];
-        
-        setNotifications(finalNotifications);
-        setIsLoading(false);
     };
+
+    // Use useFocusEffect to auto-refresh the list whenever the screen appears
+    useFocusEffect(
+        useCallback(() => {
+            fetchNotifications();
+        }, [])
+    );
+
+    const onRefresh = useCallback(() => {
+        setRefreshing(true);
+        fetchNotifications();
+    }, []);
 
     const markAsRead = async (id) => {
         try {
-            // **Keep the backend call to mark as read**
-            // Check if it's the mock ID to avoid trying to mark a non-existent item on the backend
-            if (id !== mockAgencyBookingNotification.id) {
-                await api.patch(`/api/alerts/${id}/read/`, { is_read: true });
-            }
+            // Call backend to mark as read
+            await api.patch(`/api/alerts/${id}/read/`, { is_read: true });
             
-            // Optimistically update the local state to remove the red dot
+            // Update local state
             setNotifications(prev => 
                 prev.map(n => n.id === id ? { ...n, is_read: true } : n)
             );
         } catch (error) {
-            // Handle error, but still update UI if it was a mock notification
-            console.error('Failed to mark notification as read:', error.response?.data || error.message);
-             setNotifications(prev => 
-                prev.map(n => n.id === id ? { ...n, is_read: true } : n)
-            );
+            console.error('Failed to mark notification as read:', error);
+        }
+    };
+
+    const handleMarkAllRead = async () => {
+        // Filter only unread items to save API calls
+        const unreadItems = notifications.filter(n => !n.is_read);
+        
+        // Optimistically update UI immediately
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+
+        // Send requests in background
+        try {
+            await Promise.all(unreadItems.map(item => 
+                api.patch(`/api/alerts/${item.id}/read/`, { is_read: true })
+            ));
+        } catch (error) {
+            console.error("Error marking all read:", error);
         }
     };
 
     const handleNotificationPress = (item) => {
-        markAsRead(item.id);
+        // 1. Mark as read immediately
+        if (!item.is_read) {
+            markAsRead(item.id);
+        }
 
+        // 2. Handle Navigation based on Title
         if (item.title === "Application Approved!") {
-            // Existing Guide Registration Fee flow
-            router.push({pathname: '/(protected)/completeRegistrationFee', params: {feeAmount: item.booking_total_price || '500.00'}});
-        } else if (item.title === "Booking Accepted!") {
-            // **New Agency Booking Payment Flow**
-            
-            // Ensure the item carries the necessary data fields (from backend or mock)
+            router.push({
+                pathname: '/(protected)/completeRegistrationFee', 
+                params: { feeAmount: item.booking_total_price || '500.00' }
+            });
+        } 
+        else if (item.title === "Booking Accepted!") {
             const confirmedBookingData = {
                 bookingId: item.related_object_id,
                 totalPrice: item.booking_total_price, 
                 guideName: item.assigned_guide_name, 
             };
-
-            // Navigate to the new payment review screen
             router.push({ 
                 pathname: '/(protected)/agencyAssignedGuide', 
                 params: confirmedBookingData
             });
-            
-        } else if (item.title === "New Message") {
-            router.push('/(protected)/message');
-        } else {
-            // Fallback action or view specific detail
-            console.log('Viewing notification detail:', item);
+        } 
+        else if (item.title === "New Message") {
+            // Navigate to your messages screen
+            // If your Message screen supports opening a specific chat via params, add it here using item.related_object_id
+            router.push('/(protected)/message'); 
+        } 
+        else {
+            console.log('Generic notification pressed:', item);
         }
     };
-
-    useEffect(() => {
-        fetchNotifications();
-    }, []);
 
     const categorizeNotifications = () => {
         const today = new Date();
@@ -119,16 +128,14 @@ const Notifications = () => {
             const diffDays = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
 
             const displayItem = {
-                id: item.id,
+                ...item, // Keep all original properties
                 icon: notificationIcons[item.title] || <Ionicons name="information-circle-outline" size={28} color="#0A2342" />,
-                title: item.title,
-                description: item.message, // Use message as description
-                time: `${diffDays === 0 ? 'Today' : diffDays + ' days ago'}`, // Simplified time
-                is_read: item.is_read,
+                description: item.message, 
+                time: `${diffDays <= 0 ? 'Today' : diffDays + ' days ago'}`, 
                 action: () => handleNotificationPress(item),
             };
 
-            if (diffDays === 0) {
+            if (diffDays <= 0) {
                 todayList.push(displayItem);
             } else if (diffDays < 7) {
                 weekList.push(displayItem);
@@ -149,14 +156,14 @@ const Notifications = () => {
             <View style={styles.iconContainer}>{item.icon}</View>
             <View style={styles.textContainer}>
                 <Text style={styles.notificationTitle}>{item.title}</Text>
-                <Text style={styles.notificationDesc}>{item.description}</Text>
+                <Text style={styles.notificationDesc} numberOfLines={2}>{item.description}</Text>
                 <Text style={styles.notificationTime}>{item.time}</Text>
             </View>
             {!item.is_read && <View style={styles.redDot} />}
         </TouchableOpacity>
     );
 
-    if (isLoading) {
+    if (isLoading && notifications.length === 0) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#007AFF" />
@@ -166,7 +173,7 @@ const Notifications = () => {
     }
 
     return (
-        <ScrollView style={styles.container}>
+        <View style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
             <View>
@@ -183,38 +190,50 @@ const Notifications = () => {
                 </View>
             </View>
 
-            {/* Today's Notifications */}
-            {todayNotifications.length > 0 && (
-                <>
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>TODAY</Text>
-                        <TouchableOpacity onPress={() => console.log('Mark all read action placeholder')}>
+            <ScrollView 
+                contentContainerStyle={{ paddingBottom: 20 }}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                }
+            >
+                {/* Mark All Read Button - Only show if there are unread items */}
+                {notifications.some(n => !n.is_read) && (
+                    <View style={styles.actionHeader}>
+                         <TouchableOpacity onPress={handleMarkAllRead}>
                             <Text style={styles.markAll}>Mark all read</Text>
                         </TouchableOpacity>
                     </View>
-                    {todayNotifications.map(renderNotification)}
-                </>
-            )}
+                )}
 
-            {/* This Week's Notifications */}
-            {weekNotifications.length > 0 && (
-                <>
-                    <Text style={[styles.sectionTitle, { marginTop: 20 }]}>THIS WEEK</Text>
-                    {weekNotifications.map(renderNotification)}
-                </>
-            )}
+                {/* Today's Notifications */}
+                {todayNotifications.length > 0 && (
+                    <>
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionTitle}>TODAY</Text>
+                        </View>
+                        {todayNotifications.map(renderNotification)}
+                    </>
+                )}
 
-            {/* No Notifications State */}
-            {todayNotifications.length === 0 && weekNotifications.length === 0 && (
-                <View style={styles.emptyContainer}>
-                    <Ionicons name="notifications-off-outline" size={50} color="#ccc" />
-                    <Text style={styles.emptyText}>You're all caught up! No new notifications.</Text>
-                </View>
-            )}
-        </ScrollView>
+                {/* This Week's Notifications */}
+                {weekNotifications.length > 0 && (
+                    <>
+                        <Text style={[styles.sectionTitle, { marginTop: 20 }]}>THIS WEEK</Text>
+                        {weekNotifications.map(renderNotification)}
+                    </>
+                )}
+
+                {/* No Notifications State */}
+                {todayNotifications.length === 0 && weekNotifications.length === 0 && (
+                    <View style={styles.emptyContainer}>
+                        <Ionicons name="notifications-off-outline" size={50} color="#ccc" />
+                        <Text style={styles.emptyText}>You're all caught up! No new notifications.</Text>
+                    </View>
+                )}
+            </ScrollView>
+        </View>
     );
 };
-
 
 export default Notifications;
 
@@ -229,7 +248,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         padding: 50,
-        minHeight: 200,
+        marginTop: 50,
     },
     emptyText: {
         marginTop: 15,
@@ -267,12 +286,17 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         letterSpacing: 1,
     },
+    actionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        paddingHorizontal: 20,
+        marginTop: 15,
+    },
     sectionHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginHorizontal: 20,
-        marginTop: 20,
+        marginTop: 10, // Reduced top margin slightly
     },
     sectionTitle: {
         fontWeight: '700',
@@ -285,8 +309,6 @@ const styles = StyleSheet.create({
         color: '#007AFF',
         fontSize: 13,
         fontWeight: '600',
-        marginRight: 20,
-        marginTop: 10
     },
     notificationCard: {
         backgroundColor: '#fff',
@@ -309,6 +331,7 @@ const styles = StyleSheet.create({
     },
     textContainer: {
         flex: 1,
+        marginRight: 10, // Space for red dot
     },
     notificationTitle: {
         fontWeight: '700',

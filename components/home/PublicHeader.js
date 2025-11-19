@@ -1,13 +1,10 @@
-import React, { useState, useRef, useCallback } from 'react';
-import { View, Text, TextInput, ImageBackground, StyleSheet, TouchableOpacity, Dimensions, Image } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, TextInput, ImageBackground, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import Swiper from 'react-native-swiper';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter, useFocusEffect } from 'expo-router';
-
-// Import your API utility
-import api from '../../api/api'; 
+import { useRouter } from 'expo-router';
 
 import LoginBackground from '../../assets/localynk_images/login_background.png';
 import RegisterBackground from '../../assets/localynk_images/register_background.png';
@@ -20,7 +17,7 @@ const dataSlider = [
         image: LoginBackground,
         logo: "DISCOVER NATURE'S SERENITY!",
         name: "MUTI, GRASSLAND",
-        description: "Nestled in the heart of nature, Muti Grassland offers a breathtaking escape into rolling green hills and open skies.",
+        description: "Nestled in the heart of nature, Muti Grassland offers a breathtaking escape into rolling green hills and open skies. Perfect for hiking, sightseeing, or simply unwinding, this serene landscape invites you to explore the untouched beauty of Zamboanga's countryside.",
         rating: 4.8,
         reviews: 234
     },
@@ -29,7 +26,7 @@ const dataSlider = [
         image: RegisterBackground,
         logo: "DISCOVER COASTAL TRANQUILITY!",
         name: "BOLONG BEACH",
-        description: "Breathe in the sea breeze and let your worries drift away at Bolong Beach — where calm waters meet golden sands.",
+        description: "Breathe in the sea breeze and let your worries drift away at Bolong Beach — where calm waters meet golden sands. Whether you're up for a quiet morning stroll, a refreshing swim, or simply soaking in the horizon.",
         rating: 4.9,
         reviews: 512
     },
@@ -38,58 +35,28 @@ const dataSlider = [
         image: RegisterBackground,
         logo: "DISCOVER SUNSET BLISS!",
         name: "ZAMBOANGA CITY, BOULEVARD",
-        description: "Watch the sky come alive at Zamboanga's Boulevard, where every sunset paints a masterpiece over calm waves.",
+        description: "Watch the sky come alive at Zamboanga's Boulevard, where every sunset paints a masterpiece over calm waves and golden sands. Stroll along the shore, enjoy the sea breeze, and take in the vibrant evening glow.",
         rating: 4.7,
         reviews: 189
     }
 ];
 
-const Header = () => {
+const PublicHeader = () => {
     const [activeIndex, setActiveIndex] = useState(0);
-    const [unreadCount, setUnreadCount] = useState(0); // State for dynamic count
     const swiperRef = useRef(null);
     const router = useRouter();
-
-    // Function to fetch the unread count from backend
-    const fetchUnreadCount = async () => {
-        try {
-            const response = await api.get('/api/alerts/unread-count/');
-            if (response.data && response.data.unread_count !== undefined) {
-                setUnreadCount(response.data.unread_count);
-            }
-        } catch (error) {
-            console.log("Failed to fetch unread count:", error);
-        }
-    };
-
-    // useFocusEffect runs every time this screen comes into focus
-    useFocusEffect(
-        useCallback(() => {
-            fetchUnreadCount();
-        }, [])
-    );
 
     const handleIndexChanged = (index) => {
         setActiveIndex(index);
     };
 
-    const handleNotificationPress = () => {
-        // Optimistically clear count or wait for return
-        router.push('/(protected)/notification');
-    };
-
-    const handleExplorePress = () => {
-        router.push({
-            pathname: "/(protected)/placesDetails",
-            params: {
-                id: "1",
-                image: Image.resolveAssetSource(LoginBackground).uri,
-            },
-        });
+    const handleExplore = () => {
+        router.push('/auth/login');
     };
 
     return (
         <View style={{ flex: 1 }}>
+            {/* Header Bar with Login Button */}
             <View style={[styles.headerBar, { width: width * 1 }]}>
                 <View style={styles.searchBox}>
                     <Feather name='search' size={18} color="#666" />
@@ -97,23 +64,14 @@ const Header = () => {
                         placeholder='Explore new place...' 
                         style={styles.input}
                         placeholderTextColor="#999"
+                        editable={false}
                     />
                 </View>
                 <TouchableOpacity 
-                    style={styles.notificationBtn}
-                    onPress={handleNotificationPress}
+                    style={styles.loginBtn}
+                    onPress={() => router.push('/auth/login')}
                 >
-                    <Ionicons name='notifications' size={24} color="white" />
-                    
-                    {/* CONDITIONAL RENDERING: Only show if count > 0 */}
-                    {unreadCount > 0 && (
-                        <View style={styles.notificationBadge}>
-                            <Text style={styles.badgeText}>
-                                {unreadCount > 9 ? '9+' : unreadCount}
-                            </Text>
-                        </View>
-                    )}
-
+                    <Text style={styles.loginBtnText}>Login</Text>
                 </TouchableOpacity>
             </View>
            
@@ -161,7 +119,11 @@ const Header = () => {
                                     <Text style={styles.description}>{item.description}</Text>
                                 </View>
 
-                                <TouchableOpacity style={styles.exploreBtn} activeOpacity={0.8} onPress={handleExplorePress}>
+                                <TouchableOpacity 
+                                    style={styles.exploreBtn} 
+                                    activeOpacity={0.8}
+                                    onPress={handleExplore}
+                                >
                                     <Text style={styles.exploreText}>Explore Now</Text>
                                     <Ionicons name="arrow-forward" size={16} color="white" />
                                 </TouchableOpacity>
@@ -187,7 +149,7 @@ const Header = () => {
     )
 }
 
-export default Header
+export default PublicHeader
 
 const styles = StyleSheet.create({
     headerBar: {
@@ -223,11 +185,11 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#333',
     },
-    notificationBtn: {
-        width: 50,
-        height: 50,
+    loginBtn: {
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        backgroundColor: '#0072FF',
         borderRadius: 25,
-        backgroundColor: '#00C6FF',
         justifyContent: 'center',
         alignItems: 'center',
         elevation: 3,
@@ -235,25 +197,10 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 4,
-        position: 'relative',
     },
-    notificationBadge: {
-        position: 'absolute',
-        top: -2,
-        right: -2,
-        minWidth: 22, // Changed to minWidth for 2 digits
-        height: 22,
-        borderRadius: 11,
-        backgroundColor: '#FF3B30', // iOS Standard Red
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 2,
-        borderColor: '#fff',
-        paddingHorizontal: 4,
-    },
-    badgeText: {
-        color: '#fff',
-        fontSize: 10,
+    loginBtnText: {
+        color: 'white',
+        fontSize: 14,
         fontWeight: '700',
     },
     slide: {

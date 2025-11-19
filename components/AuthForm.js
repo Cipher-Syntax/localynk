@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ImageBackground, StyleSheet, Pressable, Switch, ScrollView, Dimensions } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ImageBackground, StyleSheet, Pressable, Switch, ScrollView, Dimensions, Alert } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,50 +10,64 @@ import { useAuth } from '../context/AuthContext';
 const { height } = Dimensions.get('window');
 
 const AuthForm = ({ method }) => {
-    
+
     // --- Context Hook ---
     const { login, register } = useAuth();
-    
+
     const { control, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm();
     const [remember, setRemember] = useState(false);
-    const [authError, setAuthError] = useState(''); // Local error state for context feedback
+    const [authError, setAuthError] = useState('');
     const router = useRouter();
-    
-    const bgImage = method === 'login' ? require('../assets/localynk_images/login_background.png') : require('../assets/localynk_images/register_background.png');
+
+    const bgImage = method === 'login'
+        ? require('../assets/localynk_images/login_background.png')
+        : require('../assets/localynk_images/register_background.png');
+
     const status = method === 'login' ? 'Welcome Back Adventurer' : 'Join The Adventure';
 
     const onSubmit = async (data) => {
-        setAuthError(''); // Clear previous errors
+        setAuthError('');
 
         if (method === 'login') {
-            const success = await login(data.username, data.password);
-            if (success) {
-                router.replace('/(protected)/home');
+            const successUser = await login(data.username, data.password); 
+
+            if (successUser) {
+                // ⭐ CRITICAL CHECK: Robust check for null, undefined, or empty/whitespace strings
+                const isFirstNameMissing = !successUser.first_name || String(successUser.first_name).trim() === "";
+                const isLastNameMissing = !successUser.last_name || String(successUser.last_name).trim() === "";
+
+                if (isFirstNameMissing || isLastNameMissing) {
+                    console.log("Login success: First-time user detected (Missing KYC), redirecting to profile setup.");
+                    // ⭐ FIXED: Removed (protected) - using the file path relative to the root group
+                    router.replace('/onboarding/profile_setup');
+                } else {
+                    console.log("Login success: Profile complete, redirecting to home.");
+                    router.replace('/home'); 
+                }
             } else {
-                setAuthError("Login failed. Check your username and password.");
+                // Login failed (handled by AuthContext setting error state)
+                setAuthError("Login failed. Check your username and password or verify your email.");
             }
         } else {
-            // Wrap all form fields into a single object
             const userData = {
                 username: data.username,
                 email: data.email,
                 password: data.password,
-                confirm_password: data.confirm_password,
+                confirm_password: data.confirm_password
             };
 
-            console.log('Registering user:', userData); // Optional: debug
+            const result = await register(userData);
 
-            const success = await register(userData);
-            if (success) {
-                router.replace('/auth/login');
+            if (result.success) {
+                setAuthError(result.message)
+                router.replace('/auth/login')
             } else {
-                setAuthError("Registration failed. Please check your inputs.");
+                setAuthError(result.message);
             }
         }
     };
 
-    
-    // Error cleanup effect
+
     useEffect(() => {
         if (authError) {
             const timer = setTimeout(() => setAuthError(''), 3000);
@@ -67,10 +81,9 @@ const AuthForm = ({ method }) => {
                 <ImageBackground source={bgImage} style={styles.topHalf} resizeMode="cover" />
 
                 <View style={styles.formContainer}>
+
                     <MaskedView
-                        maskElement={
-                            <Text style={[styles.title, { backgroundColor: 'transparent' }]}>{status}</Text>
-                        }
+                        maskElement={<Text style={[styles.title, { backgroundColor: 'transparent' }]}>{status}</Text>}
                     >
                         <LinearGradient colors={['#0F172A', '#007AAD']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
                             <Text style={[styles.title, { opacity: 0 }]}>{status}</Text>
@@ -79,11 +92,11 @@ const AuthForm = ({ method }) => {
 
                     {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
 
-                    {/* Username Input */}
+                    {/* Username */}
                     <Controller
                         control={control}
                         name="username"
-                        defaultValue="" 
+                        defaultValue=""
                         rules={{ required: 'Username is required' }}
                         render={({ field: { onChange, value } }) => (
                             <TextInput
@@ -96,20 +109,16 @@ const AuthForm = ({ method }) => {
                     />
                     {errors.username && <Text style={styles.errorText}>{errors.username.message}</Text>}
 
-
+                    {/* Email */}
                     {method === 'register' && (
                         <>
-                            {/* Email Input (Required for registration) */}
                             <Controller
                                 control={control}
                                 name="email"
-                                defaultValue="" 
-                                rules={{ 
+                                defaultValue=""
+                                rules={{
                                     required: 'Email is required',
-                                    pattern: {
-                                        value: /^\S+@\S+$/i,
-                                        message: "Invalid email address"
-                                    }
+                                    pattern: { value: /^\S+@\S+$/i, message: "Invalid email address" }
                                 }}
                                 render={({ field: { onChange, value } }) => (
                                     <TextInput
@@ -126,16 +135,16 @@ const AuthForm = ({ method }) => {
                         </>
                     )}
 
-                    {/* Password Input */}
+                    {/* Password */}
                     <Controller
                         control={control}
                         name="password"
-                        defaultValue="" 
+                        defaultValue=""
                         rules={{ required: 'Password is required', minLength: { value: 8, message: 'Password must be at least 8 characters' } }}
                         render={({ field: { onChange, value } }) => (
                             <TextInput
                                 placeholder="Password"
-                                secureTextEntry={true}
+                                secureTextEntry
                                 value={value}
                                 onChangeText={onChange}
                                 style={styles.input}
@@ -144,7 +153,7 @@ const AuthForm = ({ method }) => {
                     />
                     {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
 
-                    {/* Confirm Password (Registration Only) */}
+                    {/* Confirm Password */}
                     {method === 'register' && (
                         <>
                             <Controller
@@ -155,12 +164,12 @@ const AuthForm = ({ method }) => {
                                     validate: (value) => value === watch('password') || 'Passwords do not match',
                                 }}
                                 render={({ field: { onChange, value } }) => (
-                                    <TextInput 
-                                        placeholder="Confirm Password" 
-                                        secureTextEntry 
-                                        style={styles.input} 
-                                        value={value} 
-                                        onChangeText={onChange} 
+                                    <TextInput
+                                        placeholder="Confirm Password"
+                                        secureTextEntry
+                                        style={styles.input}
+                                        value={value}
+                                        onChangeText={onChange}
                                     />
                                 )}
                             />
@@ -168,7 +177,7 @@ const AuthForm = ({ method }) => {
                         </>
                     )}
 
-                    {/* Login Options (Login Only) */}
+                    {/* Only for login */}
                     {method === 'login' && (
                         <View style={styles.optionsRow}>
                             <View style={styles.rememberRow}>
@@ -186,7 +195,7 @@ const AuthForm = ({ method }) => {
                         </View>
                     )}
 
-                    {/* Submit Button */}
+                    {/* Submit */}
                     <TouchableOpacity
                         style={[styles.button, isSubmitting && { opacity: 0.6 }]}
                         onPress={handleSubmit(onSubmit)}
@@ -197,15 +206,13 @@ const AuthForm = ({ method }) => {
                         </Text>
                     </TouchableOpacity>
 
-                    {/* Navigation Link */}
+                    {/* Switch login/register */}
                     <View style={{ marginTop: 15 }}>
                         <Text style={styles.smallText}>
                             {method === 'login' ? `New to LocaLynk? ` : `Already have an account? `}
                             <Text
                                 style={styles.link}
-                                onPress={() =>
-                                    router.push(method === 'login' ? '/auth/register' : '/auth/login')
-                                }
+                                onPress={() => router.push(method === 'login' ? '/auth/register' : '/auth/login')}
                             >
                                 {method === 'login' ? 'Create an account' : 'Login'}
                             </Text>
@@ -225,23 +232,18 @@ const AuthForm = ({ method }) => {
                         <FontAwesome name="google" size={25} />
                         <Text style={styles.googleText}>Continue with Google</Text>
                     </TouchableOpacity>
+
                 </View>
             </ScrollView>
         </View>
     );
-}
+};
 
-export default AuthForm
+export default AuthForm;
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#D9E2E9',
-    },
-    topHalf: {
-        height: height * 0.4,
-        width: '100%',
-    },
+    container: { flex: 1, backgroundColor: '#D9E2E9' },
+    topHalf: { height: height * 0.4, width: '100%' },
     formContainer: {
         flex: 1,
         marginTop: -40,
@@ -253,13 +255,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         zIndex: 10,
     },
-    title: {
-        fontSize: 30,
-        fontWeight: '900',
-        color: '#0F172A',
-        marginBottom: 20,
-        textAlign: 'center',
-    },
+    title: { fontSize: 30, fontWeight: '900', color: '#0F172A', marginBottom: 20, textAlign: 'center' },
     input: {
         width: '100%',
         height: 55,
@@ -272,37 +268,11 @@ const styles = StyleSheet.create({
         fontSize: 14,
         marginBottom: 10,
     },
-    errorText: {
-        color: 'red',
-        fontSize: 12,
-        marginBottom: 5,
-        textAlign: 'left', 
-        alignSelf: 'flex-start',
-        width: '100%',
-    },
-
-    optionsRow: {
-        width: '100%',
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginTop: 5,
-    },
-    rememberRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 5,
-    },
-    rememberText: {
-        fontSize: 12,
-        color: '#444',
-    },
-    forgotText: {
-        fontSize: 12,
-        color: '#0F172A',
-        textDecorationLine: 'underline',
-        fontWeight: '500',
-    },
+    errorText: { color: 'red', fontSize: 12, marginBottom: 5, textAlign: 'left', alignSelf: 'flex-start', width: '100%' },
+    optionsRow: { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 5 },
+    rememberRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    rememberText: { fontSize: 12, color: '#444' },
+    forgotText: { fontSize: 12, color: '#0F172A', textDecorationLine: 'underline', fontWeight: '500' },
     button: {
         backgroundColor: '#0072FF',
         padding: 15,
@@ -315,37 +285,12 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.2,
         shadowRadius: 3,
     },
-    buttonText: {
-        color: '#fff',
-        fontWeight: '900',
-    },
-    smallText: {
-        color: '#555',
-        fontSize: 14,
-        textAlign: 'center',
-    },
-    link: {
-        color: '#007AAD',
-        fontWeight: '900',
-    },
-    dividerContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: 20,
-        marginBottom: 10,
-        width: '100%',
-        justifyContent: 'space-between',
-    },
-    divider: {
-        flex: 1,
-        height: 1,
-        backgroundColor: '#0F172A',
-    },
-    dividerText: {
-        marginHorizontal: 10,
-        color: '#444',
-        fontSize: 13,
-    },
+    buttonText: { color: '#fff', fontWeight: '900' },
+    smallText: { color: '#555', fontSize: 14, textAlign: 'center' },
+    link: { color: '#007AAD', fontWeight: '900' },
+    dividerContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 20, marginBottom: 10, width: '100%', justifyContent: 'space-between' },
+    divider: { flex: 1, height: 1, backgroundColor: '#0F172A' },
+    dividerText: { marginHorizontal: 10, color: '#444', fontSize: 13 },
     googleButton: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -357,10 +302,5 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         marginTop: 5,
     },
-    googleText: {
-        marginLeft: 10,
-        color: '#444',
-        fontSize: 14,
-        fontWeight: '900',
-    },
+    googleText: { marginLeft: 10, color: '#444', fontSize: 14, fontWeight: '900' },
 });

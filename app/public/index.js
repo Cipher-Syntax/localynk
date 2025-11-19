@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, ScrollView, ActivityIndicator } from "react-native";
-import { Notifications } from "../../../components/notifications";
+import { View, ActivityIndicator, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Header, FeaturedPlaces, About, HomePlacesBrowse, DiscoverWhatYouWant } from "../../components/home";
+import PublicHeader from "../../components/home/PublicHeader";
+import { useAuth } from "../../context/AuthContext";
 
-export default function Notification() {
+const PublicHome = () => {
     const [loading, setLoading] = useState(true);
+    const { isAuthenticated } = useAuth();
 
     useEffect(() => {
         const timer = setTimeout(() => setLoading(false), 2000);
@@ -23,11 +26,18 @@ export default function Notification() {
             </View>
         );
     }
+
     return (
         <ScrollView>
             <SafeAreaView>
-                <Notifications />
+                {!isAuthenticated ? <PublicHeader /> : <Header />}
+                <FeaturedPlaces isPublic={!isAuthenticated} />
+                <HomePlacesBrowse isPublic={!isAuthenticated} />
+                <DiscoverWhatYouWant isPublic={!isAuthenticated} />
+                <About />
             </SafeAreaView>
         </ScrollView>
     );
 }
+
+export default PublicHome;

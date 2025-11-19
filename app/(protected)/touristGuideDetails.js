@@ -3,16 +3,17 @@ import { View, ScrollView, StyleSheet, StatusBar, Image, Text, TouchableOpacity,
 import { LinearGradient } from "expo-linear-gradient";
 import { User } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter } from 'expo-router'; 
 import Swiper from 'react-native-swiper';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
+// Placeholder images - ensure these paths match your project
 import FeaturePlace4 from '../../assets/localynk_images/featured4.png';
 import FeaturePlace5 from '../../assets/localynk_images/featured5.png';
 import FeaturePlace6 from '../../assets/localynk_images/featured6.png';
 import House1 from '../../assets/localynk_images/login_background.png';
 import House2 from '../../assets/localynk_images/register_background.png';
 import House3 from '../../assets/localynk_images/featured1.png';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
@@ -28,6 +29,8 @@ const TouristGuideDetails = () => {
         specialty: "Mountain Guiding",
         experience: "8 years",
         price: "₱ 500/day",
+        // Added availability data for badges
+        availableDays: ["Mon", "Wed", "Fri"], 
         featuredPlaces: [
             { id: 1, image: FeaturePlace4 },
             { id: 2, image: FeaturePlace5 },
@@ -37,37 +40,72 @@ const TouristGuideDetails = () => {
     };
 
     useEffect(() => {
-        const timer = setTimeout(() => setLoading(false), 2000);
+        const timer = setTimeout(() => setLoading(false), 1000);
         return () => clearTimeout(timer);
     }, []);
+
+    // Helper to render the availability dots (Same as previous screen)
+    const renderAvailability = (guideDays) => {
+        const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+        const shortDays = ["M", "T", "W", "T", "F", "S", "S"];
+
+        return (
+            <View style={styles.availabilityContainer}>
+                {days.map((day, index) => {
+                    const isAvailable = guideDays.includes(day) || guideDays.includes("All");
+                    return (
+                        <View 
+                            key={index} 
+                            style={[
+                                styles.dayBadge, 
+                                isAvailable ? styles.dayAvailable : styles.dayUnavailable
+                            ]}
+                        >
+                            <Text style={[
+                                styles.dayText, 
+                                isAvailable ? styles.dayTextAvailable : styles.dayTextUnavailable
+                            ]}>
+                                {shortDays[index]}
+                            </Text>
+                        </View>
+                    );
+                })}
+            </View>
+        );
+    };
 
     if (loading) {
         return (
             <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" }}>
-                <ActivityIndicator size="large" color="#0000ff" />
+                <ActivityIndicator size="large" color="#00A8FF" />
             </View>
         );
     }
 
     return (
         <ScrollView style={styles.container}>
-            <SafeAreaView>
+            <SafeAreaView edges={['top']}>
                 <StatusBar barStyle="dark-content" backgroundColor="#fff" />
                 
                 <View style={styles.header}>
                     <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} />
                     <LinearGradient colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']} style={styles.overlay} />
-                    <Text style={styles.headerTitle}>EXPLORE PERFECT GUIDE FOR YOU</Text>
+                    <Text style={styles.headerTitle}>GUIDE DETAILS</Text>
                 </View>
 
                 <View style={styles.contentContainer}>
                     <View style={styles.guideCard}>
+                        
+                        {/* Profile Header */}
                         <View style={styles.cardProfileSection}>
                             <View style={styles.iconWrapper}>
                                 <User size={40} color="#fff" />
                             </View>
                             <View style={styles.profileInfo}>
                                 <Text style={styles.guideName}>{guide.name}</Text>
+                                {/* Added Availability Badges Here */}
+                                {renderAvailability(guide.availableDays)}
+                                
                                 <Text style={styles.guideAddress}>{guide.address}</Text>
                                 <Text style={styles.guideRating}>
                                     {guide.rating} <Ionicons name="star" color="#C99700" />
@@ -76,6 +114,7 @@ const TouristGuideDetails = () => {
                             <Ionicons name="heart-outline" size={22} color="#FF5A5F" />
                         </View>
 
+                        {/* Action Buttons */}
                         <View style={styles.buttonRow}>
                             <TouchableOpacity style={styles.viewProfileButton}>
                                 <Ionicons name="person" size={14} color="#fff" />
@@ -87,6 +126,7 @@ const TouristGuideDetails = () => {
                             </TouchableOpacity>
                         </View>
 
+                        {/* Featured Places Section */}
                         <View style={styles.featuredSection}>
                             <Text style={styles.featuredTitle}>FEATURED PLACES</Text>
                             <Text style={styles.featuredDescription}>
@@ -112,6 +152,7 @@ const TouristGuideDetails = () => {
                             />
                         </View>
 
+                        {/* Accommodation Section */}
                         <View style={styles.accommodationContainer}>
                             <Text style={styles.featuredTitle}>ACCOMMODATION</Text>
                             <Swiper
@@ -121,6 +162,10 @@ const TouristGuideDetails = () => {
                                 showsPagination
                                 autoplayTimeout={5}
                                 showsButtons={true}
+                                activeDotColor="#00A8FF"
+                                dotColor="rgba(255,255,255,0.5)"
+                                nextButton={<Text style={styles.swiperButton}>›</Text>}
+                                prevButton={<Text style={styles.swiperButton}>‹</Text>}
                             >
                                 {guide.accommodationImages.map((image, index) => (
                                     <Image
@@ -133,6 +178,7 @@ const TouristGuideDetails = () => {
                             </Swiper>
                         </View>
 
+                        {/* Pricing Section */}
                         <View style={styles.pricingContainer}>
                             <Text style={styles.priceText}>Price: {guide.price}</Text>
                             <Text style={styles.priceNote}>
@@ -141,7 +187,7 @@ const TouristGuideDetails = () => {
                             </Text>
                         </View>
 
-
+                        {/* Guide Details Section */}
                         <View style={styles.detailsSection}>
                             <Text style={styles.detailsHeader}>Guide Details</Text>
 
@@ -164,7 +210,16 @@ const TouristGuideDetails = () => {
                                 Price includes guiding services, local assistance, and safety gear. Accommodation and meals not included.
                             </Text>
                         </View>
-                        <TouchableOpacity style={styles.bookButton} activeOpacity={0.8} onPress={() => router.push({ pathname: "/(protected)/payment" })}>
+                        
+                        {/* Book Button - Direct to Payment/Date Selection */}
+                        <TouchableOpacity 
+                            style={styles.bookButton} 
+                            activeOpacity={0.8} 
+                            onPress={() => router.push({ 
+                                pathname: "/(protected)/payment",
+                                params: { guideName: guide.name, basePrice: guide.price } 
+                            })}
+                        >
                             <Text style={styles.bookButtonText}>BOOK NOW</Text>
                         </TouchableOpacity>
                     </View>
@@ -179,7 +234,7 @@ export default TouristGuideDetails;
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        // backgroundColor: '#D9E2E9',
+        backgroundColor: '#fff',
     },
     header: {
         position: 'relative',
@@ -242,13 +297,23 @@ const styles = StyleSheet.create({
     guideAddress: {
         fontSize: 12,
         color: '#8B98A8',
-        marginTop: 2,
+        marginTop: 4,
     },
     guideRating: {
         fontSize: 12,
         color: '#C99700',
         marginTop: 2,
     },
+    
+    // Availability Badge Styles
+    availabilityContainer: { flexDirection: 'row', gap: 4, marginTop: 4 },
+    dayBadge: { width: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
+    dayAvailable: { backgroundColor: '#28A745' }, // Green
+    dayUnavailable: { backgroundColor: '#E0E0E0' }, // Gray
+    dayText: { fontSize: 9, fontWeight: '700' },
+    dayTextAvailable: { color: '#fff' },
+    dayTextUnavailable: { color: '#A0A0A0' },
+
     buttonRow: {
         flexDirection: 'row',
         gap: 10,
@@ -341,17 +406,24 @@ const styles = StyleSheet.create({
         borderRadius: 20,
     },
     accommodationImage: {
-        width: width - 32,
+        width: width - 32, // Adjusting for padding
         height: "100%",
+        borderRadius: 15,
+    },
+    swiperButton: {
+        fontSize: 50,
+        color: '#fff',
+        fontWeight: 'bold',
     },
     pricingContainer: {
-        marginTop: 20,
+        marginTop: 10,
     },
     priceText: {
         fontSize: 20,
         fontWeight: '800',
         letterSpacing: 0.5,
         paddingBottom: 4,
+        color: '#1A2332',
     },
     priceNote: {
         fontSize: 12,
@@ -393,14 +465,20 @@ const styles = StyleSheet.create({
     },
     bookButton: {
         backgroundColor: '#00A8FF',
-        paddingVertical: 12,
+        paddingVertical: 14,
         borderRadius: 8,
         alignItems: 'center',
-        marginVertical: 30,
+        marginVertical: 20,
+        shadowColor: "#00A8FF",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        elevation: 5,
     },
     bookButtonText: {
         color: '#fff',
-        fontSize: 14,
+        fontSize: 16,
         fontWeight: '700',
+        letterSpacing: 1,
     },
 });

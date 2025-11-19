@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, TextInput, Modal, TouchableOpacity, ScrollView, Image, StyleSheet, ActivityIndicator, Alert } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
@@ -6,15 +6,27 @@ import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import ApplicationConfirmationModal from "./ApplicationConfirmationModal"; 
 import api from '../../api/api'; 
+import { useAuth } from "../../context/AuthContext"; // ⭐ Import useAuth
 
 const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
+    // ⭐ Get the current authenticated user data
+    const { user } = useAuth();
+
+    // Utility function to safely get user data, defaulting to empty string for display
+    const getInitialValue = (key) => user?.[key] || "";
+    
+    // ⭐ INITIALIZE STATE WITH AUTH USER DATA
     const [form, setForm] = useState({
-        firstName: "",
-        lastName: "",
-        middleInitial: "",
-        address: "",
-        email: "",
-        phone: "",
+        // General Profile Details (from AbstractUser and custom User model)
+        firstName: getInitialValue("first_name"),
+        lastName: getInitialValue("last_name"),
+        email: getInitialValue("email"),
+        phone: getInitialValue("phone_number"),
+        location: getInitialValue("location"), // Mapped to 'address' input for simplicity
+        bio: getInitialValue("bio"),
+
+        // Other fields not directly mapped to User model but included in form
+        middleInitial: "", // Assume this is not stored on User model but collected here
         landline: "",
     });
 
@@ -53,10 +65,11 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
     };
 
     const handleSubmit = async () => {
-        const requiredFields = ['firstName', 'lastName', 'address', 'email', 'phone'];
+        // Updated validation to use 'location' field name from state
+        const requiredFields = ['firstName', 'lastName', 'location', 'email', 'phone']; 
         const requiredImages = ['tour_guide_certificate', 'proof_of_residency', 'valid_id', 'nbi_clearance'];
         
-        const isFormValid = requiredFields.every(field => form[field].trim() !== '');
+        const isFormValid = requiredFields.every(field => form[field] && form[field].trim() !== '');
         const areImagesAttached = requiredImages.every(field => images[field] !== null);
 
         if (!isFormValid || !areImagesAttached) {
@@ -68,18 +81,19 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
         try {
             const formData = new FormData();
             
-            // Append personal data (assuming your backend endpoint handles partial user profile updates)
+            // ⭐ Map Form State to Django User Model Fields (for partial profile update during application)
             formData.append('first_name', form.firstName);
             formData.append('last_name', form.lastName);
-            formData.append('middle_initial', form.middleInitial);
-            formData.append('address', form.address);
+            // formData.append('middle_initial', form.middleInitial); // Not in Django User model, omitting.
+            formData.append('location', form.location); // Mapped from address/location input
             formData.append('email', form.email);
             formData.append('phone_number', form.phone);
+            formData.append('bio', form.bio);
             if (form.landline) {
                 formData.append('landline', form.landline);
             }
-
-            // Append documents (crucial step for Django FileField upload)
+            
+            // Append documents (crucial step for Django GuideApplication model)
             Object.keys(images).forEach(key => {
                 if (images[key]) {
                     const uri = images[key];
@@ -91,14 +105,17 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
                 }
             });
 
-            // --- API CALL TO NEW BACKEND ENDPOINT ---
-            // Note: This endpoint should handle creating/updating the User profile 
-            // and saving the GuideApplication model with documents.
-            // We use 'system_management' URL prefix as defined in the backend section.
+            // --- API CALL ---
+            // This single endpoint must handle:
+            // 1. PATCH/PUT user profile data (first_name, last_name, phone_number, location, bio).
+            // 2. Creating the GuideApplication instance with documents linked to the current user.
             await api.post('api/guide-application/submit/', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             
+            // Optional: Call refreshUser() from AuthContext here to update user role/status locally
+            // refreshUser(); // Assuming you'd need to manually trigger a refresh
+
             setIsLoading(false);
             setIsOpenModal(false); 
             setShowConfirm(true); 
@@ -125,7 +142,8 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
             <Modal visible={isModalOpen} animationType="slide">
                 <ScrollView contentContainerStyle={styles.container}>
                     <SafeAreaView>
-                        <Text style={styles.header}>REGISTER HERE!</Text>
+                        <Text style={styles.header}>APPLY AS LOCAL GUIDE</Text>
+                        <Text style={styles.subHeader}>Personal Details (Editable)</Text>
 
                         {/* Name Fields */}
                         <Text style={styles.label}>Name:</Text>
@@ -150,12 +168,23 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
                             />
                         </View>
 
-                        <Text style={styles.label}>Address:</Text>
+                        <Text style={styles.label}>Location (Address for Residency Proof):</Text>
                         <TextInput
                             style={styles.input}
-                            placeholder="Address"
-                            value={form.address}
-                            onChangeText={(v) => handleInputChange("address", v)}
+                            placeholder="Address (City, Province, or detailed address)"
+                            value={form.location}
+                            onChangeText={(v) => handleInputChange("location", v)}
+                        />
+                        
+                        {/* Bio Field (Optional, from Django User model) */}
+                        <Text style={styles.label}>Bio/Description (Optional):</Text>
+                        <TextInput
+                            style={[styles.input, styles.bioInput]}
+                            placeholder="Tell us a little about yourself (e.g., expertise, experience, why you want to guide)"
+                            value={form.bio}
+                            onChangeText={(v) => handleInputChange("bio", v)}
+                            multiline
+                            numberOfLines={4}
                         />
 
                         <Text style={styles.label}>Contact Information:</Text>
@@ -165,6 +194,7 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
                             keyboardType="email-address"
                             value={form.email}
                             onChangeText={(v) => handleInputChange("email", v)}
+                            // Note: Email changes might require re-verification based on Django settings
                         />
                         <TextInput
                             style={styles.input}
@@ -180,6 +210,8 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
                             value={form.landline}
                             onChangeText={(v) => handleInputChange("landline", v)}
                         />
+                        
+                        <Text style={[styles.subHeader, { marginTop: 20 }]}>Required Documents (Guide Application)</Text>
 
                         {/* Document Uploads */}
                         {uploadFields.map(({ label, key }) => (
@@ -243,6 +275,7 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
 const styles = StyleSheet.create({
     container: {
         padding: 20,
+        paddingBottom: 40,
         backgroundColor: "#fff",
     },
     header: {
@@ -250,7 +283,14 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
         color: "#0A2342",
         textAlign: "center",
-        marginBottom: 20,
+        marginBottom: 5,
+    },
+    subHeader: {
+        fontSize: 16,
+        fontWeight: "bold",
+        color: "#007AFF",
+        marginTop: 15,
+        marginBottom: 5,
     },
     label: {
         fontWeight: "600",
@@ -268,6 +308,11 @@ const styles = StyleSheet.create({
         padding: 8,
         fontSize: 14,
         marginBottom: 8,
+    },
+    bioInput: {
+        minHeight: 100,
+        textAlignVertical: 'top',
+        paddingTop: 10,
     },
     uploadContainer: {
         marginTop: 10,
@@ -290,6 +335,8 @@ const styles = StyleSheet.create({
         position: "absolute",
         bottom: 8,
         right: 8,
+        backgroundColor: 'white',
+        borderRadius: 12,
     },
     submitButton: {
         marginTop: 20,
