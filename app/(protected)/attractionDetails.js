@@ -15,7 +15,7 @@ const AttractionDetails = () => {
         return () => clearTimeout(timer);
     }, []);
 
-    // MOCK DATA: Contains original details + new availability/itinerary data
+    // MOCK DATA: All guides now have ACCOMMODATIONS
     const guideCards = [
         {
             id: 1,
@@ -28,9 +28,11 @@ const AttractionDetails = () => {
             price: "₱1,500/day",
             availableDays: ["Mon", "Wed", "Fri"], 
             itinerary: "7:00 AM: Meet up at Plaza\n8:00 AM: Start Trek\n12:00 PM: Lunch at Peak\n4:00 PM: Descent",
+            // John: Mid-range accommodation
             accommodations: [
-                { id: 101, title: "Mountain Cabin", image: "https://via.placeholder.com/150", price: "₱800" }
-            ]
+                { id: 101, title: "Mountain Cabin", image: "https://via.placeholder.com/150", price: "₱800/night" }
+            ],
+            inclusions: ["Cabin Stay", "Safety Gear", "Environmental Fees"]
         },
         {
             id: 2,
@@ -40,10 +42,14 @@ const AttractionDetails = () => {
             language: "English, Cebuano",
             specialty: "Island Hopping",
             experience: "5 years",
+            // Maria: Lower price because accommodation is a simple Homestay
             price: "₱1,200/day",
             availableDays: ["Sat", "Sun"], 
             itinerary: "6:00 AM: Boat Ride\n9:00 AM: Pink Sand Beach\n12:00 PM: Seafood Lunch",
-            accommodations: []
+            accommodations: [
+                { id: 103, title: "Seaside Homestay", image: "https://via.placeholder.com/150", price: "Included" }
+            ],
+            inclusions: ["Homestay Accommodation", "Boat Rental", "Local Lunch"]
         },
         {
             id: 3,
@@ -53,16 +59,17 @@ const AttractionDetails = () => {
             language: "English, Spanish",
             specialty: "Historical Tours",
             experience: "10 years",
+            // Carlos: Higher price because accommodation is Premium
             price: "₱1,800/day",
             availableDays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], 
             itinerary: "9:00 AM: Fort Pilar\n11:00 AM: National Museum\n2:00 PM: Pasonanca Park",
             accommodations: [
-                { id: 102, title: "Heritage House Room", image: "https://via.placeholder.com/150", price: "₱1200" }
-            ]
+                { id: 102, title: "Heritage House Room", image: "https://via.placeholder.com/150", price: "₱1200/night" }
+            ],
+            inclusions: ["Premium Heritage Stay", "Private Van", "Museum Tickets"]
         },
     ];
 
-    // Helper to render the availability dots next to the name
     const renderAvailability = (guideDays) => {
         const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
         const shortDays = ["M", "T", "W", "T", "F", "S", "S"];
@@ -93,7 +100,6 @@ const AttractionDetails = () => {
     };
 
     const handleChooseGuide = (guide) => {
-        // Navigate to the Preview Screen (GuideAvailability) passing all necessary data
         router.push({
             pathname: "/(protected)/guideAvailability",
             params: { 
@@ -101,7 +107,8 @@ const AttractionDetails = () => {
                 guideName: guide.name,
                 itinerary: guide.itinerary,
                 availableDays: JSON.stringify(guide.availableDays),
-                accommodations: JSON.stringify(guide.accommodations)
+                accommodations: JSON.stringify(guide.accommodations),
+                inclusions: JSON.stringify(guide.inclusions)
             }
         });
     };
@@ -141,7 +148,6 @@ const AttractionDetails = () => {
                             <View style={styles.profileInfo}>
                                 <View style={styles.nameRow}>
                                     <Text style={styles.guideName}>{guide.name}</Text>
-                                    {/* Availability Badges */}
                                     {renderAvailability(guide.availableDays)}
                                 </View>
                                 
@@ -156,7 +162,6 @@ const AttractionDetails = () => {
                             </TouchableOpacity>
                         </View>
 
-                        {/* Full Details Grid (Language, Specialty, Experience, Price) */}
                         <View style={styles.detailsGrid}>
                             <View style={styles.detailItem}>
                                 <Text style={styles.detailLabel}>Language</Text>

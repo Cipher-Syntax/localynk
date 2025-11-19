@@ -1,27 +1,21 @@
 import React, { useState } from 'react';
-import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, StatusBar, Animated, Easing } from 'react-native';
+import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, StatusBar, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { User } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
-    // --- MODIFIED STATE ---
-    // Removed showAlert and slideAnim
     const [showConfirmationScreen, setShowConfirmationScreen] = useState(false);
     const [isPayment, setIsPayment] = useState(false);
     const router = useRouter();
 
     const handleConfirm = () => {
-        // --- THIS IS YOUR NEW LOGIC ---
         if (paymentData?.paymentMethod) {
-            // This is a FINAL payment.
-            // TODO: Call your payment API (e.g., callGcashAPI(paymentData))
+            // Payment logic
             console.log("Processing payment...", paymentData);
         } else {
-            // This is a BOOKING REQUEST.
-            // TODO: Save to your database with status: 'Pending'
-            // e.g., saveBookingRequest(paymentData);
+            // Request logic
             console.log("Submitting booking request...", paymentData);
         }
         
@@ -32,15 +26,15 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
     const handleConfirmationDismiss = () => {
         setShowConfirmationScreen(false);
         setIsModalOpen(false);
-        
-        if (isPayment) {
-            router.replace('/(protected)/home');
-        } else {
-            router.replace('/(protected)/home');
-        }
+        router.replace('/(protected)/home');
     };
 
-    const { guide, accommodation, startDate, endDate, firstName, lastName, phoneNumber, country, email, basePrice, serviceFee, totalPrice, paymentMethod, groupType, numberOfPeople, } = paymentData || {};
+    const { 
+        guide, accommodation, startDate, endDate, 
+        firstName, lastName, phoneNumber, country, email, 
+        basePrice, serviceFee, totalPrice, paymentMethod, 
+        groupType, numberOfPeople, validIdImage // Get the image URI
+    } = paymentData || {};
 
     const calculateDays = () => {
         if (!startDate || !endDate) return 1;
@@ -49,7 +43,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
     };
 
     const days = calculateDays();
-    const guideEarnings = totalPrice - serviceFee;
 
     return (
         <Modal visible={isModalOpen} animationType="slide">
@@ -122,57 +115,53 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>Price Breakdown</Text>
                             <View style={styles.priceCard}>
-                            <View style={styles.priceRow}>
-                                <Text style={styles.priceLabel}>Base Price</Text>
-                                <Text style={styles.priceValue}>
-                                    ₱ {guide?.basePrice ? guide.basePrice.toLocaleString() : '0'}
-                                </Text>
-                            </View>
-
-                            {groupType === 'group' && (
                                 <View style={styles.priceRow}>
-                                    <Text style={styles.priceLabel}>Group Size</Text>
-                                    <Text style={styles.priceValue}>{numberOfPeople} person(s)</Text>
+                                    <Text style={styles.priceLabel}>Base Price</Text>
+                                    <Text style={styles.priceValue}>
+                                        ₱ {guide?.basePrice ? guide.basePrice.toLocaleString() : '0'}
+                                    </Text>
                                 </View>
-                            )}
 
+                                {groupType === 'group' && (
+                                    <View style={styles.priceRow}>
+                                        <Text style={styles.priceLabel}>Group Size</Text>
+                                        <Text style={styles.priceValue}>{numberOfPeople} person(s)</Text>
+                                    </View>
+                                )}
 
-                            <View style={styles.priceRow}>
-                                <Text style={styles.priceLabel}>Days</Text>
-                                <Text style={styles.priceValue}>
-                                    {Math.max(Math.round(Math.abs((endDate - startDate) / (24 * 60 * 60 * 1000))) + 1, 1)} day(s)
-                                </Text>
-                            </View>
+                                <View style={styles.priceRow}>
+                                    <Text style={styles.priceLabel}>Days</Text>
+                                    <Text style={styles.priceValue}>{days} day(s)</Text>
+                                </View>
 
-                            <View style={styles.priceDivider} />
+                                <View style={styles.priceDivider} />
 
-                            <View style={styles.priceRow}>
-                                <Text style={styles.priceLabel}>Guide Earnings (after fee)</Text>
-                                <Text style={styles.priceValue}>
-                                    ₱ {guide?.serviceFee && totalPrice
-                                        ? (totalPrice - guide.serviceFee).toLocaleString()
-                                        : '0'}
-                                </Text>
-                            </View>
-
-                            <View style={styles.priceRow}>
-                                <Text style={styles.priceLabel}>App Service Fee</Text>
-                                <Text style={styles.priceValue}>
-                                    ₱ {guide?.serviceFee ? guide.serviceFee.toLocaleString() : '0'}
-                                </Text>
-                            </View>
-
-                            <View style={styles.priceDivider} />
-
-                            <View style={styles.priceRow}>
-                                <Text style={styles.totalLabel}>Total to Pay</Text>
-                                <Text style={styles.totalValue}>
-                                    ₱ {totalPrice ? totalPrice.toLocaleString() : '0'}
-                                </Text>
+                                <View style={styles.priceRow}>
+                                    <Text style={styles.totalLabel}>Total to Pay</Text>
+                                    <Text style={styles.totalValue}>
+                                        ₱ {totalPrice ? totalPrice.toLocaleString() : '0'}
+                                    </Text>
+                                </View>
                             </View>
                         </View>
 
-                        </View>
+                        {/* --- NEW SECTION: Valid ID Display --- */}
+                        {validIdImage && (
+                            <View style={styles.section}>
+                                <Text style={styles.sectionTitle}>Identity Verification</Text>
+                                <View style={styles.idCard}>
+                                    <Image 
+                                        source={{ uri: validIdImage }} 
+                                        style={styles.idImage} 
+                                        resizeMode="cover" 
+                                    />
+                                    <View style={styles.idOverlay}>
+                                        <Ionicons name="checkmark-circle" size={16} color="#fff" />
+                                        <Text style={styles.idText}>ID Attached</Text>
+                                    </View>
+                                </View>
+                            </View>
+                        )}
 
                         {paymentMethod && (
                             <View style={styles.section}>
@@ -215,7 +204,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 
                         <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
                             <Text style={styles.confirmButtonText}>
-                                {/* ----- DYNAMIC BUTTON TEXT ----- */}
                                 {paymentMethod ? "Confirm & Pay" : "Send Booking Request"}
                             </Text>
                         </TouchableOpacity>
@@ -275,7 +263,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 
 export default PaymentReviewModal;
 
-// --- STYLES (Added new styles at the end) ---
 const styles = StyleSheet.create({
     container: { 
         flex: 1, 
@@ -413,6 +400,39 @@ const styles = StyleSheet.create({
         fontWeight: '700', 
         color: '#00A8FF' 
     },
+    
+    // --- Valid ID Card Styles ---
+    idCard: {
+        height: 150,
+        borderRadius: 12,
+        overflow: 'hidden',
+        backgroundColor: '#F5F7FA',
+        borderWidth: 1,
+        borderColor: '#E0E6ED',
+        position: 'relative',
+    },
+    idImage: {
+        width: '100%',
+        height: '100%',
+    },
+    idOverlay: {
+        position: 'absolute',
+        bottom: 10,
+        right: 10,
+        backgroundColor: 'rgba(0, 168, 255, 0.9)', // Blue badge
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    idText: {
+        color: '#fff',
+        fontSize: 11,
+        fontWeight: '700',
+    },
+
     paymentCard: { 
         backgroundColor: '#F5F7FA', 
         borderRadius: 12, 
@@ -481,12 +501,10 @@ const styles = StyleSheet.create({
         fontSize: 14 
     },
 
-    // --- REMOVED OLD ALERT STYLES ---
-    
-    // --- NEW CONFIRMATION MODAL STYLES ---
+    // --- CONFIRMATION MODAL STYLES ---
     confirmationContainer: {
         flex: 1,
-        backgroundColor: '#F5F7FA', // A light background color
+        backgroundColor: '#F5F7FA', 
         justifyContent: 'center',
         alignItems: 'center',
     },
