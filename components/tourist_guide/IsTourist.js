@@ -1,96 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Image, Text, StatusBar, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-
-const parseDate = (dateString) => {
-    const [month, day, year] = dateString.split('/').map(Number);
-    return new Date(year, month - 1, day);
-};
-
-const checkOverlap = (a, b) => {
-    const aEnd = new Date(a.end.setHours(23, 59, 59, 999));
-    const bEnd = new Date(b.end.setHours(23, 59, 59, 999));
-    
-    return a.start <= bEnd && aEnd >= b.start;
-};
+import api from '../../api/api';
 
 const IsTourist = () => {
     const router = useRouter();
-    const [bookings, setBookings] = useState([
-        {
-            id: 1,
-            name: 'Francoise Minoville',
-            status: 'Active',
-            hopping: "Beach Hopping",
-            start_date: '11/05/2025',
-            end_date: '11/11/2025',
-            isOnline: true,
-        },
-        {
-            id: 2,
-            name: 'Justine Toang',
-            status: 'Pending',
-            hopping: "Beach Hopping",
-            start_date: '11/13/2025', 
-            end_date: '11/20/2025',
-            isOnline: false,
-        },
-        {
-            id: 3,
-            name: 'Charles Gumende',
-            status: 'Pending',
-            hopping: "Beach Hopping",
-            start_date: '11/08/2025',
-            end_date: '11/15/2025',
-            isOnline: false,
-        },
-    ]);
+    const [bookings, setBookings] = useState([]);
 
-    const handleDecision = (id, decision) => {
-        if (decision === 'accept') {
-            const pendingBooking = bookings.find(b => b.id === id);
-            if (!pendingBooking) return; 
-
-            const pendingRange = {
-                start: parseDate(pendingBooking.start_date),
-                end: parseDate(pendingBooking.end_date)
-            };
-
-            const activeBookings = bookings.filter(b => b.status === 'Active');
-
-            for (const activeBooking of activeBookings) {
-                const activeRange = {
-                    start: parseDate(activeBooking.start_date),
-                    end: parseDate(activeBooking.end_date)
-                };
-
-                if (checkOverlap(pendingRange, activeRange)) {
-                    Alert.alert(
-                        "Booking Conflict",
-                        `This booking (${pendingBooking.start_date} - ${pendingBooking.end_date}) conflicts with an active booking for ${activeBooking.name} (${activeBooking.start_date} - ${activeBooking.end_date}).`
-                    );
-                    return;
-                }
-            }
+    const fetchBookings = async () => {
+        try {
+            const response = await api.get('/api/bookings/');
+            console.log("Related Booking To You: ", response.data);
+            setBookings(response.data);
+        } catch (error) {
+            console.error('Failed to fetch bookings:', error);
+            Alert.alert('Error', 'Failed to fetch bookings.');
         }
+    };
 
-        setBookings(prev =>
-            prev.map(b => {
-                if (b.id === id) {
-                    const newStatus = decision === 'accept' ? 'Accepted' : 'Rejected';
-                    
-                    // TODO: In a real app, you would send API call to update status
-                    // and trigger a notification to the tourist here.
+    useEffect(() => {
+        fetchBookings();
+    }, []);
 
-                    return { ...b, status: newStatus };
-                }
-                return b;
-            })
-        );
+    const handleDecision = async (id, decision) => {
+        try {
+            // console.log("User ID:", api.defaults.headers.common['Authorization']); // Log the auth token to see if user is authenticated
+            // console.log("Booking ID:", id);
+            const newStatus = decision === 'accept' ? 'Accepted' : 'Declined';
+            await api.patch(`/api/bookings/${id}/status/`, { status: newStatus });
+            fetchBookings(); // Refetch bookings to update the list
+        } catch (error) {
+            console.error(`Failed to ${decision} booking:`, error);
+            Alert.alert('Error', `Failed to ${decision} booking.`);
+        }
     };
 
     return (
@@ -122,7 +67,7 @@ const IsTourist = () => {
                             <Text style={styles.statLabel}>Total Bookings</Text>
                         </View>
                         <View style={styles.statCard}>
-                            <Text style={styles.statNumber}>3</Text>
+                            <Text style={styles.statNumber}>{bookings.length}</Text>
                             <Text style={styles.statLabel}>Bookings</Text>
                         </View>
                         <View style={styles.statCard}>
@@ -147,19 +92,22 @@ const IsTourist = () => {
                                 <TouchableOpacity style={styles.addAccommodationBtn} onPress={() => router.push({pathname: "/(protected)/addAccommodation"})}>
                                     <Text style={styles.addAccommodationBtnText}>Add Accommodation</Text>
                                 </TouchableOpacity>
+                                
                             </View>
                         </View>
+                            <TouchableOpacity style={styles.updateInfo} onPress={() => router.push({pathname: "/(protected)/UpdateGuideInfoForm"})}>
+                                <Text style={styles.updateInfoBtnText}>Update Info</Text>
+                            </TouchableOpacity>
 
                         {bookings.map((booking) => (
                             <View key={booking.id} style={styles.bookingCard}>
                                 <View style={styles.bookingHeader}>
                                     <View style={styles.avatarContainer}>
                                         <View style={styles.avatar} />
-                                        {booking.isOnline && <View style={styles.onlineIndicator} />}
                                     </View>
                                     <View style={styles.bookingInfo}>
                                         <View style={styles.nameStatusRow}>
-                                            <Text style={styles.guideNameWaiting}>{booking.name}</Text>
+                                            <Text style={styles.guideNameWaiting}>{booking.tourist_username}</Text>
                                             <View style={styles.statusContainer}>
                                                 {booking.status === 'Pending' && (
                                                     <Ionicons name="time-outline" size={16} color="#ffc107" />
@@ -171,21 +119,21 @@ const IsTourist = () => {
                                                 {booking.status === 'Active' && (
                                                     <Ionicons name="checkmark-circle-outline" size={16} color="#00c853" />
                                                 )}
-                                                {booking.status === 'Rejected' && (
+                                                {booking.status === 'Declined' && (
                                                     <Ionicons name="close-circle-outline" size={16} color="#ff5252" />
                                                 )}
                                                 <Text style={styles.statusText}>{booking.status}</Text>
                                             </View>
                                         </View>
                                         <View style={styles.metaInfo}>
-                                            <Text style={styles.hopping}>{booking.hopping}</Text>
+                                            
                                             <View style={styles.dates}>
                                                 <Text style={styles.startDate}>
-                                                    <Ionicons name="calendar" size={16} color="#ffffff" /> {booking.start_date}
+                                                    <Ionicons name="calendar" size={16} color="#ffffff" /> {booking.check_in}
                                                 </Text>
                                                 <Text style={{color: "#fff", fontSize: 11 }}> - </Text>
                                                 <Text style={styles.endDate}>
-                                                    <Ionicons name="calendar" size={16} color="#ffffff" /> {booking.end_date}
+                                                    <Ionicons name="calendar" size={16} color="#ffffff" /> {booking.check_out}
                                                 </Text>
                                             </View>
                                         </View>
@@ -196,7 +144,7 @@ const IsTourist = () => {
                                     <View style={styles.decisionRow}>
                                         <TouchableOpacity
                                             style={[styles.decisionButton, styles.rejectButton]}
-                                            onPress={() => handleDecision(booking.id, 'reject')}
+                                            onPress={() => handleDecision(booking.id, 'decline')}
                                         >
                                             <Ionicons name="close" size={14} color="#fff" />
                                             <Text style={styles.decisionText}>Decline</Text>
@@ -301,6 +249,24 @@ const styles = StyleSheet.create({
     addAccommodationBtnText: { 
         color: '#fff', 
         fontWeight: '900' 
+    },
+    addTourBtn: {
+        backgroundColor: '#0072FF',
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 50,
+    },
+    updateInfo: {
+        backgroundColor: '#0072FF',
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 50,
+        marginBottom: 20
+    },
+    updateInfoBtnText: { 
+        color: '#fff', 
+        fontWeight: '900', 
+        textAlign: "center",
     },
     addTourBtn: {
         backgroundColor: '#0072FF',

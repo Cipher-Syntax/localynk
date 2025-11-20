@@ -14,7 +14,10 @@ const BookingChoice = () => {
     const handleCustomGuide = () => {
         router.push({
             pathname: '/(protected)/attractionDetails',
-            params: { placeId, placeName }
+            params: { 
+                placeId: placeId,       // Pass ID to the next screen
+                placeName: placeName    // Pass Name to the next screen
+            }
         });
     };
 

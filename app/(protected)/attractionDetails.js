@@ -3,81 +3,39 @@ import { View, ScrollView, StyleSheet, StatusBar, Image, Text, TouchableOpacity,
 import { LinearGradient } from "expo-linear-gradient";
 import { User } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router'; // 1. Ensure useLocalSearchParams is imported
 import { SafeAreaView } from 'react-native-safe-area-context';
+import api from '../../api/api';
 
 const AttractionDetails = () => {
+    const { placeId, placeName } = useLocalSearchParams();
     const router = useRouter();
     const [loading, setLoading] = useState(true);
+    const [guides, setGuides] = useState([]);
     
     useEffect(() => {
-        const timer = setTimeout(() => setLoading(false), 1000);
-        return () => clearTimeout(timer);
+        const fetchGuides = async () => {
+            try {
+                const response = await api.get('/api/guides/');
+                setGuides(response.data);
+            } catch (error) {
+                console.error('Failed to fetch guides:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchGuides();
     }, []);
-
-    // MOCK DATA: All guides now have ACCOMMODATIONS
-    const guideCards = [
-        {
-            id: 1,
-            name: "John Dela Cruz",
-            address: "Baliwasan",
-            rating: 4.5,
-            language: "English, Tagalog",
-            specialty: "Mountain Guiding",
-            experience: "8 years",
-            price: "₱1,500/day",
-            availableDays: ["Mon", "Wed", "Fri"], 
-            itinerary: "7:00 AM: Meet up at Plaza\n8:00 AM: Start Trek\n12:00 PM: Lunch at Peak\n4:00 PM: Descent",
-            // John: Mid-range accommodation
-            accommodations: [
-                { id: 101, title: "Mountain Cabin", image: "https://via.placeholder.com/150", price: "₱800/night" }
-            ],
-            inclusions: ["Cabin Stay", "Safety Gear", "Environmental Fees"]
-        },
-        {
-            id: 2,
-            name: "Maria Santos",
-            address: "Bunguiao",
-            rating: 4.0,
-            language: "English, Cebuano",
-            specialty: "Island Hopping",
-            experience: "5 years",
-            // Maria: Lower price because accommodation is a simple Homestay
-            price: "₱1,200/day",
-            availableDays: ["Sat", "Sun"], 
-            itinerary: "6:00 AM: Boat Ride\n9:00 AM: Pink Sand Beach\n12:00 PM: Seafood Lunch",
-            accommodations: [
-                { id: 103, title: "Seaside Homestay", image: "https://via.placeholder.com/150", price: "Included" }
-            ],
-            inclusions: ["Homestay Accommodation", "Boat Rental", "Local Lunch"]
-        },
-        {
-            id: 3,
-            name: "Carlos Mendoza",
-            address: "Mercedes",
-            rating: 5.0,
-            language: "English, Spanish",
-            specialty: "Historical Tours",
-            experience: "10 years",
-            // Carlos: Higher price because accommodation is Premium
-            price: "₱1,800/day",
-            availableDays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], 
-            itinerary: "9:00 AM: Fort Pilar\n11:00 AM: National Museum\n2:00 PM: Pasonanca Park",
-            accommodations: [
-                { id: 102, title: "Heritage House Room", image: "https://via.placeholder.com/150", price: "₱1200/night" }
-            ],
-            inclusions: ["Premium Heritage Stay", "Private Van", "Museum Tickets"]
-        },
-    ];
 
     const renderAvailability = (guideDays) => {
         const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
         const shortDays = ["M", "T", "W", "T", "F", "S", "S"];
+        const safeGuideDays = guideDays || [];
 
         return (
             <View style={styles.availabilityContainer}>
                 {days.map((day, index) => {
-                    const isAvailable = guideDays.includes(day) || guideDays.includes("All");
+                    const isAvailable = safeGuideDays.includes(day) || safeGuideDays.includes("All");
                     return (
                         <View 
                             key={index} 
@@ -100,15 +58,20 @@ const AttractionDetails = () => {
     };
 
     const handleChooseGuide = (guide) => {
+        // 3. Pass BOTH the Guide Info AND the Destination Info to the next screen
         router.push({
             pathname: "/(protected)/guideAvailability",
             params: { 
+                // Guide Details
                 guideId: guide.id, 
-                guideName: guide.name,
-                itinerary: guide.itinerary,
-                availableDays: JSON.stringify(guide.availableDays),
-                accommodations: JSON.stringify(guide.accommodations),
-                inclusions: JSON.stringify(guide.inclusions)
+                guideName: `${guide.first_name} ${guide.last_name}`,
+                itinerary: guide.tour_itinerary,
+                availableDays: JSON.stringify(guide.available_days),
+                price: guide.price_per_day, // Good to pass price too
+
+                // Destination Details (Keep passing them forward!)
+                placeId: placeId,
+                placeName: placeName
             }
         });
     };
@@ -138,7 +101,7 @@ const AttractionDetails = () => {
             </View>
 
             <View style={styles.contentContainer}>
-                {guideCards.map((guide, index) => (
+                {guides.map((guide, index) => (
                     <View key={index} style={styles.guideCard}>
                         <View style={styles.cardProfileSection}>
                             <View style={styles.iconWrapper}>
@@ -147,13 +110,13 @@ const AttractionDetails = () => {
                             
                             <View style={styles.profileInfo}>
                                 <View style={styles.nameRow}>
-                                    <Text style={styles.guideName}>{guide.name}</Text>
-                                    {renderAvailability(guide.availableDays)}
+                                    <Text style={styles.guideName}>{guide.first_name} {guide.last_name}</Text>
+                                    {renderAvailability(guide.available_days)}
                                 </View>
                                 
-                                <Text style={styles.guideAddress}>{guide.address}</Text>
+                                <Text style={styles.guideAddress}>{guide.location}</Text>
                                 <Text style={styles.guideRating}>
-                                    {guide.rating} <Ionicons name="star" size={12} color="#C99700" />
+                                    {guide.guide_rating} <Ionicons name="star" size={12} color="#C99700" />
                                 </Text>
                             </View>
 
@@ -165,7 +128,7 @@ const AttractionDetails = () => {
                         <View style={styles.detailsGrid}>
                             <View style={styles.detailItem}>
                                 <Text style={styles.detailLabel}>Language</Text>
-                                <Text style={styles.detailValue}>{guide.language}</Text>
+                                <Text style={styles.detailValue}>{Array.isArray(guide.languages) ? guide.languages.join(', ') : guide.languages}</Text>
                             </View>
                             <View style={styles.detailItem}>
                                 <Text style={styles.detailLabel}>Specialty</Text>
@@ -173,11 +136,11 @@ const AttractionDetails = () => {
                             </View>
                             <View style={styles.detailItem}>
                                 <Text style={styles.detailLabel}>Experience</Text>
-                                <Text style={styles.detailValue}>{guide.experience}</Text>
+                                <Text style={styles.detailValue}>{guide.experience_years} years</Text>
                             </View>
                             <View style={styles.detailItem}>
                                 <Text style={styles.detailLabel}>Price</Text>
-                                <Text style={styles.detailValue}>{guide.price}</Text>
+                                <Text style={styles.detailValue}>₱{guide.price_per_day}/day</Text>
                             </View>
                         </View>
 

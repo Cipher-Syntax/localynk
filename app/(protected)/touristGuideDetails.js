@@ -3,78 +3,40 @@ import { View, ScrollView, StyleSheet, StatusBar, Image, Text, TouchableOpacity,
 import { LinearGradient } from "expo-linear-gradient";
 import { User } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router'; 
+import { useRouter, useLocalSearchParams } from 'expo-router'; 
 import Swiper from 'react-native-swiper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-// Placeholder images - ensure these paths match your project
-import FeaturePlace4 from '../../assets/localynk_images/featured4.png';
-import FeaturePlace5 from '../../assets/localynk_images/featured5.png';
-import FeaturePlace6 from '../../assets/localynk_images/featured6.png';
-import House1 from '../../assets/localynk_images/login_background.png';
-import House2 from '../../assets/localynk_images/register_background.png';
-import House3 from '../../assets/localynk_images/featured1.png';
+import api from '../../api/api';
 
 const { width } = Dimensions.get('window');
 
 const TouristGuideDetails = () => {
+    const [guide, setGuide] = useState(null);
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
-    const guide = {
-        name: "John Dela Cruz",
-        address: "Baliwasan",
-        rating: 4.5,
-        language: "English, Tagalog",
-        specialty: "Mountain Guiding",
-        experience: "8 years",
-        price: "₱ 500/day",
-        // Added availability data for badges
-        availableDays: ["Mon", "Wed", "Fri"], 
-        featuredPlaces: [
-            { id: 1, image: FeaturePlace4 },
-            { id: 2, image: FeaturePlace5 },
-            { id: 3, image: FeaturePlace6 },
-        ],
-        accommodationImages: [House1, House2, House3],
-    };
+    const params = useLocalSearchParams();
+    const { guideId, placeId, placeName } = params;
 
     useEffect(() => {
-        const timer = setTimeout(() => setLoading(false), 1000);
-        return () => clearTimeout(timer);
-    }, []);
+        console.log('Fetching guide with ID:', guideId);
+        const fetchGuide = async () => {
+            try {
+                const response = await api.get(`/api/guides/${guideId}/`);
+                setGuide(response.data);
+            } catch (error) {
+                console.error('Failed to fetch guide details:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
 
-    // Helper to render the availability dots (Same as previous screen)
-    const renderAvailability = (guideDays) => {
-        const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-        const shortDays = ["M", "T", "W", "T", "F", "S", "S"];
+        if (guideId) {
+            fetchGuide();
+        }
+    }, [guideId]);
 
-        return (
-            <View style={styles.availabilityContainer}>
-                {days.map((day, index) => {
-                    const isAvailable = guideDays.includes(day) || guideDays.includes("All");
-                    return (
-                        <View 
-                            key={index} 
-                            style={[
-                                styles.dayBadge, 
-                                isAvailable ? styles.dayAvailable : styles.dayUnavailable
-                            ]}
-                        >
-                            <Text style={[
-                                styles.dayText, 
-                                isAvailable ? styles.dayTextAvailable : styles.dayTextUnavailable
-                            ]}>
-                                {shortDays[index]}
-                            </Text>
-                        </View>
-                    );
-                })}
-            </View>
-        );
-    };
-
-    if (loading) {
+    if (loading || !guide) {
         return (
             <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" }}>
                 <ActivityIndicator size="large" color="#00A8FF" />
@@ -102,13 +64,10 @@ const TouristGuideDetails = () => {
                                 <User size={40} color="#fff" />
                             </View>
                             <View style={styles.profileInfo}>
-                                <Text style={styles.guideName}>{guide.name}</Text>
-                                {/* Added Availability Badges Here */}
-                                {renderAvailability(guide.availableDays)}
-                                
-                                <Text style={styles.guideAddress}>{guide.address}</Text>
+                                <Text style={styles.guideName}>{guide.first_name} {guide.last_name}</Text>
+                                <Text style={styles.guideAddress}>{guide.location}</Text>
                                 <Text style={styles.guideRating}>
-                                    {guide.rating} <Ionicons name="star" color="#C99700" />
+                                    {guide.guide_rating} <Ionicons name="star" color="#C99700" />
                                 </Text>
                             </View>
                             <Ionicons name="heart-outline" size={22} color="#FF5A5F" />
@@ -116,7 +75,7 @@ const TouristGuideDetails = () => {
 
                         {/* Action Buttons */}
                         <View style={styles.buttonRow}>
-                            <TouchableOpacity style={styles.viewProfileButton}>
+                            <TouchableOpacity style={styles.viewProfileButton} onPress={() => router.push({ pathname: "/(protected)/home/profile", params: { userId: guide.id } })}>
                                 <Ionicons name="person" size={14} color="#fff" />
                                 <Text style={styles.viewProfileText}>View Profile</Text>
                             </TouchableOpacity>
@@ -125,65 +84,13 @@ const TouristGuideDetails = () => {
                                 <Text style={styles.sendMessageText}>Send Message</Text>
                             </TouchableOpacity>
                         </View>
-
-                        {/* Featured Places Section */}
-                        <View style={styles.featuredSection}>
-                            <Text style={styles.featuredTitle}>FEATURED PLACES</Text>
-                            <Text style={styles.featuredDescription}>
-                                Handpicked by locals. Loved by travelers. Discover your next stop!
-                            </Text>
-
-                            <FlatList
-                                horizontal
-                                data={guide.featuredPlaces}
-                                keyExtractor={(item) => item.id.toString()}
-                                showsHorizontalScrollIndicator={false}
-                                contentContainerStyle={styles.featureList}
-                                renderItem={({ item }) => (
-                                    <View style={styles.featureCard}>
-                                        <Image source={item.image} style={styles.featureImage} />
-                                        <View style={styles.featureOverlay} />
-                                        <View style={styles.featureBottom}>
-                                            <Text style={styles.featureText}>Discover More</Text>
-                                            <Ionicons name="arrow-forward" size={16} color="#fff" />
-                                        </View>
-                                    </View>
-                                )}
-                            />
-                        </View>
-
-                        {/* Accommodation Section */}
-                        <View style={styles.accommodationContainer}>
-                            <Text style={styles.featuredTitle}>ACCOMMODATION</Text>
-                            <Swiper
-                                style={styles.swiper}
-                                autoplay
-                                loop
-                                showsPagination
-                                autoplayTimeout={5}
-                                showsButtons={true}
-                                activeDotColor="#00A8FF"
-                                dotColor="rgba(255,255,255,0.5)"
-                                nextButton={<Text style={styles.swiperButton}>›</Text>}
-                                prevButton={<Text style={styles.swiperButton}>‹</Text>}
-                            >
-                                {guide.accommodationImages.map((image, index) => (
-                                    <Image
-                                        key={index}
-                                        source={image}
-                                        style={styles.accommodationImage}
-                                        resizeMode="cover"
-                                    />
-                                ))}
-                            </Swiper>
-                        </View>
-
+                        
                         {/* Pricing Section */}
                         <View style={styles.pricingContainer}>
-                            <Text style={styles.priceText}>Price: {guide.price}</Text>
+                            <Text style={styles.priceText}>Price: ₱{guide.price_per_day}/day</Text>
                             <Text style={styles.priceNote}>
-                                Solo: ₱ 1,500/day{'\n'}
-                                Multiple: Additional ₱ 100 per head/day
+                                Solo: ₱{guide.solo_price_per_day}/day{'\n'}
+                                Multiple: Additional ₱{guide.multiple_additional_fee_per_head} per head/day
                             </Text>
                         </View>
 
@@ -193,7 +100,7 @@ const TouristGuideDetails = () => {
 
                             <View style={styles.infoItem}>
                                 <Ionicons name="language" size={16} color="#1A2332" />
-                                <Text style={styles.detailText}><Text style={styles.detailLabel}>Language: </Text>{guide.language}</Text>
+                                <Text style={styles.detailText}><Text style={styles.detailLabel}>Language: </Text>{Array.isArray(guide.languages) ? guide.languages.join(', ') : guide.languages}</Text>
                             </View>
 
                             <View style={styles.infoItem}>
@@ -203,7 +110,7 @@ const TouristGuideDetails = () => {
 
                             <View style={styles.infoItem}>
                                 <Ionicons name="time" size={16} color="#1A2332" />
-                                <Text style={styles.detailText}><Text style={styles.detailLabel}>Experience: </Text>{guide.experience}</Text>
+                                <Text style={styles.detailText}><Text style={styles.detailLabel}>Experience: </Text>{guide.experience_years} years</Text>
                             </View>
 
                             <Text style={styles.noteText}>
@@ -217,7 +124,14 @@ const TouristGuideDetails = () => {
                             activeOpacity={0.8} 
                             onPress={() => router.push({ 
                                 pathname: "/(protected)/payment",
-                                params: { guideName: guide.name, basePrice: guide.price } 
+                                // 3. Pass ALL necessary info to Payment
+                                params: { 
+                                    guideId: guide.id,
+                                    guideName: `${guide.first_name} ${guide.last_name}`,
+                                    basePrice: guide.price_per_day, 
+                                    placeId: placeId,
+                                    placeName: placeName
+                                } 
                             })}
                         >
                             <Text style={styles.bookButtonText}>BOOK NOW</Text>
@@ -228,8 +142,6 @@ const TouristGuideDetails = () => {
         </ScrollView>
     );
 };
-
-export default TouristGuideDetails;
 
 const styles = StyleSheet.create({
     container: {
@@ -246,7 +158,7 @@ const styles = StyleSheet.create({
         height: '100%',
         resizeMode: 'cover',
         borderBottomLeftRadius: 25,
-        borderBottomRightRadius: 25,
+        borderBottomRightRadius: 25
     },
     overlay: {
         ...StyleSheet.absoluteFillObject,
@@ -482,3 +394,5 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
     },
 });
+
+export default TouristGuideDetails;

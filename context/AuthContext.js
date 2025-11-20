@@ -178,7 +178,8 @@ export function AuthProvider({ children }) {
             let errorMessage = 'Invalid username or password';
             
             if (error.response?.data?.detail?.includes('not active') || 
-                error.response?.data?.detail?.includes('verify your email')) {
+                error.response?.data?.detail?.includes('verify your email') ||
+                error.response?.data?.detail?.includes('No active account found with the given credentials')) { // <--- ADDED THIS CONDITION
                 errorMessage = 'Please verify your email before logging in. Check your inbox.';
             }
             
@@ -218,7 +219,32 @@ export function AuthProvider({ children }) {
                 message: msg,
                 messageType: 'error',
             }));
-            return { success: false, message: msg };
+            return false;
+        }
+    };
+
+    // --- NEW FUNCTION: Resend Verification Email ---
+    const resendVerificationEmail = async (email) => {
+        try {
+            const response = await api.post('/api/resend-verify-email/', { email });
+            setState(prev => ({
+                ...prev,
+                message: response.data.detail,
+                messageType: 'success',
+            }));
+            return { success: true, message: response.data.detail };
+        } catch (error) {
+            console.error('Resend verification email error:', error.response?.data || error.message);
+            let errorMessage = 'Failed to resend verification email.';
+            if (error.response?.data?.detail) {
+                errorMessage = error.response.data.detail;
+            }
+            setState(prev => ({
+                ...prev,
+                message: errorMessage,
+                messageType: 'error',
+            }));
+            return { success: false, message: errorMessage };
         }
     };
 
@@ -255,7 +281,8 @@ export function AuthProvider({ children }) {
         register,
         logout,
         refreshUser,
-        updateUserProfile, // ⭐ EXPOSED FUNCTION
+        updateUserProfile,
+        resendVerificationEmail, // <--- Add this to exposed functions
         role: getRole(state.user),
         clearMessage: () => setState(prev => ({ ...prev, message: null, messageType: null })),
     }), [state]);

@@ -2,51 +2,63 @@ import { View, Text, ActivityIndicator, ScrollView, StyleSheet, StatusBar, Image
 import React, { useState, useEffect } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, AntDesign } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAuth } from '../../../context/AuthContext'
+import { useAuth } from "../../../context/AuthContext";
+import api from "../../../api/api";
 
 export default function Profile() {
     const [loading, setLoading] = useState(true);
-    // Destructure role, user object, and loading state from AuthContext
-    const { role, isLoading: isAuthLoading, user, logout } = useAuth();
-    
-    // Derived state based on role
-    const isGuide = role === 'guide';
-    const isTourist = role === 'tourist';
-    
-    const router = useRouter()
+    const { user, logout } = useAuth();
+    const params = useLocalSearchParams();
+    const userId = params.userId;
+    const [profile, setProfile] = useState(null);
+    const router = useRouter();
 
     useEffect(() => {
-        // Simulate initial screen fade/resource load
-        const timer = setTimeout(() => setLoading(false), 500);
-        return () => clearTimeout(timer);
-    }, []);
+        const fetchProfile = async () => {
+            try {
+                const response = await api.get(`/api/guides/${userId}/`);
+                setProfile(response.data);
+            } catch (error) {
+                console.error("Failed to fetch profile:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
 
-    // Combine local loading state with Auth loading state
-    if (loading || isAuthLoading) {
+        if (userId) {
+            fetchProfile();
+        } else {
+            setProfile(user);
+            setLoading(false);
+        }
+    }, [userId, user]);
+
+    if (loading || !profile) {
         return (
             <View style={styles.centerContainer}>
                 <ActivityIndicator size="large" color="#0000ff" />
             </View>
         );
     }
-    
-    // --- MOCK DATA (Should ideally be fetched via a dedicated API endpoint) ---
+
+    const isOwnProfile = !userId || (user && profile && user.id === profile.id);
+    const isGuide = profile.is_local_guide && profile.guide_approved;
+    const isTourist = profile.is_tourist;
+
     const profileData = {
-        // Use real user data if available, otherwise fallback
-        name: user?.first_name && user?.last_name 
-            ? `${user.first_name} ${user.last_name}` 
-            : user?.username,
+        name: profile.first_name && profile.last_name 
+            ? `${profile.first_name} ${profile.last_name}` 
+            : profile.username || "User",
+        image: profile.profile_picture || null, 
         recentTours: [
             { id: 1, title: "Historic City Walking Tour", rating: 5, guide: "Guide Joshua Jameson", date: "Oct 15, 2025" },
             { id: 2, title: "Mountain Hiking", rating: 3, guide: "Guide Frank Sabastine", date: "Sept 20, 2025" }
         ],
-        // Mock stats based on role
         stats: isGuide ? { bookings: 12, completions: 50, rating: 4.8 } : null
     };
 
-    // Settings Menu Items (Adjusted based on standard user vs guide focus)
     const touristSettingsItems = [
         { id: 1, icon: "bookmarks-outline", label: "My Bookings", hasNotification: true },
         { id: 2, icon: "heart-outline", label: "Favorite Guides" },
@@ -84,9 +96,18 @@ export default function Profile() {
 
                 <View style={styles.profileCard}>
                     <View style={styles.profileHeader}>
+                        
                         <View style={styles.profileImagePlaceholder}>
-                            <Ionicons name="person-circle-outline" size={80} color="#1a2f5a" />
+                            {profileData.image ? (
+                                <Image 
+                                    source={{ uri: profileData.image }} 
+                                    style={styles.realProfileImage} 
+                                />
+                            ) : (
+                                <Ionicons name="person-circle-outline" size={80} color="#1a2f5a" />
+                            )}
                         </View>
+
                         <Text style={styles.profileName}>{profileData.name}</Text>
                         {
                             isGuide ? (
@@ -97,7 +118,6 @@ export default function Profile() {
                         }
                     </View>
 
-                    {/* DYNAMIC STATS CONTAINER */}
                     {isGuide && profileData.stats && (
                         <View style={styles.statsContainer}>
                             <View style={styles.statItem}>
@@ -117,7 +137,6 @@ export default function Profile() {
                             </View>
                         </View>
                     )}
-                    {/* END DYNAMIC STATS */}
                     
                     <View style={styles.recentToursSection}>
                         <Text style={styles.sectionTitle}>Recent Tours</Text>
@@ -137,40 +156,45 @@ export default function Profile() {
                         ))}
                     </View>
 
-                    <View style={styles.settingsSection}>
-                        <Text style={styles.sectionTitle}>Account Settings</Text>
-                        {(isGuide ? guideSettingsItems : touristSettingsItems).map((item) => (
-                            <TouchableOpacity key={item.id} style={styles.settingItem}>
-                                <View style={styles.settingLeft}>
-                                    <Ionicons name={item.icon} size={20} color="#1a2f5a" />
-                                    <Text style={styles.settingLabel}>{item.label}</Text>
-                                </View>
-                                {item.hasNotification ? (
-                                    <View style={styles.notification}>
-                                        <Text style={styles.notificationText}>1</Text>
+                    {isOwnProfile && (
+                        <View style={styles.settingsSection}>
+                            <Text style={styles.sectionTitle}>Account Settings</Text>
+                            {(isGuide ? guideSettingsItems : touristSettingsItems).map((item) => (
+                                <TouchableOpacity key={item.id} style={styles.settingItem}>
+                                    <View style={styles.settingLeft}>
+                                        <Ionicons name={item.icon} size={20} color="#1a2f5a" />
+                                        <Text style={styles.settingLabel}>{item.label}</Text>
                                     </View>
-                                ) : (
-                                    <Ionicons name="chevron-forward" size={20} color="#1a2f5a" />
-                                )}
+                                    {item.hasNotification ? (
+                                        <View style={styles.notification}>
+                                            <Text style={styles.notificationText}>1</Text>
+                                        </View>
+                                    ) : (
+                                        <Ionicons name="chevron-forward" size={20} color="#1a2f5a" />
+                                    )}
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    )}
+
+                    {isOwnProfile && (
+                        <View style={styles.buttonContainer}>
+                            <TouchableOpacity 
+                                style={styles.editButton}
+                                onPress={() => router.push('/(tabs)/profile/ProfileSetupScreen')}
+                            >
+                                <Text style={styles.buttonText}>Edit Profile</Text>
                             </TouchableOpacity>
-                        ))}
-                    </View>
-
-                    <View style={styles.buttonContainer}>
-                        <TouchableOpacity style={styles.editButton}>
-                            <Text style={styles.buttonText}>Edit Profile</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                            style={styles.logoutButton} 
-                            onPress={async () => {
-                                await logout();
-                            }}
-                            // onPress={() => router.push({pathname: "/auth/login"})}
-                        >
-                            <Text style={styles.logoutButtonText}>Log Out</Text>
-                        </TouchableOpacity>
-
-                    </View>
+                            <TouchableOpacity 
+                                style={styles.logoutButton} 
+                                onPress={async () => {
+                                    await logout();
+                                }}
+                            >
+                                <Text style={styles.logoutButtonText}>Log Out</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
                 </View>
             </SafeAreaView>
         </ScrollView>
@@ -180,7 +204,7 @@ export default function Profile() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F5F7FA', // Use a standard light background
+        backgroundColor: '#F5F7FA', 
     },
     centerContainer: {
         flex: 1,
@@ -216,7 +240,6 @@ const styles = StyleSheet.create({
     },
     profileCard: {
         position: 'relative',
-        // backgroundColor: '#fff', // White background for the card
         marginHorizontal: 16,
         marginTop: 30,
         borderRadius: 20,
@@ -225,20 +248,25 @@ const styles = StyleSheet.create({
         marginBottom: 20,
         shadowColor: '#000',
         shadowOpacity: 0.1,
-        // shadowOffset: { width: 0, height: 5 },
-        // shadowRadius: 10,
-        // elevation: 5,
     },
     profileHeader: {
         alignItems: 'center',
         marginBottom: 20,
     },
     profileImagePlaceholder: {
+        width: 100,  // Set fixed width
+        height: 100, // Set fixed height
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: 12,
         backgroundColor: '#EBF0F5',
         borderRadius: 50,
+        overflow: 'hidden', // This ensures the square image is clipped to the circle
+    },
+    realProfileImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
     },
     profileName: {
         fontSize: 20,
@@ -250,7 +278,7 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontWeight: '600',
         color: '#fff',
-        backgroundColor: '#00A8FF', // Guide color
+        backgroundColor: '#00A8FF', 
         paddingHorizontal: 8,
         paddingVertical: 4,
         borderRadius: 4,
@@ -386,7 +414,7 @@ const styles = StyleSheet.create({
         color: '#fff',
     },
     logoutButton: {
-        backgroundColor: '#FF5A5F', // Use a distinct color for logout
+        backgroundColor: '#FF5A5F', 
         borderRadius: 12,
         paddingVertical: 15,
         alignItems: 'center',

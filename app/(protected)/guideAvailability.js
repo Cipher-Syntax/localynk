@@ -8,11 +8,13 @@ const { width } = Dimensions.get('window');
 const GuideAvailability = () => {
     const router = useRouter();
     const params = useLocalSearchParams();
+
+    const { placeId, placeName } = params;
     
     // Parse data
     const guideId = params.guideId;
     const guideName = params.guideName || "Guide";
-    const availableDays = params.availableDays ? JSON.parse(params.availableDays) : [];
+    const availableDays = params.availableDays && params.availableDays !== "null" ? JSON.parse(params.availableDays) : [];
     const itinerary = params.itinerary || "No itinerary available.";
     const accommodations = params.accommodations ? JSON.parse(params.accommodations) : [];
     // Parse Inclusions
@@ -133,7 +135,12 @@ const GuideAvailability = () => {
                     style={styles.proceedBtn}
                     onPress={() => router.push({
                         pathname: "/(protected)/touristGuideDetails", 
-                        params: { guideId: guideId }
+                        // 2. Pass everything forward to the Profile
+                        params: { 
+                            guideId: params.guideId,
+                            placeId: placeId,       // Pass the location ID
+                            placeName: placeName    // Pass the location Name
+                        }
                     })}
                 >
                     <Text style={styles.proceedText}>View Profile</Text>
@@ -159,7 +166,7 @@ const styles = StyleSheet.create({
     calendarContainer: { backgroundColor: '#fff', borderRadius: 16, padding: 16, elevation: 2, marginBottom: 20 },
     monthTitle: { fontSize: 16, fontWeight: '700', textAlign: 'center', marginBottom: 15, color: '#333' },
     weekRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
-    weekHeader: { width: width / 9, textAlign: 'center', color: '#8B98A8', fontSize: 12, fontWeight: '600' },
+    weekHeader: { width: width / 9, textAlign: 'center', color: '#333', fontSize: 12, fontWeight: '600' },
     daysGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 10, justifyContent: 'flex-start' },
     calDay: { width: (width - 72) / 7, height: 40, justifyContent: 'center', alignItems: 'center', borderRadius: 20 },
     calDayAvailable: { backgroundColor: '#E0F7FA' },

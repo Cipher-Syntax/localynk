@@ -6,31 +6,26 @@ import { User } from 'lucide-react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { PaymentReviewModal } from '../../components/payment';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as ImagePicker from 'expo-image-picker'; import { MediaType } from 'expo-image-picker'; 
+import * as ImagePicker from 'expo-image-picker'; 
 import { useAuth } from '../../context/AuthContext'; 
-// 1. Add useLocalSearchParams here
 import { useLocalSearchParams } from 'expo-router';
 
-const Payment = () => {
+const AgencyBookingDetails = () => {
     const params = useLocalSearchParams();
-    console.log('Payment params:', params);
-    const { guideName, basePrice, placeName, bookingId, guideId } = params;
+    const { agencyName, agencyId, placeName, bookingId } = params;
     const isConfirmed = !!params.bookingId;
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const { user } = useAuth(); 
     const [isLoadingImage, setIsLoadingImage] = useState(false);
 
-    // 3. Parse the price (params are strings!) & Create Dynamic Guide Object
-    const numericBasePrice = basePrice ? parseFloat(basePrice) : 500; // Fallback to 500 if missing
-
-    const guide = {
-        id: guideId,
-        name: guideName || "Selected Guide",
+    const agency = {
+        id: agencyId,
+        name: agencyName || "Selected Agency",
         purpose: placeName ? `Tour at ${placeName}` : "Private Tour", 
-        address: "Local Guide", // You can pass this param too if you want
-        basePrice: numericBasePrice,
-        serviceFee: 50,
+        address: "Local Agency",
+        basePrice: 1000, // This should come from the agency object
+        serviceFee: 100,
     };
 
     const [startDate, setStartDate] = useState(new Date());
@@ -48,10 +43,9 @@ const Payment = () => {
     const [country, setCountry] = useState('');
     const [email, setEmail] = useState('');
     
-    // 2. New State for ID Image
     const [validIdImage, setValidIdImage] = useState(null);
 
-    const [totalPrice, setTotalPrice] = useState(guide.basePrice - guide.serviceFee);
+    const [totalPrice, setTotalPrice] = useState(agency.basePrice - agency.serviceFee);
 
     // Auto-fill
     useEffect(() => {
@@ -69,14 +63,12 @@ const Payment = () => {
         const diffDays = Math.max(Math.round(Math.abs((endDate - startDate) / oneDay)) + 1, 1);
         let groupSize = parseInt(numPeople) || 0;
         let multiplier = selectedOption === 'solo' ? 1 : (groupSize < 2 ? 2 : groupSize);
-        const baseCost = diffDays * guide.basePrice * multiplier;
+        const baseCost = diffDays * agency.basePrice * multiplier;
         setTotalPrice(baseCost);
     }, [startDate, endDate, selectedOption, numPeople]);
 
-    // 3. Image Picker Function
     const pickImage = async () => {
         setIsLoadingImage(true);
-        // No permissions request is necessary for launching the image library
         let result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: false,
@@ -91,7 +83,6 @@ const Payment = () => {
     };
 
     const handleReviewPress = () => {
-        // Simple validation to ensure ID is uploaded
         if (!validIdImage) {
             Alert.alert("Valid ID Required", "Please upload a valid government ID for verification purposes before proceeding.");
             return;
@@ -117,16 +108,16 @@ const Payment = () => {
                 </View>
 
                 <View style={styles.contentContainer}>
-                    {/* Guide Info */}
+                    {/* Agency Info */}
                     <View style={styles.guideInfoCard}>
                         <View style={styles.guideHeader}>
                             <View style={styles.guideIcon}>
                                 <User size={40} color="#fff" />
                             </View>
                             <View style={styles.guideInfo}>
-                                <Text style={styles.guideName}>{guide.name}</Text>
-                                <Text style={styles.guideDetail}>{guide.purpose}</Text>
-                                <Text style={styles.guideDetail}>{guide.address}</Text>
+                                <Text style={styles.guideName}>{agency.name}</Text>
+                                <Text style={styles.guideDetail}>{agency.purpose}</Text>
+                                <Text style={styles.guideDetail}>{agency.address}</Text>
                             </View>
                         </View>
                     </View>
@@ -149,7 +140,7 @@ const Payment = () => {
                             isVisible={isStartPickerVisible}
                             mode="date"
                             onConfirm={(date) => { setStartDate(date); setStartPickerVisible(false); }}
-                            onCancel={() => setStartPickerVisible(false)}
+                            onCancel={() => setEndPickerVisible(false)}
                         />
                         <DateTimePickerModal
                             isVisible={isEndPickerVisible}
@@ -197,7 +188,7 @@ const Payment = () => {
                     <View style={styles.priceCard}>
                         <View style={styles.priceRow}>
                             <Text style={styles.priceLabel}>Base Price</Text>
-                            <Text style={styles.priceValue}>₱ {guide.basePrice.toLocaleString()}</Text>
+                            <Text style={styles.priceValue}>₱ {agency.basePrice.toLocaleString()}</Text>
                         </View>
                         {selectedOption === 'group' && (
                             <View style={styles.priceRow}>
@@ -211,16 +202,7 @@ const Payment = () => {
                         </View>
                         <View style={styles.priceDivider} />
                         <View style={styles.priceRow}>
-                            <Text style={styles.priceLabel}>Guide Earnings (after fee)</Text>
-                            <Text style={styles.priceValue}>₱ {(totalPrice - guide.serviceFee).toLocaleString()}</Text>
-                        </View>
-                        <View style={styles.priceRow}>
-                            <Text style={styles.priceLabel}>App Service Fee</Text>
-                            <Text style={styles.priceValue}>₱ {guide.serviceFee.toLocaleString()}</Text>
-                        </View>
-                        <View style={styles.priceDivider} />
-                        <View style={styles.priceRow}>
-                            <Text style={styles.totalLabel}>Total to Pay</Text>
+                            <Text style={styles.priceLabel}>Total to Pay</Text>
                             <Text style={styles.totalValue}>₱ {totalPrice.toLocaleString()}</Text>
                         </View>
                     </View>
@@ -239,7 +221,7 @@ const Payment = () => {
                         <TextInput style={[styles.billingInput, styles.fullWidthInput]} placeholder="Email" placeholderTextColor="#8B98A8" value={email} onChangeText={setEmail} />
                     </View>
 
-                    {/* 4. NEW SECTION: Identity Verification */}
+                    {/* Identity Verification */}
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Identity Verification</Text>
                         <Text style={styles.helperText}>
@@ -267,7 +249,6 @@ const Payment = () => {
                         </TouchableOpacity>
                     </View>
 
-                    {/* Confirm Button */}
                     <TouchableOpacity style={styles.confirmButton} onPress={handleReviewPress}>
                         <Text style={styles.confirmButtonText}>Review Booking Request</Text>
                     </TouchableOpacity>
@@ -278,7 +259,7 @@ const Payment = () => {
                         isModalOpen={isModalOpen} 
                         setIsModalOpen={setIsModalOpen}
                         paymentData={{
-                            guide: guide,
+                            agency: agency,
                             startDate: startDate,
                             endDate: endDate,
                             firstName: firstName,
@@ -286,15 +267,14 @@ const Payment = () => {
                             phoneNumber: phoneNumber,
                             country: country,
                             email: email,
-                            basePrice: guide.basePrice,
-                            serviceFee: guide.serviceFee,
+                            basePrice: agency.basePrice,
+                            serviceFee: agency.serviceFee,
                             totalPrice: totalPrice,
-                            // paymentMethod: null,
                             bookingId: params.bookingId,
                             paymentMethod: isConfirmed ? 'gcash' : null,
                             groupType: selectedOption,
                             numberOfPeople: selectedOption === 'group' ? (parseInt(numPeople) < 2 ? 2 : parseInt(numPeople)) : 1,
-                            validIdImage: validIdImage, // Pass the ID image to the modal
+                            validIdImage: validIdImage,
                         }}
                     />
                 )}
@@ -303,7 +283,7 @@ const Payment = () => {
     );
 };
 
-export default Payment;
+export default AgencyBookingDetails;
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
@@ -343,8 +323,6 @@ const styles = StyleSheet.create({
     fullWidthInput: { width: '100%' },
     confirmButton: { backgroundColor: '#00A8FF', paddingVertical: 12, borderRadius: 8, alignItems: 'center', marginTop: 10 },
     confirmButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
-
-    // --- NEW Verification Styles ---
     helperText: { fontSize: 12, color: '#8B98A8', marginBottom: 12, lineHeight: 18 },
     uploadContainer: {
         height: 150,

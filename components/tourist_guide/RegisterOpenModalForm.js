@@ -40,11 +40,14 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
 
     const [isLoading, setIsLoading] = useState(false); 
     const [showConfirm, setShowConfirm] = useState(false); 
+    const [isLoadingImage, setIsLoadingImage] = useState(false);
 
     const pickImage = async (field) => {
+        setIsLoadingImage(true);
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
             Alert.alert('Permission required', 'We need access to your photos to upload documents.');
+            setIsLoadingImage(false);
             return;
         }
 
@@ -58,6 +61,7 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
         if (!result.canceled) {
             setImages({ ...images, [field]: result.assets[0].uri });
         }
+        setIsLoadingImage(false);
     };
 
     const handleInputChange = (field, value) => {

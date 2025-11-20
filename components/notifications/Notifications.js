@@ -81,7 +81,7 @@ const Notifications = () => {
         }
     };
 
-    const handleNotificationPress = (item) => {
+    const handleNotificationPress =  async (item) => {
         // 1. Mark as read immediately
         if (!item.is_read) {
             markAsRead(item.id);
@@ -95,20 +95,32 @@ const Notifications = () => {
             });
         } 
         else if (item.title === "Booking Accepted!") {
-            const confirmedBookingData = {
-                bookingId: item.related_object_id,
-                totalPrice: item.booking_total_price, 
-                guideName: item.assigned_guide_name, 
-            };
-            router.push({ 
-                pathname: '/(protected)/agencyAssignedGuide', 
-                params: confirmedBookingData
-            });
-        } 
+            try {
+                // 1. Fetch the REAL booking data from backend
+                const response = await api.get(`/api/bookings/${item.related_object_id}/`);
+                const booking = response.data;
+                const guideInfo = booking.guide_detail || {};
+
+                // 2. Send user to the PAYMENT screen with the correct data
+                router.push({ 
+                    pathname: '/(protected)/payment', 
+                    params: { 
+                        bookingId: booking.id,
+                        guideId: guideInfo.id,
+                        guideName: guideInfo.full_name || "Your Guide",
+                        basePrice: guideInfo.price_per_day || booking.total_price,
+                        placeName: "Your Adventure", 
+                    }
+                });
+            } catch (error) {
+                console.error("Failed to load booking details:", error);
+            }
+        }
         else if (item.title === "New Message") {
             // Navigate to your messages screen
             // If your Message screen supports opening a specific chat via params, add it here using item.related_object_id
             router.push('/(protected)/message'); 
+            
         } 
         else {
             console.log('Generic notification pressed:', item);

@@ -1,27 +1,93 @@
 import React, { useState } from 'react';
-import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, StatusBar, Image } from 'react-native';
+import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, StatusBar, Image, Alert, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { User } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import api from '../../api/api'; 
 
 const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
     const [showConfirmationScreen, setShowConfirmationScreen] = useState(false);
     const [isPayment, setIsPayment] = useState(false);
     const router = useRouter();
 
-    const handleConfirm = () => {
-        if (paymentData?.paymentMethod) {
-            // Payment logic
-            console.log("Processing payment...", paymentData);
-        } else {
-            // Request logic
-            console.log("Submitting booking request...", paymentData);
+    // Don't forget to ensure 'api' is imported at the top!
+
+
+    const handleConfirm = async () => {
+        try {
+            if (paymentData?.paymentMethod) {
+                // ============================================================
+                //  MODE 1: PAYMENT (Booking Accepted -> Pay via GCash)
+                // ============================================================
+                console.log("Initiating payment for Booking ID:", paymentData.bookingId);
+
+                const response = await api.post('/api/payments/initiate/', {
+                    booking_id: paymentData.bookingId,
+                    payment_method: 'gcash'
+                });
+
+                const { checkout_url } = response.data;
+
+                if (checkout_url) {
+                    // 1. Close the modal so the user sees the app when they return
+                    setIsModalOpen(false);
+                    
+                    // 2. Redirect user to GCash/PayMongo to pay
+                    await Linking.openURL(checkout_url);
+                } else {
+                    Alert.alert("Error", "Could not generate payment link.");
+                }
+
+            } else {
+                // ============================================================
+                //  MODE 2: REQUEST (New Booking -> Send to Host)
+                // ============================================================
+                
+                // 1. format the dates and data for Django
+                const formatLocalDate = (date) => {
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, "0");
+                    const day = String(date.getDate()).padStart(2, "0");
+                    return `${year}-${month}-${day}`;
+                };
+
+                const bookingPayload = {
+                    check_in: formatLocalDate(paymentData.startDate),
+                    check_out: formatLocalDate(paymentData.endDate),
+                    num_guests: paymentData.numberOfPeople,
+                };
+
+                if (paymentData.guide) {
+                    bookingPayload.guide = paymentData.guide.id;
+                } else if (paymentData.agency) {
+                    bookingPayload.agency = paymentData.agency.id;
+                }
+
+                // 2. Send to Backend
+                const response = await api.post('/api/bookings/', bookingPayload);
+                console.log("Booking Request Created:", response.data);
+
+                // 3. Show "Request Sent" confirmation
+                setIsPayment(false); // Tells the confirmation screen to show "Request Sent" text
+                setShowConfirmationScreen(true);
+            }
+
+        } 
+        catch (error) {
+            console.error("Action failed:", error);
+            
+            if (error.response) {
+                console.log("Backend Error Response:", JSON.stringify(error.response.data, null, 2));
+                
+                const serverMessage = error.response.data.detail || JSON.stringify(error.response.data);
+                Alert.alert("Request Failed", serverMessage);
+            } else {
+                Alert.alert("Failed", "Network error or server not reachable.");
+            }
         }
-        
-        setIsPayment(!!paymentData?.paymentMethod);
-        setShowConfirmationScreen(true);
     };
+
 
     const handleConfirmationDismiss = () => {
         setShowConfirmationScreen(false);
@@ -30,7 +96,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
     };
 
     const { 
-        guide, accommodation, startDate, endDate, 
+        guide, agency, accommodation, startDate, endDate, 
         firstName, lastName, phoneNumber, country, email, 
         basePrice, serviceFee, totalPrice, paymentMethod, 
         groupType, numberOfPeople, validIdImage // Get the image URI
@@ -90,6 +156,21 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                                     </View>
                                 </View>
                             )}
+
+                            {agency && (
+                                <View style={styles.detailCard}>
+                                    <View style={styles.detailHeader}>
+                                        <View style={styles.detailIcon}>
+                                            <Ionicons name="business" size={20} color="#fff" />
+                                        </View>
+                                        <View style={styles.detailInfo}>
+                                            <Text style={styles.detailLabel}>Agency</Text>
+                                            <Text style={styles.detailName}>{agency.name}</Text>
+                                            <Text style={styles.detailText}>{agency.purpose}</Text>
+                                        </View>
+                                    </View>
+                                </View>
+                            )}
                         </View>
 
                         <View style={styles.section}>
@@ -118,7 +199,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                                 <View style={styles.priceRow}>
                                     <Text style={styles.priceLabel}>Base Price</Text>
                                     <Text style={styles.priceValue}>
-                                        ₱ {guide?.basePrice ? guide.basePrice.toLocaleString() : '0'}
+                                        ₱ {basePrice ? basePrice.toLocaleString() : '0'}
                                     </Text>
                                 </View>
 

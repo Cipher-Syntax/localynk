@@ -435,7 +435,15 @@ export default function PlacesDetails() {
 
         {/* Action Buttons */}
         <View style={{ paddingHorizontal: 15, paddingVertical: 20 }}>
-          <TouchableOpacity style={styles.bookButton} onPress={() => router.push({ pathname: '/(protected)/bookingChoice' })}>
+          <TouchableOpacity style={styles.bookButton} 
+            onPress={() => router.push({ 
+              pathname: '/(protected)/bookingChoice',
+              params: { 
+                placeId: destination.id,      // Pass the ID
+                placeName: destination.name   // Pass the Name
+              }
+            })}
+          >
             <Calendar size={20} color="#fff" />
             <Text style={styles.bookButtonText}>Choose A Guide for {destination.name}</Text>
           </TouchableOpacity>

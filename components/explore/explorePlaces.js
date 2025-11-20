@@ -4,6 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { User } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import api from '../../api/api';
 
 import places_1 from '../../assets/localynk_images/places_1.png';
 import places_2 from '../../assets/localynk_images/places_2.png';
@@ -18,6 +19,7 @@ const ExplorePlaces = () => {
     const params = useLocalSearchParams();
     const [activeTab, setActiveTab] = useState(params.tab || 'guides');
     const [searchQuery, setSearchQuery] = useState('');
+    const [guides, setGuides] = useState([]);
 
     const bounceValue = useRef(new Animated.Value(0)).current;
     const startBounce = () => {
@@ -49,53 +51,20 @@ const ExplorePlaces = () => {
         }
     }, [params.tab])
     
-    const guideCards = [
-        {
-            name: "John Dela Cruz",
-            address: "Baliwasan",
-            rating: 4.5,
-            language: "English, Tagalog",
-            specialty: "Mountain Guiding",
-            experience: "8 years",
-            price: "₱1,500/day",
-        },
-        {
-            name: "Maria Santos",
-            address: "Bunguiao",
-            rating: 4.0,
-            language: "English, Cebuano",
-            specialty: "Island Hopping",
-            experience: "5 years",
-            price: "₱1,200/day",
-        },
-        {
-            name: "Carlos Mendoza",
-            address: "Mercedes",
-            rating: 5.0,
-            language: "English, Spanish, Tagalog",
-            specialty: "Historical Tours",
-            experience: "10 years",
-            price: "₱1,800/day",
-        },
-        {
-            name: "Liza Cruz",
-            address: "Zambowood",
-            rating: 3.5,
-            language: "English, Tagalog",
-            specialty: "Rainforest & Nature Walks",
-            experience: "6 years",
-            price: "₱1,400/day",
-        },
-        {
-            name: "Ramon Villanueva",
-            address: "Patalon",
-            rating: 4.5,
-            language: "English, Tagalog",
-            specialty: "Wildlife & Landscape Tours",
-            experience: "7 years",
-            price: "₱1,600/day",
-        },
-    ];
+    useEffect(() => {
+        const fetchGuides = async () => {
+            try {
+                const response = await api.get('/api/guides/');
+                setGuides(response.data);
+            } catch (error) {
+                console.error('Failed to fetch guides:', error);
+            }
+        };
+
+        if (activeTab === 'guides') {
+            fetchGuides();
+        }
+    }, [activeTab]);
     
     const places = [
         {
@@ -125,10 +94,10 @@ const ExplorePlaces = () => {
         },
     ]
 
-    const filteredGuides = guideCards.filter(guide =>
-        guide.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const filteredGuides = guides.filter(guide =>
+        (guide.first_name + ' ' + guide.last_name).toLowerCase().includes(searchQuery.toLowerCase()) ||
         guide.specialty.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        guide.address.toLowerCase().includes(searchQuery.toLowerCase())
+        guide.location.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     const filteredPlaces = places.filter(place =>
@@ -195,17 +164,17 @@ const ExplorePlaces = () => {
             <View style={styles.contentContainer}>
                 {activeTab === 'guides' && (
                     <>
-                        {filteredGuides.map((guide, index) => (
-                            <View key={index} style={styles.guideCard}>
+                        {filteredGuides.map((guide) => (
+                            <View key={guide.id} style={styles.guideCard}>
                                 <View style={styles.cardProfileSection}>
                                     <View style={styles.iconWrapper}>
                                         <User size={40} color="#8B98A8" />
                                     </View>
                                     <View style={styles.profileInfo}>
-                                        <Text style={styles.guideName}>{guide.name}</Text>
-                                        <Text style={styles.guideAddress}>{guide.address}</Text>
+                                        <Text style={styles.guideName}>{guide.first_name} {guide.last_name}</Text>
+                                        <Text style={styles.guideAddress}>{guide.location}</Text>
                                         <Text style={styles.guideRating}>{
-                                            guide.rating} <Ionicons name="star" color="#C99700" />
+                                            guide.guide_rating} <Ionicons name="star" color="#C99700" />
                                         </Text>
                                     </View>
                                     <Ionicons name="heart-outline" size={22} color="#FF5A5F" />
@@ -214,7 +183,7 @@ const ExplorePlaces = () => {
                                 <View style={styles.detailsGrid}>
                                     <View style={styles.detailItem}>
                                         <Text style={styles.detailLabel}>Language</Text>
-                                        <Text style={styles.detailValue}>{guide.language}</Text>
+                                        <Text style={styles.detailValue}>{Array.isArray(guide.languages) ? guide.languages.join(', ') : guide.languages}</Text>
                                     </View>
                                     <View style={styles.detailItem}>
                                         <Text style={styles.detailLabel}>Specialty</Text>
@@ -222,15 +191,15 @@ const ExplorePlaces = () => {
                                     </View>
                                     <View style={styles.detailItem}>
                                         <Text style={styles.detailLabel}>Years of Experience</Text>
-                                        <Text style={styles.detailValue}>{guide.experience}</Text>
+                                        <Text style={styles.detailValue}>{guide.experience_years} years</Text>
                                     </View>
                                     <View style={styles.detailItem}>
                                         <Text style={styles.detailLabel}>Price of Package</Text>
-                                        <Text style={styles.detailValue}>{guide.price}</Text>
+                                        <Text style={styles.detailValue}>₱{guide.price_per_day}/day</Text>
                                     </View>
                                 </View>
 
-                                <TouchableOpacity style={styles.buttonContainer} activeOpacity={0.8} onPress={() => router.push({pathname: "/(protected)/touristGuideDetails",})}>
+                                <TouchableOpacity style={styles.buttonContainer} activeOpacity={0.8} onPress={() => router.push({pathname: "/(protected)/touristGuideDetails", params: { guideId: guide.id }})}>
                                     <Text style={styles.bookButton}>LEARN MORE</Text>
                                 </TouchableOpacity>
                             </View>
@@ -242,8 +211,9 @@ const ExplorePlaces = () => {
                     <View>
                         {
                             filteredPlaces.map((place) => (
+                                <TouchableOpacity key={place.id} activeOpacity={0.8} onPress={() => router.push({pathname: "/(protected)/placesDetails", params: { placeId: place.id }})}>
                                 <ImageBackground 
-                                    key={place.id}
+                                    
                                     source={place.image}
                                     style={styles.placesContainer}
                                     imageStyle={styles.placesImage}
@@ -274,6 +244,7 @@ const ExplorePlaces = () => {
                                     </View>
 
                                 </ImageBackground>
+                                </TouchableOpacity>
                             ))
                         }
 

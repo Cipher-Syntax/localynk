@@ -21,19 +21,47 @@ export default function ProtectedLayout() {
     const HOME_PATH = '/home';
     
     // Paths that are NOT tabs but ARE protected screens (like onboarding)
-    const protectedNonTabPaths = [ONBOARDING_PATH]; 
+    const protectedNonTabPaths = [
+        ONBOARDING_PATH,
+        '/touristGuideDetails',
+        '/payment',
+        '/message',
+        '/addTour',
+        '/addAccommodation',
+        '/UpdateGuideInfoForm',
+        '/placesDetails',
+        '/attractionDetails',
+        '/bookingChoice',
+        '/guideAvailability',
+        '/notification',
+        '/agencySelection',
+        '/agencyBookingDetails',
+        '/termsAndAgreement',
+        '/notification',
+        '/completePayment',
+        '/completeRegistrationFee',
+    ]; 
 
     useEffect(() => {
         // Only run if authentication state is finalized and we haven't already attempted navigation
-        if (isLoading || navigationAttempted.current) return;
+        if (isLoading) return;
 
-        navigationAttempted.current = true;
-        console.log("ProtectedLayout useEffect:", { isAuthenticated, pathname, isProfileIncomplete });
-        
+        console.log("Current pathname:", pathname);
+        console.log("Find result:", protectedNonTabPaths.find(p => pathname.startsWith(p)));
+
+        // Paths that are explicitly allowed for unauthenticated users
+        const authPaths = [
+            "/auth/landingPage",
+            "/auth/login",
+            "/auth/register",
+        ];
+
         // --- 1. UNAUTHENTICATED CHECK ---
         if (!isAuthenticated) {
-            console.log("ProtectedLayout: User not authenticated, redirecting to landing page");
-            router.replace("/auth/landingPage");
+            if (!authPaths.includes(pathname)) { // <--- MODIFIED CONDITION
+                console.log("ProtectedLayout: User not authenticated and not on an auth path, redirecting to landing page");
+                router.replace("/auth/landingPage");
+            }
             return;
         }
 
@@ -48,20 +76,16 @@ export default function ProtectedLayout() {
         
         // B. If profile is complete, ensure they land inside the main tabs route (or a specific child page).
         if (!isProfileIncomplete) {
-            // Check if the current path is the onboarding path (which they must exit) 
-            // OR if the current path is the base '/' path or any other non-tab protected path they shouldn't linger on.
             const isInsideTabs = pathname.startsWith(HOME_PATH);
             
             if (pathname === ONBOARDING_PATH || (!isInsideTabs && !protectedNonTabPaths.includes(pathname))) {
-                console.log("ProtectedLayout: Profile complete, redirecting to Home.");
+                console.log("ProtectedLayout: Profile complete, redirecting to Home from " + pathname);
                 router.replace(HOME_PATH);
                 return;
             }
         }
         
-        // If the current path is correct (e.g., they are already on /home/index or /onboarding/profile_setup), do nothing.
-
-    }, [isLoading, isAuthenticated, router, pathname, isProfileIncomplete]);
+    }, [isLoading, isAuthenticated, pathname, isProfileIncomplete]);
 
     // Show loading while checking auth
     if (isLoading) {

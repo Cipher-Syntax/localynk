@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import api from '../../api/api';
 
 const { width } = Dimensions.get('window');
 
@@ -41,85 +42,30 @@ const AgencySelection = () => {
     const [isModalVisible, setModalVisible] = useState(false);
     const [selectedAgencyName, setSelectedAgencyName] = useState('');
 
-    const mockAgencies = [
-        {
-            id: 1,
-            name: 'Sunshine Tours',
-            rating: 4.5,
-            reviews: 342,
-            description: 'Reliable and friendly tour agency specializing in outdoor adventures.',
-            specialties: ['Nature', 'Culture', 'Beach'],
-            price: '₱ 1,200/person',
-            image: AGENCY_IMAGES[0],
-            established: '2015',
-        },
-        {
-            id: 2,
-            name: 'Adventure Seekers',
-            rating: 4.8,
-            reviews: 518,
-            description: 'For thrill-seekers and adventure lovers seeking unforgettable experiences.',
-            specialties: ['Hiking', 'Rafting', 'Extreme Sports'],
-            price: '₱ 1,500/person',
-            image: AGENCY_IMAGES[1],
-            established: '2016',
-        },
-        {
-            id: 3,
-            name: 'City Explorers',
-            rating: 4.2,
-            reviews: 267,
-            description: 'Explore cities and urban landmarks with our knowledgeable guides.',
-            specialties: ['Urban', 'Historical', 'Food'],
-            price: '₱ 900/person',
-            image: AGENCY_IMAGES[2],
-            established: '2017',
-        },
-        {
-            id: 4,
-            name: 'Wanderlust Journeys',
-            rating: 4.9,
-            reviews: 621,
-            description: 'Premium travel experiences crafted for discerning travelers worldwide.',
-            specialties: ['Luxury', 'Cultural', 'Photography'],
-            price: '₱ 2,000/person',
-            image: AGENCY_IMAGES[3],
-            established: '2014',
-        },
-        {
-            id: 5,
-            name: 'Local Guides Co.',
-            rating: 4.6,
-            reviews: 453,
-            description: 'Authentic local experiences with guides who know every hidden gem.',
-            specialties: ['Local', 'Authentic', 'Off-beat'],
-            price: '₱ 800/person',
-            image: AGENCY_IMAGES[4],
-            established: '2018',
-        },
-        {
-            id: 6,
-            name: 'Express Tours',
-            rating: 4.3,
-            reviews: 289,
-            description: 'Fast-paced tours for travelers who want to see it all in one day.',
-            specialties: ['Quick Tours', 'Popular Sites', 'Budget'],
-            price: '₱ 700/person',
-            image: AGENCY_IMAGES[5],
-            established: '2019',
-        },
-    ];
-
     useEffect(() => {
-        setTimeout(() => {
-            setAgencies(mockAgencies);
-            setLoading(false);
-        }, 1200);
+        const fetchAgencies = async () => {
+            try {
+                const response = await api.get('/api/agencies/');
+                setAgencies(response.data);
+            } catch (error) {
+                console.error('Failed to fetch agencies:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchAgencies();
     }, []);
 
     const handleSelectAgency = (agencyId, agencyName) => {
-        setSelectedAgencyName(agencyName);
-        setModalVisible(true);
+        router.push({
+            pathname: '/(protected)/agencyBookingDetails',
+            params: { 
+                agencyId: agencyId,
+                agencyName: agencyName,
+                placeId: params.placeId,
+                placeName: params.placeName
+            }
+        });
     };
 
     const handleModalClose = () => {
@@ -129,41 +75,14 @@ const AgencySelection = () => {
 
     const renderAgencyCard = ({ item }) => (
         <View style={styles.agencyCard}>
-            <View style={styles.imageContainer}>
-                <Image source={{ uri: item.image }} style={styles.agencyImage} />
-                <LinearGradient
-                    colors={['transparent', 'rgba(0,0,0,0.7)']}
-                    style={styles.imageOverlay}
-                />
-                <View style={styles.ratingBadge}>
-                    <Ionicons name="star" size={14} color="#FFD700" />
-                    <Text style={styles.ratingText}>{item.rating}</Text>
-                    <Text style={styles.reviewsText}>({item.reviews})</Text>
-                </View>
-            </View>
-
+            <Image source={{ uri: item.profile_picture }} style={styles.agencyImage} />
             <View style={styles.cardContent}>
-                <Text style={styles.agencyName}>{item.name}</Text>
-                <Text style={styles.agencyDesc}>{item.description}</Text>
-
-                <View style={styles.specialtiesContainer}>
-                    {item.specialties.map((sp, idx) => (
-                        <View key={idx} style={styles.specialtyTag}>
-                            <Text style={styles.specialtyText}>{sp}</Text>
-                        </View>
-                    ))}
-                </View>
-
-                <Text style={styles.established}>Est. {item.established}</Text>
-
-                <View style={styles.priceContainer}>
-                    <Text style={styles.priceLabel}>Starting from</Text>
-                    <Text style={styles.priceValue}>{item.price}</Text>
-                </View>
+                <Text style={styles.agencyName}>{item.first_name} {item.last_name}</Text>
+                <Text style={styles.agencyDesc}>{item.bio}</Text>
 
                 <TouchableOpacity
                     style={styles.selectButton}
-                    onPress={() => handleSelectAgency(item.id, item.name)}
+                    onPress={() => handleSelectAgency(item.id, `${item.first_name} ${item.last_name}`)}
                     activeOpacity={0.8}
                 >
                     <Ionicons name="checkmark-circle" size={18} color="#fff" />
@@ -311,7 +230,7 @@ header: {
         height: 200,
         overflow: 'hidden',
     },
-    agencyImage: { width: '100%', height: '100%' },
+    agencyImage: { width: '100%', height: 200 },
     imageOverlay: { ...StyleSheet.absoluteFillObject },
 
     ratingBadge: {

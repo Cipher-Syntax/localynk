@@ -43,22 +43,25 @@ const AgencyAssignedGuide = () => {
     const agencyName = "City Explorers Agency"; // Mock Agency Name
 
     useEffect(() => {
-        if (!bookingId || !totalPrice) {
-            Alert.alert("Error", "Missing booking details. Cannot display guide.");
-            setLoading(false);
-            return;
-        }
+        const fetchBookingDetails = async () => {
+            if (!bookingId) {
+                Alert.alert("Error", "Missing booking details. Cannot display guide.");
+                setLoading(false);
+                return;
+            }
+            try {
+                const response = await api.get(`/api/bookings/${bookingId}/`);
+                setAssignedGuides(response.data.assigned_guides_detail);
+            } catch (error) {
+                console.error("Failed to fetch booking details:", error);
+                Alert.alert("Error", "Failed to fetch booking details.");
+            } finally {
+                setLoading(false);
+            }
+        };
 
-        const timer = setTimeout(() => {
-            // --- STATIC ASSIGNMENT ---
-            const guides = MOCK_GUIDES_DATA[bookingId] || MOCK_GUIDES_DATA['123456789'];
-            setAssignedGuides(guides);
-            // --- END STATIC ASSIGNMENT ---
-            setLoading(false);
-        }, 1000);
-
-        return () => clearTimeout(timer);
-    }, [bookingId, totalPrice]);
+        fetchBookingDetails();
+    }, [bookingId]);
 
 
     const handleProceedToPayment = () => {

@@ -12,11 +12,11 @@ const { height } = Dimensions.get('window');
 const AuthForm = ({ method }) => {
 
     // --- Context Hook ---
-    const { login, register } = useAuth();
+    const { login, register, resendVerificationEmail, message, messageType, clearMessage } = useAuth(); // <--- MODIFIED
+    // Removed local authError state and useEffect
 
     const { control, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm();
     const [remember, setRemember] = useState(false);
-    const [authError, setAuthError] = useState('');
     const router = useRouter();
 
     const bgImage = method === 'login'
@@ -25,28 +25,33 @@ const AuthForm = ({ method }) => {
 
     const status = method === 'login' ? 'Welcome Back Adventurer' : 'Join The Adventure';
 
+    useEffect(() => {
+        // Clear global message when component unmounts or method changes
+        return () => {
+            clearMessage();
+        };
+    }, [method, clearMessage]);
+
     const onSubmit = async (data) => {
-        setAuthError('');
+        clearMessage(); // Clear any previous messages before submitting
 
         if (method === 'login') {
             const successUser = await login(data.username, data.password); 
 
             if (successUser) {
-                // ⭐ CRITICAL CHECK: Robust check for null, undefined, or empty/whitespace strings
                 const isFirstNameMissing = !successUser.first_name || String(successUser.first_name).trim() === "";
                 const isLastNameMissing = !successUser.last_name || String(successUser.last_name).trim() === "";
 
                 if (isFirstNameMissing || isLastNameMissing) {
                     console.log("Login success: First-time user detected (Missing KYC), redirecting to profile setup.");
-                    // ⭐ FIXED: Removed (protected) - using the file path relative to the root group
                     router.replace('/onboarding/profile_setup');
                 } else {
                     console.log("Login success: Profile complete, redirecting to home.");
                     router.replace('/home'); 
                 }
             } else {
-                // Login failed (handled by AuthContext setting error state)
-                setAuthError("Login failed. Check your username and password or verify your email.");
+                // AuthContext handles setting the message and messageType
+                // No need to set a local authError here
             }
         } else {
             const userData = {
@@ -59,21 +64,28 @@ const AuthForm = ({ method }) => {
             const result = await register(userData);
 
             if (result.success) {
-                setAuthError(result.message)
                 router.replace('/auth/login')
             } else {
-                setAuthError(result.message);
+                // AuthContext handles setting the message and messageType
             }
         }
     };
 
 
-    useEffect(() => {
-        if (authError) {
-            const timer = setTimeout(() => setAuthError(''), 3000);
-            return () => clearTimeout(timer);
+    const handleResendVerification = async () => {
+        const usernameOrEmail = watch('username'); 
+        if (!usernameOrEmail) {
+            // Use the AuthContext's message for local errors too for consistency
+            clearMessage();
+            // TODO: Potentially add a specific message for this case to AuthContext or pass it here
+            Alert.alert("Error", "Please enter your email in the username field to resend verification.");
+            return;
         }
-    }, [authError]);
+        clearMessage(); // Clear any previous messages
+        await resendVerificationEmail(usernameOrEmail);
+        // AuthContext handles setting success/error message
+    };
+
 
     return (
         <View style={styles.container}>
@@ -90,7 +102,29 @@ const AuthForm = ({ method }) => {
                         </LinearGradient>
                     </MaskedView>
 
-                    {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
+                    {/* Debug logs for message and button condition */}
+                    {console.log('AuthForm - Current message:', message)}
+                    {console.log('AuthForm - Current messageType:', messageType)}
+                    {console.log('AuthForm - Current method:', method)}
+                    {console.log('AuthForm - Condition 1 (message && messageType === "error"):', message && messageType === 'error')}
+                    {console.log('AuthForm - Condition 2 (message.includes("verify your email")):', message && message.includes('verify your email'))}
+                    {console.log('AuthForm - Condition 3 (method === "login"):', method === 'login')}
+                    {console.log('AuthForm - Combined button condition:', message && messageType === 'error' && message.includes('verify your email') && method === 'login')}
+                    {/* End Debug logs */}
+
+                    {message && messageType === 'error' ? ( // <--- MODIFIED
+                        <>
+                            <Text style={styles.errorText}>{message}</Text> {/* <--- MODIFIED */}
+                            {message.includes('verify your email') && method === 'login' && ( // <--- MODIFIED
+                                <Pressable style={styles.resendLink} onPress={handleResendVerification}>
+                                    <Text style={styles.resendLinkText}>Resend Verification Email</Text>
+                                </Pressable>
+                            )}
+                        </>
+                    ) : null}
+                    {message && messageType === 'success' ? ( // <--- MODIFIED
+                        <Text style={styles.successText}>{message}</Text> // <--- Added a success text style
+                    ) : null}
 
                     {/* Username */}
                     <Controller
@@ -303,4 +337,14 @@ const styles = StyleSheet.create({
         marginTop: 5,
     },
     googleText: { marginLeft: 10, color: '#444', fontSize: 14, fontWeight: '900' },
+    resendLink: {
+        marginTop: 10,
+        marginBottom: 10,
+    },
+    resendLinkText: {
+        color: '#007AAD',
+        textDecorationLine: 'underline',
+        fontWeight: 'bold',
+        fontSize: 14,
+    },
 });
