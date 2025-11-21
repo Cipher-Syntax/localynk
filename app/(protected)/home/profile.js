@@ -116,6 +116,20 @@ export default function Profile() {
                                 <Text style={styles.badge}>Tourist</Text>
                             )
                         }
+
+                        {profile.phone_number && (
+                            <Text style={styles.profileDetail}>
+                                <Ionicons name="call-outline" size={14} color="#666" /> {profile.phone_number}
+                            </Text>
+                        )}
+                        {profile.location && (
+                            <Text style={styles.profileDetail}>
+                                <Ionicons name="location-outline" size={14} color="#666" /> {profile.location}
+                            </Text>
+                        )}
+                        {profile.bio && (
+                            <Text style={styles.profileBio}>{profile.bio}</Text>
+                        )}
                     </View>
 
                     {isGuide && profileData.stats && (
@@ -181,8 +195,9 @@ export default function Profile() {
                         <View style={styles.buttonContainer}>
                             <TouchableOpacity 
                                 style={styles.editButton}
-                                onPress={() => router.push('/(tabs)/profile/ProfileSetupScreen')}
+                                onPress={() => router.push('/profile/edit_profile')}
                             >
+                                <Ionicons name="create-outline" size={18} color="#fff" style={{marginRight: 5}} />
                                 <Text style={styles.buttonText}>Edit Profile</Text>
                             </TouchableOpacity>
                             <TouchableOpacity 
@@ -191,6 +206,7 @@ export default function Profile() {
                                     await logout();
                                 }}
                             >
+                                <Ionicons name="log-out-outline" size={18} color="#fff" style={{marginRight: 5}} />
                                 <Text style={styles.logoutButtonText}>Log Out</Text>
                             </TouchableOpacity>
                         </View>
@@ -283,6 +299,21 @@ const styles = StyleSheet.create({
         paddingVertical: 4,
         borderRadius: 4,
         textTransform: 'uppercase'
+    },
+    profileDetail: {
+        fontSize: 13,
+        color: '#666',
+        marginTop: 5,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+    },
+    profileBio: {
+        fontSize: 13,
+        color: '#666',
+        marginTop: 10,
+        textAlign: 'center',
+        lineHeight: 18,
     },
     statsContainer: {
         flexDirection: 'row',
@@ -398,14 +429,19 @@ const styles = StyleSheet.create({
         color: '#fff',
     },
     buttonContainer: {
+        flexDirection: 'row', // Layout horizontally
+        justifyContent: 'space-between',
         gap: 12,
         paddingHorizontal: 4,
         paddingBottom: 20
     },
     editButton: {
+        flex: 2, // Takes up 2/3 of the space (Main Action)
         backgroundColor: '#00A8FF',
         borderRadius: 12,
         paddingVertical: 15,
+        flexDirection: 'row',
+        justifyContent: 'center',
         alignItems: 'center',
     },
     buttonText: {
@@ -414,9 +450,12 @@ const styles = StyleSheet.create({
         color: '#fff',
     },
     logoutButton: {
+        flex: 1, // Takes up 1/3 of the space (Secondary Action)
         backgroundColor: '#FF5A5F', 
         borderRadius: 12,
         paddingVertical: 15,
+        flexDirection: 'row',
+        justifyContent: 'center',
         alignItems: 'center',
     },
     logoutButtonText: {

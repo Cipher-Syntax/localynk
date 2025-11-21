@@ -1,5 +1,393 @@
+// import React, { useState, useCallback } from 'react';
+// import { View, StyleSheet, Image, Text, TouchableOpacity, StatusBar, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
+// import { LinearGradient } from 'expo-linear-gradient';
+// import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+// import { useRouter, useFocusEffect } from 'expo-router';
+// import api from '../../api/api'; 
+
+// const Notifications = () => {
+//     const router = useRouter();
+//     const [notifications, setNotifications] = useState([]);
+//     const [isLoading, setIsLoading] = useState(true);
+//     const [refreshing, setRefreshing] = useState(false);
+
+//     const notificationIcons = {
+//         // Matches the "title" we set in the Django Signal
+//         "New Guide Application": <Ionicons name="person-add-outline" size={28} color="#F5A623" />,
+//         "Application Approved!": <Ionicons name="checkmark-done-circle-outline" size={28} color="#007AFF" />,
+//         "Booking Accepted!": <Ionicons name="calendar-outline" size={28} color="#28A745" />,
+//         "New Message": <Ionicons name="chatbubble-ellipses-outline" size={28} color="#0A2342" />,
+//         "Payment Successful": <FontAwesome5 name="money-check-alt" size={24} color="#007AFF" />,
+//     };
+
+//     const fetchNotifications = async () => {
+//         try {
+//             const response = await api.get('/api/alerts/');
+//             if (response.data) {
+//                 // Sort by created_at desc (newest first) just in case backend doesn't
+//                 const sortedData = response.data.sort((a, b) => 
+//                     new Date(b.created_at) - new Date(a.created_at)
+//                 );
+//                 setNotifications(sortedData);
+//             }
+//         } catch (error) {
+//             console.warn('Backend notifications fetch failed:', error.message);
+//         } finally {
+//             setIsLoading(false);
+//             setRefreshing(false);
+//         }
+//     };
+
+//     // Use useFocusEffect to auto-refresh the list whenever the screen appears
+//     useFocusEffect(
+//         useCallback(() => {
+//             fetchNotifications();
+//         }, [])
+//     );
+
+//     const onRefresh = useCallback(() => {
+//         setRefreshing(true);
+//         fetchNotifications();
+//     }, []);
+
+//     const markAsRead = async (id) => {
+//         try {
+//             // Call backend to mark as read
+//             await api.patch(`/api/alerts/${id}/read/`, { is_read: true });
+            
+//             // Update local state
+//             setNotifications(prev => 
+//                 prev.map(n => n.id === id ? { ...n, is_read: true } : n)
+//             );
+//         } catch (error) {
+//             console.error('Failed to mark notification as read:', error);
+//         }
+//     };
+
+//     const handleMarkAllRead = async () => {
+//         // Filter only unread items to save API calls
+//         const unreadItems = notifications.filter(n => !n.is_read);
+        
+//         // Optimistically update UI immediately
+//         setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+
+//         // Send requests in background
+//         try {
+//             await Promise.all(unreadItems.map(item => 
+//                 api.patch(`/api/alerts/${item.id}/read/`, { is_read: true })
+//             ));
+//         } catch (error) {
+//             console.error("Error marking all read:", error);
+//         }
+//     };
+
+//     const handleNotificationPress =  async (item) => {
+//         // 1. Mark as read immediately
+//         if (!item.is_read) {
+//             markAsRead(item.id);
+//         }
+
+//         // 2. Handle Navigation based on Title
+//         if (item.title === "Application Approved!") {
+//             router.push({
+//                 pathname: '/(protected)/completeRegistrationFee', 
+//                 params: { feeAmount: item.booking_total_price || '500.00' }
+//             });
+//         } 
+//                 else if (item.title === "Booking Accepted!") {
+//                     try {
+//                         // 1. Fetch the REAL booking data from backend
+//                         const response = await api.get(`/api/bookings/${item.related_object_id}/`);
+//                         const booking = response.data;
+//                         const guideInfo = booking.guide_detail || {}; // guideInfo should now have full_name
+        
+//                         // Extract dates and num_guests from the fetched booking object
+//                         const checkInDate = booking.check_in;
+//                         const checkOutDate = booking.check_out;
+//                         const numGuests = booking.num_guests;
+        
+//                         // 2. Send user to the PAYMENT screen with the correct data
+//                         router.push({
+//                             pathname: '/(protected)/payment',
+//                             params: {
+//                                 bookingId: booking.id,
+//                                 guideId: guideInfo.id,
+//                                 guideName: guideInfo.full_name || "Your Guide", // Use full_name now
+//                                 basePrice: guideInfo.price_per_day || booking.total_price,
+//                                 placeName: "Your Adventure", // This might need to come from booking.accommodation_detail or similar
+//                                 checkInDate: checkInDate, // Pass check-in date
+//                                 checkOutDate: checkOutDate, // Pass check-out date
+//                                 numGuests: numGuests, // Pass number of guests
+//                             }
+//                         });
+//                     } catch (error) {
+//                         console.error("Failed to load booking details:", error);
+//                     }
+//                 }        else if (item.title === "New Message") {
+//             const partnerId = item.related_object_id;
+//             // A more robust way to get the name would be to fetch user details, 
+//             // but for now we can parse it from the message if the format is consistent.
+//             const partnerName = item.message.split('from ')[1];
+            
+//             router.push({
+//                 pathname: '/(protected)/message',
+//                 params: {
+//                     partnerId: partnerId,
+//                     partnerName: partnerName
+//                 }
+//             });
+//         } 
+//         else {
+//             console.log('Generic notification pressed:', item);
+//         }
+//     };
+
+//     const categorizeNotifications = () => {
+//         const today = new Date();
+//         today.setHours(0, 0, 0, 0);
+        
+//         const todayList = [];
+//         const weekList = [];
+
+//         notifications.forEach(item => {
+//             const itemDate = new Date(item.created_at);
+//             const timeDiff = today.getTime() - itemDate.getTime();
+//             const diffDays = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+
+//             const displayItem = {
+//                 ...item, // Keep all original properties
+//                 icon: notificationIcons[item.title] || <Ionicons name="information-circle-outline" size={28} color="#0A2342" />,
+//                 description: item.message, 
+//                 time: `${diffDays <= 0 ? 'Today' : diffDays + ' days ago'}`, 
+//                 action: () => handleNotificationPress(item),
+//             };
+
+//             if (diffDays <= 0) {
+//                 todayList.push(displayItem);
+//             } else if (diffDays < 7) {
+//                 weekList.push(displayItem);
+//             }
+//         });
+
+//         return { today: todayList, week: weekList };
+//     };
+
+//     const { today: todayNotifications, week: weekNotifications } = categorizeNotifications();
+
+//     const renderNotification = (item) => (
+//         <TouchableOpacity 
+//             style={styles.notificationCard} 
+//             key={item.id} 
+//             onPress={item.action}
+//         >
+//             <View style={styles.iconContainer}>{item.icon}</View>
+//             <View style={styles.textContainer}>
+//                 <Text style={styles.notificationTitle}>{item.title}</Text>
+//                 <Text style={styles.notificationDesc} numberOfLines={2}>{item.description}</Text>
+//                 <Text style={styles.notificationTime}>{item.time}</Text>
+//             </View>
+//             {!item.is_read && <View style={styles.redDot} />}
+//         </TouchableOpacity>
+//     );
+
+//     if (isLoading && notifications.length === 0) {
+//         return (
+//             <View style={styles.loadingContainer}>
+//                 <ActivityIndicator size="large" color="#007AFF" />
+//                 <Text style={{ marginTop: 10, color: '#007AFF' }}>Loading notifications...</Text>
+//             </View>
+//         );
+//     }
+
+//     return (
+//         <View style={styles.container}>
+//             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+
+//             <View>
+//                 <View style={styles.header}>
+//                     <Image
+//                         source={require('../../assets/localynk_images/header.png')}
+//                         style={styles.headerImage}
+//                     />
+//                     <LinearGradient
+//                         colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
+//                         style={styles.overlay}
+//                     />
+//                     <Text style={styles.headerTitle}>NOTIFICATIONS</Text>
+//                 </View>
+//             </View>
+
+//             <ScrollView 
+//                 contentContainerStyle={{ paddingBottom: 20 }}
+//                 refreshControl={
+//                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+//                 }
+//             >
+//                 {/* Mark All Read Button - Only show if there are unread items */}
+//                 {notifications.some(n => !n.is_read) && (
+//                     <View style={styles.actionHeader}>
+//                          <TouchableOpacity onPress={handleMarkAllRead}>
+//                             <Text style={styles.markAll}>Mark all read</Text>
+//                         </TouchableOpacity>
+//                     </View>
+//                 )}
+
+//                 {/* Today's Notifications */}
+//                 {todayNotifications.length > 0 && (
+//                     <>
+//                         <View style={styles.sectionHeader}>
+//                             <Text style={styles.sectionTitle}>TODAY</Text>
+//                         </View>
+//                         {todayNotifications.map(renderNotification)}
+//                     </>
+//                 )}
+
+//                 {/* This Week's Notifications */}
+//                 {weekNotifications.length > 0 && (
+//                     <>
+//                         <Text style={[styles.sectionTitle, { marginTop: 20 }]}>THIS WEEK</Text>
+//                         {weekNotifications.map(renderNotification)}
+//                     </>
+//                 )}
+
+//                 {/* No Notifications State */}
+//                 {todayNotifications.length === 0 && weekNotifications.length === 0 && (
+//                     <View style={styles.emptyContainer}>
+//                         <Ionicons name="notifications-off-outline" size={50} color="#ccc" />
+//                         <Text style={styles.emptyText}>You're all caught up! No new notifications.</Text>
+//                     </View>
+//                 )}
+//             </ScrollView>
+//         </View>
+//     );
+// };
+
+// export default Notifications;
+
+// const styles = StyleSheet.create({
+//     loadingContainer: {
+//         flex: 1,
+//         justifyContent: 'center',
+//         alignItems: 'center',
+//         backgroundColor: '#F5F8FB',
+//     },
+//     emptyContainer: {
+//         alignItems: 'center',
+//         justifyContent: 'center',
+//         padding: 50,
+//         marginTop: 50,
+//     },
+//     emptyText: {
+//         marginTop: 15,
+//         fontSize: 16,
+//         color: '#8B98A8',
+//         textAlign: 'center',
+//     },
+//     container: {
+//         flex: 1,
+//         backgroundColor: '#F5F8FB',
+//     },
+//     header: {
+//         position: 'relative',
+//         height: 120,
+//         justifyContent: 'center',
+//     },
+//     headerImage: {
+//         width: '100%',
+//         height: '100%',
+//         resizeMode: 'cover',
+//         borderBottomLeftRadius: 25,
+//         borderBottomRightRadius: 25,
+//     },
+//     overlay: {
+//         ...StyleSheet.absoluteFillObject,
+//         borderBottomLeftRadius: 25,
+//         borderBottomRightRadius: 25,
+//     },
+//     headerTitle: {
+//         position: 'absolute',
+//         bottom: 15,
+//         left: 20,
+//         color: '#fff',
+//         fontSize: 18,
+//         fontWeight: '700',
+//         letterSpacing: 1,
+//     },
+//     actionHeader: {
+//         flexDirection: 'row',
+//         justifyContent: 'flex-end',
+//         paddingHorizontal: 20,
+//         marginTop: 15,
+//     },
+//     sectionHeader: {
+//         flexDirection: 'row',
+//         justifyContent: 'space-between',
+//         alignItems: 'center',
+//         marginTop: 10, // Reduced top margin slightly
+//     },
+//     sectionTitle: {
+//         fontWeight: '700',
+//         fontSize: 16,
+//         color: '#0A2342',
+//         marginHorizontal: 20,
+//         marginTop: 10,
+//     },
+//     markAll: {
+//         color: '#007AFF',
+//         fontSize: 13,
+//         fontWeight: '600',
+//     },
+//     notificationCard: {
+//         backgroundColor: '#fff',
+//         borderRadius: 10,
+//         marginHorizontal: 20,
+//         marginVertical: 8,
+//         padding: 15,
+//         flexDirection: 'row',
+//         alignItems: 'flex-start',
+//         shadowColor: '#000',
+//         shadowOpacity: 0.05,
+//         shadowOffset: { width: 0, height: 2 },
+//         shadowRadius: 4,
+//         elevation: 2,
+//         position: 'relative',
+//     },
+//     iconContainer: {
+//         marginRight: 10,
+//         marginTop: 4,
+//     },
+//     textContainer: {
+//         flex: 1,
+//         marginRight: 10, // Space for red dot
+//     },
+//     notificationTitle: {
+//         fontWeight: '700',
+//         color: '#0A2342',
+//         fontSize: 14,
+//     },
+//     notificationDesc: {
+//         fontSize: 13,
+//         color: '#555',
+//         marginTop: 2,
+//     },
+//     notificationTime: {
+//         fontSize: 12,
+//         color: '#777',
+//         marginTop: 4,
+//     },
+//     redDot: {
+//         width: 10,
+//         height: 10,
+//         backgroundColor: '#FF3B30',
+//         borderRadius: 5,
+//         position: 'absolute',
+//         top: 10,
+//         right: 10,
+//     },
+// });
+
 import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, Image, Text, TouchableOpacity, StatusBar, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, StyleSheet, Image, Text, TouchableOpacity, StatusBar, ScrollView, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -12,7 +400,6 @@ const Notifications = () => {
     const [refreshing, setRefreshing] = useState(false);
 
     const notificationIcons = {
-        // Matches the "title" we set in the Django Signal
         "New Guide Application": <Ionicons name="person-add-outline" size={28} color="#F5A623" />,
         "Application Approved!": <Ionicons name="checkmark-done-circle-outline" size={28} color="#007AFF" />,
         "Booking Accepted!": <Ionicons name="calendar-outline" size={28} color="#28A745" />,
@@ -24,7 +411,6 @@ const Notifications = () => {
         try {
             const response = await api.get('/api/alerts/');
             if (response.data) {
-                // Sort by created_at desc (newest first) just in case backend doesn't
                 const sortedData = response.data.sort((a, b) => 
                     new Date(b.created_at) - new Date(a.created_at)
                 );
@@ -38,7 +424,6 @@ const Notifications = () => {
         }
     };
 
-    // Use useFocusEffect to auto-refresh the list whenever the screen appears
     useFocusEffect(
         useCallback(() => {
             fetchNotifications();
@@ -52,10 +437,7 @@ const Notifications = () => {
 
     const markAsRead = async (id) => {
         try {
-            // Call backend to mark as read
             await api.patch(`/api/alerts/${id}/read/`, { is_read: true });
-            
-            // Update local state
             setNotifications(prev => 
                 prev.map(n => n.id === id ? { ...n, is_read: true } : n)
             );
@@ -65,13 +447,9 @@ const Notifications = () => {
     };
 
     const handleMarkAllRead = async () => {
-        // Filter only unread items to save API calls
         const unreadItems = notifications.filter(n => !n.is_read);
-        
-        // Optimistically update UI immediately
         setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
 
-        // Send requests in background
         try {
             await Promise.all(unreadItems.map(item => 
                 api.patch(`/api/alerts/${item.id}/read/`, { is_read: true })
@@ -81,7 +459,7 @@ const Notifications = () => {
         }
     };
 
-    const handleNotificationPress =  async (item) => {
+    const handleNotificationPress = async (item) => {
         // 1. Mark as read immediately
         if (!item.is_read) {
             markAsRead(item.id);
@@ -96,31 +474,54 @@ const Notifications = () => {
         } 
         else if (item.title === "Booking Accepted!") {
             try {
-                // 1. Fetch the REAL booking data from backend
+                // Fetch the REAL booking data from backend
                 const response = await api.get(`/api/bookings/${item.related_object_id}/`);
                 const booking = response.data;
-                const guideInfo = booking.guide_detail || {};
+                
+                // Determine if it is an Agency or Direct Guide booking
+                const isAgency = !!booking.agency;
+                // If agency, use agency_detail, otherwise use guide_detail
+                const entityDetail = isAgency ? booking.agency_detail : booking.guide_detail;
+                
+                // --- CRITICAL FIX: Use singular 'assigned_guides_detail' to match serializer ---
+                const assignedGuides = booking.assigned_guides_detail || []; 
 
-                // 2. Send user to the PAYMENT screen with the correct data
-                router.push({ 
-                    pathname: '/(protected)/payment', 
-                    params: { 
+                console.log("Navigating with guides:", assignedGuides.length);
+
+                router.push({
+                    pathname: '/(protected)/payment',
+                    params: {
                         bookingId: booking.id,
-                        guideId: guideInfo.id,
-                        guideName: guideInfo.full_name || "Your Guide",
-                        basePrice: guideInfo.price_per_day || booking.total_price,
+                        entityId: entityDetail.id,
+                        entityName: entityDetail.full_name || entityDetail.username || (isAgency ? "Selected Agency" : "Your Guide"),
+                        bookingType: isAgency ? 'agency' : 'guide',
+                        
+                        // Pass assigned guides as a string
+                        assignedGuides: JSON.stringify(assignedGuides),
+
+                        basePrice: booking.total_price || 1000, 
                         placeName: "Your Adventure", 
+                        checkInDate: booking.check_in, 
+                        checkOutDate: booking.check_out, 
+                        numGuests: booking.num_guests, 
                     }
                 });
             } catch (error) {
                 console.error("Failed to load booking details:", error);
+                Alert.alert("Error", "Could not load booking details. Please check your internet connection.");
             }
-        }
+        } 
         else if (item.title === "New Message") {
-            // Navigate to your messages screen
-            // If your Message screen supports opening a specific chat via params, add it here using item.related_object_id
-            router.push('/(protected)/message'); 
+            const partnerId = item.related_object_id;
+            const partnerName = item.message.includes('from ') ? item.message.split('from ')[1] : "User";
             
+            router.push({
+                pathname: '/(protected)/message',
+                params: {
+                    partnerId: partnerId,
+                    partnerName: partnerName
+                }
+            });
         } 
         else {
             console.log('Generic notification pressed:', item);
@@ -140,7 +541,7 @@ const Notifications = () => {
             const diffDays = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
 
             const displayItem = {
-                ...item, // Keep all original properties
+                ...item,
                 icon: notificationIcons[item.title] || <Ionicons name="information-circle-outline" size={28} color="#0A2342" />,
                 description: item.message, 
                 time: `${diffDays <= 0 ? 'Today' : diffDays + ' days ago'}`, 
@@ -208,7 +609,6 @@ const Notifications = () => {
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
                 }
             >
-                {/* Mark All Read Button - Only show if there are unread items */}
                 {notifications.some(n => !n.is_read) && (
                     <View style={styles.actionHeader}>
                          <TouchableOpacity onPress={handleMarkAllRead}>
@@ -217,7 +617,6 @@ const Notifications = () => {
                     </View>
                 )}
 
-                {/* Today's Notifications */}
                 {todayNotifications.length > 0 && (
                     <>
                         <View style={styles.sectionHeader}>
@@ -227,7 +626,6 @@ const Notifications = () => {
                     </>
                 )}
 
-                {/* This Week's Notifications */}
                 {weekNotifications.length > 0 && (
                     <>
                         <Text style={[styles.sectionTitle, { marginTop: 20 }]}>THIS WEEK</Text>
@@ -235,7 +633,6 @@ const Notifications = () => {
                     </>
                 )}
 
-                {/* No Notifications State */}
                 {todayNotifications.length === 0 && weekNotifications.length === 0 && (
                     <View style={styles.emptyContainer}>
                         <Ionicons name="notifications-off-outline" size={50} color="#ccc" />
@@ -308,7 +705,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginTop: 10, // Reduced top margin slightly
+        marginTop: 10,
     },
     sectionTitle: {
         fontWeight: '700',
@@ -343,7 +740,7 @@ const styles = StyleSheet.create({
     },
     textContainer: {
         flex: 1,
-        marginRight: 10, // Space for red dot
+        marginRight: 10,
     },
     notificationTitle: {
         fontWeight: '700',

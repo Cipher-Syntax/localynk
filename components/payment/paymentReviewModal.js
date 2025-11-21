@@ -1,50 +1,91 @@
-import React, { useState } from 'react';
-import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, StatusBar, Image, Alert, Linking } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+    View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, 
+    StatusBar, Image, Alert, ActivityIndicator 
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { User } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import api from '../../api/api'; 
+import * as Linking from 'expo-linking';
+import api from '../../api/api';
+import { useAuth } from "../../context/AuthContext"; // Assuming this path matches your project structure
 
 const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
+    // UI State
     const [showConfirmationScreen, setShowConfirmationScreen] = useState(false);
-    const [isPayment, setIsPayment] = useState(false);
+    const [isPayment, setIsPayment] = useState(false); // Controls success message (Payment vs Request)
+    
+    // Polling & Payment State
+    const [isLoading, setIsLoading] = useState(false);
+    const [checkoutUrl, setCheckoutUrl] = useState('');
+    const [showPaymentLink, setShowPaymentLink] = useState(false);
+    const [paymentId, setPaymentId] = useState(null);
+    
+    // Hooks
     const router = useRouter();
+    const { refreshUser } = useAuth(); // Refresh user context if payment succeeds
+    const pollingRef = useRef(null);
 
-    // Don't forget to ensure 'api' is imported at the top!
+    // Destructure Data
+    const { 
+        guide, agency, accommodation, startDate, endDate, 
+        firstName, lastName, phoneNumber, country, email, 
+        basePrice, totalPrice, paymentMethod, 
+        groupType, numberOfPeople, validIdImage, bookingId 
+    } = paymentData || {};
 
+    const calculateDays = () => {
+        if (!startDate || !endDate) return 1;
+        const oneDay = 24 * 60 * 60 * 1000;
+        return Math.max(Math.round((endDate - startDate) / oneDay) + 1, 1);
+    };
+    const days = calculateDays();
 
+    // --- Cleanup Polling on Unmount ---
+    useEffect(() => {
+        return () => {
+            if (pollingRef.current) clearInterval(pollingRef.current);
+        };
+    }, []);
+
+    // --- Main Action Handler ---
     const handleConfirm = async () => {
-        try {
-            if (paymentData?.paymentMethod) {
-                // ============================================================
-                //  MODE 1: PAYMENT (Booking Accepted -> Pay via GCash)
-                // ============================================================
-                console.log("Initiating payment for Booking ID:", paymentData.bookingId);
+        setIsLoading(true);
 
+        try {
+            // SCENARIO 1: Online Payment (GCash/PayMongo)
+            if (paymentMethod) {
+                console.log("Initiating payment for Booking ID:", bookingId);
+
+                // 1. Initiate Payment
                 const response = await api.post('/api/payments/initiate/', {
-                    booking_id: paymentData.bookingId,
-                    payment_method: 'gcash'
+                    booking_id: bookingId,
+                    payment_method: paymentMethod // Dynamic based on selection
                 });
 
-                const { checkout_url } = response.data;
+                const { checkout_url, payment_id } = response.data;
+                console.log("Payment Initiated:", response.data);
 
                 if (checkout_url) {
-                    // 1. Close the modal so the user sees the app when they return
-                    setIsModalOpen(false);
-                    
-                    // 2. Redirect user to GCash/PayMongo to pay
+                    // 2. Set State
+                    setCheckoutUrl(checkout_url);
+                    setPaymentId(payment_id);
+                    setShowPaymentLink(true);
+
+                    // 3. Open External Link Immediately
                     await Linking.openURL(checkout_url);
+
+                    // 4. Start Polling for status
+                    startPolling(payment_id);
                 } else {
                     Alert.alert("Error", "Could not generate payment link.");
                 }
 
+            // SCENARIO 2: Booking Request (No immediate payment / Cash)
             } else {
-                // ============================================================
-                //  MODE 2: REQUEST (New Booking -> Send to Host)
-                // ============================================================
-                
-                // 1. format the dates and data for Django
+                console.log("Preparing Booking Request Data...", paymentData);
+
                 const formatLocalDate = (date) => {
                     const year = date.getFullYear();
                     const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -52,63 +93,112 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                     return `${year}-${month}-${day}`;
                 };
 
-                const bookingPayload = {
-                    check_in: formatLocalDate(paymentData.startDate),
-                    check_out: formatLocalDate(paymentData.endDate),
-                    num_guests: paymentData.numberOfPeople,
-                };
+                const formData = new FormData();
+                formData.append('check_in', formatLocalDate(startDate));
+                formData.append('check_out', formatLocalDate(endDate));
+                formData.append('num_guests', String(numberOfPeople)); // Ensure string
+                formData.append('first_name', firstName);
+                formData.append('last_name', lastName);
+                formData.append('phone_number', phoneNumber);
+                formData.append('country', country);
+                formData.append('email', email);
 
-                if (paymentData.guide) {
-                    bookingPayload.guide = paymentData.guide.id;
-                } else if (paymentData.agency) {
-                    bookingPayload.agency = paymentData.agency.id;
+                // FIX: Ensure we send the ID as a string, not the object or undefined
+                if (guide && guide.id) {
+                    console.log("Appending Guide ID:", guide.id);
+                    formData.append('guide', String(guide.id));
+                } else if (agency && agency.id) {
+                    console.log("Appending Agency ID:", agency.id);
+                    formData.append('agency', String(agency.id));
+                }
+                
+                if (validIdImage) {
+                    const uri = validIdImage;
+                    const filename = uri.split('/').pop();
+                    const match = /\.(\w+)$/.exec(filename);
+                    const type = match ? `image/${match[1]}` : `image/jpeg`; // Default to jpeg if unknown
+                    formData.append('tourist_valid_id_image', { uri, name: filename, type });
                 }
 
-                // 2. Send to Backend
-                const response = await api.post('/api/bookings/', bookingPayload);
-                console.log("Booking Request Created:", response.data);
+                // FIX: Removed manual 'Content-Type': 'multipart/form-data'
+                // Axios/Fetch automatically sets this header WITH the correct boundary when it detects FormData.
+                // Setting it manually often strips the boundary, causing backend parsing errors.
+                const response = await api.post('/api/bookings/', formData, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'multipart/form-data', // Keep explicit if your API client setup requires it, but usually standard axios prefers this undefined.
+                    }
+                });
 
-                // 3. Show "Request Sent" confirmation
-                setIsPayment(false); // Tells the confirmation screen to show "Request Sent" text
+                console.log("Booking Request Created:", response.data);
+                setIsPayment(false); // It's a request, not a direct payment
                 setShowConfirmationScreen(true);
             }
 
-        } 
-        catch (error) {
+        } catch (error) {
             console.error("Action failed:", error);
-            
             if (error.response) {
-                console.log("Backend Error Response:", JSON.stringify(error.response.data, null, 2));
-                
-                const serverMessage = error.response.data.detail || JSON.stringify(error.response.data);
-                Alert.alert("Request Failed", serverMessage);
+                console.log("Backend Error Details:", error.response.data);
+                const msg = typeof error.response.data === 'object' 
+                    ? JSON.stringify(error.response.data) 
+                    : error.response.data;
+                Alert.alert("Request Failed", msg);
             } else {
                 Alert.alert("Failed", "Network error or server not reachable.");
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // --- Polling Logic ---
+    const startPolling = (id) => {
+        if (!id) return;
+        if (pollingRef.current) clearInterval(pollingRef.current);
+
+        console.log(`Starting polling for Payment ID: ${id}`);
+
+        pollingRef.current = setInterval(async () => {
+            try {
+                const statusResp = await api.get(`/api/payments/status/${id}/`);
+                const status = statusResp.data.status;
+                console.log(`Polling status: ${status}`);
+
+                if (status === "succeeded") {
+                    clearInterval(pollingRef.current);
+                    if (refreshUser) refreshUser(); // Update user context if needed
+                    
+                    setIsPayment(true); // Show "Successful!" UI
+                    setShowConfirmationScreen(true); // Show the success modal overlay
+                } else if (status === "failed") {
+                    clearInterval(pollingRef.current);
+                    Alert.alert("Payment Failed", "The payment process failed. Please try again.");
+                    setShowPaymentLink(false); // Reset UI to allow retry
+                }
+            } catch (err) {
+                console.error("Polling payment status failed:", err);
+            }
+        }, 3000); // Check every 3 seconds
+    };
+
+    // --- Manual Link Open (If user comes back to app) ---
+    const handleOpenPaymentLink = async () => {
+        if (checkoutUrl) {
+            try {
+                await Linking.openURL(checkoutUrl);
+                Alert.alert("Redirecting", "Opening payment gateway...");
+            } catch (error) {
+                Alert.alert("Error", "Could not open link.");
             }
         }
     };
 
-
+    // --- Final Dismissal ---
     const handleConfirmationDismiss = () => {
         setShowConfirmationScreen(false);
         setIsModalOpen(false);
         router.replace('/(protected)/home');
     };
-
-    const { 
-        guide, agency, accommodation, startDate, endDate, 
-        firstName, lastName, phoneNumber, country, email, 
-        basePrice, serviceFee, totalPrice, paymentMethod, 
-        groupType, numberOfPeople, validIdImage // Get the image URI
-    } = paymentData || {};
-
-    const calculateDays = () => {
-        if (!startDate || !endDate) return 1;
-        const oneDay = 24 * 60 * 60 * 1000;
-        return Math.max(Math.round(Math.abs((endDate - startDate) / oneDay)) + 1, 1);
-    };
-
-    const days = calculateDays();
 
     return (
         <Modal visible={isModalOpen} animationType="slide">
@@ -124,6 +214,8 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                     </View>
 
                     <View style={styles.contentContainer}>
+
+                        {/* ACCOMMODATION / GUIDE / AGENCY */}
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>Booking Details</Text>
 
@@ -173,6 +265,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                             )}
                         </View>
 
+                        {/* DATES */}
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>Booking Dates</Text>
                             <View style={styles.dateCard}>
@@ -181,11 +274,13 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                                     <Text style={styles.dateValue}>{startDate?.toLocaleDateString()}</Text>
                                 </View>
                                 <View style={styles.dateDivider} />
+
                                 <View style={styles.dateItem}>
                                     <Text style={styles.dateLabel}>Check-out</Text>
                                     <Text style={styles.dateValue}>{endDate?.toLocaleDateString()}</Text>
                                 </View>
                                 <View style={styles.dateDivider} />
+
                                 <View style={styles.dateItem}>
                                     <Text style={styles.dateLabel}>Duration</Text>
                                     <Text style={styles.dateValue}>{days} day(s)</Text>
@@ -193,26 +288,27 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                             </View>
                         </View>
 
+                        {/* PRICE */}
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>Price Breakdown</Text>
                             <View style={styles.priceCard}>
                                 <View style={styles.priceRow}>
                                     <Text style={styles.priceLabel}>Base Price</Text>
                                     <Text style={styles.priceValue}>
-                                        ₱ {basePrice ? basePrice.toLocaleString() : '0'}
+                                        ₱ {basePrice?.toLocaleString() || "0"}
                                     </Text>
                                 </View>
 
-                                {groupType === 'group' && (
+                                {groupType === "group" && (
                                     <View style={styles.priceRow}>
                                         <Text style={styles.priceLabel}>Group Size</Text>
-                                        <Text style={styles.priceValue}>{numberOfPeople} person(s)</Text>
+                                        <Text style={styles.priceValue}>{numberOfPeople}</Text>
                                     </View>
                                 )}
 
                                 <View style={styles.priceRow}>
                                     <Text style={styles.priceLabel}>Days</Text>
-                                    <Text style={styles.priceValue}>{days} day(s)</Text>
+                                    <Text style={styles.priceValue}>{days}</Text>
                                 </View>
 
                                 <View style={styles.priceDivider} />
@@ -220,21 +316,20 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                                 <View style={styles.priceRow}>
                                     <Text style={styles.totalLabel}>Total to Pay</Text>
                                     <Text style={styles.totalValue}>
-                                        ₱ {totalPrice ? totalPrice.toLocaleString() : '0'}
+                                        ₱ {totalPrice?.toLocaleString() || "0"}
                                     </Text>
                                 </View>
                             </View>
                         </View>
 
-                        {/* --- NEW SECTION: Valid ID Display --- */}
+                        {/* VALID ID */}
                         {validIdImage && (
                             <View style={styles.section}>
                                 <Text style={styles.sectionTitle}>Identity Verification</Text>
                                 <View style={styles.idCard}>
                                     <Image 
-                                        source={{ uri: validIdImage }} 
-                                        style={styles.idImage} 
-                                        resizeMode="cover" 
+                                        source={{ uri: validIdImage }}
+                                        style={styles.idImage}
                                     />
                                     <View style={styles.idOverlay}>
                                         <Ionicons name="checkmark-circle" size={16} color="#fff" />
@@ -244,6 +339,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                             </View>
                         )}
 
+                        {/* PAYMENT METHOD */}
                         {paymentMethod && (
                             <View style={styles.section}>
                                 <Text style={styles.sectionTitle}>Payment Method</Text>
@@ -253,6 +349,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                             </View>
                         )}
 
+                        {/* BILLING */}
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>Billing Information</Text>
                             <View style={styles.billingCard}>
@@ -266,9 +363,10 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                                         <Text style={styles.billingValue}>{lastName}</Text>
                                     </View>
                                 </View>
+
                                 <View style={styles.billingRow}>
                                     <View style={styles.billingItem}>
-                                        <Text style={styles.billingLabel}>Phone Number</Text>
+                                        <Text style={styles.billingLabel}>Phone</Text>
                                         <Text style={styles.billingValue}>{phoneNumber}</Text>
                                     </View>
                                     <View style={styles.billingItem}>
@@ -276,6 +374,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                                         <Text style={styles.billingValue}>{country}</Text>
                                     </View>
                                 </View>
+
                                 <View style={styles.billingFullRow}>
                                     <Text style={styles.billingLabel}>Email</Text>
                                     <Text style={styles.billingValue}>{email}</Text>
@@ -283,56 +382,70 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                             </View>
                         </View>
 
-                        <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
-                            <Text style={styles.confirmButtonText}>
-                                {paymentMethod ? "Confirm & Pay" : "Send Booking Request"}
-                            </Text>
-                        </TouchableOpacity>
+                        {/* BUTTONS LOGIC */}
+                        {!showPaymentLink ? (
+                            <TouchableOpacity 
+                                style={[styles.confirmButton, isLoading && { opacity: 0.7 }]} 
+                                onPress={handleConfirm}
+                                disabled={isLoading}
+                            >
+                                {isLoading ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.confirmButtonText}>
+                                        {paymentMethod ? "Confirm & Pay" : "Send Booking Request"}
+                                    </Text>
+                                )}
+                            </TouchableOpacity>
+                        ) : (
+                            <TouchableOpacity style={styles.confirmButton} onPress={handleOpenPaymentLink}>
+                                <Text style={styles.confirmButtonText}>Go to Payment Link (Processing...)</Text>
+                            </TouchableOpacity>
+                        )}
 
-                        <TouchableOpacity style={styles.cancelButton} onPress={() => setIsModalOpen(false)}>
+                        <TouchableOpacity 
+                            style={styles.cancelButton} 
+                            onPress={() => setIsModalOpen(false)}
+                            disabled={isLoading}
+                        >
                             <Text style={styles.cancelButtonText}>Edit Details</Text>
                         </TouchableOpacity>
+
                     </View>
                 </SafeAreaView>
             </ScrollView>
 
-            <Modal
-                visible={showConfirmationScreen}
-                animationType="fade"
-                transparent={false}
-            >
+            {/* CONFIRMATION / SUCCESS MODAL */}
+            <Modal visible={showConfirmationScreen} animationType="fade">
                 <SafeAreaView style={styles.confirmationContainer}>
                     <View style={styles.confirmationContent}>
                         <Text style={styles.confirmationHeader}>
                             {isPayment ? "CONFIRMATION" : "REQUEST SENT"}
                         </Text>
-                        
+
                         <Ionicons 
                             name={isPayment ? "checkmark-circle" : "hourglass-outline"} 
-                            size={100} 
-                            style={[
-                                styles.confirmationIcon, 
-                                { color: isPayment ? '#00A8FF' : '#F5A623' }
-                            ]} 
+                            size={100}
+                            style={{ color: isPayment ? "#00A8FF" : "#F5A623", marginBottom: 20 }}
                         />
-                        
+
                         <Text style={styles.confirmationTitle}>
                             {isPayment ? "Successful!" : "Request Sent!"}
                         </Text>
-                        
+
                         <Text style={styles.confirmationMessage}>
                             {isPayment
-                                ? "Your booking is confirmed. Thank you for booking with us!"
-                                : "Please wait for the tour guide to approve your booking request. You will receive a notification shortly."
+                                ? "Your booking is confirmed. Thank you!"
+                                : "Please wait for the guide to approve your request."
                             }
                         </Text>
 
                         <TouchableOpacity 
-                            style={styles.confirmationButton} 
+                            style={styles.confirmationButton}
                             onPress={handleConfirmationDismiss}
                         >
                             <Text style={styles.confirmationButtonText}>
-                                {isPayment ? "Confirm" : "OK"}
+                                {isPayment ? "Done" : "OK"}
                             </Text>
                         </TouchableOpacity>
                     </View>
@@ -344,291 +457,182 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 
 export default PaymentReviewModal;
 
+
 const styles = StyleSheet.create({
-    container: { 
-        flex: 1, 
-        // backgroundColor: '#D9E2E9' 
+    container: { flex: 1 },
+    header: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        backgroundColor: "#F5F7FA",
+        borderBottomColor: "#E0E6ED",
+        borderBottomWidth: 1
     },
-    header: { 
-        flexDirection: 'row', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        paddingHorizontal: 16, 
-        paddingVertical: 12, 
-        backgroundColor: '#F5F7FA', 
-        borderBottomWidth: 1, 
-        borderBottomColor: '#E0E6ED' 
+    headerTitle: {
+        fontSize: 16,
+        fontWeight: "700",
+        color: "#1A2332"
     },
-    headerTitle: { 
-        fontSize: 16, 
-        fontWeight: '700', 
-        color: '#1A2332' 
+    contentContainer: {
+        padding: 16
     },
-    contentContainer: { 
-        padding: 16, 
-        paddingBottom: 30 
+
+    section: { marginBottom: 20 },
+    sectionTitle: {
+        fontSize: 14,
+        fontWeight: "700",
+        marginBottom: 12,
+        color: "#1A2332"
     },
-    section: { 
-        marginBottom: 20 
+
+    detailCard: {
+        backgroundColor: "#F5F7FA",
+        borderRadius: 12,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: "#E0E6ED",
+        marginBottom: 10
     },
-    sectionTitle: { 
-        fontSize: 14, 
-        fontWeight: '700', 
-        color: '#1A2332', 
-        marginBottom: 12 
+    detailHeader: { flexDirection: "row", alignItems: "center" },
+    detailIcon: {
+        width: 45,
+        height: 45,
+        backgroundColor: "#1A2332",
+        borderRadius: 8,
+        justifyContent: "center",
+        alignItems: "center",
+        marginRight: 12
     },
-    detailCard: { 
-        backgroundColor: '#F5F7FA', 
-        borderRadius: 12, 
-        padding: 12, 
-        marginBottom: 10, 
-        borderWidth: 1, 
-        borderColor: '#E0E6ED' 
+    detailInfo: { flex: 1 },
+    detailLabel: { fontSize: 10, color: "#8B98A8", fontWeight: "600" },
+    detailName: { fontSize: 13, fontWeight: "700", marginTop: 2, color: "#1A2332" },
+    detailText: { fontSize: 11, color: "#8B98A8", marginTop: 1 },
+
+    dateCard: {
+        backgroundColor: "#fff",
+        padding: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: "#E0E6ED"
     },
-    detailHeader: { 
-        flexDirection: 'row', 
-        alignItems: 'center' 
+    dateItem: { paddingVertical: 6 },
+    dateLabel: { fontSize: 11, color: "#8B98A8", fontWeight: "600" },
+    dateValue: { fontSize: 13, fontWeight: "700", marginTop: 3 },
+
+    dateDivider: { height: 1, backgroundColor: "#E0E6ED", marginVertical: 8 },
+
+    priceCard: {
+        backgroundColor: "#fff",
+        padding: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: "#E0E6ED"
     },
-    detailIcon: { 
-        width: 45, 
-        height: 45, 
-        borderRadius: 8, 
-        backgroundColor: '#1A2332', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        marginRight: 12 
+    priceRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        marginBottom: 10
     },
-    detailInfo: { 
-        flex: 1 
-    },
-    detailLabel: { 
-        fontSize: 10, 
-        color: '#8B98A8', 
-        fontWeight: '600' 
-    },
-    detailName: { 
-        fontSize: 13, 
-        fontWeight: '700', 
-        color: '#1A2332', 
-        marginTop: 2 
-    },
-    detailText: { 
-        fontSize: 11, 
-        color: '#8B98A8', 
-        marginTop: 1 
-    },
-    dateCard: { 
-        backgroundColor: '#fff', 
-        borderRadius: 12, 
-        padding: 16, 
-        borderWidth: 1, 
-        borderColor: '#E0E6ED' 
-    },
-    dateItem: { 
-        paddingVertical: 8 
-    },
-    dateLabel: { 
-        fontSize: 11, 
-        color: '#8B98A8', 
-        fontWeight: '600' 
-    },
-    dateValue: { 
-        fontSize: 13, 
-        fontWeight: '700', 
-        color: '#1A2332', 
-        marginTop: 4 
-    },
-    dateDivider: { 
-        height: 1, 
-        backgroundColor: '#E0E6ED', 
-        marginVertical: 8 
-    },
-    priceCard: { 
-        backgroundColor: '#fff', 
-        borderRadius: 12, 
-        padding: 16, 
-        borderWidth: 1, 
-        borderColor: '#E0E6ED' 
-    },
-    priceRow: { 
-        flexDirection: 'row', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        marginBottom: 10 
-    },
-    priceLabel: { 
-        fontSize: 12, 
-        color: '#1A2332', 
-        fontWeight: '500' 
-    },
-    priceValue: { 
-        fontSize: 12, 
-        color: '#1A2332', 
-        fontWeight: '600' 
-    },
-    priceDivider: { 
-        height: 1, 
-        backgroundColor: '#E0E6ED', 
-        marginVertical: 10 
-    },
-    totalLabel: { 
-        fontSize: 13, 
-        fontWeight: '700', 
-        color: '#1A2332' 
-    },
-    totalValue: { 
-        fontSize: 13, 
-        fontWeight: '700', 
-        color: '#00A8FF' 
-    },
-    
-    // --- Valid ID Card Styles ---
+    priceLabel: { fontSize: 12, color: "#1A2332", fontWeight: "500" },
+    priceValue: { fontSize: 12, fontWeight: "600" },
+
+    priceDivider: { height: 1, backgroundColor: "#E0E6ED", marginVertical: 10 },
+
+    totalLabel: { fontSize: 13, fontWeight: "700" },
+    totalValue: { fontSize: 13, fontWeight: "700", color: "#00A8FF" },
+
     idCard: {
         height: 150,
         borderRadius: 12,
-        overflow: 'hidden',
-        backgroundColor: '#F5F7FA',
+        overflow: "hidden",
         borderWidth: 1,
-        borderColor: '#E0E6ED',
-        position: 'relative',
+        borderColor: "#E0E6ED",
+        backgroundColor: "#F5F7FA"
     },
-    idImage: {
-        width: '100%',
-        height: '100%',
-    },
+    idImage: { width: "100%", height: "100%" },
     idOverlay: {
-        position: 'absolute',
+        position: "absolute",
         bottom: 10,
         right: 10,
-        backgroundColor: 'rgba(0, 168, 255, 0.9)', // Blue badge
+        backgroundColor: "rgba(0, 168, 255, 0.9)",
         paddingHorizontal: 10,
         paddingVertical: 6,
         borderRadius: 20,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
+        flexDirection: "row",
+        alignItems: "center"
     },
-    idText: {
-        color: '#fff',
-        fontSize: 11,
-        fontWeight: '700',
-    },
+    idText: { color: "#fff", fontSize: 11, fontWeight: "700" },
 
-    paymentCard: { 
-        backgroundColor: '#F5F7FA', 
-        borderRadius: 12, 
-        padding: 14, 
-        borderWidth: 1, 
-        borderColor: '#E0E6ED', 
-        alignItems: 'center' 
+    paymentCard: {
+        backgroundColor: "#F5F7FA",
+        padding: 14,
+        borderRadius: 12,
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: "#E0E6ED"
     },
-    paymentMethod: { 
-        fontSize: 13, 
-        fontWeight: '700', 
-        color: '#1A2332' 
-    },
-    billingCard: { 
-        backgroundColor: '#F5F7FA', 
-        borderRadius: 12, 
-        padding: 12, 
-        borderWidth: 1, 
-        borderColor: '#E0E6ED' 
-    },
-    billingRow: { 
-        flexDirection: 'row', 
-        gap: 12, 
-        marginBottom: 12 
-    },
-    billingFullRow: { 
-        paddingVertical: 8 
-    },
-    billingItem: { 
-        flex: 1 
-    },
-    billingLabel: { 
-        fontSize: 10, 
-        color: '#8B98A8', 
-        fontWeight: '600' 
-    },
-    billingValue: { 
-        fontSize: 12, 
-        fontWeight: '600', 
-        color: '#1A2332', 
-        marginTop: 3 
-    },
-    confirmButton: { 
-        backgroundColor: '#00A8FF', 
-        paddingVertical: 12, 
-        borderRadius: 8, 
-        alignItems: 'center', 
-        marginBottom: 10 
-    },
-    confirmButtonText: { 
-        color: '#fff', 
-        fontWeight: '700', 
-        fontSize: 14 
-    },
-    cancelButton: { 
-        backgroundColor: '#fff', 
-        paddingVertical: 12, 
-        borderRadius: 8, 
-        alignItems: 'center', 
-        borderWidth: 1, 
-        borderColor: '#00A8FF' 
-    },
-    cancelButtonText: { 
-        color: '#00A8FF', 
-        fontWeight: '700', 
-        fontSize: 14 
-    },
+    paymentMethod: { fontSize: 13, fontWeight: "700" },
 
-    // --- CONFIRMATION MODAL STYLES ---
+    billingCard: {
+        backgroundColor: "#F5F7FA",
+        padding: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: "#E0E6ED"
+    },
+    billingRow: {
+        flexDirection: "row",
+        gap: 12,
+        marginBottom: 12
+    },
+    billingFullRow: { marginTop: 6 },
+    billingItem: { flex: 1 },
+    billingLabel: { fontSize: 10, color: "#8B98A8", fontWeight: "600" },
+    billingValue: { fontSize: 12, fontWeight: "600", color: "#1A2332", marginTop: 2 },
+
+    confirmButton: {
+        backgroundColor: "#00A8FF",
+        paddingVertical: 14,
+        borderRadius: 12,
+        alignItems: "center",
+        marginTop: 10
+    },
+    confirmButtonText: { color: "#fff", fontWeight: "700", fontSize: 14 },
+
+    cancelButton: {
+        backgroundColor: "#E0E6ED",
+        paddingVertical: 14,
+        borderRadius: 12,
+        alignItems: "center",
+        marginTop: 10,
+        marginBottom: 30
+    },
+    cancelButtonText: { color: "#1A2332", fontWeight: "700", fontSize: 14 },
+
     confirmationContainer: {
         flex: 1,
-        backgroundColor: '#F5F7FA', 
-        justifyContent: 'center',
-        alignItems: 'center',
+        justifyContent: "center",
+        paddingHorizontal: 30
     },
-    confirmationContent: {
-        width: '90%',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingBottom: 30,
-    },
-    confirmationHeader: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#00A8FF',
-        letterSpacing: 1,
-        marginBottom: 40,
-        opacity: 0.8
-    },
-    confirmationIcon: {
-        marginBottom: 24,
-    },
-    confirmationTitle: {
-        fontSize: 26,
-        fontWeight: '800',
-        color: '#1A2332',
-        marginBottom: 12,
-    },
+    confirmationContent: { alignItems: "center" },
+
+    confirmationHeader: { fontSize: 16, fontWeight: "700", marginBottom: 15 },
+
+    confirmationTitle: { fontSize: 20, fontWeight: "700", marginBottom: 10 },
     confirmationMessage: {
-        fontSize: 15,
-        color: '#8B98A8',
-        textAlign: 'center',
-        lineHeight: 22,
-        marginBottom: 40,
+        fontSize: 13,
+        color: "#555",
+        textAlign: "center",
+        marginBottom: 20
     },
+
     confirmationButton: {
-        backgroundColor: '#00A8FF',
-        paddingVertical: 14,
-        borderRadius: 8,
-        alignItems: 'center',
-        width: '100%',
+        backgroundColor: "#00A8FF",
+        paddingVertical: 12,
+        paddingHorizontal: 40,
+        borderRadius: 12
     },
-    confirmationButtonText: {
-        color: '#fff',
-        fontWeight: '700',
-        fontSize: 16,
-    },
+    confirmationButtonText: { color: "#fff", fontWeight: "700", fontSize: 14 }
 });

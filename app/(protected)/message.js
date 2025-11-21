@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     View,
     Text,
@@ -15,6 +15,9 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import api from '../../api/api';
+import { useAuth } from "../../context/AuthContext";
 
 export default function Message() {
     const [loading, setLoading] = useState(true);
@@ -23,31 +26,63 @@ export default function Message() {
     const [isModalVisible, setModalVisible] = useState(false);
     const [selectedReason, setSelectedReason] = useState("");
     const [customReason, setCustomReason] = useState("");
+    const { user } = useAuth();
+    const scrollViewRef = useRef();
+    const router = useRouter();
+
+    const { partnerId, partnerName } = useLocalSearchParams();
+
+    const fetchMessages = async () => {
+        if (!partnerId) {
+            setLoading(false); // Stop loading if no partnerId is provided
+            return;
+        }
+        try {
+            const response = await api.get(`/api/conversations/${partnerId}/messages/`);
+            setMessages(response.data);
+        } catch (error) {
+            console.error('Failed to fetch messages:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const timer = setTimeout(() => {
-            setMessages([
-                { id: 1, sender: "You", text: "Hi! Good morning!", timestamp: "10:20 AM", isSent: true },
-                { id: 2, sender: "Francis", text: "Good morning! How can I assist you today?", timestamp: "10:25 AM", isSent: false },
-                { id: 3, sender: "You", text: "Do you provide tours for families?", timestamp: "10:27 AM", isSent: true },
-                { id: 4, sender: "Francis", text: "Yes! My packages are family-friendly and customizable.", timestamp: "10:30 AM", isSent: false },
-            ]);
-            setLoading(false);
-        }, 1200);
-        return () => clearTimeout(timer);
-    }, []);
+        fetchMessages();
 
-    const handleSendMessage = () => {
-        if (inputText.trim() === "") return;
-        const newMessage = {
-            id: messages.length + 1,
-            sender: "You",
-            text: inputText,
-            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-            isSent: true,
+        const interval = setInterval(() => {
+            fetchMessages();
+        }, 5000); // Poll every 5 seconds
+
+        return () => clearInterval(interval);
+    }, [partnerId]);
+
+    const handleSendMessage = async () => {
+        if (inputText.trim() === "" || !partnerId) return;
+        
+        const optimisticMessage = {
+            id: `temp-${Date.now()}`,
+            content: inputText,
+            sender: user.id,
+            receiver: partnerId,
+            timestamp: new Date().toISOString(),
         };
-        setMessages([...messages, newMessage]);
+
+        setMessages(prevMessages => [...prevMessages, optimisticMessage]);
         setInputText("");
+
+        try {
+            await api.post(`/api/conversations/${partnerId}/messages/`, {
+                content: inputText,
+            });
+            // Optionally, refetch messages to get the real message from the server
+            fetchMessages();
+        } catch (error) {
+            console.error('Failed to send message:', error);
+            // Revert optimistic update on failure
+            setMessages(prevMessages => prevMessages.filter(m => m.id !== optimisticMessage.id));
+            Alert.alert("Error", "Failed to send message.");
+        }
     };
 
     const handleReportConfirm = () => {
@@ -61,6 +96,22 @@ export default function Message() {
             Alert.alert("✅ Report Sent", "Your report has been successfully submitted.");
         }, 300);
     };
+
+    if (!partnerId) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.header}>
+                    <Text style={styles.headerTitle}>Message</Text>
+                </View>
+                <View style={styles.loadingContainer}>
+                    <Text>No conversation selected.</Text>
+                    <TouchableOpacity onPress={() => router.replace('/(protected)/conversations')}>
+                        <Text style={{color: 'blue', marginTop: 10}}>Go to conversations</Text>
+                    </TouchableOpacity>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     if (loading) {
         return (
@@ -87,42 +138,50 @@ export default function Message() {
             </View>
 
             <View style={styles.guideInfo}>
-                <Text style={styles.guideName}>FRANCIS MIRAVILLA</Text>
+                <Text style={styles.guideName}>{partnerName || 'Conversation'}</Text>
                 <TouchableOpacity onPress={() => setModalVisible(true)}>
                     <Ionicons name="flag-outline" size={22} color="#000" />
                 </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.messagesContainer} showsVerticalScrollIndicator={false}>
-                {messages.map((message) => (
-                    <View
-                        key={message.id}
-                        style={[
-                            styles.messageBox,
-                            message.isSent ? styles.sentMessage : styles.receivedMessage,
-                        ]}
-                    >
-                        {!message.isSent && (
-                            <Text style={styles.senderName}>{message.sender}</Text>
-                        )}
+            <ScrollView 
+                style={styles.messagesContainer} 
+                showsVerticalScrollIndicator={false}
+                ref={scrollViewRef}
+                onContentSizeChange={() => scrollViewRef.current.scrollToEnd({ animated: true })}
+            >
+                {messages.map((message) => {
+                    const isSent = message.sender === user.id;
+                    return (
                         <View
+                            key={message.id}
                             style={[
-                                styles.messageBubble,
-                                message.isSent ? styles.sentBubble : styles.receivedBubble,
+                                styles.messageBox,
+                                isSent ? styles.sentMessage : styles.receivedMessage,
                             ]}
                         >
-                            <Text
+                            {!isSent && (
+                                <Text style={styles.senderName}>{partnerName}</Text>
+                            )}
+                            <View
                                 style={[
-                                    styles.messageText,
-                                    message.isSent ? styles.sentText : styles.receivedText,
+                                    styles.messageBubble,
+                                    isSent ? styles.sentBubble : styles.receivedBubble,
                                 ]}
                             >
-                                {message.text}
-                            </Text>
+                                <Text
+                                    style={[
+                                        styles.messageText,
+                                        isSent ? styles.sentText : styles.receivedText,
+                                    ]}
+                                >
+                                    {message.content}
+                                </Text>
+                            </View>
+                            <Text style={styles.timestamp}>{new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text>
                         </View>
-                        <Text style={styles.timestamp}>{message.timestamp}</Text>
-                    </View>
-                ))}
+                    );
+                })}
             </ScrollView>
 
             <Modal
@@ -133,7 +192,7 @@ export default function Message() {
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContainer}>
-                        <Text style={styles.modalTitle}>REPORT THIS TOURIST?</Text>
+                        <Text style={styles.modalTitle}>REPORT THIS USER?</Text>
 
                         <Text style={styles.reasonLabel}>Select Reason</Text>
                         {["Rude Behavior", "Inappropriate Message", "Spam", "Other"].map((reason) => (
@@ -186,12 +245,6 @@ export default function Message() {
             </Modal>
 
             <View style={styles.inputContainer}>
-                <TouchableOpacity style={styles.iconButton}>
-                    <Ionicons name="camera-outline" size={22} color="#555" />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.iconButton}>
-                    <Ionicons name="image-outline" size={22} color="#555" />
-                </TouchableOpacity>
                 <View style={styles.textInputWrapper}>
                     <TextInput
                         style={styles.input}
@@ -202,14 +255,11 @@ export default function Message() {
                         multiline
                     />
                 </View>
-                <TouchableOpacity style={styles.iconButton}>
-                    <Ionicons name="happy-outline" size={22} color="#555" />
-                </TouchableOpacity>
                 <TouchableOpacity
                     style={[styles.iconButton, styles.sendButton]}
                     onPress={handleSendMessage}
                 >
-                    <Ionicons name="send-outline" size={20} color="#fff" />
+                    <Ionicons name="send" size={20} color="#fff" />
                 </TouchableOpacity>
             </View>
         </SafeAreaView>
@@ -392,10 +442,9 @@ const styles = StyleSheet.create({
     inputContainer: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "#00051A",
+        backgroundColor: "#F0F0F0",
         paddingVertical: 10,
         paddingHorizontal: 10,
-        marginBottom: 40,
     },
     iconButton: {
         paddingHorizontal: 6,
@@ -403,13 +452,12 @@ const styles = StyleSheet.create({
     textInputWrapper: {
         flex: 1,
         marginHorizontal: 8,
-    },
-    input: {
-        flex: 1,
+        backgroundColor: '#fff',
         borderRadius: 20,
         paddingHorizontal: 14,
         paddingVertical: 8,
-        backgroundColor: "#fff",
+    },
+    input: {
         fontSize: 15,
         maxHeight: 100,
     },

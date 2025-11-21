@@ -386,6 +386,7 @@ const Header = () => {
     const fetchDestinations = async () => {
         try {
             const response = await api.get('/api/destinations/');
+            console.log(response.data)
             setDestinations(response.data);
         } catch (error) {
             console.error("Failed to fetch destinations:", error);
@@ -416,7 +417,7 @@ const Header = () => {
 
             const interval = setInterval(() => {
                     fetchUnreadCount(); // refresh every 5s
-            }, 2000);
+            }, 5000);
 
             return () => clearInterval(interval); // clean when component unmounts
     }, []);
@@ -489,7 +490,7 @@ const Header = () => {
                             <ImageBackground
                                 key={item.id}
                                 // Use first_image from API, or a placeholder if null
-                                source={item.first_image ? { uri: item.first_image } : require('../../assets/localynk_images/login_background.png')}
+                                source={item.image ? { uri: item.image || item.first_image || item.thumbnail || '' } : require('../../assets/localynk_images/login_background.png')}
                                 style={styles.slide}
                                 resizeMode="cover"
                             >
@@ -521,6 +522,9 @@ const Header = () => {
                                         <Text style={styles.description} numberOfLines={2}>
                                             {item.location}
                                         </Text>
+                                        <Text style={{color: "white", fontSize: 11}}>
+                                            {item.description}
+                                        </Text>
                                     </View>
 
                                     <TouchableOpacity 
@@ -543,7 +547,7 @@ const Header = () => {
             </View>
 
             <View style={styles.indicatorContainer}>
-                {destinations.map((_, index) => (
+                {destinations.slice(0, 3).map((_, index) => (
                     <TouchableOpacity
                         key={index}
                         style={[

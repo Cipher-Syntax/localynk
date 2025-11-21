@@ -40,6 +40,9 @@ export default function ProtectedLayout() {
         '/notification',
         '/completePayment',
         '/completeRegistrationFee',
+        '/profile',
+        '/profile/edit_profile',
+        '/explore'
     ]; 
 
     useEffect(() => {

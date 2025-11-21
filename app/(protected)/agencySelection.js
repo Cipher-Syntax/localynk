@@ -20,25 +20,16 @@ import api from '../../api/api';
 
 const { width } = Dimensions.get('window');
 
-// Random image URLs
-const AGENCY_IMAGES = [
-    'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=400&h=250&fit=crop',
-    'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=400&h=250&fit=crop',
-    'https://images.unsplash.com/photo-1517457373614-b7152f800fd1?w=400&h=250&fit=crop',
-    'https://images.unsplash.com/photo-1488386341026-7e89a88adc34?w=400&h=250&fit=crop',
-    'https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=400&h=250&fit=crop',
-    'https://images.unsplash.com/photo-1504681869696-d977211a0e38?w=400&h=250&fit=crop',
-];
-
 const AgencySelection = () => {
     const router = useRouter();
     const params = useLocalSearchParams();
 
-    // IMPORTANT — includes placeImage now
     const { placeName, placeImage } = params;
 
     const [agencies, setAgencies] = useState([]);
     const [loading, setLoading] = useState(true);
+    
+    // NOTE: The modal state is defined here, but currently unused in logic
     const [isModalVisible, setModalVisible] = useState(false);
     const [selectedAgencyName, setSelectedAgencyName] = useState('');
 
@@ -46,7 +37,15 @@ const AgencySelection = () => {
         const fetchAgencies = async () => {
             try {
                 const response = await api.get('/api/agencies/');
-                setAgencies(response.data);
+                const rawData = Array.isArray(response.data) ? response.data : response.data.results || [];
+
+                const validAgencies = rawData.filter(item => 
+                    item.first_name && 
+                    item.first_name.trim() !== '' && 
+                    item.profile_picture
+                );
+
+                setAgencies(validAgencies);
             } catch (error) {
                 console.error('Failed to fetch agencies:', error);
             } finally {
@@ -57,6 +56,8 @@ const AgencySelection = () => {
     }, []);
 
     const handleSelectAgency = (agencyId, agencyName) => {
+        // Currently, this navigates immediately. 
+        // The Modal is NOT triggered here.
         router.push({
             pathname: '/(protected)/agencyBookingDetails',
             params: { 
@@ -73,24 +74,32 @@ const AgencySelection = () => {
         router.replace('/(protected)/home/');
     };
 
-    const renderAgencyCard = ({ item }) => (
-        <View style={styles.agencyCard}>
-            <Image source={{ uri: item.profile_picture }} style={styles.agencyImage} />
-            <View style={styles.cardContent}>
-                <Text style={styles.agencyName}>{item.first_name} {item.last_name}</Text>
-                <Text style={styles.agencyDesc}>{item.bio}</Text>
+    const renderAgencyCard = ({ item }) => {
+        if (!item || !item.first_name) return null;
 
-                <TouchableOpacity
-                    style={styles.selectButton}
-                    onPress={() => handleSelectAgency(item.id, `${item.first_name} ${item.last_name}`)}
-                    activeOpacity={0.8}
-                >
-                    <Ionicons name="checkmark-circle" size={18} color="#fff" />
-                    <Text style={styles.selectButtonText}>Select Agency</Text>
-                </TouchableOpacity>
+        return (
+            <View style={styles.agencyCard}>
+                <Image 
+                    source={{ uri: item.profile_picture }} 
+                    style={styles.agencyImage}
+                    defaultSource={{ uri: 'https://via.placeholder.com/400x200' }} 
+                />
+                <View style={styles.cardContent}>
+                    <Text style={styles.agencyName}>{item.first_name} {item.last_name}</Text>
+                    <Text style={styles.agencyDesc}>{item.bio || 'No bio available'}</Text>
+
+                    <TouchableOpacity
+                        style={styles.selectButton}
+                        onPress={() => handleSelectAgency(item.id, `${item.first_name} ${item.last_name}`)}
+                        activeOpacity={0.8}
+                    >
+                        <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                        <Text style={styles.selectButtonText}>Select Agency</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
-        </View>
-    );
+        );
+    };
 
     if (loading) {
         return (
@@ -108,77 +117,57 @@ const AgencySelection = () => {
             <SafeAreaView edges={['top']} style={{ flex: 1 }}>
                 <ScrollView showsVerticalScrollIndicator={false}>
 
-                    {/* 🟦 FIXED HEADER USING EXISTING PLACE IMAGE */}
-                    <View>
-						<View style={styles.header}>
-							<Image
-								source={require('../../assets/localynk_images/header.png')}
-								style={styles.headerImage}
-							/>
-							<LinearGradient
-								colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
-								style={styles.overlay}
-							/>
-							<Text style={styles.headerTitle}>CHOOSE YOUR PREFFERED AGENCY</Text>
-						</View>
-					</View>
+                    {/* 🟦 HEADER IMAGE */}
+                    <View style={styles.header}>
+                        <Image
+                            source={require('../../assets/localynk_images/header.png')}
+                            style={styles.headerImage}
+                        />
+                        <LinearGradient
+                            colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
+                            style={styles.overlay}
+                        />
+                        <Text style={styles.headerTitle}>AGENCY LISTING</Text>
+                    </View>
 
+                    {/* 🟦 NEW: SECTION LABEL / LOGO AREA */}
+                    <View style={styles.sectionHeaderContainer}>
+                        <View style={styles.logoBadge}>
+                            <Ionicons name="business" size={20} color="#00A8FF" />
+                        </View>
+                        <View>
+                            <Text style={styles.sectionLabel}>Select Agency</Text>
+                            <Text style={styles.sectionSubLabel}>Choose the best guide for you</Text>
+                        </View>
+                    </View>
+
+                    {/* 🟦 LIST */}
                     <View style={styles.listContainer}>
                         <FlatList
                             data={agencies}
                             renderItem={renderAgencyCard}
-                            keyExtractor={(item) => item.id.toString()}
+                            keyExtractor={(item) => item.id ? item.id.toString() : Math.random().toString()}
                             scrollEnabled={false}
+                            ListEmptyComponent={
+                                <Text style={{textAlign: 'center', marginTop: 20, color: '#666'}}>
+                                    No agencies found.
+                                </Text>
+                            }
                         />
                     </View>
 
                 </ScrollView>
             </SafeAreaView>
-
-            {/* MODAL */}
-            <Modal visible={isModalVisible} transparent animationType="fade">
-                <View style={styles.modalBackground}>
-                    <View style={styles.modalContent}>
-
-                        <Ionicons
-                            name="hourglass-outline"
-                            size={80}
-                            color="#F5A623"
-                            style={{ marginBottom: 10 }}
-                        />
-
-                        <Text style={styles.modalHeader}>REQUEST SENT</Text>
-                        <Text style={styles.modalTitle}>Booking Sent!</Text>
-                        <Text style={styles.modalAgency}>{selectedAgencyName}</Text>
-
-                        <Text style={styles.modalMessage}>
-                            Your booking request has been sent to {selectedAgencyName}.  
-                            They will respond within 1–3 business days.
-                        </Text>
-
-                        <TouchableOpacity
-                            style={styles.modalButton}
-                            onPress={handleModalClose}
-                        >
-                            <Text style={styles.modalButtonText}>OK</Text>
-                        </TouchableOpacity>
-
-                    </View>
-                </View>
-            </Modal>
         </View>
     );
 };
 
-/* ===========================================================
-                     STYLES
-=========================================================== */
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#f8f9fa' },
 
     /* HEADER FIXED */
-header: {
+    header: {
         position: 'relative',
         height: 120,
         justifyContent: 'center',
@@ -201,13 +190,38 @@ header: {
         left: 20,
         color: '#fff',
         fontSize: 18,
-        fontWeight: '700',
+        fontWeight: '900',
         letterSpacing: 1,
+        textTransform: 'uppercase'
     },
-    // headerSubtitle: {
-    //     color: '#f1f1f1',
-    //     fontSize: 14,
-    // },
+
+    /* NEW SECTION HEADER STYLES */
+    sectionHeaderContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        marginTop: 20,
+        marginBottom: 5,
+    },
+    logoBadge: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        backgroundColor: '#E8F4FF',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    sectionLabel: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: '#1A2332',
+    },
+    sectionSubLabel: {
+        fontSize: 12,
+        color: '#888',
+        marginTop: 2,
+    },
 
     /* LOADING */
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -217,36 +231,18 @@ header: {
     listContainer: { paddingHorizontal: 16 },
 
     agencyCard: {
-		marginTop: 30,
+        marginTop: 20, // Reduced margin since we have a header now
         backgroundColor: '#fff',
         borderRadius: 16,
         overflow: 'hidden',
         marginBottom: 18,
-        elevation: 5,
-    },
-
-    imageContainer: {
-        position: 'relative',
-        height: 200,
-        overflow: 'hidden',
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
     },
     agencyImage: { width: '100%', height: 200 },
-    imageOverlay: { ...StyleSheet.absoluteFillObject },
-
-    ratingBadge: {
-        position: 'absolute',
-        top: 12,
-        right: 12,
-        backgroundColor: 'rgba(0,0,0,0.7)',
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 20,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-    },
-    ratingText: { color: '#fff', fontWeight: '700', fontSize: 13 },
-    reviewsText: { color: 'rgba(255,255,255,0.7)', fontSize: 11 },
 
     cardContent: { padding: 16 },
     agencyName: {
@@ -261,24 +257,6 @@ header: {
         marginBottom: 12,
         lineHeight: 18,
     },
-
-    specialtiesContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
-    specialtyTag: { backgroundColor: '#E8F4FF', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12 },
-    specialtyText: { color: '#00A8FF', fontSize: 11, fontWeight: '600' },
-
-    established: { color: '#666', marginBottom: 12, fontSize: 12 },
-
-    priceContainer: {
-        backgroundColor: '#F0F7FF',
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        borderRadius: 10,
-        borderLeftWidth: 3,
-        borderLeftColor: '#00A8FF',
-        marginBottom: 14,
-    },
-    priceLabel: { fontSize: 11, color: '#666' },
-    priceValue: { fontSize: 18, fontWeight: '800', color: '#00A8FF' },
 
     selectButton: {
         backgroundColor: '#00A8FF',

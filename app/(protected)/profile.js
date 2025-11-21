@@ -6,52 +6,49 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router'; 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../api/api';
-import { Calendar } from 'react-native-calendars';
+import { Calendar } from 'react-native-calendars'; // Keeping for specific dates if needed later
 
 const { width } = Dimensions.get('window');
 
-const TouristGuideDetails = () => {
+const GuideProfile = () => {
     const [guide, setGuide] = useState(null);
-    const [destination, setDestination] = useState(null);
-    const [tourPackage, setTourPackage] = useState(null);
+    const [destination, setDestination] = useState(null); // Added
+    const [tourPackage, setTourPackage] = useState(null); // Added
     const [loading, setLoading] = useState(true);
     const router = useRouter();
-
     const params = useLocalSearchParams();
-    const { guideId, placeId } = params;
+    const { userId, placeId } = params; // Now expecting placeId
 
     useEffect(() => {
         const fetchData = async () => {
-            if (!guideId || !placeId) return;
-
+            if (!userId || !placeId) { // Now depends on placeId
+                setLoading(false);
+                return;
+            }
             try {
                 const [guideRes, destRes, toursRes] = await Promise.all([
-                    api.get(`/api/guides/${guideId}/`),
-                    api.get(`/api/destinations/${placeId}/`),
-                    api.get(`/api/destinations/${placeId}/tours/`)
+                    api.get(`/api/guides/${userId}/`),
+                    api.get(`/api/destinations/${placeId}/`), // Fetch destination
+                    api.get(`/api/destinations/${placeId}/tours/`) // Fetch tours
                 ]);
 
                 setGuide(guideRes.data);
                 setDestination(destRes.data);
                 
-                // Debugging: Check if destination has images
-                console.log("Destination Data:", destRes.data);
-
                 // Find the specific tour package by this guide
-                const specificTour = toursRes.data.find(tour => tour.guide === parseInt(guideId)); 
-                console.log("Found Package:", specificTour);
+                const specificTour = toursRes.data.find(tour => tour.guide === parseInt(userId)); 
                 setTourPackage(specificTour);
 
             } catch (error) {
-                console.error('Failed to fetch page data:', error);
+                console.error('Failed to fetch page data for profile:', error);
             } finally {
                 setLoading(false);
             }
         };
 
         fetchData();
-    }, [guideId, placeId]);
-    
+    }, [userId, placeId]); // Dependencies now include placeId
+
     const renderAvailability = (guideDays) => {
         const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
         const shortDays = ["M", "T", "W", "T", "F", "S", "S"];
@@ -94,12 +91,9 @@ const TouristGuideDetails = () => {
         acc[dateString] = { selected: true, marked: true, selectedColor: '#00A8FF' };
         return acc;
     }, {});
-    
-    // --- IMPROVED IMAGE LOGIC ---
-    // 1. Try Destination Image
-    // 2. Try Tour Package Stop Image (Fallback)
-    let finalImage = null;
 
+    // --- IMPROVED IMAGE LOGIC (copied from TouristGuideDetails) ---
+    let finalImage = null;
     if (destination?.images?.length > 0) {
         finalImage = destination.images[0].image;
     } else if (tourPackage?.stops?.length > 0) {
@@ -141,24 +135,19 @@ const TouristGuideDetails = () => {
                             <Ionicons name="heart-outline" size={22} color="#FF5A5F" />
                         </View>
 
-                        {/* Action Buttons */}
+                        {/* Action Buttons (Removed the "View Profile" button from here, as we are already on the profile) */}
                         <View style={styles.buttonRow}>
-                            <TouchableOpacity style={styles.actionButton} onPress={() => router.push({ pathname: "/profile", params: { userId: guide.id, placeId: placeId } })}>
-                                <Ionicons name="person" size={14} color="#fff" />
-                                <Text style={styles.actionButtonText}>View Profile</Text>
-                            </TouchableOpacity>
-                                                        <TouchableOpacity style={styles.actionButton} onPress={() => router.push({ pathname: "/(protected)/message", params: { partnerId: guide.id, partnerName: `${guide.first_name} ${guide.last_name}` } })}>
+                            <TouchableOpacity style={styles.actionButton} onPress={() => router.push({ pathname: "/(protected)/message", params: { partnerId: guide.id, partnerName: `${guide.first_name} ${guide.last_name}` } })}>
                                 <Ionicons name="chatbubble" size={14} color="#fff" />
                                 <Text style={styles.actionButtonText}>Send Message</Text>
                             </TouchableOpacity>
                         </View>
 
-                        {/* Destination Image (With Fallback Logic) */}
+                        {/* Destination Image (Copied from TouristGuideDetails) */}
                         <View style={styles.destinationImageContainer}>
                             {finalImage ? (
                                 <Image source={{uri: finalImage}} style={styles.destinationImage} />
                             ) : (
-                                // Fallback if absolutely no image exists
                                 <View style={[styles.destinationImage, {backgroundColor: '#ccc', justifyContent: 'center', alignItems: 'center'}]}>
                                     <Text>No Image Available</Text>
                                 </View>
@@ -167,7 +156,7 @@ const TouristGuideDetails = () => {
                             <Text style={styles.destinationName}>{destination?.name || "Loading..."}</Text>
                         </View>
                         
-                        {/* Tour Package Section */}
+                        {/* Tour Package Section (Copied from TouristGuideDetails) */}
                         {tourPackage && (
                              <View style={styles.detailsSection}>
                                 <View style={styles.sectionHeader}>
@@ -192,7 +181,7 @@ const TouristGuideDetails = () => {
                             </View>
                         )}
 
-                        {/* Tour Stops Section */}
+                        {/* Tour Stops Section (Copied from TouristGuideDetails) */}
                         {tourPackage?.stops && tourPackage.stops.length > 0 && (
                             <View style={styles.detailsSection}>
                                  <View style={styles.sectionHeader}>
@@ -226,7 +215,7 @@ const TouristGuideDetails = () => {
                             </View>
                             <Text style={styles.detailLabel}>General Weekly Availability:</Text>
                             {renderAvailability(guide.available_days)}
-                             <Text style={[styles.detailLabel, {marginTop: 10}]}>Specific Available Dates:</Text>
+                            <Text style={[styles.detailLabel, {marginTop: 10}]}>Specific Available Dates:</Text>
                             <Calendar
                                 current={new Date().toISOString().split('T')[0]}
                                 markedDates={markedDates}
@@ -241,22 +230,7 @@ const TouristGuideDetails = () => {
                             />
                         </View>
                         
-                        <TouchableOpacity 
-                            style={styles.bookButton} 
-                            activeOpacity={0.8} 
-                            onPress={() => router.push({ 
-                                pathname: "/(protected)/payment",
-                                params: { 
-                                    guideId: guide.id,
-                                    guideName: `${guide.first_name} ${guide.last_name}`,
-                                    basePrice: tourPackage ? tourPackage.price_per_day : guide.price_per_day, 
-                                    tourPackageId: tourPackage?.id,
-                                    placeId: placeId,
-                                } 
-                            })}
-                        >
-                            <Text style={styles.bookButtonText}>BOOK NOW</Text>
-                        </TouchableOpacity>
+                        {/* Removed Book Button from GuideProfile */}
                     </View>
                 </View>
             </SafeAreaView>
@@ -293,7 +267,7 @@ const styles = StyleSheet.create({
     actionButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
     destinationImageContainer: { width: '100%', height: 200, borderRadius: 12, overflow: 'hidden', marginBottom: 20 },
     destinationImage: { width: '100%', height: '100%' },
-    imageOverlay: { ...StyleSheet.absoluteFillObject },
+    imageOverlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     destinationName: { position: 'absolute', bottom: 10, left: 10, color: '#fff', fontSize: 20, fontWeight: 'bold' },
     detailsSection: { marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: '#E0E6ED' },
     sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
@@ -312,6 +286,8 @@ const styles = StyleSheet.create({
     itineraryText: { fontSize: 14, color: '#555', lineHeight: 20 },
     bookButton: { backgroundColor: '#00A8FF', paddingVertical: 16, borderRadius: 8, alignItems: 'center', marginVertical: 20, shadowColor: "#00A8FF", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 5 },
     bookButtonText: { color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 1 },
+    messageButton: { backgroundColor: '#00A8FF', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 8, gap: 6, marginTop: 20 },
+    messageButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
 });
 
-export default TouristGuideDetails;
+export default GuideProfile;
