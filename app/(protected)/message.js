@@ -85,16 +85,26 @@ export default function Message() {
         }
     };
 
-    const handleReportConfirm = () => {
+    const handleReportConfirm = async () => {
         const reason = selectedReason === "Other" ? customReason : selectedReason;
         if (!reason.trim()) {
             Alert.alert("⚠️ Incomplete", "Please select or enter a reason for reporting.");
             return;
         }
-        setModalVisible(false);
-        setTimeout(() => {
-            Alert.alert("✅ Report Sent", "Your report has been successfully submitted.");
-        }, 300);
+
+        try {
+            await api.post('/api/submit/', {
+                reported_user: partnerId,
+                reason: reason,
+            });
+            setModalVisible(false);
+            setTimeout(() => {
+                Alert.alert("✅ Report Sent", "Your report has been successfully submitted.");
+            }, 300);
+        } catch (error) {
+            console.error('Failed to submit report:', error);
+            Alert.alert("Error", "Failed to submit report. Please try again later.");
+        }
     };
 
     if (!partnerId) {
@@ -139,9 +149,11 @@ export default function Message() {
 
             <View style={styles.guideInfo}>
                 <Text style={styles.guideName}>{partnerName || 'Conversation'}</Text>
-                <TouchableOpacity onPress={() => setModalVisible(true)}>
-                    <Ionicons name="flag-outline" size={22} color="#000" />
-                </TouchableOpacity>
+                {user.id !== partnerId && (
+                    <TouchableOpacity onPress={() => setModalVisible(true)}>
+                        <Ionicons name="flag-outline" size={22} color="#000" />
+                    </TouchableOpacity>
+                )}
             </View>
 
             <ScrollView 
