@@ -4,7 +4,8 @@ import api from '../../api/api';
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker'; 
-import { Ionicons } from '@expo/vector-icons';
+// IMPORTANT: Import your Auth Hook here to get the data seen in your logs
+import { useAuth } from '../../context/AuthContext'; 
 
 // --- CONFIGURATION: Common Specialties ---
 const SPECIALTY_OPTIONS = [
@@ -21,9 +22,12 @@ const SPECIALTY_OPTIONS = [
 ];
 
 const UpdateGuideInfoForm = () => {
-    const [isLoading, setIsLoading] = useState(false);
+    // 1. Get the user data directly from Context (avoids the 405 GET error)
+    const { user, isLoading: authLoading } = useAuth();
     
-    // --- 1. Form State ---
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    // --- Form State ---
     const [languages, setLanguages] = useState([]);
     
     // Specialty Logic
@@ -33,68 +37,61 @@ const UpdateGuideInfoForm = () => {
     const [experience, setExperience] = useState('');
     const [price, setPrice] = useState('');
     
-    // --- 2. Calendar & Availability State ---
+    // --- Calendar & Availability State ---
     const [availableDays, setAvailableDays] = useState([]);
     const [markedDates, setMarkedDates] = useState({});
 
     const daysOptions = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const dayMapping = { 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6, 'Sun': 0 };
 
-    // --- 3. Initial Data Fetch ---
+    // --- 2. Initial Data Population (from User Object) ---
     useEffect(() => {
-        fetchProfile();
-    }, []);
+        if (user) {
+            populateForm(user);
+        }
+    }, [user]);
 
-    const fetchProfile = async () => {
-        try {
-            // NOTE: Changed endpoint to match your backend router/view setup if needed
-            // Assuming 'api/guide/update-info/' maps to a RetrieveUpdateAPIView for the current user
-            const response = await api.get('api/guide/update-info/'); 
-            const data = response.data;
-            console.log(data)
-            
-            // --- PRE-FILL DATA LOGIC ---
-            
-            // 1. Languages
-            if (Array.isArray(data.languages)) {
-                setLanguages(data.languages);
-            } else if (typeof data.languages === 'string') {
-                // Handle case where backend might send comma-separated string
-                setLanguages(data.languages.split(',').map(l => l.trim()));
-            }
+    const populateForm = (data) => {
+        console.log("Populating Form with User Data:", data);
+        
+        // 1. Languages (Handle array or string)
+        if (Array.isArray(data.languages)) {
+            setLanguages(data.languages);
+        } else if (typeof data.languages === 'string' && data.languages.length > 0) {
+            setLanguages(data.languages.split(',').map(l => l.trim()));
+        } else {
+            setLanguages([]);
+        }
 
-            // 2. Basic Fields
-            setExperience(data.experience_years ? data.experience_years.toString() : '');
-            setPrice(data.price_per_day ? data.price_per_day.toString() : '');
-            setAvailableDays(data.available_days || []);
-            
-            // 3. Specialty Logic (Smart Pre-fill)
-            const incomingSpecialty = data.specialty || '';
+        // 2. Basic Fields (Handle potential nulls)
+        setExperience(data.experience_years ? data.experience_years.toString() : '');
+        setPrice(data.price_per_day ? data.price_per_day.toString() : '');
+        setAvailableDays(data.available_days || []);
+        
+        // 3. Specialty Logic (Smart Pre-fill)
+        const incomingSpecialty = data.specialty || '';
+        if (incomingSpecialty) {
             if (SPECIALTY_OPTIONS.includes(incomingSpecialty)) {
+                // It's a standard option
                 setSelectedSpecialty(incomingSpecialty);
                 setCustomSpecialty('');
-            } else if (incomingSpecialty.length > 0) {
-                // It's a custom specialty not in our list -> Set "Other" + Fill Text Box
+            } else {
+                // It's a custom specialty not in the list
                 setSelectedSpecialty('Other');
                 setCustomSpecialty(incomingSpecialty);
             }
-
-            // 4. Calendar Dates
-            // Backend sends array: ['2025-12-25', '2026-01-01']
-            // Frontend needs object: {'2025-12-25': {selected: true, ...}}
-            const existingMarkedDates = (data.specific_available_dates || []).reduce((acc, dateString) => {
-                acc[dateString] = { selected: true, marked: true, selectedColor: '#007AFF' };
-                return acc;
-            }, {});
-            setMarkedDates(existingMarkedDates);
-
-        } catch (error) {
-            console.log("Profile Fetch Error:", error.response?.data || error.message);
-            // Optional: Alert user if fetch fails fundamentally
         }
+
+        // 4. Calendar Dates
+        // Transform array ['2025-12-25'] into Object {'2025-12-25': {selected: true...}}
+        const existingMarkedDates = (data.specific_available_dates || []).reduce((acc, dateString) => {
+            acc[dateString] = { selected: true, marked: true, selectedColor: '#007AFF' };
+            return acc;
+        }, {});
+        setMarkedDates(existingMarkedDates);
     };
 
-    // --- 4. Logic: Toggle Weekdays ---
+    // --- 3. Logic: Toggle Weekdays ---
     const toggleDay = (day) => {
         if (availableDays.includes(day)) {
             setAvailableDays(availableDays.filter(d => d !== day));
@@ -103,7 +100,7 @@ const UpdateGuideInfoForm = () => {
         }
     };
 
-    // --- 5. Logic: Toggle Specific Calendar Dates ---
+    // --- 4. Logic: Toggle Specific Calendar Dates ---
     const onDayPress = (day) => {
         const dateString = day.dateString;
         const newMarkedDates = { ...markedDates };
@@ -116,7 +113,7 @@ const UpdateGuideInfoForm = () => {
         setMarkedDates(newMarkedDates);
     };
 
-    // --- 6. Logic: Disable dates based on Weekdays ---
+    // --- 5. Logic: Disable dates based on Weekdays ---
     const disabledDays = useMemo(() => {
         const enabledDayNumbers = availableDays.map(day => dayMapping[day]);
         const disabled = {};
@@ -144,29 +141,29 @@ const UpdateGuideInfoForm = () => {
         return disabled;
     }, [availableDays]);
 
-    // --- 7. Submit ---
+    // --- 6. Submit ---
     const handleSubmit = async () => {
-        setIsLoading(true);
+        setIsSubmitting(true);
         // Determine final specialty value
         const finalSpecialty = selectedSpecialty === 'Other' ? customSpecialty : selectedSpecialty;
         
         if (selectedSpecialty === 'Other' && !customSpecialty.trim()) {
             Alert.alert("Missing Info", "Please type your specific specialty.");
-            setIsLoading(false);
+            setIsSubmitting(false);
             return;
         }
 
         const specific_dates = Object.keys(markedDates);
 
         try {
-            // We send the processed data back to the server
+            // NOTE: 'api/guide/update-info/' is correct for PATCH (Update), but likely blocked for GET (Fetch)
             await api.patch('api/guide/update-info/', {
-                languages, // Array of strings
+                languages, 
                 specialty: finalSpecialty,
-                experience: parseInt(experience, 10),
-                price: parseFloat(price),
+                experience_years: parseInt(experience, 10),
+                price_per_day: parseFloat(price),
                 available_days: availableDays,
-                specific_dates: specific_dates // Transformed back to simple array of strings
+                specific_available_dates: specific_dates
             });
             Alert.alert('Success', 'Guide info updated successfully!');
         } catch (error) {
@@ -174,10 +171,21 @@ const UpdateGuideInfoForm = () => {
             console.log("Update Error:", errorData);
             Alert.alert('Error', 'Failed to update guide info.');
         } finally {
-            setIsLoading(false);
+            setIsSubmitting(false);
         }
     };
 
+    // --- LOADING STATE ---
+    if (authLoading || !user) {
+        return (
+            <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="large" color="#007AFF" />
+                <Text style={{ marginTop: 10, color: '#666' }}>Loading your profile...</Text>
+            </SafeAreaView>
+        );
+    }
+
+    // --- MAIN RENDER ---
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView style={styles.container}>
@@ -217,7 +225,6 @@ const UpdateGuideInfoForm = () => {
                                 onChangeText={setCustomSpecialty}
                                 style={styles.input}
                                 placeholder="e.g. Bird Watching, Extreme Sports"
-                                autoFocus={true}
                             />
                         </View>
                     )}
@@ -276,6 +283,7 @@ const UpdateGuideInfoForm = () => {
                     
                     <Calendar
                         onDayPress={onDayPress}
+                        // Merge disabled days (grayed out) with selected dates (blue)
                         markedDates={{...disabledDays, ...markedDates}}
                         minDate={new Date().toISOString().split('T')[0]}
                         theme={{
@@ -290,8 +298,8 @@ const UpdateGuideInfoForm = () => {
                 </View>
 
                 {/* Submit Button */}
-                <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={isLoading}>
-                    {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Update Information</Text>}
+                <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={isSubmitting}>
+                    {isSubmitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Update Information</Text>}
                 </TouchableOpacity>
 
                 <View style={{height: 40}} /> 

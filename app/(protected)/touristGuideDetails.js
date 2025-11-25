@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, StatusBar, Image, Text, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, ScrollView, StyleSheet, StatusBar, Image, Text, TouchableOpacity, ActivityIndicator, Dimensions, ImageBackground } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
-import { User, Calendar as CalendarIcon, Map, Star, Compass, Clock, Languages, Package, MapPin } from "lucide-react-native";
+import { User, Calendar as CalendarIcon, Map, Star, Compass, Clock, Languages, Package, MapPin, Bed, Wifi, Car, Coffee } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router'; 
 import { SafeAreaView } from 'react-native-safe-area-context';
-import api from '../../api/api';
 import { Calendar } from 'react-native-calendars';
+import api from '../../api/api';
 
 const { width } = Dimensions.get('window');
 
@@ -14,32 +14,33 @@ const TouristGuideDetails = () => {
     const [guide, setGuide] = useState(null);
     const [destination, setDestination] = useState(null);
     const [tourPackage, setTourPackage] = useState(null);
+    const [accommodations, setAccommodations] = useState([]); // Store accommodations
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
     const params = useLocalSearchParams();
     const { guideId, placeId } = params;
 
+    // --- FETCH DATA ---
     useEffect(() => {
         const fetchData = async () => {
             if (!guideId || !placeId) return;
 
             try {
-                const [guideRes, destRes, toursRes] = await Promise.all([
+                // Fetch everything in parallel
+                const [guideRes, destRes, toursRes, accomRes] = await Promise.all([
                     api.get(`/api/guides/${guideId}/`),
                     api.get(`/api/destinations/${placeId}/`),
-                    api.get(`/api/destinations/${placeId}/tours/`)
+                    api.get(`/api/destinations/${placeId}/tours/`),
+                    api.get('/api/accommodations/list/') // Using the public list endpoint you showed
                 ]);
 
                 setGuide(guideRes.data);
                 setDestination(destRes.data);
+                setAccommodations(accomRes.data); // Save accommodations
                 
-                // Debugging: Check if destination has images
-                console.log("Destination Data:", destRes.data);
-
                 // Find the specific tour package by this guide
                 const specificTour = toursRes.data.find(tour => tour.guide === parseInt(guideId)); 
-                console.log("Found Package:", specificTour);
                 setTourPackage(specificTour);
 
             } catch (error) {
@@ -51,8 +52,27 @@ const TouristGuideDetails = () => {
 
         fetchData();
     }, [guideId, placeId]);
+
+    // --- HELPER: Image URL Fixer ---
+    const getImageUrl = (imgPath) => {
+        if (!imgPath) return 'https://via.placeholder.com/300';
+        if (imgPath.startsWith('http')) return imgPath;
+        // Replace this with your actual base URL if needed, or ensure api.defaults.baseURL is set
+        const base = api.defaults.baseURL || 'http://127.0.0.1:8000'; 
+        return `${base}${imgPath}`;
+    };
+
+    // --- CALENDAR LOGIC ---
+    const markedDates = useMemo(() => {
+        if (!guide || !guide.specific_available_dates) return {};
+        const marked = {};
+        guide.specific_available_dates.forEach(date => {
+            marked[date] = { selected: true, marked: true, selectedColor: '#00A8FF', disabled: true, disableTouchEvent: true };
+        });
+        return marked;
+    }, [guide]);
     
-    const renderAvailability = (guideDays) => {
+    const renderAvailabilityBubbles = (guideDays) => {
         const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
         const shortDays = ["M", "T", "W", "T", "F", "S", "S"];
         const safeGuideDays = guideDays || [];
@@ -62,17 +82,8 @@ const TouristGuideDetails = () => {
                 {days.map((day, index) => {
                     const isAvailable = safeGuideDays.includes(day) || safeGuideDays.includes("All");
                     return (
-                        <View 
-                            key={index} 
-                            style={[
-                                styles.dayBadge, 
-                                isAvailable ? styles.dayAvailable : styles.dayUnavailable
-                            ]}
-                        >
-                            <Text style={[
-                                styles.dayText, 
-                                isAvailable ? styles.dayTextAvailable : styles.dayTextUnavailable
-                            ]}>
+                        <View key={index} style={[styles.dayBadge, isAvailable ? styles.dayAvailable : styles.dayUnavailable]}>
+                            <Text style={[styles.dayText, isAvailable ? styles.dayTextAvailable : styles.dayTextUnavailable]}>
                                 {shortDays[index]}
                             </Text>
                         </View>
@@ -89,32 +100,26 @@ const TouristGuideDetails = () => {
             </View>
         );
     }
-
-    const markedDates = (guide.specific_available_dates || []).reduce((acc, dateString) => {
-        acc[dateString] = { selected: true, marked: true, selectedColor: '#00A8FF' };
-        return acc;
-    }, {});
     
-    // --- IMPROVED IMAGE LOGIC ---
-    // 1. Try Destination Image
-    // 2. Try Tour Package Stop Image (Fallback)
     let finalImage = null;
-
     if (destination?.images?.length > 0) {
         finalImage = destination.images[0].image;
     } else if (tourPackage?.stops?.length > 0) {
         finalImage = tourPackage.stops[0].image;
     }
-    // ----------------------------
 
     return (
-        <ScrollView style={styles.container}>
-            <SafeAreaView edges={['top']}>
+        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+            <SafeAreaView edges={['top']} style={{backgroundColor: '#fff'}}>
                 <StatusBar barStyle="dark-content" backgroundColor="#fff" />
                 
+                {/* --- HEADER --- */}
                 <View style={styles.header}>
                     <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} />
                     <LinearGradient colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']} style={styles.overlay} />
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                         <Ionicons name="arrow-back" size={24} color="#fff" />
+                    </TouchableOpacity>
                     <Text style={styles.headerTitle}>GUIDE DETAILS</Text>
                 </View>
 
@@ -125,7 +130,7 @@ const TouristGuideDetails = () => {
                         <View style={styles.cardProfileSection}>
                             <View style={styles.iconWrapper}>
                                 {guide.profile_picture ? (
-                                    <Image source={{ uri: guide.profile_picture }} style={styles.profilePicture} />
+                                    <Image source={{ uri: getImageUrl(guide.profile_picture) }} style={styles.profilePicture} />
                                 ) : (
                                     <User size={40} color="#fff" />
                                 )}
@@ -147,18 +152,17 @@ const TouristGuideDetails = () => {
                                 <Ionicons name="person" size={14} color="#fff" />
                                 <Text style={styles.actionButtonText}>View Profile</Text>
                             </TouchableOpacity>
-                                                        <TouchableOpacity style={styles.actionButton} onPress={() => router.push({ pathname: "/(protected)/message", params: { partnerId: guide.id, partnerName: `${guide.first_name} ${guide.last_name}` } })}>
+                            <TouchableOpacity style={styles.actionButton} onPress={() => router.push({ pathname: "/(protected)/message", params: { partnerId: guide.id, partnerName: `${guide.first_name} ${guide.last_name}` } })}>
                                 <Ionicons name="chatbubble" size={14} color="#fff" />
                                 <Text style={styles.actionButtonText}>Send Message</Text>
                             </TouchableOpacity>
                         </View>
 
-                        {/* Destination Image (With Fallback Logic) */}
+                        {/* Destination Image */}
                         <View style={styles.destinationImageContainer}>
                             {finalImage ? (
-                                <Image source={{uri: finalImage}} style={styles.destinationImage} />
+                                <Image source={{uri: getImageUrl(finalImage)}} style={styles.destinationImage} />
                             ) : (
-                                // Fallback if absolutely no image exists
                                 <View style={[styles.destinationImage, {backgroundColor: '#ccc', justifyContent: 'center', alignItems: 'center'}]}>
                                     <Text>No Image Available</Text>
                                 </View>
@@ -175,7 +179,6 @@ const TouristGuideDetails = () => {
                                    <Text style={styles.detailsHeader}>Tour Package: {tourPackage.name}</Text>
                                 </View>
                                 <Text style={styles.itineraryText}>{tourPackage.description}</Text>
-
                                 <View style={styles.packageDetailsGrid}>
                                     <View style={styles.packageDetailItem}>
                                         <Clock size={14} color="#8B98A8"/>
@@ -186,7 +189,6 @@ const TouristGuideDetails = () => {
                                         <Text style={styles.packageDetailText}>Max {tourPackage.max_group_size} people</Text>
                                     </View>
                                 </View>
-                                
                                 <Text style={styles.subHeader}>What to Bring:</Text>
                                 <Text style={styles.itineraryText}>{tourPackage.what_to_bring}</Text>
                             </View>
@@ -202,13 +204,81 @@ const TouristGuideDetails = () => {
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.stopsScrollView}>
                                     {tourPackage.stops.map(stop => (
                                         <View key={stop.id} style={styles.stopCard}>
-                                            <Image source={{uri: stop.image}} style={styles.stopImage} />
+                                            <Image source={{uri: getImageUrl(stop.image)}} style={styles.stopImage} />
                                             <Text style={styles.stopName}>{stop.name}</Text>
                                         </View>
                                     ))}
                                 </ScrollView>
                             </View>
                         )}
+
+                        {/* 🔥 ACCOMMODATIONS SECTION (Swiper Style) 🔥 */}
+                        {accommodations.length > 0 && (
+                            <View style={styles.detailsSection}>
+                                <View style={styles.sectionHeader}>
+                                    <Bed size={18} color="#1A2332" />
+                                    <Text style={styles.detailsHeader}>Available Accommodations</Text>
+                                </View>
+                                
+                                <ScrollView 
+                                    horizontal 
+                                    showsHorizontalScrollIndicator={false} 
+                                    contentContainerStyle={styles.accSwiperContainer}
+                                >
+                                    {accommodations.map((acc) => (
+                                        <TouchableOpacity 
+                                            key={acc.id} 
+                                            style={styles.accCard}
+                                            activeOpacity={0.9}
+                                            // Optional: Add navigation to accommodation details here
+                                        >
+                                            {/* Image */}
+                                            <Image 
+                                                source={{ uri: getImageUrl(acc.photo) }}
+                                                style={styles.accImage} 
+                                            />
+                                            
+                                            {/* Type Badge (e.g. Room, Apartment) */}
+                                            <View style={styles.accBadge}>
+                                                <Text style={styles.accBadgeText}>
+                                                    {acc.accommodation_type || "Stay"}
+                                                </Text>
+                                            </View>
+
+                                            {/* Details */}
+                                            <View style={styles.accContent}>
+                                                <Text style={styles.accTitle} numberOfLines={1}>
+                                                    {acc.title}
+                                                </Text>
+                                                <View style={styles.accLocationRow}>
+                                                    <MapPin size={12} color="#888" />
+                                                    <Text style={styles.accLocation} numberOfLines={1}>
+                                                        {acc.location}
+                                                    </Text>
+                                                </View>
+                                                
+                                                <View style={styles.accDivider} />
+
+                                                <View style={styles.accFooter}>
+                                                    <Text style={styles.accPrice}>
+                                                        ₱{acc.price} <Text style={styles.accPerNight}>/ night</Text>
+                                                    </Text>
+                                                    
+                                                    {/* Simple Amenities Icons */}
+                                                    <View style={styles.accAmenities}>
+                                                        {/* Only show if true in your JSON field */}
+                                                        {acc.amenities?.wifi && <Wifi size={14} color="#666" style={{marginLeft:6}} />}
+                                                        {acc.amenities?.parking && <Car size={14} color="#666" style={{marginLeft:6}} />}
+                                                        {acc.amenities?.breakfast && <Coffee size={14} color="#666" style={{marginLeft:6}} />}
+                                                    </View>
+                                                </View>
+                                            </View>
+                                        </TouchableOpacity>
+                                    ))}
+                                </ScrollView>
+                            </View>
+                        )}
+                        {/* 🔥 END ACCOMMODATIONS 🔥 */}
 
                         {/* Guide Details Section */}
                         <View style={styles.detailsSection}>
@@ -224,21 +294,42 @@ const TouristGuideDetails = () => {
                                 <CalendarIcon size={18} color="#1A2332" />
                                 <Text style={styles.detailsHeader}>Availability</Text>
                             </View>
-                            <Text style={styles.detailLabel}>General Weekly Availability:</Text>
-                            {renderAvailability(guide.available_days)}
-                             <Text style={[styles.detailLabel, {marginTop: 10}]}>Specific Available Dates:</Text>
-                            <Calendar
-                                current={new Date().toISOString().split('T')[0]}
-                                markedDates={markedDates}
-                                disabledByDefault={true}
-                                theme={{
-                                    calendarBackground: '#F5F7FA',
-                                    textSectionTitleColor: '#8B98A8',
-                                    todayTextColor: '#00A8FF',
-                                    dayTextColor: '#1A2332',
-                                    textDisabledColor: '#d9e1e8'
-                                }}
-                            />
+                            
+                            <Text style={styles.detailLabel}>Weekly Schedule:</Text>
+                            {renderAvailabilityBubbles(guide.available_days)}
+                            
+                            <Text style={[styles.detailLabel, {marginTop: 15, marginBottom: 10}]}>Full Calendar:</Text>
+                            
+                            <View style={styles.calendarContainer}>
+                                <Calendar
+                                    current={new Date().toISOString().split('T')[0]}
+                                    markedDates={markedDates}
+                                    disabledByDefault={true}
+                                    disableAllTouchEventsForDisabledDays={true}
+                                    theme={{
+                                        calendarBackground: '#fff',
+                                        textSectionTitleColor: '#8B98A8',
+                                        todayTextColor: '#00A8FF',
+                                        dayTextColor: '#1A2332',
+                                        textDisabledColor: '#d9e1e8',
+                                        arrowColor: '#00A8FF',
+                                        monthTextColor: '#1A2332',
+                                        textMonthFontWeight: '700',
+                                        textDayHeaderFontWeight: '600',
+                                    }}
+                                    style={styles.calendarStyle}
+                                />
+                                <View style={styles.legendContainer}>
+                                    <View style={styles.legendItem}>
+                                        <View style={[styles.dot, { backgroundColor: '#00A8FF' }]} />
+                                        <Text style={styles.legendText}>Available</Text>
+                                    </View>
+                                    <View style={styles.legendItem}>
+                                        <View style={[styles.dot, { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ccc' }]} />
+                                        <Text style={styles.legendText}>Unavailable</Text>
+                                    </View>
+                                </View>
+                            </View>
                         </View>
                         
                         <TouchableOpacity 
@@ -267,10 +358,14 @@ const TouristGuideDetails = () => {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#fff' },
     loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" },
+    
+    // Header
     header: { position: 'relative', height: 120, justifyContent: 'center' },
     headerImage: { width: '100%', height: '100%', resizeMode: 'cover', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     headerTitle: { position: 'absolute', bottom: 15, left: 20, color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 1 },
+    backButton: { position: 'absolute', top: 20, left: 20, padding: 5, zIndex: 10 },
+
     contentContainer: { padding: 16 },
     guideCard: { backgroundColor: '#F5F7FA', borderRadius: 15, padding: 16, borderWidth: 1, borderColor: '#E0E6ED' },
     cardProfileSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
@@ -281,6 +376,8 @@ const styles = StyleSheet.create({
     guideAddress: { fontSize: 13, color: '#8B98A8', marginTop: 4 },
     ratingContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
     guideRating: { fontSize: 13, color: '#C99700', marginLeft: 4 },
+    
+    // Availability Bubbles
     availabilityContainer: { flexDirection: 'row', gap: 4, marginTop: 4, marginBottom: 10 },
     dayBadge: { width: 22, height: 22, borderRadius: 11, justifyContent: 'center', alignItems: 'center' },
     dayAvailable: { backgroundColor: '#28A745' },
@@ -288,6 +385,7 @@ const styles = StyleSheet.create({
     dayText: { fontSize: 10, fontWeight: '700' },
     dayTextAvailable: { color: '#fff' },
     dayTextUnavailable: { color: '#A0A0A0' },
+    
     buttonRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
     actionButton: { flex: 1, backgroundColor: '#00A8FF', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 8, gap: 6 },
     actionButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
@@ -310,6 +408,43 @@ const styles = StyleSheet.create({
     detailText: { fontSize: 14, color: '#1A2332', marginLeft: 10 },
     detailLabel: { fontWeight: '600', color: '#1A2332' },
     itineraryText: { fontSize: 14, color: '#555', lineHeight: 20 },
+    
+    // --- ACCOMMODATION CARD STYLES ---
+    accSwiperContainer: { paddingRight: 20, paddingVertical: 10 },
+    accCard: { 
+        width: 240, 
+        marginRight: 15, 
+        backgroundColor: '#fff', 
+        borderRadius: 12, 
+        shadowColor: "#000", 
+        shadowOffset: {width: 0, height: 2}, 
+        shadowOpacity: 0.1, 
+        shadowRadius: 4, 
+        elevation: 3,
+        borderWidth: 1,
+        borderColor: '#f0f0f0',
+        overflow: 'hidden'
+    },
+    accImage: { width: '100%', height: 130 },
+    accBadge: { position: 'absolute', top: 10, left: 10, backgroundColor: 'rgba(0, 168, 255, 0.9)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+    accBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
+    accContent: { padding: 12 },
+    accTitle: { fontSize: 15, fontWeight: '700', color: '#1A2332', marginBottom: 4 },
+    accLocationRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+    accLocation: { fontSize: 12, color: '#888', marginLeft: 4 },
+    accDivider: { height: 1, backgroundColor: '#f0f0f0', marginVertical: 8 },
+    accFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    accPrice: { fontSize: 14, fontWeight: '700', color: '#00A8FF' },
+    accPerNight: { fontSize: 11, color: '#999', fontWeight: '400' },
+    accAmenities: { flexDirection: 'row' },
+
+    // Calendar
+    calendarContainer: { backgroundColor: '#fff', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#eee' },
+    calendarStyle: { borderRadius: 8, overflow: 'hidden' },
+    legendContainer: { flexDirection: 'row', justifyContent: 'center', gap: 20, marginTop: 15, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
+    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    dot: { width: 8, height: 8, borderRadius: 4 },
+    legendText: { fontSize: 12, color: '#666' },
     bookButton: { backgroundColor: '#00A8FF', paddingVertical: 16, borderRadius: 8, alignItems: 'center', marginVertical: 20, shadowColor: "#00A8FF", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 5 },
     bookButtonText: { color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 1 },
 });

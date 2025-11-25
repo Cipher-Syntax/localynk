@@ -294,7 +294,7 @@ const DiscoverWhatYouWant = ({ isPublic = false }) => {
             router.push('/auth/login');
         } else {
             router.push({
-                pathname: "/(protected)/attractionDetails",
+                pathname: "/(protected)/guideSelection",
                 params: { category: item.touristGuide },
             });
         }
