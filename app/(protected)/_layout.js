@@ -30,7 +30,7 @@ export default function ProtectedLayout() {
         '/addAccommodation',
         '/UpdateGuideInfoForm',
         '/placesDetails',
-        '/attractionDetails',
+        '/guideSelection',
         '/bookingChoice',
         '/guideAvailability',
         '/notification',

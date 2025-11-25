@@ -1,40 +1,100 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TextInput, Button, Alert, ScrollView, StyleSheet } from 'react-native';
-import api from '../../api/api'; // Your api wrapper
+import { View, Text, TextInput, Alert, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import api from '../../api/api'; 
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Picker } from '@react-native-picker/picker'; 
+import { Ionicons } from '@expo/vector-icons';
+
+// --- CONFIGURATION: Common Specialties ---
+const SPECIALTY_OPTIONS = [
+    'History & Culture',
+    'Food & Culinary',
+    'Nature & Wildlife',
+    'Hiking & Trekking',
+    'Water Sports',
+    'Nightlife & Parties',
+    'Photography',
+    'Spiritual & Wellness',
+    'Shopping & Fashion',
+    'Other'
+];
 
 const UpdateGuideInfoForm = () => {
+    const [isLoading, setIsLoading] = useState(false);
+    
+    // --- 1. Form State ---
     const [languages, setLanguages] = useState([]);
-    const [specialty, setSpecialty] = useState('');
-    const [tourItinerary, setTourItinerary] = useState('');
+    
+    // Specialty Logic
+    const [selectedSpecialty, setSelectedSpecialty] = useState(SPECIALTY_OPTIONS[0]);
+    const [customSpecialty, setCustomSpecialty] = useState('');
+
     const [experience, setExperience] = useState('');
     const [price, setPrice] = useState('');
+    
+    // --- 2. Calendar & Availability State ---
     const [availableDays, setAvailableDays] = useState([]);
     const [markedDates, setMarkedDates] = useState({});
 
     const daysOptions = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const dayMapping = { 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6, 'Sun': 0 };
 
+    // --- 3. Initial Data Fetch ---
     useEffect(() => {
-        api.get('/api/profile/')
-            .then(response => {
-                const data = response.data;
-                setLanguages(data.languages || []);
-                setSpecialty(data.specialty || '');
-                setTourItinerary(data.tour_itinerary || '');
-                setExperience(data.experience_years?.toString() || '');
-                setPrice(data.price_per_day?.toString() || '');
-                setAvailableDays(data.available_days || []);
-                const existingMarkedDates = (data.specific_available_dates || []).reduce((acc, dateString) => {
-                    acc[dateString] = { selected: true, marked: true, selectedColor: 'blue' };
-                    return acc;
-                }, {});
-                setMarkedDates(existingMarkedDates);
-            })
-            .catch(error => console.error(error.response?.data || error.message));
+        fetchProfile();
     }, []);
 
+    const fetchProfile = async () => {
+        try {
+            // NOTE: Changed endpoint to match your backend router/view setup if needed
+            // Assuming 'api/guide/update-info/' maps to a RetrieveUpdateAPIView for the current user
+            const response = await api.get('api/guide/update-info/'); 
+            const data = response.data;
+            console.log(data)
+            
+            // --- PRE-FILL DATA LOGIC ---
+            
+            // 1. Languages
+            if (Array.isArray(data.languages)) {
+                setLanguages(data.languages);
+            } else if (typeof data.languages === 'string') {
+                // Handle case where backend might send comma-separated string
+                setLanguages(data.languages.split(',').map(l => l.trim()));
+            }
+
+            // 2. Basic Fields
+            setExperience(data.experience_years ? data.experience_years.toString() : '');
+            setPrice(data.price_per_day ? data.price_per_day.toString() : '');
+            setAvailableDays(data.available_days || []);
+            
+            // 3. Specialty Logic (Smart Pre-fill)
+            const incomingSpecialty = data.specialty || '';
+            if (SPECIALTY_OPTIONS.includes(incomingSpecialty)) {
+                setSelectedSpecialty(incomingSpecialty);
+                setCustomSpecialty('');
+            } else if (incomingSpecialty.length > 0) {
+                // It's a custom specialty not in our list -> Set "Other" + Fill Text Box
+                setSelectedSpecialty('Other');
+                setCustomSpecialty(incomingSpecialty);
+            }
+
+            // 4. Calendar Dates
+            // Backend sends array: ['2025-12-25', '2026-01-01']
+            // Frontend needs object: {'2025-12-25': {selected: true, ...}}
+            const existingMarkedDates = (data.specific_available_dates || []).reduce((acc, dateString) => {
+                acc[dateString] = { selected: true, marked: true, selectedColor: '#007AFF' };
+                return acc;
+            }, {});
+            setMarkedDates(existingMarkedDates);
+
+        } catch (error) {
+            console.log("Profile Fetch Error:", error.response?.data || error.message);
+            // Optional: Alert user if fetch fails fundamentally
+        }
+    };
+
+    // --- 4. Logic: Toggle Weekdays ---
     const toggleDay = (day) => {
         if (availableDays.includes(day)) {
             setAvailableDays(availableDays.filter(d => d !== day));
@@ -43,183 +103,309 @@ const UpdateGuideInfoForm = () => {
         }
     };
 
+    // --- 5. Logic: Toggle Specific Calendar Dates ---
     const onDayPress = (day) => {
         const dateString = day.dateString;
         const newMarkedDates = { ...markedDates };
 
         if (newMarkedDates[dateString]) {
-            delete newMarkedDates[dateString];
+            delete newMarkedDates[dateString]; // Deselect
         } else {
-            newMarkedDates[dateString] = { selected: true, marked: true, selectedColor: 'blue' };
+            newMarkedDates[dateString] = { selected: true, marked: true, selectedColor: '#007AFF' }; // Select
         }
         setMarkedDates(newMarkedDates);
     };
 
+    // --- 6. Logic: Disable dates based on Weekdays ---
     const disabledDays = useMemo(() => {
         const enabledDayNumbers = availableDays.map(day => dayMapping[day]);
         const disabled = {};
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // Disable all past dates
-        for (let i = 0; i < 365; i++) {
-            const date = new Date(today.getFullYear(), 0, i + 1);
-            if (date < today) {
-                const dateString = date.toISOString().split('T')[0];
-                disabled[dateString] = { disabled: true, disableTouchEvent: true };
-            }
-        }
-        
-        // Disable days of the week that are not selected
-        const currentYear = today.getFullYear();
-        const nextYear = currentYear + 1;
-        for (let year = currentYear; year <= nextYear; year++) {
+        const startYear = today.getFullYear();
+        const endYear = startYear + 1;
+
+        for (let year = startYear; year <= endYear; year++) {
             for (let month = 0; month < 12; month++) {
                 const daysInMonth = new Date(year, month + 1, 0).getDate();
                 for (let day = 1; day <= daysInMonth; day++) {
                     const date = new Date(year, month, day);
-                    if (!enabledDayNumbers.includes(date.getDay())) {
-                        const dateString = date.toISOString().split('T')[0];
-                        if (!disabled[dateString]) {
-                             disabled[dateString] = { disabled: true, disableTouchEvent: true };
-                        }
+                    const dateString = date.toISOString().split('T')[0];
+
+                    if (date < today) {
+                        disabled[dateString] = { disabled: true, disableTouchEvent: true, color: '#f0f0f0', textColor: '#d9d9d9' };
+                    } else if (!enabledDayNumbers.includes(date.getDay())) {
+                        disabled[dateString] = { disabled: true, disableTouchEvent: true, color: '#f9f9f9', textColor: '#d9d9d9' };
                     }
                 }
             }
         }
-
         return disabled;
     }, [availableDays]);
 
-    const resetForm = () => {
-    setLanguages([]);
-        setSpecialty('');
-        setExperience('');
-        setTourItinerary('');
-        setPrice('');
-        setAvailableDays([]);
-        setMarkedDates({});
-    };
+    // --- 7. Submit ---
+    const handleSubmit = async () => {
+        setIsLoading(true);
+        // Determine final specialty value
+        const finalSpecialty = selectedSpecialty === 'Other' ? customSpecialty : selectedSpecialty;
+        
+        if (selectedSpecialty === 'Other' && !customSpecialty.trim()) {
+            Alert.alert("Missing Info", "Please type your specific specialty.");
+            setIsLoading(false);
+            return;
+        }
 
-
-    const handleSubmit = () => {
         const specific_dates = Object.keys(markedDates);
 
-        api.patch('/api/guide/update-info/', {
-            languages,
-            specialty,
-            tour_itinerary: tourItinerary,
-            experience: parseInt(experience, 10),
-            price: parseFloat(price),
-            available_days: availableDays,
-            specific_dates: specific_dates
-        })
-        .then(() => {
+        try {
+            // We send the processed data back to the server
+            await api.patch('api/guide/update-info/', {
+                languages, // Array of strings
+                specialty: finalSpecialty,
+                experience: parseInt(experience, 10),
+                price: parseFloat(price),
+                available_days: availableDays,
+                specific_dates: specific_dates // Transformed back to simple array of strings
+            });
             Alert.alert('Success', 'Guide info updated successfully!');
-            resetForm();
-        })
-        .catch(error => {
-            console.error(error.response?.data || error.message);
+        } catch (error) {
+            const errorData = error.response?.data || error.message;
+            console.log("Update Error:", errorData);
             Alert.alert('Error', 'Failed to update guide info.');
-        });
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
-        <ScrollView>
-            <SafeAreaView style={styles.container}>
-            <Text style={styles.label}>Languages (comma separated)</Text>
-            <TextInput
-                value={languages.join(', ')}
-                onChangeText={text => setLanguages(text.split(',').map(l => l.trim()))}
-                style={styles.input}
-            />
+        <SafeAreaView style={styles.safeArea}>
+            <ScrollView style={styles.container}>
+                
+                <Text style={styles.header}>Update Profile</Text>
 
-            <Text style={styles.label}>Specialty</Text>
-            <TextInput
-                value={specialty}
-                onChangeText={setSpecialty}
-                style={styles.input}
-            />
-
-            <Text style={styles.label}>Tour Itinerary</Text>
-            <TextInput
-                value={tourItinerary}
-                onChangeText={setTourItinerary}
-                multiline
-                numberOfLines={4}
-                style={[styles.input, { height: 100 }]}
-            />
-
-            <Text style={styles.label}>Experience (years)</Text>
-            <TextInput
-                value={experience}
-                onChangeText={setExperience}
-                keyboardType="numeric"
-                style={styles.input}
-            />
-
-            <Text style={styles.label}>Price per Day (₱)</Text>
-            <TextInput
-                value={price}
-                onChangeText={setPrice}
-                keyboardType="numeric"
-                style={styles.input}
-            />
-
-            <Text style={styles.label}>Select Available Days of the Week</Text>
-            <View style={styles.daysContainer}>
-                {daysOptions.map(day => (
-                    <Button
-                        key={day}
-                        title={`${availableDays.includes(day) ? '✅ ' : ''}${day}`}
-                        onPress={() => toggleDay(day)}
+                {/* Section 1: Basic Info */}
+                <View style={styles.card}>
+                    <Text style={styles.label}>Languages</Text>
+                    <TextInput
+                        value={languages.join(', ')}
+                        onChangeText={text => setLanguages(text.split(',').map(l => l.trim()))}
+                        style={styles.input}
+                        placeholder="e.g. English, Tagalog"
                     />
-                ))}
-            </View>
 
-            <Text style={styles.label}>Select Specific Available Dates</Text>
-            <Calendar
-                onDayPress={onDayPress}
-                markedDates={{...markedDates, ...disabledDays}}
-                minDate={new Date().toISOString().split('T')[0]}
-            />
+                    {/* --- SPECIALTY DROPDOWN --- */}
+                    <Text style={styles.label}>Specialty</Text>
+                    <View style={styles.pickerContainer}>
+                        <Picker
+                            selectedValue={selectedSpecialty}
+                            onValueChange={(itemValue) => setSelectedSpecialty(itemValue)}
+                            style={styles.picker}
+                        >
+                            {SPECIALTY_OPTIONS.map((opt) => (
+                                <Picker.Item key={opt} label={opt} value={opt} style={{fontSize: 14}} />
+                            ))}
+                        </Picker>
+                    </View>
 
-            <View style={styles.buttonContainer}>
-              <Button title="Update Info" onPress={handleSubmit} />
-            </View>
+                    {/* --- CONDITIONAL "OTHER" INPUT --- */}
+                    {selectedSpecialty === 'Other' && (
+                        <View style={{marginTop: 10, marginBottom: 5}}>
+                            <Text style={styles.label}>Please specify your specialty</Text>
+                            <TextInput
+                                value={customSpecialty}
+                                onChangeText={setCustomSpecialty}
+                                style={styles.input}
+                                placeholder="e.g. Bird Watching, Extreme Sports"
+                                autoFocus={true}
+                            />
+                        </View>
+                    )}
+
+                    <View style={{flexDirection: 'row', gap: 10, marginTop: 10}}>
+                        <View style={{flex: 1}}>
+                            <Text style={styles.label}>Experience (Yrs)</Text>
+                            <TextInput
+                                value={experience}
+                                onChangeText={setExperience}
+                                keyboardType="numeric"
+                                style={styles.input}
+                                placeholder="0"
+                            />
+                        </View>
+                        <View style={{flex: 1}}>
+                            <Text style={styles.label}>Price/Day (₱)</Text>
+                            <TextInput
+                                value={price}
+                                onChangeText={setPrice}
+                                keyboardType="numeric"
+                                style={styles.input}
+                                placeholder="0.00"
+                            />
+                        </View>
+                    </View>
+                </View>
+
+                {/* Section 2: Weekday Selection */}
+                <View style={styles.card}>
+                    <Text style={styles.label}>1. Select Available Days</Text>
+                    <Text style={styles.helper}>Which days of the week do you usually work?</Text>
+                    
+                    <View style={styles.daysContainer}>
+                        {daysOptions.map(day => {
+                            const isSelected = availableDays.includes(day);
+                            return (
+                                <TouchableOpacity
+                                    key={day}
+                                    style={[styles.dayChip, isSelected && styles.dayChipSelected]}
+                                    onPress={() => toggleDay(day)}
+                                >
+                                    <Text style={[styles.dayText, isSelected && styles.dayTextSelected]}>
+                                        {day}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+                </View>
+
+                {/* Section 3: Calendar Selection */}
+                <View style={styles.card}>
+                    <Text style={styles.label}>2. Specific Dates</Text>
+                    <Text style={styles.helper}>Tap specific dates below to add them to your schedule. (Days not enabled above are grayed out).</Text>
+                    
+                    <Calendar
+                        onDayPress={onDayPress}
+                        markedDates={{...disabledDays, ...markedDates}}
+                        minDate={new Date().toISOString().split('T')[0]}
+                        theme={{
+                            todayTextColor: '#007AFF',
+                            selectedDayBackgroundColor: '#007AFF',
+                            arrowColor: '#007AFF',
+                            textDayFontWeight: '500',
+                            textMonthFontWeight: 'bold',
+                            textDayHeaderFontWeight: '600'
+                        }}
+                    />
+                </View>
+
+                {/* Submit Button */}
+                <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={isLoading}>
+                    {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Update Information</Text>}
+                </TouchableOpacity>
+
+                <View style={{height: 40}} /> 
+            </ScrollView>
         </SafeAreaView>
-        </ScrollView>
-
     );
 };
 
 const styles = StyleSheet.create({
+    safeArea: {
+        flex: 1,
+        backgroundColor: '#F2F4F7'
+    },
     container: {
         padding: 20,
-        flex: 1
+    },
+    header: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#253347',
+        marginBottom: 20,
+    },
+    card: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 15,
+        marginBottom: 15,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 2,
     },
     label: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        marginBottom: 5,
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#333',
+        marginBottom: 6,
+    },
+    helper: {
+        fontSize: 12,
+        color: '#666',
+        marginBottom: 12,
     },
     input: {
         borderWidth: 1,
-        borderColor: '#ccc',
-        padding: 10,
-        borderRadius: 5,
+        borderColor: '#E5E7EB',
+        borderRadius: 8,
+        padding: 12,
         marginBottom: 15,
+        backgroundColor: '#FAFAFA',
+        fontSize: 14,
     },
+    
+    // Dropdown Style
+    pickerContainer: {
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        borderRadius: 8,
+        backgroundColor: '#FAFAFA',
+        marginBottom: 10,
+        justifyContent: 'center',
+        height: 50, 
+    },
+    picker: {
+        width: '100%',
+        height: 50,
+    },
+
+    // Chip Styles
     daysContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        marginBottom: 15,
-        justifyContent: 'center',
+        gap: 8,
+        marginBottom: 5,
     },
-    buttonContainer: {
-        marginTop: 20,
+    dayChip: {
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        backgroundColor: '#f0f0f0',
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
+    },
+    dayChipSelected: {
+        backgroundColor: '#007AFF',
+        borderColor: '#007AFF',
+    },
+    dayText: {
+        fontSize: 13,
+        color: '#555',
+        fontWeight: '600',
+    },
+    dayTextSelected: {
+        color: '#fff',
+    },
+
+    submitBtn: {
+        backgroundColor: '#007AFF',
+        paddingVertical: 16,
+        borderRadius: 12,
+        alignItems: 'center',
+        marginTop: 10,
+        shadowColor: '#007AFF',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        elevation: 5,
+    },
+    submitBtnText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700',
     }
 });
 
 export default UpdateGuideInfoForm;
-

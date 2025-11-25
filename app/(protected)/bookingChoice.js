@@ -1,4 +1,4 @@
-// localynk/app/screens/bookingChoice.js (Updated with scrolling header)
+// localynk/app/screens/bookingChoice.js
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Image } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -11,12 +11,15 @@ const BookingChoice = () => {
     const { placeId, placeName } = params;
     const [selectedOption, setSelectedOption] = useState(null);
 
+
+    console.log('FETCHING THE ID AND NAME OF DESTINATION FROM PLACE DETAILS: ', placeId, placeName)
+
     const handleCustomGuide = () => {
         router.push({
-            pathname: '/(protected)/attractionDetails',
+            pathname: '/(protected)/guideSelection',
             params: { 
-                placeId: placeId,       // Pass ID to the next screen
-                placeName: placeName    // Pass Name to the next screen
+                placeId: placeId,
+                placeName: placeName 
             }
         });
     };
@@ -102,13 +105,10 @@ const BookingChoice = () => {
         <SafeAreaView style={styles.fullContainer}>
             <StatusBar barStyle="light-content" backgroundColor="#000" />
 
-            {/* Move everything INSIDE ScrollView so header scrolls */}
             <ScrollView 
                 style={styles.container} 
-                // contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
-                {/* HEADER NOW SCROLLS */}
                 <View style={styles.header}>
                     <Image
                         source={require('../../assets/localynk_images/header.png')}
@@ -121,14 +121,12 @@ const BookingChoice = () => {
                     <Text style={styles.headerTitle}>CHOOSE BOOKING TYPE</Text>
                 </View>
 
-                {/* Title Section */}
                 <View style={styles.headerSection}>
                     <Text style={styles.mainHeader}>Select Your Experience</Text>
                     <Text style={styles.placeName}>{placeName || 'This Location'}</Text>
                     <Text style={styles.subtext}>Choose how you'd like to explore</Text>
                 </View>
 
-                {/* Option Cards */}
                 <View style={styles.cardsContainer}>
                     <OptionCard
                         icon="👤"
@@ -165,7 +163,6 @@ const BookingChoice = () => {
                     />
                 </View>
 
-                {/* Comparison */}
                 <View style={styles.comparisonBox}>
                     <View style={styles.comparisonRow}>
                         <View style={styles.comparisonItem}>
@@ -186,7 +183,6 @@ const BookingChoice = () => {
                     </View>
                 </View>
 
-                {/* Trust Badge */}
                 <View style={styles.trustBadge}>
                     <Text style={styles.trustIcon}>⭐</Text>
                     <Text style={styles.trustText}>Trusted by 10K+ travelers</Text>
@@ -228,10 +224,7 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         letterSpacing: 1,
     },
-
     container: { flex: 1 },
-    // scrollContent: { paddingHorizontal: 20, paddingVertical: 24 },
-
     headerSection: {
         marginBottom: 36,
         alignItems: 'center',
@@ -256,13 +249,11 @@ const styles = StyleSheet.create({
         fontWeight: '500',
         textAlign: 'center',
     },
-
     cardsContainer: {
         width: '100%',
         marginBottom: 28,
-		paddingHorizontal: 20
+        paddingHorizontal: 20
     },
-
     card: {
         borderRadius: 20,
         paddingHorizontal: 20,
@@ -308,9 +299,7 @@ const styles = StyleSheet.create({
         fontWeight: '500',
         lineHeight: 18,
     },
-
     featuresList: { marginBottom: 20 },
-
     featureItem: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -334,7 +323,6 @@ const styles = StyleSheet.create({
         color: '#555',
         flex: 1,
     },
-
     buttonContainer: {
         marginHorizontal: -20,
         borderBottomLeftRadius: 20,
@@ -347,7 +335,6 @@ const styles = StyleSheet.create({
         fontSize: 15,
         fontWeight: '800',
     },
-
     comparisonBox: {
         backgroundColor: '#f8fafb',
         borderRadius: 16,
@@ -368,7 +355,6 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
     compValue: { fontSize: 13, fontWeight: '600', marginBottom: 6 },
-
     trustBadge: {
         alignItems: 'center',
         paddingVertical: 16,

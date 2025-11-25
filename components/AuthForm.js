@@ -12,8 +12,7 @@ const { height } = Dimensions.get('window');
 const AuthForm = ({ method }) => {
 
     // --- Context Hook ---
-    const { login, register, resendVerificationEmail, message, messageType, clearMessage } = useAuth(); // <--- MODIFIED
-    // Removed local authError state and useEffect
+    const { login, register, resendVerificationEmail, message, messageType, clearMessage } = useAuth(); 
 
     const { control, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm();
     const [remember, setRemember] = useState(false);
@@ -25,12 +24,14 @@ const AuthForm = ({ method }) => {
 
     const status = method === 'login' ? 'Welcome Back Adventurer' : 'Join The Adventure';
 
+    // --- FIX APPLIED HERE ---
+    // Change dependency array from [method] to []
+    // This makes the cleanup (clearMessage) only run when the component unmounts
+    // (i.e., when leaving the auth flow), allowing the success message to persist
+    // across the redirect from register to login.
     useEffect(() => {
-        // Clear global message when component unmounts or method changes
-        return () => {
-            clearMessage();
-        };
-    }, [method, clearMessage]);
+        return () => clearMessage();
+    }, []); // <--- MODIFIED
 
     const onSubmit = async (data) => {
         clearMessage(); // Clear any previous messages before submitting
@@ -51,7 +52,6 @@ const AuthForm = ({ method }) => {
                 }
             } else {
                 // AuthContext handles setting the message and messageType
-                // No need to set a local authError here
             }
         } else {
             const userData = {
@@ -64,6 +64,8 @@ const AuthForm = ({ method }) => {
             const result = await register(userData);
 
             if (result.success) {
+                // Message is set in AuthContext. Router replaces the screen.
+                // The new login screen will pick up the message.
                 router.replace('/auth/login')
             } else {
                 // AuthContext handles setting the message and messageType
@@ -103,6 +105,8 @@ const AuthForm = ({ method }) => {
                     </MaskedView>
 
                     {/* Debug logs for message and button condition */}
+                    {/* The code below is for debugging and can be removed in production */}
+                    {/*
                     {console.log('AuthForm - Current message:', message)}
                     {console.log('AuthForm - Current messageType:', messageType)}
                     {console.log('AuthForm - Current method:', method)}
@@ -110,20 +114,22 @@ const AuthForm = ({ method }) => {
                     {console.log('AuthForm - Condition 2 (message.includes("verify your email")):', message && message.includes('verify your email'))}
                     {console.log('AuthForm - Condition 3 (method === "login"):', method === 'login')}
                     {console.log('AuthForm - Combined button condition:', message && messageType === 'error' && message.includes('verify your email') && method === 'login')}
+                    */}
                     {/* End Debug logs */}
 
-                    {message && messageType === 'error' ? ( // <--- MODIFIED
+                    {message && messageType === 'error' ? ( 
                         <>
-                            <Text style={styles.errorText}>{message}</Text> {/* <--- MODIFIED */}
-                            {message.includes('verify your email') && method === 'login' && ( // <--- MODIFIED
+                            <Text style={styles.errorText}>{message}</Text> 
+                            {message.includes('verify your email') && method === 'login' && ( 
                                 <Pressable style={styles.resendLink} onPress={handleResendVerification}>
                                     <Text style={styles.resendLinkText}>Resend Verification Email</Text>
                                 </Pressable>
                             )}
                         </>
                     ) : null}
-                    {message && messageType === 'success' ? ( // <--- MODIFIED
-                        <Text style={styles.successText}>{message}</Text> // <--- Added a success text style
+                    {message && messageType === 'success' ? ( 
+                        // This block will now render the success message on the login screen
+                        <Text style={styles.successText}>{message}</Text> 
                     ) : null}
 
                     {/* Username */}
@@ -303,6 +309,7 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     errorText: { color: 'red', fontSize: 12, marginBottom: 5, textAlign: 'left', alignSelf: 'flex-start', width: '100%' },
+    successText: { color: 'green', fontSize: 14, marginBottom: 15, textAlign: 'center', fontWeight: 'bold' }, // Added style
     optionsRow: { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 5 },
     rememberRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     rememberText: { fontSize: 12, color: '#444' },

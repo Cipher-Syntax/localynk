@@ -1,13 +1,13 @@
 import { View, Text, ScrollView, ActivityIndicator, StyleSheet } from "react-native";
-import { IsTourist, Action } from "../../../components/tourist_guide";
+// Assuming IsTourist is the Guide Dashboard and Action is the Tourist/Initial screen
+import { IsTourist, Action, PendingGuide } from "../../../components/tourist_guide"; 
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useState, useEffect } from "react";
-import { useAuth } from "../../../context/AuthContext"; // <-- CORRECTED IMPORT
+import { useAuth } from "../../../context/AuthContext"; 
 
 export default function TourGuide() {
-    // The previous local loading state is largely redundant now but kept for initial screen fade.
     const [loading, setLoading] = useState(true);
-    const { role, isLoading: isAuthLoading } = useAuth(); // <-- Get role and Auth loading state
+    const { role, isLoading: isAuthLoading } = useAuth(); // Now correctly receives 'guide', 'pending_guide', or 'tourist'
 
     useEffect(() => {
         // Wait a short time before marking the screen as loaded
@@ -26,19 +26,31 @@ export default function TourGuide() {
 
     // --- CONDITIONAL RENDERING ---
 
-    // If role is 'guide' (meaning is_local_guide=True AND guide_approved=True)
+    // 1. Fully Approved Guide
     if (role === 'guide') {
         return (
             <SafeAreaView style={styles.safeArea}>
                 <ScrollView contentContainerStyle={styles.scrollContent}>
-                    {/* Render the Guide Dashboard */}
+                    {/* Renders the Guide Dashboard */}
                     <IsTourist /> 
                 </ScrollView>
             </SafeAreaView>
         );
     }
     
-    // Otherwise, render the application initiation page (Tourist, or Pending Review/Payment)
+    // 2. Pending Guide Review
+    if (role === 'pending_guide') {
+        return (
+            <SafeAreaView style={styles.safeArea}>
+                <ScrollView contentContainerStyle={styles.scrollContent}>
+                    {/* Renders the Pending Guide page */}
+                    <PendingGuide /> 
+                </ScrollView>
+            </SafeAreaView>
+        );
+    }
+
+    // 3. Tourist (Default) or other non-guide roles
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView contentContainerStyle={styles.scrollContent}>

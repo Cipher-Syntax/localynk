@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../api/api';
@@ -12,135 +12,105 @@ const initialAuthState = {
     user: null,
     token: null,
     isLoading: true,
-    message: null,    
-    messageType: null, // 'success', 'error', 'info'
+    message: null,
+    messageType: null,
 };
 
 export function AuthProvider({ children }) {
     const [state, setState] = useState(initialAuthState);
     const router = useRouter();
 
-    // --- Core function to fetch profile ---
+    // --- Clear messages (memoized so it NEVER changes)
+    const clearMessage = useCallback(() => {
+        setState(prev => ({ ...prev, message: null, messageType: null }));
+    }, []);
+
+    // --- Fetch Profile
     const fetchProfile = async () => {
         try {
             const response = await api.get('/api/profile/');
             return response.data;
         } catch (error) {
-            if (
-                error.response?.status === 404 ||
-                error.response?.data?.code === 'user_not_found'
-            ) {
-                return null;
-            }
+            if (error.response?.status === 404) return null;
             throw error;
         }
     };
 
-    // ⭐ NEW FUNCTION: Handle PATCH request to update user profile
+    // --- UPDATE Profile
     const updateUserProfile = async (profileData) => {
         try {
             const response = await api.patch('/api/profile/', profileData);
-            const updatedUser = response.data;
 
             setState(prev => ({
                 ...prev,
-                user: updatedUser,
-                message: 'Profile updated successfully.',
-                messageType: 'success'
+                user: response.data,
+                message: "Profile updated successfully.",
+                messageType: "success"
             }));
 
-            // In a production app, you might want to re-save updated user data 
-            // to AsyncStorage if you store the entire user object there.
-
-            return true; // Success
-        } catch (error) {
-            console.error("Profile update failed:", error.response?.data || error);
-            // Return specific error message from backend if available
-            let errorMessage = 'Failed to update profile. Please check your inputs.';
-            if (error.response?.data) {
-                // Simplified error extraction, adjust based on your Django API format
-                errorMessage = JSON.stringify(error.response.data);
-            }
-            setState(prev => ({
-                ...prev,
-                message: errorMessage,
-                messageType: 'error'
-            }));
-            return false; // Failure
-        }
-    };
-
-
-    // --- Refresh user manually ---
-    const refreshUser = async () => {
-        try {
-            const user = await fetchProfile();
-            if (user) {
-                setState(prev => ({ 
-                    ...prev, 
-                    user, 
-                    isAuthenticated: true, 
-                    message: 'Profile refreshed.',
-                    messageType: 'info'
-                }));
-            }
             return true;
-        } catch (e) {
-            console.error('Failed to refresh user profile:', e);
+        } catch (err) {
+            setState(prev => ({
+                ...prev,
+                message: "Failed to update profile.",
+                messageType: "error"
+            }));
             return false;
         }
     };
 
-    // --- Load stored tokens on app startup ---
+    // --- Refresh User
+    const refreshUser = async () => {
+        try {
+            const user = await fetchProfile();
+            if (user) {
+                setState(prev => ({ ...prev, user, isAuthenticated: true }));
+            }
+            return true;
+        } catch {
+            return false;
+        }
+    };
+
+    // --- Load tokens on startup
     useEffect(() => {
         const loadStoredUser = async () => {
             try {
                 const access = await AsyncStorage.getItem(ACCESS_TOKEN);
                 const refresh = await AsyncStorage.getItem(REFRESH_TOKEN);
 
-                console.log('Checking stored tokens...', { access: !!access, refresh: !!refresh });
-
                 if (access && refresh) {
-                    try {
-                        const user = await fetchProfile();
-                        if (user) {
-                            console.log('User loaded from stored tokens:', user);
-                            setState({ 
-                                isAuthenticated: true, 
-                                user, 
-                                token: access, 
-                                isLoading: false,
-                                message: null,
-                                messageType: null
-                            });
-                        } else {
-                            // tokens exist but user is inactive/unverified
-                            console.log('Tokens exist but user not found or inactive');
-                            await AsyncStorage.removeItem(ACCESS_TOKEN);
-                            await AsyncStorage.removeItem(REFRESH_TOKEN);
-                            setState(prev => ({ ...prev, isLoading: false }));
-                        }
-                    } catch (profileError) {
-                        console.error('Error fetching profile:', profileError);
+                    const user = await fetchProfile();
+                    if (user) {
+                        setState({
+                            isAuthenticated: true,
+                            user,
+                            token: access,
+                            isLoading: false,
+                            message: null,
+                            messageType: null
+                        });
+                    } else {
                         await AsyncStorage.removeItem(ACCESS_TOKEN);
                         await AsyncStorage.removeItem(REFRESH_TOKEN);
                         setState(prev => ({ ...prev, isLoading: false }));
                     }
                 } else {
-                    console.log('No stored tokens found');
                     setState(prev => ({ ...prev, isLoading: false }));
                 }
-            } catch (error) {
-                console.error('Error loading tokens:', error);
+            } catch {
                 setState(prev => ({ ...prev, isLoading: false }));
             }
         };
+
         loadStoredUser();
     }, []);
 
-    // --- LOGIN ---
+
+    // --- LOGIN
     const login = async (username, password) => {
         setState(prev => ({ ...prev, isLoading: true }));
+
         try {
             const response = await api.post('/api/token/', { username, password });
             const access = response.data.access;
@@ -149,155 +119,141 @@ export function AuthProvider({ children }) {
             await AsyncStorage.setItem(ACCESS_TOKEN, access);
             await AsyncStorage.setItem(REFRESH_TOKEN, refresh);
 
-            // Fetch profile
             const user = await fetchProfile();
 
             if (!user) {
                 setState({
                     ...initialAuthState,
                     isLoading: false,
-                    message: 'Account not verified. Check your email.',
-                    messageType: 'error',
+                    message: "Please verify your email first.",
+                    messageType: "error",
                 });
                 return false;
             }
 
             setState({
                 isAuthenticated: true,
-                user, // Return user object for first-time check in AuthForm
+                user,
                 token: access,
                 isLoading: false,
-                message: 'Login successful!',
-                messageType: 'success',
+                message: "Login successful!",
+                messageType: "success"
             });
-            return user; // ⭐ IMPORTANT: Return the user object on success
-        }
+
+            return user; 
+        } 
         catch (error) {
-            console.error('Login error:', error.response?.data || error.message);
-            
-            let errorMessage = 'Invalid username or password';
-            
-            if (error.response?.data?.detail?.includes('not active') || 
-                error.response?.data?.detail?.includes('verify your email') ||
-                error.response?.data?.detail?.includes('No active account found with the given credentials')) { // <--- ADDED THIS CONDITION
-                errorMessage = 'Please verify your email before logging in. Check your inbox.';
+            let msg = "Invalid username or password";
+            if (error.response?.data?.detail?.includes("verify")) {
+                msg = "Please verify your email before logging in.";
             }
-            
+
             setState(prev => ({
                 ...prev,
                 isLoading: false,
-                message: errorMessage,
-                messageType: 'error',
-            }));
-            return false;
-        }
-    };
-
-    // --- REGISTER ---
-    const register = async (userData) => {
-        try {
-            await api.post('/api/register/', userData);
-            setState(prev => ({
-                ...prev,
-                message: 'Registration successful. Verify your email to log in.',
-                messageType: 'success',
-            }));
-            return { success: true, message: 'Verify your email before logging in.' };
-        } catch (error) {
-            console.error(
-                'Registration error:',
-                error?.response?.data ?? error?.message ?? error
-            );
-
-            let msg = 'Registration failed. Please check your info.';
-            if (error?.response?.data?.detail) {
-                msg = error.response.data.detail;
-            }
-
-            setState(prev => ({
-                ...prev,
                 message: msg,
-                messageType: 'error',
+                messageType: "error"
+            }));
+
+            return false;
+        }
+    };
+
+    // --- REGISTER
+    const register = async (data) => {
+        try {
+            await api.post('/api/register/', data);
+
+            setState(prev => ({
+                ...prev,
+                message: "Registration successful. Check your email to verify.",
+                messageType: "success"
+            }));
+
+            return { success: true };
+        } 
+        catch (error) {
+            setState(prev => ({
+                ...prev,
+                message: "Registration failed.",
+                messageType: "error"
             }));
             return false;
         }
     };
 
-    // --- NEW FUNCTION: Resend Verification Email ---
+    // --- RESEND VERIFICATION
     const resendVerificationEmail = async (email) => {
         try {
-            const response = await api.post('/api/resend-verify-email/', { email });
+            const response = await api.post("/api/resend-verify-email/", { email });
+
             setState(prev => ({
                 ...prev,
                 message: response.data.detail,
-                messageType: 'success',
+                messageType: "success"
             }));
-            return { success: true, message: response.data.detail };
+
         } catch (error) {
-            console.error('Resend verification email error:', error.response?.data || error.message);
-            let errorMessage = 'Failed to resend verification email.';
-            if (error.response?.data?.detail) {
-                errorMessage = error.response.data.detail;
-            }
             setState(prev => ({
                 ...prev,
-                message: errorMessage,
-                messageType: 'error',
+                message: "Failed to resend email",
+                messageType: "error"
             }));
-            return { success: false, message: errorMessage };
         }
     };
 
-
-    // --- LOGOUT ---
+    // --- LOGOUT
     const logout = async () => {
-        try {
-            await AsyncStorage.removeItem(ACCESS_TOKEN);
-            await AsyncStorage.removeItem(REFRESH_TOKEN);
-            setState({
-                isAuthenticated: false,
-                user: null,
-                token: null,
-                isLoading: false,
-                message: 'Logged out successfully',
-                messageType: 'info',
-            });
-            router.replace('/auth/landingPage');
-        } catch (error) {
-            console.error('Logout error:', error);
+        await AsyncStorage.removeItem(ACCESS_TOKEN);
+        await AsyncStorage.removeItem(REFRESH_TOKEN);
+
+        setState({
+            ...initialAuthState,
+            isLoading: false,
+            message: "Logged out",
+            messageType: "info"
+        });
+
+        router.replace("/auth/landingPage");
+    };
+
+    // --- Memoized context values
+    const value = useMemo(() => {
+        // --- Calculate the role based on the user object ---
+        let role = 'tourist'; // Default role
+        
+        if (state.user) {
+            if (state.user.is_local_guide && state.user.guide_approved) {
+                role = 'guide';
+            } else if (state.user.is_local_guide && !state.user.guide_approved) {
+                role = 'pending_guide';
+            }
         }
-    };
 
-    // --- ROLE DETECTION ---
-    const getRole = (user) => {
-        if (user?.is_local_guide && user?.guide_approved) return 'guide';
-        if (user?.is_staff) return 'admin';
-        return 'tourist';
-    };
-
-    const authFunctions = useMemo(() => ({
-        ...state,
-        login,
-        register,
-        logout,
-        refreshUser,
-        updateUserProfile,
-        resendVerificationEmail, // <--- Add this to exposed functions
-        role: getRole(state.user),
-        clearMessage: () => setState(prev => ({ ...prev, message: null, messageType: null })),
-    }), [state]);
+        return {
+            ...state,
+            role,
+            login,
+            register,
+            logout,
+            refreshUser,
+            updateUserProfile,
+            resendVerificationEmail,
+            clearMessage,
+        }
+    }, [state]);
 
     if (state.isLoading) {
         return (
             <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="large" color="#007AFF" />
-                <Text style={styles.loadingText}>Authenticating...</Text>
+                <Text>Authenticating...</Text>
             </View>
         );
     }
 
     return (
-        <AuthContext.Provider value={authFunctions}>
+        <AuthContext.Provider value={value}>
             {children}
         </AuthContext.Provider>
     );
@@ -311,10 +267,5 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: '#fff',
-    },
-    loadingText: {
-        marginTop: 10,
-        fontSize: 14,
-        color: '#007AFF',
     }
 });
