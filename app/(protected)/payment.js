@@ -406,7 +406,6 @@ const Payment = () => {
                             groupType: selectedOption,
                             numberOfPeople: selectedOption === 'group' ? (parseInt(numPeople) < 2 ? 2 : parseInt(numPeople)) : 1,
                             validIdImage,
-                            // Flag to tell the modal if we are uploading a NEW image or reusing old one
                             isNewKycImage: validIdImage && validIdImage.startsWith('file://') 
                         }}
                     />

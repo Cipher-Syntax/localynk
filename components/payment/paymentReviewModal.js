@@ -9,7 +9,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Linking from 'expo-linking';
 import api from '../../api/api';
-import { useAuth } from "../../context/AuthContext"; // Assuming this path matches your project structure
+import { useAuth } from "../../context/AuthContext"; 
 
 const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
     // UI State
@@ -32,7 +32,8 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         guide, agency, accommodation, startDate, endDate, 
         firstName, lastName, phoneNumber, country, email, 
         basePrice, totalPrice, paymentMethod, 
-        groupType, numberOfPeople, validIdImage, bookingId 
+        groupType, numberOfPeople, validIdImage, bookingId,
+        isNewKycImage // <--- ADDED THIS FLAG
     } = paymentData || {};
 
     const calculateDays = () => {
@@ -50,39 +51,35 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
     }, []);
 
     // --- Main Action Handler ---
+    // --- Main Action Handler ---
     const handleConfirm = async () => {
         setIsLoading(true);
 
         try {
-            // SCENARIO 1: Online Payment (GCash/PayMongo)
             if (paymentMethod) {
                 console.log("Initiating payment for Booking ID:", bookingId);
 
                 // 1. Initiate Payment
                 const response = await api.post('/api/payments/initiate/', {
                     booking_id: bookingId,
-                    payment_method: paymentMethod // Dynamic based on selection
+                    payment_method: paymentMethod 
+                }, {
+                    timeout: 15000 // <--- CHANGE 1: 15 Second Timeout
                 });
 
                 const { checkout_url, payment_id } = response.data;
                 console.log("Payment Initiated:", response.data);
 
                 if (checkout_url) {
-                    // 2. Set State
                     setCheckoutUrl(checkout_url);
                     setPaymentId(payment_id);
                     setShowPaymentLink(true);
-
-                    // 3. Open External Link Immediately
                     await Linking.openURL(checkout_url);
-
-                    // 4. Start Polling for status
                     startPolling(payment_id);
                 } else {
                     Alert.alert("Error", "Could not generate payment link.");
                 }
 
-            // SCENARIO 2: Booking Request (No immediate payment / Cash)
             } else {
                 console.log("Preparing Booking Request Data...", paymentData);
 
@@ -96,48 +93,50 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                 const formData = new FormData();
                 formData.append('check_in', formatLocalDate(startDate));
                 formData.append('check_out', formatLocalDate(endDate));
-                formData.append('num_guests', String(numberOfPeople)); // Ensure string
+                formData.append('num_guests', String(numberOfPeople));
                 formData.append('first_name', firstName);
                 formData.append('last_name', lastName);
                 formData.append('phone_number', phoneNumber);
                 formData.append('country', country);
                 formData.append('email', email);
 
-                // FIX: Ensure we send the ID as a string, not the object or undefined
                 if (guide && guide.id) {
-                    console.log("Appending Guide ID:", guide.id);
                     formData.append('guide', String(guide.id));
                 } else if (agency && agency.id) {
-                    console.log("Appending Agency ID:", agency.id);
                     formData.append('agency', String(agency.id));
                 }
                 
-                if (validIdImage) {
+                if (validIdImage && isNewKycImage) {
                     const uri = validIdImage;
                     const filename = uri.split('/').pop();
                     const match = /\.(\w+)$/.exec(filename);
-                    const type = match ? `image/${match[1]}` : `image/jpeg`; // Default to jpeg if unknown
+                    const type = match ? `image/${match[1]}` : `image/jpeg`;
                     formData.append('tourist_valid_id_image', { uri, name: filename, type });
                 }
 
-                // FIX: Removed manual 'Content-Type': 'multipart/form-data'
-                // Axios/Fetch automatically sets this header WITH the correct boundary when it detects FormData.
-                // Setting it manually often strips the boundary, causing backend parsing errors.
                 const response = await api.post('/api/bookings/', formData, {
                     headers: {
                         'Accept': 'application/json',
-                        'Content-Type': 'multipart/form-data', // Keep explicit if your API client setup requires it, but usually standard axios prefers this undefined.
-                    }
+                        'Content-Type': 'multipart/form-data', 
+                    },
+                    timeout: 15000
                 });
 
                 console.log("Booking Request Created:", response.data);
-                setIsPayment(false); // It's a request, not a direct payment
+                setIsPayment(false); 
                 setShowConfirmationScreen(true);
             }
 
         } catch (error) {
             console.error("Action failed:", error);
-            if (error.response) {
+
+            if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+                Alert.alert(
+                    "Request Timeout", 
+                    "The server took too long to respond. Please check your internet connection and try again."
+                );
+            } 
+            else if (error.response) {
                 console.log("Backend Error Details:", error.response.data);
                 const msg = typeof error.response.data === 'object' 
                     ? JSON.stringify(error.response.data) 
@@ -151,7 +150,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         }
     };
 
-    // --- Polling Logic ---
     const startPolling = (id) => {
         if (!id) return;
         if (pollingRef.current) clearInterval(pollingRef.current);
@@ -166,22 +164,22 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 
                 if (status === "succeeded") {
                     clearInterval(pollingRef.current);
-                    if (refreshUser) refreshUser(); // Update user context if needed
+                    if (refreshUser) refreshUser();
                     
-                    setIsPayment(true); // Show "Successful!" UI
-                    setShowConfirmationScreen(true); // Show the success modal overlay
+                    setIsPayment(true);
+                    setShowConfirmationScreen(true); 
                 } else if (status === "failed") {
                     clearInterval(pollingRef.current);
                     Alert.alert("Payment Failed", "The payment process failed. Please try again.");
-                    setShowPaymentLink(false); // Reset UI to allow retry
+                    setShowPaymentLink(false);
                 }
             } catch (err) {
                 console.error("Polling payment status failed:", err);
             }
-        }, 3000); // Check every 3 seconds
+        }, 3000); 
     };
 
-    // --- Manual Link Open (If user comes back to app) ---
+  
     const handleOpenPaymentLink = async () => {
         if (checkoutUrl) {
             try {
@@ -193,7 +191,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         }
     };
 
-    // --- Final Dismissal ---
     const handleConfirmationDismiss = () => {
         setShowConfirmationScreen(false);
         setIsModalOpen(false);
@@ -215,7 +212,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 
                     <View style={styles.contentContainer}>
 
-                        {/* ACCOMMODATION / GUIDE / AGENCY */}
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>Booking Details</Text>
 
@@ -265,7 +261,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                             )}
                         </View>
 
-                        {/* DATES */}
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>Booking Dates</Text>
                             <View style={styles.dateCard}>
@@ -288,7 +283,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                             </View>
                         </View>
 
-                        {/* PRICE */}
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>Price Breakdown</Text>
                             <View style={styles.priceCard}>
@@ -322,7 +316,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                             </View>
                         </View>
 
-                        {/* VALID ID */}
                         {validIdImage && (
                             <View style={styles.section}>
                                 <Text style={styles.sectionTitle}>Identity Verification</Text>
@@ -339,7 +332,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                             </View>
                         )}
 
-                        {/* PAYMENT METHOD */}
                         {paymentMethod && (
                             <View style={styles.section}>
                                 <Text style={styles.sectionTitle}>Payment Method</Text>
@@ -349,7 +341,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                             </View>
                         )}
 
-                        {/* BILLING */}
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>Billing Information</Text>
                             <View style={styles.billingCard}>
@@ -382,7 +373,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                             </View>
                         </View>
 
-                        {/* BUTTONS LOGIC */}
                         {!showPaymentLink ? (
                             <TouchableOpacity 
                                 style={[styles.confirmButton, isLoading && { opacity: 0.7 }]} 
@@ -415,7 +405,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                 </SafeAreaView>
             </ScrollView>
 
-            {/* CONFIRMATION / SUCCESS MODAL */}
             <Modal visible={showConfirmationScreen} animationType="fade">
                 <SafeAreaView style={styles.confirmationContainer}>
                     <View style={styles.confirmationContent}>
