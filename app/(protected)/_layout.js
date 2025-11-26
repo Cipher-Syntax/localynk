@@ -169,7 +169,8 @@ export default function ProtectedLayout() {
         '/profile',
         '/profile/edit_profile',
         '/explore',
-        '/viewAccommodations'
+        '/viewAccommodations',
+        '/upgradeMembership'
     ]; 
 
     useEffect(() => {

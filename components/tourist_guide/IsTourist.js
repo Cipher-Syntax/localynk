@@ -1,30 +1,37 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, Image, Text, StatusBar, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Switch } from 'react-native';
+import { View, StyleSheet, Image, Text, StatusBar, ScrollView, TouchableOpacity, Alert, Modal, Switch } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../api/api';
+import { useAuth } from '../../context/AuthContext';
 
 const IsTourist = () => {
     const router = useRouter();
+    const { user, refreshUser } = useAuth(); // Get user and refresh function from auth context
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(false);
 
     // --- NEW: Availability Status State ---
     const [isGuideActive, setIsGuideActive] = useState(false); // Default Inactive
+    
+    // --- NEW: Tier Modal State ---
+    const [modalVisible, setModalVisible] = useState(false);
 
-    // --- 1. Fetch Data (Bookings & Profile Status) ---
-    const fetchData = async () => {
+    // Set initial active status from the user context
+    useEffect(() => {
+        if (user) {
+            setIsGuideActive(user.is_guide_visible || false);
+        }
+    }, [user]);
+
+    // --- 1. Fetch Data (Bookings Only) ---
+    const fetchBookings = async () => {
         try {
             // Fetch Bookings
             const bookingRes = await api.get('/api/bookings/');
             setBookings(bookingRes.data);
-
-            // Fetch Profile to get current "Active" status
-            const profileRes = await api.get('api/profile/');
-            // Assuming your backend has an 'is_guide_visible' boolean on the profile
-            setIsGuideActive(profileRes.data.is_guide_visible || false);
         } catch (error) {
             console.error('Failed to fetch dashboard data:', error);
         }
@@ -32,7 +39,8 @@ const IsTourist = () => {
 
     useFocusEffect(
         useCallback(() => {
-            fetchData();
+            fetchBookings();
+            refreshUser(); // Refresh the main user profile
         }, [])
     );
 
@@ -43,9 +51,8 @@ const IsTourist = () => {
         setIsGuideActive(newStatus);
 
         try {
-            // 2. Send to Backend 
+            // 2. Send to Backend
             await api.patch('api/guide/update-info/', { is_guide_visible: newStatus });
-            
             if (newStatus) {
                 Alert.alert("You are Online!", "Tourists can now see your profile and bookings.");
             } else {
@@ -59,10 +66,23 @@ const IsTourist = () => {
     };
 
     const handleDecision = async (id, decision) => {
+        // FREE TIER LOGIC
+        if (user.guide_tier === 'free' && user.booking_count >= 1 && decision === 'accept') {
+            Alert.alert(
+                "Upgrade Required",
+                "You have reached your one-booking limit on the Free Tier. Please upgrade to accept more bookings.",
+                [
+                    { text: "Maybe Later", style: "cancel" },
+                    { text: "Upgrade Now", onPress: () => router.push('/(protected)/upgradeMembership') }
+                ]
+            );
+            return;
+        }
+
         try {
             const newStatus = decision === 'accept' ? 'Accepted' : 'Declined';
             await api.patch(`/api/bookings/${id}/status/`, { status: newStatus });
-            fetchData();
+            fetchBookings();
         } catch (error) {
             console.error(`Failed to ${decision} booking:`, error);
             Alert.alert('Error', `Failed to ${decision} booking.`);
@@ -70,177 +90,279 @@ const IsTourist = () => {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
-            
-            <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+        <SafeAreaView style={styles.container} edges={['top']}>
+            <StatusBar barStyle="light-content" />
+
+            {/* --- HEADER --- */}
+            <View style={styles.header}>
+                {/* REPLACED WITH LOCAL REQUIRE - Change path to your own image */}
+                <Image
+                    source={require('../../assets/localynk_images/header.png')} 
+                    // Or remove source and use backgroundColor if you prefer no image
+                    style={styles.headerImage}
+                />
+                <LinearGradient
+                    colors={['transparent', 'rgba(0,0,0,0.8)']}
+                    style={styles.overlay}
+                />
+                <Text style={styles.headerTitle}>TOUR GUIDES DASHBOARD</Text>
+
+                {/* --- REDESIGNED TIER TRIGGER --- */}
+                <TouchableOpacity 
+                    style={styles.tierBadge} 
+                    onPress={() => setModalVisible(true)}
+                    activeOpacity={0.8}
+                >
+                    <Ionicons 
+                        name={user.guide_tier === 'paid' ? "ribbon" : "information-circle"} 
+                        size={16} 
+                        color="#fff" 
+                    />
+                    <Text style={styles.tierBadgeText}>
+                        {user.guide_tier === 'paid' ? 'PREMIUM GUIDE' : 'FREE TIER'}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={12} color="#fff" style={{marginLeft: 2}}/>
+                </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.mainContent} showsVerticalScrollIndicator={false}>
                 
-                {/* --- HEADER --- */}
-                <View style={styles.header}>
-                    <Image
-                        source={require('../../assets/localynk_images/header.png')}
-                        style={styles.headerImage}
+                {/* --- STATUS TOGGLE --- */}
+                <View style={styles.statusToggleContainer}>
+                    <View style={styles.statusTextContainer}>
+                        <Text style={styles.readyPromptText}>
+                            {isGuideActive ? "You are currently active" : "Are you ready to be a local guide?"}
+                        </Text>
+                        <View style={styles.statusRow}>
+                            <View style={[styles.statusDot, { backgroundColor: isGuideActive ? '#00c853' : '#B0B8C4' }]} />
+                            <Text style={[styles.statusLabel, { color: isGuideActive ? '#00c853' : '#B0B8C4' }]}>
+                                {isGuideActive ? 'ONLINE' : 'OFFLINE'}
+                            </Text>
+                        </View>
+                        <Text style={styles.statusSubLabel}>
+                            {isGuideActive ? "Visible to tourists." : "Hidden from bookings."}
+                        </Text>
+                    </View>
+
+                    <Switch
+                        trackColor={{ false: "#E0E0E0", true: "#b9f6ca" }}
+                        thumbColor={isGuideActive ? "#00c853" : "#f4f3f4"}
+                        onValueChange={toggleActiveStatus}
+                        value={isGuideActive}
                     />
-                    <LinearGradient
-                        colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
-                        style={styles.overlay}
-                    />
-                    <Text style={styles.headerTitle}>TOUR GUIDES DASHBOARD</Text>
                 </View>
 
-                <View style={styles.mainContent}>
+                {/* --- STATS CARDS --- */}
+                <View style={styles.statsContainer}>
+                    <View style={styles.statCard}>
+                        <Text style={styles.statNumber}>127</Text>
+                        <Text style={styles.statLabel}>Total Bookings</Text>
+                    </View>
+                    <View style={styles.statCard}>
+                        <Text style={styles.statNumber}>{bookings.length}</Text>
+                        <Text style={styles.statLabel}>Bookings</Text>
+                    </View>
+                    <View style={styles.statCard}>
+                        <Text style={styles.statNumber}>15</Text>
+                        <Text style={styles.statLabel}>Completed Tours</Text>
+                    </View>
+                    <View style={styles.statCard}>
+                        <Text style={styles.statNumber}>4.8</Text>
+                        <Text style={styles.statLabel}>Average Rating</Text>
+                    </View>
+                </View>
 
-                    {/* --- STATUS TOGGLE (UPDATED) --- */}
-                    <View style={styles.statusToggleContainer}>
-                        <View style={styles.statusTextContainer}>
-                            {/* UPDATED: Specific Text Requested */}
-                            <Text style={styles.readyPromptText}>
-                                {isGuideActive ? "You are currently active" : "Are you ready to be a local guide?"}
-                            </Text>
+                {/* --- ACTION BUTTONS & BOOKINGS --- */}
+                <View style={styles.bookingsSection}>
+                    {/* ACTIONS HEADER */}
+                    <View style={styles.action}>
+                        <Text style={styles.bookingsTitle}>QUICK ACTIONS</Text>
 
-                            <View style={styles.statusRow}>
-                                <View style={[styles.statusDot, { backgroundColor: isGuideActive ? '#00c853' : '#ff5252' }]} />
-                                <Text style={[styles.statusLabel, { color: isGuideActive ? '#00c853' : '#ff5252' }]}>
-                                    {isGuideActive ? 'ONLINE' : 'OFFLINE'}
-                                </Text>
-                            </View>
-                            
-                            <Text style={styles.statusSubLabel}>
-                                {isGuideActive 
-                                    ? "Visible to tourists." 
-                                    : "Hidden from bookings."}
-                            </Text>
-                        </View>
-                        
-                        <Switch
-                            trackColor={{ false: "#e0e0e0", true: "#b9f6ca" }}
-                            thumbColor={isGuideActive ? "#00c853" : "#f4f3f4"}
-                            ios_backgroundColor="#3e3e3e"
-                            onValueChange={toggleActiveStatus}
-                            value={isGuideActive}
-                        />
+                        {/* UPDATE INFO BUTTON (Always visible) */}
+                        <TouchableOpacity 
+                            style={styles.updateInfo}
+                            onPress={() => router.push({pathname: "/(protected)/UpdateGuideInfoForm"})}
+                        >
+                            <Text style={styles.updateInfoBtnText}>Update Info</Text>
+                        </TouchableOpacity>
                     </View>
 
-                    {/* --- STATS CARDS --- */}
-                    <View style={styles.statsContainer}>
-                        <View style={styles.statCard}>
-                            <Text style={styles.statNumber}>127</Text>
-                            <Text style={styles.statLabel}>Total Bookings</Text>
-                        </View>
-                        <View style={styles.statCard}>
-                            <Text style={styles.statNumber}>{bookings.length}</Text>
-                            <Text style={styles.statLabel}>Bookings</Text>
-                        </View>
-                        <View style={styles.statCard}>
-                            <Text style={styles.statNumber}>15</Text>
-                            <Text style={styles.statLabel}>Completed Tours</Text>
-                        </View>
-                        <View style={styles.statCard}>
-                            <Text style={styles.statNumber}>4.8</Text>
-                            <Text style={styles.statLabel}>Average Rating</Text>
-                        </View>
+                    {/* CREATION BUTTONS ROW */}
+                    <View style={styles.creationButtonsRow}>
+                        <TouchableOpacity 
+                            style={styles.addAccommodationBtn}
+                            onPress={() => router.push({pathname: "/(protected)/addAccommodation"})}
+                        >
+                            <Ionicons name="bed" size={18} color="#fff" style={{ marginRight: 8 }} />
+                            <Text style={styles.addAccommodationBtnText}>Add Accommodation</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity 
+                            style={styles.addTourBtn}
+                            onPress={() => router.push({pathname: "/(protected)/addTour"})}
+                        >
+                            <Ionicons name="map" size={18} color="#fff" style={{ marginRight: 8 }} />
+                            <Text style={styles.addTourBtnText}>Add Tour</Text>
+                        </TouchableOpacity>
                     </View>
 
-                    {/* --- ACTION BUTTONS & BOOKINGS --- */}
-                    <View style={styles.bookingsSection}>
-                        
-                        {/* ACTIONS HEADER */}
-                        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15}}>
-                            <Text style={styles.bookingsTitle}>QUICK ACTIONS</Text>
-                            
-                            {/* UPDATE INFO BUTTON (Always visible) */}
-                            <TouchableOpacity 
-                                style={styles.updateInfo}
-                                onPress={() => router.push({pathname: "/(protected)/UpdateGuideInfoForm"})}
-                            >
-                                <Text style={styles.updateInfoBtnText}>Update Info</Text>
-                            </TouchableOpacity>
-                        </View>
+                    <Text style={[styles.bookingsTitle, { marginTop: 25, marginBottom: 15 }]}>BOOKINGS</Text>
 
-                        {/* CREATION BUTTONS ROW */}
-                        <View style={styles.creationButtonsRow}>
-                            <TouchableOpacity 
-                                style={styles.addAccommodationBtn}
-                                onPress={() => router.push({pathname: "/(protected)/addAccommodation"})}
-                            >
-                                <Ionicons name="bed-outline" size={16} color="#fff" style={{marginRight: 6}} />
-                                <Text style={styles.addAccommodationBtnText}>Add Accommodation</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity 
-                                style={styles.addTourBtn}
-                                onPress={() => router.push({pathname: "/(protected)/addTour"})}
-                            >
-                                <Ionicons name="map-outline" size={16} color="#fff" style={{marginRight: 6}} />
-                                <Text style={styles.addTourBtnText}>Add Tour</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        <View style={styles.action}>
-                            <Text style={styles.bookingsTitle}>BOOKINGS</Text>
-                        </View>
-
-                        {/* BOOKING LIST */}
-                        {bookings.map((booking) => (
-                            <View key={booking.id} style={styles.bookingCard}>
-                                <View style={styles.bookingHeader}>
-                                    <View style={styles.avatarContainer}>
-                                        <View style={styles.avatar} />
-                                    </View>
-                                    <View style={styles.bookingInfo}>
-                                        <View style={styles.nameStatusRow}>
-                                            <Text style={styles.guideNameWaiting}>{booking.tourist_username}</Text>
-                                            
-                                            {booking.status === 'Pending' && <Ionicons name="hourglass-outline" size={16} color="#ffb74d" />}
-                                            {booking.status === 'Accepted' && <Ionicons name="checkmark-circle-outline" size={16} color="#00c853" />}
-                                            {booking.status === 'Active' && <Ionicons name="radio-button-on-outline" size={16} color="#29b6f6" />}
-                                            {booking.status === 'Declined' && <Ionicons name="close-circle-outline" size={16} color="#ff5252" />}
-                                        </View>
-                                        
+                    {/* BOOKING LIST */}
+                    {bookings.map((booking) => (
+                        <View key={booking.id} style={styles.bookingCard}>
+                            <View style={styles.bookingHeader}>
+                                <View style={styles.avatarContainer}>
+                                    {/* Replaced external Image with Icon */}
+                                    <Ionicons name="person-circle" size={54} color="#B0B8C4" />
+                                </View>
+                                <View style={styles.bookingInfo}>
+                                    <View style={styles.nameStatusRow}>
+                                        <Text style={styles.guideNameWaiting}>{booking.tourist_username}</Text>
                                         <View style={styles.statusContainer}>
-                                            <Text style={styles.statusText}>{booking.status}</Text>
+                                            {booking.status === 'Pending' && <Ionicons name="time" size={14} color="#FFD700" />}
+                                            {booking.status === 'Accepted' && <Ionicons name="checkmark-circle" size={14} color="#00c853" />}
+                                            {booking.status === 'Active' && <Ionicons name="play-circle" size={14} color="#2979FF" />}
+                                            {booking.status === 'Declined' && <Ionicons name="close-circle" size={14} color="#ff5252" />}
+                                            <Text style={[styles.statusText, { marginLeft: 4 }]}>{booking.status}</Text>
                                         </View>
-
-                                        <View style={styles.metaInfo}>
-                                            <View style={styles.dates}>
-                                                <Ionicons name="calendar-outline" size={12} color="#ccc" />
-                                                <Text style={styles.startDate}>{booking.check_in}</Text>
-                                                <Text style={{color: '#ccc', fontSize: 10}}> - </Text>
-                                                <Text style={styles.endDate}>{booking.check_out}</Text>
-                                            </View>
+                                    </View>
+                                    <View style={styles.metaInfo}>
+                                        <View style={styles.dates}>
+                                            <Ionicons name="calendar-outline" size={12} color="#fff" />
+                                            <Text style={styles.startDate}>{booking.check_in} - {booking.check_out}</Text>
                                         </View>
                                     </View>
                                 </View>
-
-                                {/* ACTIONS (Accept/Decline) */}
-                                {booking.status === 'Pending' && (
-                                    <View style={styles.decisionRow}>
-                                        <TouchableOpacity 
-                                            style={[styles.decisionButton, styles.rejectButton]}
-                                            onPress={() => handleDecision(booking.id, 'decline')}
-                                        >
-                                            <Ionicons name="close" size={16} color="#fff" />
-                                            <Text style={styles.decisionText}>Decline</Text>
-                                        </TouchableOpacity>
-
-                                        <TouchableOpacity 
-                                            style={[styles.decisionButton, styles.acceptButton]}
-                                            onPress={() => handleDecision(booking.id, 'accept')}
-                                        >
-                                            <Ionicons name="checkmark" size={16} color="#fff" />
-                                            <Text style={styles.decisionText}>Accept</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                )}
-
-                                <TouchableOpacity style={styles.messageButton}>
-                                    <Text style={styles.messageButtonText}>Message Client</Text>
-                                </TouchableOpacity>
                             </View>
-                        ))}
-                    </View>
+
+                            {/* ACTIONS (Accept/Decline) */}
+                            {booking.status === 'Pending' && (
+                                <View style={styles.decisionRow}>
+                                    <TouchableOpacity
+                                        style={[styles.decisionButton, styles.rejectButton]}
+                                        onPress={() => handleDecision(booking.id, 'decline')}
+                                    >
+                                        <Ionicons name="close" size={16} color="#fff" />
+                                        <Text style={styles.decisionText}>Decline</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.decisionButton, styles.acceptButton]}
+                                        onPress={() => handleDecision(booking.id, 'accept')}
+                                    >
+                                        <Ionicons name="checkmark" size={16} color="#fff" />
+                                        <Text style={styles.decisionText}>Accept</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+
+                            <TouchableOpacity style={styles.messageButton}>
+                                <Text style={styles.messageButtonText}>Message Client</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ))}
                 </View>
             </ScrollView>
+
+            {/* --- MEMBERSHIP INFO MODAL (NEW) --- */}
+            <Modal
+                animationType="fade"
+                transparent={true}
+                visible={modalVisible}
+                onRequestClose={() => setModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Membership Plans</Text>
+                            <TouchableOpacity onPress={() => setModalVisible(false)}>
+                                <Ionicons name="close" size={24} color="#333" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView style={styles.modalScroll}>
+                            {/* Free Tier Column */}
+                            <View style={[styles.planBox, styles.freePlanBox]}>
+                                <View style={styles.planHeader}>
+                                    <Ionicons name="person-outline" size={24} color="#666" />
+                                    <Text style={styles.planName}>Free Tier</Text>
+                                </View>
+                                <Text style={styles.planDescription}>For casual guides getting started.</Text>
+                                
+                                <View style={styles.benefitRow}>
+                                    <Ionicons name="warning" size={16} color="#F57C00" />
+                                    <Text style={styles.benefitText}>Limit: 1 Booking Only</Text>
+                                </View>
+                                {/* <View style={styles.benefitRow}>
+                                    <Ionicons name="eye-off-outline" size={16} color="#666" />
+                                    <Text style={styles.benefitText}>Standard Search Visibility</Text>
+                                </View>
+                                <View style={styles.benefitRow}>
+                                    <Ionicons name="remove-circle-outline" size={16} color="#666" />
+                                    <Text style={styles.benefitText}>No Verified Badge</Text>
+                                </View> */}
+                            </View>
+
+                            <View style={styles.divider}>
+                                <Text style={styles.dividerText}>VS</Text>
+                            </View>
+
+                            {/* Paid Tier Column */}
+                            <View style={[styles.planBox, styles.paidPlanBox]}>
+                                <View style={styles.planHeader}>
+                                    <Ionicons name="ribbon" size={24} color="#FFD700" />
+                                    <Text style={styles.paidPlanName}>Premium Tier</Text>
+                                </View>
+                                <Text style={styles.planDescription}>For professional guides.</Text>
+                                
+                                <View style={styles.benefitRow}>
+                                    <Ionicons name="checkmark-circle" size={16} color="#00c853" />
+                                    <Text style={styles.benefitText}>Unlimited Bookings</Text>
+                                </View>
+                                {/* <View style={styles.benefitRow}>
+                                    <Ionicons name="trending-up" size={16} color="#0072FF" />
+                                    <Text style={styles.benefitText}>Top Search Visibility</Text>
+                                </View>
+                                <View style={styles.benefitRow}>
+                                    <Ionicons name="shield-checkmark" size={16} color="#0072FF" />
+                                    <Text style={styles.benefitText}>Verified Guide Badge</Text>
+                                </View> */}
+                            </View>
+                        </ScrollView>
+                        
+                        {user.guide_tier !== 'paid' && (
+                            <TouchableOpacity 
+                                style={styles.modalUpgradeBtn}
+                                onPress={() => {
+                                    setModalVisible(false);
+                                    router.push('/(protected)/upgrade');
+                                }}
+                            >
+                                <LinearGradient
+                                    colors={['#0072FF', '#00C6FF']}
+                                    style={styles.gradientBtn}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                >
+                                    <Text style={styles.modalUpgradeText}>Upgrade to Premium</Text>
+                                    <Ionicons name="arrow-forward" size={18} color="#fff" />
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        )}
+                        
+                        {user.guide_tier === 'paid' && (
+                             <View style={styles.activeSubContainer}>
+                                <Text style={styles.activeSubText}>
+                                    You are currently on Premium plan.
+                                </Text>
+                                <Text style={styles.activeSubDate}>
+                                    Expires: {new Date(user.subscription_end_date).toLocaleDateString()}
+                                </Text>
+                             </View>
+                        )}
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 };
@@ -250,7 +372,7 @@ export default IsTourist;
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        // backgroundColor: '#f8f9fa' 
+        // backgroundColor: '#f8f9fa'
     },
     header: {
         position: 'relative',
@@ -278,11 +400,36 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         letterSpacing: 1,
     },
+    
+    // --- NEW TIER TRIGGER BADGE ---
+    tierBadge: {
+        position: 'absolute',
+        top: 20,
+        right: 20,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.4)',
+    },
+    tierBadgeText: {
+        color: '#fff',
+        fontSize: 10,
+        fontWeight: '700',
+        marginLeft: 6,
+        marginRight: 4,
+        letterSpacing: 0.5
+    },
+
     mainContent: {
         flexDirection: "column",
         gap: 20
     },
-    // --- UPDATED STATUS TOGGLE STYLES ---
+
+    // --- STATUS TOGGLE STYLES ---
     statusToggleContainer: {
         width: '90%',
         alignSelf: 'center',
@@ -334,6 +481,7 @@ const styles = StyleSheet.create({
         color: '#666',
         marginTop: 2
     },
+
     // --- STATS ---
     statsContainer: {
         flexDirection: 'row',
@@ -368,6 +516,7 @@ const styles = StyleSheet.create({
         marginTop: 4,
         fontWeight: '500'
     },
+
     bookingsSection: {
         padding: 15,
     },
@@ -383,7 +532,8 @@ const styles = StyleSheet.create({
         color: '#253347',
         letterSpacing: 0.5,
     },
-    // --- UPDATED BUTTON STYLES ---
+
+    // --- BUTTON STYLES ---
     creationButtonsRow: {
         flexDirection: 'row',
         gap: 10,
@@ -441,6 +591,7 @@ const styles = StyleSheet.create({
         fontSize: 11,
         textAlign: "center",
     },
+
     // Booking Card Styles
     bookingCard: {
         backgroundColor: '#253347',
@@ -461,14 +612,7 @@ const styles = StyleSheet.create({
     avatarContainer: {
         marginRight: 12
     },
-    avatar: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        backgroundColor: '#3E4C5E',
-        borderWidth: 2,
-        borderColor: '#0072FF'
-    },
+    // REMOVED avatar style that had image props
     bookingInfo: {
         flex: 1
     },
@@ -507,9 +651,16 @@ const styles = StyleSheet.create({
         borderRadius: 4,
         gap: 6
     },
-    startDate: { fontSize: 11, color: '#fff', fontWeight: '600' },
-    endDate: { fontSize: 11, color: '#fff', fontWeight: '600' },
-    
+    startDate: {
+        fontSize: 11,
+        color: '#fff',
+        fontWeight: '600'
+    },
+    endDate: {
+        fontSize: 11,
+        color: '#fff',
+        fontWeight: '600'
+    },
     decisionRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -524,8 +675,12 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         flex: 1,
     },
-    acceptButton: { backgroundColor: '#00c853' },
-    rejectButton: { backgroundColor: '#ff5252' },
+    acceptButton: {
+        backgroundColor: '#00c853'
+    },
+    rejectButton: {
+        backgroundColor: '#ff5252'
+    },
     decisionText: {
         color: '#fff',
         fontWeight: '700',
@@ -545,4 +700,128 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '700'
     },
+
+    // --- NEW MODAL STYLES ---
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalContent: {
+        width: '90%',
+        backgroundColor: '#fff',
+        borderRadius: 24,
+        padding: 24,
+        maxHeight: '80%',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.25,
+        shadowRadius: 20,
+        elevation: 10,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: '800',
+        color: '#253347',
+    },
+    modalScroll: {
+        marginBottom: 20
+    },
+    planBox: {
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        marginBottom: 10,
+    },
+    freePlanBox: {
+        backgroundColor: '#F9FAFB',
+        borderColor: '#E5E7EB',
+    },
+    paidPlanBox: {
+        backgroundColor: '#F0F9FF',
+        borderColor: '#BAE6FD',
+    },
+    planHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
+        gap: 10
+    },
+    planName: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#4B5563'
+    },
+    paidPlanName: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#0284C7'
+    },
+    planDescription: {
+        fontSize: 12,
+        color: '#6B7280',
+        marginBottom: 12
+    },
+    benefitRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
+        gap: 8
+    },
+    benefitText: {
+        fontSize: 13,
+        color: '#374151',
+        fontWeight: '500'
+    },
+    divider: {
+        alignItems: 'center',
+        marginVertical: 10,
+    },
+    dividerText: {
+        backgroundColor: '#E5E7EB',
+        color: '#6B7280',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+        fontSize: 10,
+        fontWeight: '800'
+    },
+    modalUpgradeBtn: {
+        borderRadius: 12,
+        overflow: 'hidden',
+        elevation: 4
+    },
+    gradientBtn: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 16,
+        gap: 10
+    },
+    modalUpgradeText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700'
+    },
+    activeSubContainer: {
+        alignItems: 'center',
+        padding: 10
+    },
+    activeSubText: {
+        color: '#00c853',
+        fontWeight: '700',
+        fontSize: 14,
+        marginBottom: 4
+    },
+    activeSubDate: {
+        color: '#666',
+        fontSize: 12
+    }
 });

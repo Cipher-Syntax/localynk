@@ -5,7 +5,8 @@ import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker'; 
 // IMPORTANT: Import your Auth Hook here to get the data seen in your logs
-import { useAuth } from '../../context/AuthContext'; 
+import { useAuth } from '../../context/AuthContext';
+import { useRouter } from 'expo-router';
 
 // --- CONFIGURATION: Common Specialties ---
 const SPECIALTY_OPTIONS = [
@@ -22,6 +23,7 @@ const SPECIALTY_OPTIONS = [
 ];
 
 const UpdateGuideInfoForm = () => {
+    const router = useRouter();
     // 1. Get the user data directly from Context (avoids the 405 GET error)
     const { user, isLoading: authLoading } = useAuth();
     
@@ -191,6 +193,25 @@ const UpdateGuideInfoForm = () => {
             <ScrollView style={styles.container}>
                 
                 <Text style={styles.header}>Update Profile</Text>
+
+                {/* Subscription Status Card */}
+                <View style={styles.card}>
+                    <Text style={styles.label}>Subscription Status</Text>
+                    {user.guide_tier === 'paid' ? (
+                        <>
+                            <Text style={styles.subText}>You are a Paid Member.</Text>
+                            <Text style={styles.subText}>Your subscription is valid until: {new Date(user.subscription_end_date).toLocaleDateString()}</Text>
+                        </>
+                    ) : (
+                        <>
+                            <Text style={styles.subText}>You are on the Free Tier.</Text>
+                            <Text style={styles.subText}>You can only accept one booking.</Text>
+                            <TouchableOpacity style={styles.upgradeBtn} onPress={() => router.push('/(protected)/upgrade')}>
+                                <Text style={styles.upgradeBtnText}>Upgrade to Paid</Text>
+                            </TouchableOpacity>
+                        </>
+                    )}
+                </View>
 
                 {/* Section 1: Basic Info */}
                 <View style={styles.card}>
@@ -412,6 +433,23 @@ const styles = StyleSheet.create({
     submitBtnText: {
         color: '#fff',
         fontSize: 16,
+        fontWeight: '700',
+    },
+    subText: {
+        fontSize: 14,
+        color: '#666',
+        marginBottom: 10,
+    },
+    upgradeBtn: {
+        backgroundColor: '#28a745',
+        paddingVertical: 10,
+        borderRadius: 8,
+        alignItems: 'center',
+        marginTop: 10,
+    },
+    upgradeBtnText: {
+        color: '#fff',
+        fontSize: 14,
         fontWeight: '700',
     }
 });

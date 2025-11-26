@@ -84,10 +84,7 @@ const Notifications = () => {
 
         // 2. Handle Navigation based on Title
         if (item.title === "Application Approved!") {
-            router.push({
-                pathname: '/(protected)/completeRegistrationFee', 
-                params: { feeAmount: item.booking_total_price || '500.00' }
-            });
+            router.push('/(protected)/home/tourGuide');
         } 
         else if (item.title === "Booking Accepted!") {
             try {

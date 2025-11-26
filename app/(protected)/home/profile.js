@@ -152,7 +152,7 @@ export default function Profile() {
                         </View>
                     )}
                     
-                    <View style={styles.recentToursSection}>
+                    {/* <View style={styles.recentToursSection}>
                         <Text style={styles.sectionTitle}>Recent Tours</Text>
                         {profileData.recentTours.map((tour) => (
                             <View key={tour.id} style={styles.tourItem}>
@@ -168,7 +168,7 @@ export default function Profile() {
                                 </View>
                             </View>
                         ))}
-                    </View>
+                    </View> */}
 
                     {isOwnProfile && (
                         <View style={styles.settingsSection}>

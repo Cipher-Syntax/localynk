@@ -406,25 +406,9 @@ const Header = () => {
         }
     };
 
-    // Run on mount
-    useEffect(() => {
-        fetchDestinations();
-    }, []);
-
-    // Auto-refresh unread alerts every 5 seconds
-    useEffect(() => {
-            fetchUnreadCount(); // run immediately
-
-            const interval = setInterval(() => {
-                    fetchUnreadCount(); // refresh every 5s
-            }, 5000);
-
-            return () => clearInterval(interval); // clean when component unmounts
-    }, []);
-
-
     useFocusEffect(
         useCallback(() => {
+            fetchDestinations();
             fetchUnreadCount();
         }, [])
     );
