@@ -168,7 +168,8 @@ export default function ProtectedLayout() {
         '/completeRegistrationFee',
         '/profile',
         '/profile/edit_profile',
-        '/explore'
+        '/explore',
+        '/viewAccommodations'
     ]; 
 
     useEffect(() => {

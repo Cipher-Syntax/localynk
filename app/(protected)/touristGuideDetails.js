@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, ScrollView, StyleSheet, StatusBar, Image, Text, TouchableOpacity, ActivityIndicator, Dimensions, ImageBackground } from 'react-native';
+import { View, ScrollView, StyleSheet, StatusBar, Image, Text, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
 import { User, Calendar as CalendarIcon, Map, Star, Compass, Clock, Languages, Package, MapPin, Bed, Wifi, Car, Coffee } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
@@ -13,8 +13,8 @@ const { width } = Dimensions.get('window');
 const TouristGuideDetails = () => {
     const [guide, setGuide] = useState(null);
     const [destination, setDestination] = useState(null);
-    const [tourPackage, setTourPackage] = useState(null);
-    const [accommodations, setAccommodations] = useState([]); // Store accommodations
+    const [tourPackages, setTourPackages] = useState([]); 
+    const [accommodations, setAccommodations] = useState([]); 
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
@@ -27,21 +27,19 @@ const TouristGuideDetails = () => {
             if (!guideId || !placeId) return;
 
             try {
-                // Fetch everything in parallel
                 const [guideRes, destRes, toursRes, accomRes] = await Promise.all([
                     api.get(`/api/guides/${guideId}/`),
                     api.get(`/api/destinations/${placeId}/`),
                     api.get(`/api/destinations/${placeId}/tours/`),
-                    api.get('/api/accommodations/list/') // Using the public list endpoint you showed
+                    api.get('/api/accommodations/list/')
                 ]);
 
                 setGuide(guideRes.data);
                 setDestination(destRes.data);
-                setAccommodations(accomRes.data); // Save accommodations
+                setAccommodations(accomRes.data); 
                 
-                // Find the specific tour package by this guide
-                const specificTour = toursRes.data.find(tour => tour.guide === parseInt(guideId)); 
-                setTourPackage(specificTour);
+                const guidesTours = toursRes.data.filter(tour => tour.guide === parseInt(guideId));
+                setTourPackages(guidesTours);
 
             } catch (error) {
                 console.error('Failed to fetch page data:', error);
@@ -57,9 +55,62 @@ const TouristGuideDetails = () => {
     const getImageUrl = (imgPath) => {
         if (!imgPath) return 'https://via.placeholder.com/300';
         if (imgPath.startsWith('http')) return imgPath;
-        // Replace this with your actual base URL if needed, or ensure api.defaults.baseURL is set
         const base = api.defaults.baseURL || 'http://127.0.0.1:8000'; 
         return `${base}${imgPath}`;
+    };
+
+    // --- HELPER: Render Vertical Timeline (Schedule) ---
+    const renderTimeline = (rawTimeline, tourContext) => {
+        if (!rawTimeline) return null;
+        
+        let timelineData = [];
+        try {
+            timelineData = typeof rawTimeline === 'string' ? JSON.parse(rawTimeline) : rawTimeline;
+        } catch (e) { return null; }
+
+        if (!Array.isArray(timelineData) || timelineData.length === 0) return null;
+
+        return (
+            <View style={styles.timelineContainer}>
+                <Text style={[styles.detailLabel, {fontSize: 13, marginBottom: 12}]}>Detailed Schedule:</Text>
+                {timelineData.map((item, index) => {
+                    let imageUrl = null;
+                    if (item.type === 'stop' && tourContext?.stops) {
+                        const stopData = tourContext.stops.find(s => s.name === item.activityName || s.id === item.refId);
+                        if (stopData) imageUrl = getImageUrl(stopData.image);
+                    }
+
+                    return (
+                        <View key={index} style={styles.timelineItem}>
+                            <View style={styles.timeColumn}>
+                                <Text style={styles.timeText}>{item.startTime}</Text>
+                                <View style={styles.timeConnector} />
+                            </View>
+                            <View style={styles.activityCard}>
+                                <View style={styles.activityContentRow}>
+                                    {imageUrl ? (
+                                        <Image source={{ uri: imageUrl }} style={styles.timelineImage} />
+                                    ) : (
+                                        <View style={styles.timelinePlaceholder}>
+                                            {item.type === 'accom' ? <Bed size={16} color="#8E44AD" /> : <MapPin size={16} color="#00A8FF" />}
+                                        </View>
+                                    )}
+                                    <View style={styles.activityTextContainer}>
+                                        <Text style={styles.activityTitle} numberOfLines={1}>{item.activityName}</Text>
+                                        <Text style={styles.activityDuration}>{item.startTime} - {item.endTime}</Text>
+                                        <View style={[styles.typeBadge, { backgroundColor: item.type === 'accom' ? '#F3E5F5' : '#E1F5FE' }]}>
+                                            <Text style={[styles.typeText, { color: item.type === 'accom' ? '#8E44AD' : '#0288D1' }]}>
+                                                {item.type === 'accom' ? 'Accommodation' : 'Tour Stop'}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                </View>
+                            </View>
+                        </View>
+                    );
+                })}
+            </View>
+        );
     };
 
     // --- CALENDAR LOGIC ---
@@ -104,8 +155,8 @@ const TouristGuideDetails = () => {
     let finalImage = null;
     if (destination?.images?.length > 0) {
         finalImage = destination.images[0].image;
-    } else if (tourPackage?.stops?.length > 0) {
-        finalImage = tourPackage.stops[0].image;
+    } else if (tourPackages.length > 0 && tourPackages[0].stops?.length > 0) {
+        finalImage = tourPackages[0].stops[0].image;
     }
 
     return (
@@ -113,7 +164,6 @@ const TouristGuideDetails = () => {
             <SafeAreaView edges={['top']} style={{backgroundColor: '#fff'}}>
                 <StatusBar barStyle="dark-content" backgroundColor="#fff" />
                 
-                {/* --- HEADER --- */}
                 <View style={styles.header}>
                     <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} />
                     <LinearGradient colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']} style={styles.overlay} />
@@ -146,7 +196,6 @@ const TouristGuideDetails = () => {
                             <Ionicons name="heart-outline" size={22} color="#FF5A5F" />
                         </View>
 
-                        {/* Action Buttons */}
                         <View style={styles.buttonRow}>
                             <TouchableOpacity style={styles.actionButton} onPress={() => router.push({ pathname: "/profile", params: { userId: guide.id, placeId: placeId } })}>
                                 <Ionicons name="person" size={14} color="#fff" />
@@ -158,7 +207,6 @@ const TouristGuideDetails = () => {
                             </TouchableOpacity>
                         </View>
 
-                        {/* Destination Image */}
                         <View style={styles.destinationImageContainer}>
                             {finalImage ? (
                                 <Image source={{uri: getImageUrl(finalImage)}} style={styles.destinationImage} />
@@ -171,48 +219,105 @@ const TouristGuideDetails = () => {
                             <Text style={styles.destinationName}>{destination?.name || "Loading..."}</Text>
                         </View>
                         
-                        {/* Tour Package Section */}
-                        {tourPackage && (
+                        {/* --- TOUR PACKAGES SECTION --- */}
+                        {tourPackages.length > 0 && (
                              <View style={styles.detailsSection}>
                                 <View style={styles.sectionHeader}>
                                    <Package size={18} color="#1A2332" />
-                                   <Text style={styles.detailsHeader}>Tour Package: {tourPackage.name}</Text>
+                                   <Text style={styles.detailsHeader}>Tour Packages ({tourPackages.length})</Text>
                                 </View>
-                                <Text style={styles.itineraryText}>{tourPackage.description}</Text>
-                                <View style={styles.packageDetailsGrid}>
-                                    <View style={styles.packageDetailItem}>
-                                        <Clock size={14} color="#8B98A8"/>
-                                        <Text style={styles.packageDetailText}>{tourPackage.duration}</Text>
-                                    </View>
-                                     <View style={styles.packageDetailItem}>
-                                        <User size={14} color="#8B98A8"/>
-                                        <Text style={styles.packageDetailText}>Max {tourPackage.max_group_size} people</Text>
-                                    </View>
-                                </View>
-                                <Text style={styles.subHeader}>What to Bring:</Text>
-                                <Text style={styles.itineraryText}>{tourPackage.what_to_bring}</Text>
-                            </View>
-                        )}
 
-                        {/* Tour Stops Section */}
-                        {tourPackage?.stops && tourPackage.stops.length > 0 && (
-                            <View style={styles.detailsSection}>
-                                 <View style={styles.sectionHeader}>
-                                   <MapPin size={18} color="#1A2332" />
-                                   <Text style={styles.detailsHeader}>Tour Stops</Text>
-                                </View>
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.stopsScrollView}>
-                                    {tourPackage.stops.map(stop => (
-                                        <View key={stop.id} style={styles.stopCard}>
-                                            <Image source={{uri: getImageUrl(stop.image)}} style={styles.stopImage} />
-                                            <Text style={styles.stopName}>{stop.name}</Text>
+                                {tourPackages.map((tour, index) => {
+                                    // Timeline Parsing
+                                    let scheduleItems = [];
+                                    try {
+                                        const raw = tour.itinerary_timeline;
+                                        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                                        if (Array.isArray(parsed)) {
+                                            scheduleItems = parsed.filter(item => item.type === 'stop');
+                                        }
+                                    } catch(e) {}
+                                    const showRawStops = scheduleItems.length === 0 && tour.stops && tour.stops.length > 0;
+
+                                    return (
+                                        <View key={tour.id} style={{marginBottom: 25}}>
+                                            <Text style={[styles.subHeader, {marginTop: 5}]}>{tour.name}</Text>
+                                            <Text style={styles.itineraryText}>{tour.description}</Text>
+                                            
+                                            {renderTimeline(tour.itinerary_timeline, tour)}
+
+                                            <View style={styles.packageDetailsGrid}>
+                                                <View style={styles.detailRow}>
+                                                    <View style={styles.packageDetailItem}>
+                                                        <Clock size={14} color="#8B98A8"/>
+                                                        <Text style={styles.packageDetailText}>{tour.duration}</Text>
+                                                    </View>
+                                                     <View style={styles.packageDetailItem}>
+                                                        <User size={14} color="#8B98A8"/>
+                                                        <Text style={styles.packageDetailText}>Max {tour.max_group_size} people</Text>
+                                                    </View>
+                                                </View>
+                                                
+                                                {/* Row 2: Base Price & Additional Fee */}
+                                                <View style={[styles.detailRow, {marginTop: 8}]}>
+                                                    <View style={styles.packageDetailItem}>
+                                                        <Text style={styles.priceLabel}>Base Price:</Text>
+                                                        <Text style={[styles.packageDetailText, {color: '#00A8FF', fontWeight: 'bold'}]}>
+                                                            ₱ {tour.price_per_day}
+                                                        </Text>
+                                                    </View>
+                                                    <View style={styles.packageDetailItem}>
+                                                        <Text style={styles.priceLabel}>Extra Fee:</Text>
+                                                        <Text style={[styles.packageDetailText, {color: '#1A2332', fontWeight: '600'}]}>
+                                                            +₱ {tour.additional_fee_per_head || 0}<Text style={{fontSize: 10, fontWeight: '400', color:'#888'}}>/pax</Text>
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                            </View>
+                                            
+                                            <Text style={styles.subHeader}>What to Bring:</Text>
+                                            <Text style={styles.itineraryText}>{tour.what_to_bring}</Text>
+
+                                            {(scheduleItems.length > 0 || showRawStops) && (
+                                                <View style={{marginTop: 15}}>
+                                                    <View style={[styles.sectionHeader, {marginBottom: 8}]}>
+                                                        <MapPin size={14} color="#666" />
+                                                        <Text style={[styles.detailLabel, {fontSize: 12, marginLeft: 6}]}>Tour Stops (Chronological):</Text>
+                                                    </View>
+                                                    
+                                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.stopsScrollView}>
+                                                        {scheduleItems.length > 0 ? scheduleItems.map((item, i) => {
+                                                            const matchedStop = tour.stops?.find(s => s.name === item.activityName || s.id === item.refId);
+                                                            const imgUrl = matchedStop ? matchedStop.image : null;
+                                                            return (
+                                                                <View key={i} style={styles.stopCard}>
+                                                                    <Image source={{uri: getImageUrl(imgUrl)}} style={styles.stopImage} />
+                                                                    <Text style={styles.stopName} numberOfLines={1}>{item.activityName}</Text>
+                                                                    <Text style={styles.stopTime}>{item.startTime} - {item.endTime}</Text>
+                                                                </View>
+                                                            );
+                                                        }) 
+                                                        : tour.stops.map(stop => (
+                                                            <View key={stop.id} style={styles.stopCard}>
+                                                                <Image source={{uri: getImageUrl(stop.image)}} style={styles.stopImage} />
+                                                                <Text style={styles.stopName} numberOfLines={1}>{stop.name}</Text>
+                                                                <Text style={styles.stopTime}>Visit</Text>
+                                                            </View>
+                                                        ))}
+                                                    </ScrollView>
+                                                </View>
+                                            )}
+                                            
+                                            {index < tourPackages.length - 1 && (
+                                                <View style={{height: 1, backgroundColor: '#E0E6ED', marginTop: 20, marginBottom: 5}} />
+                                            )}
                                         </View>
-                                    ))}
-                                </ScrollView>
+                                    );
+                                })}
                             </View>
                         )}
 
-                        {/* 🔥 ACCOMMODATIONS SECTION (Swiper Style) 🔥 */}
+                        {/* ACCOMMODATIONS SECTION */}
                         {accommodations.length > 0 && (
                             <View style={styles.detailsSection}>
                                 <View style={styles.sectionHeader}>
@@ -220,53 +325,23 @@ const TouristGuideDetails = () => {
                                     <Text style={styles.detailsHeader}>Available Accommodations</Text>
                                 </View>
                                 
-                                <ScrollView 
-                                    horizontal 
-                                    showsHorizontalScrollIndicator={false} 
-                                    contentContainerStyle={styles.accSwiperContainer}
-                                >
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.accSwiperContainer}>
                                     {accommodations.map((acc) => (
-                                        <TouchableOpacity 
-                                            key={acc.id} 
-                                            style={styles.accCard}
-                                            activeOpacity={0.9}
-                                            // Optional: Add navigation to accommodation details here
-                                        >
-                                            {/* Image */}
-                                            <Image 
-                                                source={{ uri: getImageUrl(acc.photo) }}
-                                                style={styles.accImage} 
-                                            />
-                                            
-                                            {/* Type Badge (e.g. Room, Apartment) */}
+                                        <TouchableOpacity key={acc.id} style={styles.accCard} activeOpacity={0.9}>
+                                            <Image source={{ uri: getImageUrl(acc.photo) }} style={styles.accImage} />
                                             <View style={styles.accBadge}>
-                                                <Text style={styles.accBadgeText}>
-                                                    {acc.accommodation_type || "Stay"}
-                                                </Text>
+                                                <Text style={styles.accBadgeText}>{acc.accommodation_type || "Stay"}</Text>
                                             </View>
-
-                                            {/* Details */}
                                             <View style={styles.accContent}>
-                                                <Text style={styles.accTitle} numberOfLines={1}>
-                                                    {acc.title}
-                                                </Text>
+                                                <Text style={styles.accTitle} numberOfLines={1}>{acc.title}</Text>
                                                 <View style={styles.accLocationRow}>
                                                     <MapPin size={12} color="#888" />
-                                                    <Text style={styles.accLocation} numberOfLines={1}>
-                                                        {acc.location}
-                                                    </Text>
+                                                    <Text style={styles.accLocation} numberOfLines={1}>{acc.location}</Text>
                                                 </View>
-                                                
                                                 <View style={styles.accDivider} />
-
                                                 <View style={styles.accFooter}>
-                                                    <Text style={styles.accPrice}>
-                                                        ₱{acc.price} <Text style={styles.accPerNight}>/ night</Text>
-                                                    </Text>
-                                                    
-                                                    {/* Simple Amenities Icons */}
+                                                    <Text style={styles.accPrice}>₱{acc.price} <Text style={styles.accPerNight}>/ night</Text></Text>
                                                     <View style={styles.accAmenities}>
-                                                        {/* Only show if true in your JSON field */}
                                                         {acc.amenities?.wifi && <Wifi size={14} color="#666" style={{marginLeft:6}} />}
                                                         {acc.amenities?.parking && <Car size={14} color="#666" style={{marginLeft:6}} />}
                                                         {acc.amenities?.breakfast && <Coffee size={14} color="#666" style={{marginLeft:6}} />}
@@ -278,9 +353,7 @@ const TouristGuideDetails = () => {
                                 </ScrollView>
                             </View>
                         )}
-                        {/* 🔥 END ACCOMMODATIONS 🔥 */}
-
-                        {/* Guide Details Section */}
+             
                         <View style={styles.detailsSection}>
                             <Text style={styles.detailsHeader}>Guide Details</Text>
                             <View style={styles.infoItem}><Languages size={16} color="#1A2332" /><Text style={styles.detailText}><Text style={styles.detailLabel}>Language: </Text>{Array.isArray(guide.languages) ? guide.languages.join(', ') : guide.languages}</Text></View>
@@ -288,18 +361,14 @@ const TouristGuideDetails = () => {
                             <View style={styles.infoItem}><Clock size={16} color="#1A2332" /><Text style={styles.detailText}><Text style={styles.detailLabel}>Experience: </Text>{guide.experience_years} years</Text></View>
                         </View>
 
-                        {/* Availability Section */}
                         <View style={styles.detailsSection}>
                             <View style={styles.sectionHeader}>
                                 <CalendarIcon size={18} color="#1A2332" />
                                 <Text style={styles.detailsHeader}>Availability</Text>
                             </View>
-                            
                             <Text style={styles.detailLabel}>Weekly Schedule:</Text>
                             {renderAvailabilityBubbles(guide.available_days)}
-                            
                             <Text style={[styles.detailLabel, {marginTop: 15, marginBottom: 10}]}>Full Calendar:</Text>
-                            
                             <View style={styles.calendarContainer}>
                                 <Calendar
                                     current={new Date().toISOString().split('T')[0]}
@@ -335,16 +404,28 @@ const TouristGuideDetails = () => {
                         <TouchableOpacity 
                             style={styles.bookButton} 
                             activeOpacity={0.8} 
-                            onPress={() => router.push({ 
-                                pathname: "/(protected)/payment",
-                                params: { 
-                                    guideId: guide.id,
-                                    guideName: `${guide.first_name} ${guide.last_name}`,
-                                    basePrice: tourPackage ? tourPackage.price_per_day : guide.price_per_day, 
-                                    tourPackageId: tourPackage?.id,
-                                    placeId: placeId,
-                                } 
-                            })}
+                            onPress={() => {
+                                // Calculate Total Accommodation Price
+                                const totalAccomPrice = accommodations.reduce((sum, acc) => sum + parseFloat(acc.price || 0), 0);
+                                
+                                // Get selected/first tour details
+                                const selectedTour = tourPackages.length > 0 ? tourPackages[0] : null;
+                                const tourPrice = selectedTour ? parseFloat(selectedTour.price_per_day || 0) : parseFloat(guide.price_per_day || 0);
+                                const extraFee = selectedTour ? parseFloat(selectedTour.additional_fee_per_head || 0) : 0;
+
+                                router.push({ 
+                                    pathname: "/(protected)/payment",
+                                    params: { 
+                                        guideId: guide.id,
+                                        guideName: `${guide.first_name} ${guide.last_name}`,
+                                        basePrice: tourPrice, 
+                                        accommodationPrice: totalAccomPrice,
+                                        additionalFee: extraFee,
+                                        tourPackageId: selectedTour ? selectedTour.id : null,
+                                        placeId: placeId,
+                                    } 
+                                });
+                            }}
                         >
                             <Text style={styles.bookButtonText}>BOOK NOW</Text>
                         </TouchableOpacity>
@@ -358,14 +439,11 @@ const TouristGuideDetails = () => {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#fff' },
     loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" },
-    
-    // Header
     header: { position: 'relative', height: 120, justifyContent: 'center' },
     headerImage: { width: '100%', height: '100%', resizeMode: 'cover', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     headerTitle: { position: 'absolute', bottom: 15, left: 20, color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 1 },
     backButton: { position: 'absolute', top: 20, left: 20, padding: 5, zIndex: 10 },
-
     contentContainer: { padding: 16 },
     guideCard: { backgroundColor: '#F5F7FA', borderRadius: 15, padding: 16, borderWidth: 1, borderColor: '#E0E6ED' },
     cardProfileSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
@@ -376,8 +454,6 @@ const styles = StyleSheet.create({
     guideAddress: { fontSize: 13, color: '#8B98A8', marginTop: 4 },
     ratingContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
     guideRating: { fontSize: 13, color: '#C99700', marginLeft: 4 },
-    
-    // Availability Bubbles
     availabilityContainer: { flexDirection: 'row', gap: 4, marginTop: 4, marginBottom: 10 },
     dayBadge: { width: 22, height: 22, borderRadius: 11, justifyContent: 'center', alignItems: 'center' },
     dayAvailable: { backgroundColor: '#28A745' },
@@ -385,7 +461,6 @@ const styles = StyleSheet.create({
     dayText: { fontSize: 10, fontWeight: '700' },
     dayTextAvailable: { color: '#fff' },
     dayTextUnavailable: { color: '#A0A0A0' },
-    
     buttonRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
     actionButton: { flex: 1, backgroundColor: '#00A8FF', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 8, gap: 6 },
     actionButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
@@ -397,34 +472,36 @@ const styles = StyleSheet.create({
     sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
     detailsHeader: { fontSize: 16, fontWeight: '700', color: '#1A2332', marginLeft: 8 },
     subHeader: { fontSize: 14, fontWeight: '600', color: '#1A2332', marginTop: 10, marginBottom: 5 },
-    packageDetailsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 15, marginVertical: 10 },
+    packageDetailsGrid: { flexDirection: 'column', marginVertical: 10 },
+    detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     packageDetailItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     packageDetailText: { fontSize: 13, color: '#1A2332' },
+    priceLabel: { fontSize: 11, color: '#666', marginRight: 4 },
     stopsScrollView: { paddingVertical: 10 },
-    stopCard: { marginRight: 15, width: 150 },
-    stopImage: { width: 150, height: 100, borderRadius: 8 },
-    stopName: { marginTop: 5, fontSize: 13, fontWeight: '600', color: '#1A2332' },
+    stopCard: { marginRight: 15, width: 160, backgroundColor: '#fff', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#E0E6ED' },
+    stopImage: { width: '100%', height: 90, borderRadius: 6, marginBottom: 6 },
+    stopName: { fontSize: 13, fontWeight: '600', color: '#1A2332' },
+    stopTime: { fontSize: 11, color: '#00A8FF', marginTop: 2, fontWeight: '500' },
     infoItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
     detailText: { fontSize: 14, color: '#1A2332', marginLeft: 10 },
     detailLabel: { fontWeight: '600', color: '#1A2332' },
     itineraryText: { fontSize: 14, color: '#555', lineHeight: 20 },
-    
-    // --- ACCOMMODATION CARD STYLES ---
+    timelineContainer: { marginTop: 10, marginBottom: 10 },
+    timelineItem: { flexDirection: 'row', marginBottom: 12 },
+    timeColumn: { width: 65, alignItems: 'center', paddingRight: 8 },
+    timeText: { fontSize: 11, fontWeight: '700', color: '#1A2332' },
+    timeConnector: { flex: 1, width: 1, backgroundColor: '#E0E6ED', marginTop: 4 },
+    activityCard: { flex: 1, backgroundColor: '#fff', borderRadius: 8, padding: 10, borderWidth: 1, borderColor: '#E0E6ED' },
+    activityContentRow: { flexDirection: 'row', gap: 10 },
+    timelineImage: { width: 50, height: 50, borderRadius: 6, backgroundColor: '#eee' },
+    timelinePlaceholder: { width: 50, height: 50, borderRadius: 6, backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center' },
+    activityTextContainer: { flex: 1, justifyContent: 'center' },
+    activityTitle: { fontSize: 13, fontWeight: '700', color: '#333', marginBottom: 2 },
+    activityDuration: { fontSize: 11, color: '#888', marginBottom: 4 },
+    typeBadge: { alignSelf: 'flex-start', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+    typeText: { fontSize: 9, fontWeight: '700' },
     accSwiperContainer: { paddingRight: 20, paddingVertical: 10 },
-    accCard: { 
-        width: 240, 
-        marginRight: 15, 
-        backgroundColor: '#fff', 
-        borderRadius: 12, 
-        shadowColor: "#000", 
-        shadowOffset: {width: 0, height: 2}, 
-        shadowOpacity: 0.1, 
-        shadowRadius: 4, 
-        elevation: 3,
-        borderWidth: 1,
-        borderColor: '#f0f0f0',
-        overflow: 'hidden'
-    },
+    accCard: { width: 240, marginRight: 15, backgroundColor: '#fff', borderRadius: 12, shadowColor: "#000", shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3, borderWidth: 1, borderColor: '#f0f0f0', overflow: 'hidden' },
     accImage: { width: '100%', height: 130 },
     accBadge: { position: 'absolute', top: 10, left: 10, backgroundColor: 'rgba(0, 168, 255, 0.9)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
     accBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
@@ -437,8 +514,6 @@ const styles = StyleSheet.create({
     accPrice: { fontSize: 14, fontWeight: '700', color: '#00A8FF' },
     accPerNight: { fontSize: 11, color: '#999', fontWeight: '400' },
     accAmenities: { flexDirection: 'row' },
-
-    // Calendar
     calendarContainer: { backgroundColor: '#fff', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#eee' },
     calendarStyle: { borderRadius: 8, overflow: 'hidden' },
     legendContainer: { flexDirection: 'row', justifyContent: 'center', gap: 20, marginTop: 15, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#f0f0f0' },

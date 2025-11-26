@@ -174,7 +174,21 @@ export default function Profile() {
                         <View style={styles.settingsSection}>
                             <Text style={styles.sectionTitle}>Account Settings</Text>
                             {(isGuide ? guideSettingsItems : touristSettingsItems).map((item) => (
-                                <TouchableOpacity key={item.id} style={styles.settingItem}>
+                                <TouchableOpacity
+                                    key={item.id}
+                                    style={styles.settingItem}
+                                    onPress={() => {
+                                        // Navigate to View Accommodations page for guides
+                                        if (item.label === 'View Accommodations') {
+                                            router.push(`/(protected)/viewAccommodations?userId=${profile.id}`);
+                                            return;
+                                        }
+
+                                        // Handle other items if needed (placeholder)
+                                        // For now, navigate to a generic settings route or noop
+                                        // router.push('/settings');
+                                    }}
+                                >
                                     <View style={styles.settingLeft}>
                                         <Ionicons name={item.icon} size={20} color="#1a2f5a" />
                                         <Text style={styles.settingLabel}>{item.label}</Text>

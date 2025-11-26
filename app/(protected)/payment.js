@@ -15,15 +15,20 @@ const Payment = () => {
     const params = useLocalSearchParams();
     const router = useRouter();
     
-    // 1. Get User and Refresh function from Context
     const { user, refreshUser } = useAuth(); 
 
     const { 
         entityName, guideName, 
-        basePrice, placeName, bookingId, 
+        placeName, bookingId, 
         entityId, guideId, 
-        checkInDate, checkOutDate, numGuests, bookingType, assignedGuides 
+        checkInDate, checkOutDate, numGuests, bookingType, assignedGuides,
+        // New Params passed from Details page
+        basePrice,              // ₱500 (tour daily rate)
+        accommodationPrice,     // ₱1,000 (accommodation per night)
+        additionalFee,  
     } = params;
+
+    
     
     const isConfirmed = !!bookingId;
     const isAgency = bookingType === 'agency';
@@ -32,8 +37,6 @@ const Payment = () => {
 
     // --- STATE ---
     const [guideAvailability, setGuideAvailability] = useState(null);
-    
-    // Parse assigned guides safely (for Agency bookings)
     const [assignedGuidesList, setAssignedGuidesList] = useState(() => {
         try {
             if (assignedGuides && typeof assignedGuides === 'string') {
@@ -49,20 +52,26 @@ const Payment = () => {
     const [selectingType, setSelectingType] = useState('start'); 
     const [isLoadingImage, setIsLoadingImage] = useState(false);
 
-    const numericBasePrice = basePrice ? parseFloat(basePrice) : 500;
+    // --- PRICE CALCULATION LOGIC ---
+    // 1. Calculate Combined Base Price (Tour + Accommodation)
+    const tourCost = basePrice ? parseFloat(basePrice) : 500;
+    const accomCost = accommodationPrice ? parseFloat(accommodationPrice) : 0;
+    const combinedBasePrice = tourCost + accomCost;
+
+    // 2. Get Additional Fee per person from params
+    const extraPersonFee = additionalFee ? parseFloat(additionalFee) : 0;
 
     const bookingEntity = {
         id: resolvedId,
         name: resolvedName,
         purpose: placeName ? `Tour at ${placeName}` : "Private Tour", 
         address: isAgency ? "Verified Agency" : "Local Guide",
-        basePrice: numericBasePrice,
+        basePrice: combinedBasePrice, 
         serviceFee: 50,
     };
 
     const formatDateForCalendar = (date) => date.toISOString().split('T')[0];
 
-    // Helper to fix image URLs
     const getImageUrl = (imgPath) => {
         if (!imgPath) return null;
         if (imgPath.startsWith('http')) return imgPath;
@@ -82,9 +91,8 @@ const Payment = () => {
     const [email, setEmail] = useState('');
     
     const [validIdImage, setValidIdImage] = useState(null);
-    const [totalPrice, setTotalPrice] = useState(bookingEntity.basePrice - bookingEntity.serviceFee);
+    const [totalPrice, setTotalPrice] = useState(0);
 
-    // --- 1. AUTO-FILL FROM USER CONTEXT (KYC) ---
     useEffect(() => {
         if (user) {
             setFirstName(user.first_name || '');
@@ -93,7 +101,6 @@ const Payment = () => {
             setPhoneNumber(user.phone_number || ''); 
             setCountry(user.location || ''); 
             
-            // 🔥 KYC LOGIC: Check User Profile for existing ID
             if (user.valid_id_image) {
                 console.log("KYC Found in User Profile:", user.valid_id_image);
                 setValidIdImage(getImageUrl(user.valid_id_image));
@@ -101,7 +108,6 @@ const Payment = () => {
         }
     }, [user]);
 
-    // --- 2. FETCH GUIDE AVAILABILITY ---
     useEffect(() => {
         const fetchGuideAvailability = async () => {
             if (!isAgency && resolvedId) {
@@ -171,7 +177,6 @@ const Payment = () => {
         setCalendarVisible(false);
     };
 
-    // --- 4. IMAGE PICKER ---
     const pickImage = async () => {
         setIsLoadingImage(true);
         let result = await ImagePicker.launchImageLibraryAsync({
@@ -182,7 +187,7 @@ const Payment = () => {
         });
 
         if (!result.canceled) {
-            setValidIdImage(result.assets[0].uri); // Will start with file://
+            setValidIdImage(result.assets[0].uri);
         }
         setIsLoadingImage(false);
     };
@@ -208,7 +213,6 @@ const Payment = () => {
                         setNumPeople(String(bookingDetails.num_guests));
                         setSelectedOption(bookingDetails.num_guests > 1 ? 'group' : 'solo');
                     }
-                    // If agency confirmed, show assigned guides
                     if (isAgency && bookingDetails.assigned_guides_detail) {
                         setAssignedGuidesList(bookingDetails.assigned_guides_detail);
                     }
@@ -220,14 +224,23 @@ const Payment = () => {
         fetchBookingDetails();
     }, [isConfirmed, bookingId]); 
 
-    // Calculate Price
     useEffect(() => {
         const oneDay = 24 * 60 * 60 * 1000;
-        const diffDays = Math.max(Math.round(Math.abs((endDate - startDate) / oneDay)) + 1, 1);
-        let groupSize = parseInt(numPeople) || 0;
-        let multiplier = selectedOption === 'solo' ? 1 : (groupSize < 2 ? 2 : groupSize);
-        setTotalPrice(diffDays * bookingEntity.basePrice * multiplier);
-    }, [startDate, endDate, selectedOption, numPeople]);
+        const numDays = Math.max(Math.round(Math.abs((endDate - startDate) / oneDay)), 1);
+        
+        let groupSize = parseInt(numPeople) || 1;
+        if (selectedOption === 'solo') groupSize = 1;
+        else if (groupSize < 2) groupSize = 2;
+
+        const extraPeople = Math.max(0, groupSize - 1);
+        const totalExtraFee = extraPeople * extraPersonFee;
+
+        const dailyTotal = combinedBasePrice + totalExtraFee;
+        
+        const grandTotal = dailyTotal * numDays;
+
+        setTotalPrice(grandTotal);
+    }, [startDate, endDate, selectedOption, numPeople, combinedBasePrice, extraPersonFee]);
 
     return (
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -323,13 +336,38 @@ const Payment = () => {
                         )}
                     </View>
 
+                    {/* UPDATED PRICE CARD */}
                     <View style={styles.priceCard}>
-                        <View style={styles.priceRow}><Text style={styles.priceLabel}>Base Price</Text><Text style={styles.priceValue}>₱ {bookingEntity.basePrice.toLocaleString()}</Text></View>
-                        <View style={styles.priceRow}><Text style={styles.priceLabel}>Days</Text><Text style={styles.priceValue}>{Math.max(Math.round(Math.abs((endDate - startDate) / (24 * 60 * 60 * 1000))) + 1, 1)} day(s)</Text></View>
-                        <View style={styles.priceDivider} />
-                        <View style={styles.priceRow}><Text style={styles.totalLabel}>Total to Pay</Text><Text style={styles.totalValue}>₱ {totalPrice.toLocaleString()}</Text></View>
-                    </View>
+                        <View style={styles.priceRow}>
+                            <Text style={styles.priceLabel}>Base Price</Text>
+                            <Text style={styles.priceValue}>₱ {combinedBasePrice.toLocaleString()}</Text>
+                        </View>
+                        
+                        {extraPersonFee > 0 && selectedOption === 'group' && (
+                            <View style={styles.priceRow}>
+                                <Text style={styles.priceLabel}>
+                                    Extra Fee (₱{extraPersonFee} x {Math.max(0, (parseInt(numPeople)||1) - 1)} people)
+                                </Text>
+                                <Text style={styles.priceValue}>
+                                    ₱ {(extraPersonFee * Math.max(0, (parseInt(numPeople)||1) - 1)).toLocaleString()}
+                                </Text>
+                            </View>
+                        )}
 
+                        <View style={styles.priceRow}>
+                            <Text style={styles.priceLabel}>Number of Days</Text>
+                            <Text style={styles.priceValue}>
+                                {Math.max(Math.floor(Math.abs((endDate - startDate) / (24 * 60 * 60 * 1000))) + 1, 1)} day(s)
+                            </Text>
+                        </View>
+                        
+                        <View style={styles.priceDivider} />
+                        
+                        <View style={styles.priceRow}>
+                            <Text style={styles.totalLabel}>Total to Pay</Text>
+                            <Text style={styles.totalValue}>₱ {totalPrice.toLocaleString()}</Text>
+                        </View>
+                    </View>
                     {/* Billing */}
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Billing Information</Text>
@@ -356,7 +394,6 @@ const Payment = () => {
                                     <View style={styles.reuploadOverlay}>
                                         <Ionicons name={validIdImage.startsWith('http') ? "checkmark-circle" : "camera"} size={20} color="#fff" />
                                         <Text style={styles.reuploadText}>
-                                            {/* Show different text if it came from DB or Local */}
                                             {validIdImage.startsWith('http') ? "KYC Verified (Tap to Update)" : "Tap to Change ID"}
                                         </Text>
                                     </View>

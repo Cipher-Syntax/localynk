@@ -18,6 +18,7 @@ const GuideAvailability = () => {
     const [tourPackage, setTourPackage] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    // --- FETCH DATA ---
     useEffect(() => {
         const fetchData = async () => {
             if (!guideId || !placeId) return;
@@ -38,6 +39,7 @@ const GuideAvailability = () => {
         fetchData();
     }, [guideId, placeId]);
 
+    // --- HELPERS ---
     const getInclusions = () => {
         if (!tourPackage) return ["Standard Guide Services"];
         if (Array.isArray(tourPackage.inclusions) && tourPackage.inclusions.length > 0) return tourPackage.inclusions;
@@ -60,8 +62,7 @@ const GuideAvailability = () => {
         return [];
     }, [tourPackage, params.accommodations]);
 
-    // --- READ-ONLY CALENDAR LOGIC ---
-    // Only shows dates specifically saved in the DB. No auto-filling weekdays.
+    // --- CALENDAR LOGIC ---
     const markedDates = useMemo(() => {
         if (!guide || !guide.specific_available_dates) return {};
 
@@ -71,12 +72,63 @@ const GuideAvailability = () => {
                 selected: true, 
                 marked: true, 
                 selectedColor: '#00A8FF',
-                disabled: true, // Visual only
-                disableTouchEvent: true // Prevent interaction
+                disabled: true, 
+                disableTouchEvent: true 
             };
         });
         return marked;
     }, [guide]);
+
+    // --- ITINERARY TIMELINE PARSING ---
+    const timelineData = useMemo(() => {
+        if (!tourPackage || !tourPackage.itinerary_timeline) return [];
+        try {
+            const raw = tourPackage.itinerary_timeline;
+            // If it's already an object/array, use it. If string, parse it.
+            return typeof raw === 'string' ? JSON.parse(raw) : raw;
+        } catch (e) {
+            console.error("Error parsing timeline:", e);
+            return [];
+        }
+    }, [tourPackage]);
+
+    const renderTimeline = () => {
+        if (timelineData.length === 0) return <Text style={styles.emptyText}>No timeline available.</Text>;
+
+        return (
+            <View style={styles.timelineContainer}>
+                {timelineData.map((item, index) => (
+                    <View key={index} style={styles.timelineItem}>
+                        {/* Time Column */}
+                        <View style={styles.timeColumn}>
+                            <Text style={styles.timeText}>{item.startTime}</Text>
+                            <View style={styles.timeConnector} />
+                        </View>
+
+                        {/* Content Column */}
+                        <View style={styles.activityCard}>
+                            <View style={styles.activityHeader}>
+                                <View style={[
+                                    styles.activityDot, 
+                                    { backgroundColor: item.type === 'accom' ? '#8E44AD' : '#00A8FF' }
+                                ]} />
+                                <Text style={styles.activityTitle}>{item.activityName}</Text>
+                            </View>
+                            <Text style={styles.activityDuration}>
+                                {item.startTime} - {item.endTime}
+                            </Text>
+                            
+                            <View style={styles.typeBadge}>
+                                <Text style={styles.typeText}>
+                                    {item.type === 'accom' ? 'Accommodation' : 'Stop / Activity'}
+                                </Text>
+                            </View>
+                        </View>
+                    </View>
+                ))}
+            </View>
+        );
+    };
 
     if (loading) {
         return (
@@ -114,10 +166,8 @@ const GuideAvailability = () => {
                     </View>
                     
                     <Calendar
-                        // Focus on today
                         current={new Date().toISOString().split('T')[0]}
                         markedDates={markedDates}
-                        // This ensures it is READ ONLY (No editing)
                         disabledByDefault={true}
                         disableAllTouchEventsForDisabledDays={true}
                         theme={{
@@ -149,12 +199,23 @@ const GuideAvailability = () => {
                 <View style={styles.cardContainer}>
                     <View style={styles.sectionHeader}>
                         <Map size={18} color="#1A2332" />
-                        <Text style={styles.cardTitle}>Proposed Itinerary: {tourPackage ? tourPackage.name : "Custom Plan"}</Text>
+                        <Text style={styles.cardTitle}>
+                            Proposed Itinerary: {tourPackage ? tourPackage.name : "Custom Plan"}
+                        </Text>
                     </View>
+                    
                     <Text style={styles.bodyText}>
                         {tourPackage ? tourPackage.description : (params.itinerary || "No itinerary details available.")}
                     </Text>
+
                     <View style={styles.divider} />
+
+                    {/* NEW TIMELINE SECTION */}
+                    <Text style={styles.subHeader}>Schedule</Text>
+                    {renderTimeline()}
+
+                    <View style={styles.divider} />
+                    
                     <Text style={styles.subHeader}>What to Expect / Bring</Text>
                     <View style={styles.inclusionsContainer}>
                         {safeInclusions.map((item, index) => (
@@ -204,7 +265,7 @@ const GuideAvailability = () => {
                         params: { guideId: guide.id, placeId: placeId, placeName: placeName }
                     })}
                 >
-                    <Text style={styles.proceedText}>View Profile</Text>
+                    <Text style={styles.proceedText}>View Details</Text>
                     <ArrowRight size={20} color="#fff" />
                 </TouchableOpacity>
             </View>
@@ -251,5 +312,22 @@ const styles = StyleSheet.create({
     footerLabel: { fontSize: 14, fontWeight: '700', color: '#333' },
     footerSub: { fontSize: 12, color: '#888' },
     proceedBtn: { backgroundColor: '#00A8FF', flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 30, gap: 8 },
-    proceedText: { color: '#fff', fontWeight: '700', fontSize: 16 }
+    proceedText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+    
+    // --- TIMELINE STYLES ---
+    timelineContainer: { marginTop: 10 },
+    timelineItem: { flexDirection: 'row', marginBottom: 15 },
+    timeColumn: { width: 70, alignItems: 'center', paddingRight: 10 },
+    timeText: { fontSize: 12, fontWeight: '700', color: '#1A2332' },
+    timeConnector: { flex: 1, width: 1, backgroundColor: '#E0E6ED', marginTop: 4 },
+    
+    activityCard: { flex: 1, backgroundColor: '#F5F7FA', borderRadius: 8, padding: 10, borderWidth: 1, borderColor: '#E0E6ED' },
+    activityHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+    activityDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
+    activityTitle: { fontSize: 14, fontWeight: '700', color: '#333' },
+    activityDuration: { fontSize: 11, color: '#888', marginBottom: 6 },
+    
+    typeBadge: { alignSelf: 'flex-start', backgroundColor: '#fff', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: '#eee' },
+    typeText: { fontSize: 10, color: '#666', fontWeight: '600' },
+    emptyText: { fontSize: 13, color: '#888', fontStyle: 'italic' }
 });
