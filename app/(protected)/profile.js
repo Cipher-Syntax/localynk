@@ -8,19 +8,24 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../api/api';
 import { Calendar } from 'react-native-calendars';
 
+// 1. IMPORT USEAUTH
+import { useAuth } from '../../context/AuthContext'; 
+
 const { width } = Dimensions.get('window');
 
 const GuideProfile = () => {
+    // 2. GET CURRENT USER FROM CONTEXT
+    const { user } = useAuth(); 
+
     const [guide, setGuide] = useState(null);
     const [destination, setDestination] = useState(null);
     const [tourPackage, setTourPackage] = useState(null);
-    const [accommodations, setAccommodations] = useState([]); // Added state for accommodations
+    const [accommodations, setAccommodations] = useState([]); 
     const [loading, setLoading] = useState(true);
     const router = useRouter();
     const params = useLocalSearchParams();
     const { userId, placeId } = params;
 
-    // --- HELPER: Image URL Fixer ---
     const getImageUrl = (imgPath) => {
         if (!imgPath) return 'https://via.placeholder.com/300';
         if (imgPath.startsWith('http')) return imgPath;
@@ -34,8 +39,13 @@ const GuideProfile = () => {
                 setLoading(false);
                 return;
             }
+
+            // 3. RESET STATE AND START LOADING
+            // This ensures previous user data is wiped before fetching new data
+            setLoading(true);
+            setGuide(null);
+            
             try {
-                // Added accommodations fetch
                 const [guideRes, destRes, toursRes, accomRes] = await Promise.all([
                     api.get(`/api/guides/${userId}/`),
                     api.get(`/api/destinations/${placeId}/`),
@@ -45,7 +55,7 @@ const GuideProfile = () => {
 
                 setGuide(guideRes.data);
                 setDestination(destRes.data);
-                setAccommodations(accomRes.data); // Set accommodations
+                setAccommodations(accomRes.data);
                 
                 const specificTour = toursRes.data.find(tour => tour.guide === parseInt(userId)); 
                 setTourPackage(specificTour);
@@ -58,7 +68,10 @@ const GuideProfile = () => {
         };
 
         fetchData();
-    }, [userId, placeId]);
+        
+    // 4. ADD 'user' TO DEPENDENCY ARRAY
+    // This forces the effect to run again if the logged-in user changes
+    }, [userId, placeId, user]); 
 
     const renderAvailability = (guideDays) => {
         const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -208,7 +221,7 @@ const GuideProfile = () => {
                             </View>
                         )}
 
-                        {/* 🔥 ACCOMMODATIONS SECTION (Added from Reference) 🔥 */}
+                        {/* 🔥 ACCOMMODATIONS SECTION 🔥 */}
                         {accommodations.length > 0 && (
                             <View style={styles.detailsSection}>
                                 <View style={styles.sectionHeader}>

@@ -1,229 +1,17 @@
-// import React, { useState, useRef, useEffect } from 'react';
-// import { View, Text, Image, StyleSheet, Animated, TouchableOpacity, Easing } from 'react-native';
-// import { Ionicons } from '@expo/vector-icons';
-// import { useRouter } from 'expo-router';
-
-// // Import images
-// import DiscoverPlace1 from '../../assets/localynk_images/discover1.png';
-// import DiscoverPlace2 from '../../assets/localynk_images/discover2.png';
-// import DiscoverPlace3 from '../../assets/localynk_images/discover3.png';
-// import DiscoverPlace4 from '../../assets/localynk_images/discover4.png';
-
-// // Create Animated Touchable component
-// const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
-
-// const DiscoverWhatYouWant = () => {
-//     const router = useRouter();
-//     const [isActive, setIsActive] = useState(2);
-
-//     const bounceValue = useRef(new Animated.Value(0)).current;
-
-//     const items = [
-//         { id: 1, image: DiscoverPlace1, name: 'BEACHES', touristGuide: "Juan" },
-//         { id: 2, image: DiscoverPlace2, name: 'MOUNTAINS', touristGuide: "Dela Cruz" },
-//         { id: 3, image: DiscoverPlace3, name: 'RIVERS', touristGuide: "John" },
-//         { id: 4, image: DiscoverPlace4, name: 'BEACHES', touristGuide: "Doe" },
-//     ];
-
-//     // Flex animations
-//     const flexAnimations = useRef(
-//         items.map(item => new Animated.Value(item.id === isActive ? 4 : 1))
-//     ).current;
-
-//     useEffect(() => {
-//         const animations = items.map((item, index) => {
-//             return Animated.timing(flexAnimations[index], {
-//                 toValue: item.id === isActive ? 4 : 1,
-//                 duration: 500,
-//                 easing: Easing.inOut(Easing.cubic),
-//                 useNativeDriver: false,
-//             });
-//         });
-//         Animated.parallel(animations).start();
-//     }, [isActive, flexAnimations]);
-
-//     const startBounce = () => {
-//         Animated.loop(
-//             Animated.sequence([
-//                 Animated.timing(bounceValue, {
-//                     toValue: -10,
-//                     duration: 400,
-//                     easing: Easing.linear,
-//                     useNativeDriver: true,
-//                 }),
-//                 Animated.timing(bounceValue, {
-//                     toValue: 0,
-//                     duration: 400,
-//                     easing: Easing.linear,
-//                     useNativeDriver: true,
-//                 }),
-//             ])
-//         ).start();
-//     };
-
-//     useEffect(() => {
-//         startBounce();
-//     }, [isActive]);
-
-//     return (
-//         <View style={styles.discoverSection}>
-//             <View style={{ width: "100%", height: 250, marginTop: 20, marginBottom: 50 }}>
-//                 <Image
-//                     source={require('../../assets/localynk_images/travel.webp')}
-//                     style={{ width: "100%", height: "100%", objectFit: "cover" }}
-//                 />
-//             </View>
-//             <Text style={styles.discoverTitle}>Discover What You Want</Text>
-//             <View style={styles.discoverRow}>
-//                 {items.map((item, index) => (
-//                     <AnimatedTouchable
-//                         key={item.id}
-//                         activeOpacity={0.9}
-//                         onPress={() => setIsActive(item.id)}
-//                         style={[styles.discoverItem, { flex: flexAnimations[index] }]}
-//                     >
-//                         <Image
-//                             source={item.image}
-//                             style={[styles.discoverImage, { opacity: isActive === item.id ? 1 : 0.8 }]}
-//                         />
-
-//                         {isActive !== item.id && (
-//                             <View style={styles.rotatedTextContainer}>
-//                                 <Text
-//                                     style={styles.inactiveDiscoverText}
-//                                     numberOfLines={1}
-//                                 >
-//                                     {item.name}
-//                                 </Text>
-//                             </View>
-//                         )}
-
-//                         {isActive === item.id && (
-//                             <View style={styles.activeItemContainer}>
-//                                 <View style={styles.titleOverlay}>
-//                                     <Text style={styles.activeTitle}>{item.name}</Text>
-//                                 </View>
-
-//                                 <TouchableOpacity
-//                                     onPress={() =>
-//                                         router.push({
-//                                             pathname: "/(protected)/attractionDetails",
-//                                             params: { category: item.touristGuide },
-//                                         })
-//                                     }
-//                                     style={styles.descriptionOverlay}
-//                                 >
-//                                     <Text style={styles.discoverSubtext}>
-//                                         Discover more breathtaking{'\n'}{item.name.toLowerCase()} spots
-//                                     </Text>
-//                                     <Animated.View style={{ transform: [{ translateY: bounceValue }], marginTop: 10 }}>
-//                                         <Ionicons name='arrow-down-outline' color="#00C6FF" size={25} />
-//                                     </Animated.View>
-//                                 </TouchableOpacity>
-//                             </View>
-//                         )}
-//                     </AnimatedTouchable>
-//                 ))}
-//             </View>
-//         </View>
-//     );
-// };
-
-// export default DiscoverWhatYouWant;
-
-// const styles = StyleSheet.create({
-//     discoverSection: {
-//         marginTop: 20,
-//     },
-//     discoverTitle: {
-//         textAlign: 'center',
-//         fontSize: 18,
-//         textTransform: 'uppercase',
-//         letterSpacing: 1,
-//         fontWeight: '600',
-//         marginBottom: 10,
-//     },
-//     discoverRow: {
-//         flexDirection: 'row',
-//         width: '100%',
-//         height: 400,
-//         overflow: 'hidden',
-//     },
-//     discoverItem: {
-//         position: 'relative',
-//         height: '100%',
-//         overflow: 'hidden',
-//     },
-//     discoverImage: {
-//         width: '100%',
-//         height: '100%',
-//         resizeMode: 'cover',
-//     },
-//     rotatedTextContainer: {
-//         position: 'absolute',
-//         top: 0,
-//         bottom: 0,
-//         left: 0,
-//         right: 0,
-//         justifyContent: 'center',
-//         alignItems: 'center',
-//         zIndex: 5,
-//     },
-//     inactiveDiscoverText: {
-//         fontSize: 22,
-//         fontWeight: "900",
-//         color: '#ffffff',
-//         transform: [{ rotate: '-90deg' }],
-//         letterSpacing: 25,
-//         width: 400,
-//         textAlign: "center",
-//     },
-//     activeItemContainer: {
-//         position: 'absolute',
-//         top: 0,
-//         bottom: 0,
-//         left: 0,
-//         right: 0,
-//         justifyContent: 'space-between',
-//         zIndex: 10,
-//     },
-//     titleOverlay: {
-//         paddingTop: 20,
-//         paddingHorizontal: 15,
-//         justifyContent: 'flex-start',
-//     },
-//     activeTitle: {
-//         fontSize: 28,
-//         fontWeight: '700',
-//         color: '#ffffff',
-//         textAlign: 'center',
-//         letterSpacing: 1,
-//         textShadowColor: 'rgba(0, 0, 0, 0.5)',
-//         textShadowOffset: { width: 1, height: 1 },
-//         textShadowRadius: 3,
-//     },
-//     descriptionOverlay: {
-//         paddingBottom: 40,
-//         paddingHorizontal: 15,
-//         backgroundColor: 'rgba(0, 0, 0, 0.4)',
-//         paddingVertical: 15,
-//         display: "flex",
-//         alignItems: "center",
-//         justifyContent: "center"
-//     },
-//     discoverSubtext: {
-//         textAlign: 'center',
-//         fontSize: 14,
-//         color: '#00C6FF',
-//         fontWeight: '500',
-//         lineHeight: 20,
-//     },
-// });
-
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, Image, StyleSheet, Animated, TouchableOpacity, Easing } from 'react-native';
+import { 
+    View, 
+    Text, 
+    Image, 
+    StyleSheet, 
+    Animated, 
+    TouchableOpacity, 
+    Easing,
+    Platform
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../context/AuthContext';
 
 // Import images
@@ -240,53 +28,59 @@ const DiscoverWhatYouWant = ({ isPublic = false }) => {
     const { isAuthenticated } = useAuth();
     const [isActive, setIsActive] = useState(2);
 
+    // Animation values
     const bounceValue = useRef(new Animated.Value(0)).current;
 
     const items = [
-        { id: 1, image: DiscoverPlace1, name: 'BEACHES', touristGuide: "Juan" },
-        { id: 2, image: DiscoverPlace2, name: 'MOUNTAINS', touristGuide: "Dela Cruz" },
-        { id: 3, image: DiscoverPlace3, name: 'RIVERS', touristGuide: "John" },
-        { id: 4, image: DiscoverPlace4, name: 'BEACHES', touristGuide: "Doe" },
+        { id: 1, image: DiscoverPlace1, name: 'BEACHES', touristGuide: "Juan", subtitle: "Sun-Kissed Shores" },
+        { id: 2, image: DiscoverPlace2, name: 'MOUNTAINS', touristGuide: "Dela Cruz", subtitle: "Peak Adventures" },
+        { id: 3, image: DiscoverPlace3, name: 'RIVERS', touristGuide: "John", subtitle: "Flowing Waters" },
+        { id: 4, image: DiscoverPlace4, name: 'ISLANDS', touristGuide: "Doe", subtitle: "Tropical Escapes" },
     ];
 
-    // Flex animations
+    // Initialize flex values
     const flexAnimations = useRef(
-        items.map(item => new Animated.Value(item.id === isActive ? 4 : 1))
+        items.map(item => new Animated.Value(item.id === 2 ? 4 : 1))
     ).current;
 
+    // Handle Flex Expansion Animation
     useEffect(() => {
         const animations = items.map((item, index) => {
             return Animated.timing(flexAnimations[index], {
                 toValue: item.id === isActive ? 4 : 1,
                 duration: 500,
-                easing: Easing.inOut(Easing.cubic),
+                easing: Easing.out(Easing.cubic), // Slightly smoother easing
                 useNativeDriver: false,
             });
         });
         Animated.parallel(animations).start();
-    }, [isActive, flexAnimations]);
+    }, [isActive]);
 
-    const startBounce = () => {
-        Animated.loop(
-            Animated.sequence([
-                Animated.timing(bounceValue, {
-                    toValue: -10,
-                    duration: 400,
-                    easing: Easing.linear,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(bounceValue, {
-                    toValue: 0,
-                    duration: 400,
-                    easing: Easing.linear,
-                    useNativeDriver: true,
-                }),
-            ])
-        ).start();
-    };
-
+    // Handle Arrow Bounce Animation
     useEffect(() => {
-        startBounce();
+        const startBounce = () => {
+            bounceValue.setValue(0);
+            Animated.loop(
+                Animated.sequence([
+                    Animated.timing(bounceValue, {
+                        toValue: -8, // Slightly subtler bounce
+                        duration: 500,
+                        easing: Easing.inOut(Easing.ease),
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(bounceValue, {
+                        toValue: 0,
+                        duration: 500,
+                        easing: Easing.inOut(Easing.ease),
+                        useNativeDriver: true,
+                    }),
+                ])
+            ).start();
+        };
+
+        if (isActive) {
+            startBounce();
+        }
     }, [isActive]);
 
     const handleDiscoverPress = (item) => {
@@ -302,25 +96,38 @@ const DiscoverWhatYouWant = ({ isPublic = false }) => {
 
     return (
         <View style={styles.discoverSection}>
-            <View style={{ width: "100%", height: 250, marginTop: 20, marginBottom: 50 }}>
+            <View style={styles.bannerContainer}>
                 <Image
                     source={require('../../assets/localynk_images/travel.webp')}
-                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    style={styles.bannerImage}
                 />
+                <LinearGradient 
+                    colors={['transparent', 'rgba(0,0,0,0.7)']} 
+                    style={StyleSheet.absoluteFill} 
+                />
+                <View style={styles.bannerTextContainer}>
+                    <Text style={styles.discoverTitle}>Discover What You Want</Text>
+                    <View style={styles.titleUnderline} />
+                </View>
             </View>
-            <Text style={styles.discoverTitle}>Discover What You Want</Text>
+
             <View style={styles.discoverRow}>
                 {items.map((item, index) => (
                     <AnimatedTouchable
                         key={item.id}
-                        activeOpacity={0.9}
+                        activeOpacity={1} 
                         onPress={() => setIsActive(item.id)}
                         style={[styles.discoverItem, { flex: flexAnimations[index] }]}
                     >
                         <Image
                             source={item.image}
-                            style={[styles.discoverImage, { opacity: isActive === item.id ? 1 : 0.8 }]}
+                            style={styles.discoverImage}
                         />
+                        
+                        <Animated.View style={[
+                             StyleSheet.absoluteFill, 
+                             { backgroundColor: 'black', opacity: isActive === item.id ? 0 : 0.3 }
+                        ]} />
 
                         {isActive !== item.id && (
                             <View style={styles.rotatedTextContainer}>
@@ -335,20 +142,33 @@ const DiscoverWhatYouWant = ({ isPublic = false }) => {
 
                         {isActive === item.id && (
                             <View style={styles.activeItemContainer}>
-                                <View style={styles.titleOverlay}>
+                                <LinearGradient 
+                                    colors={['rgba(0,0,0,0.6)', 'transparent']}
+                                    style={styles.titleGradientOverlay}
+                                >
+                                    <Text style={styles.activeSubtitle}>EXPLORE THE</Text>
                                     <Text style={styles.activeTitle}>{item.name}</Text>
-                                </View>
+                                </LinearGradient>
 
                                 <TouchableOpacity
                                     onPress={() => handleDiscoverPress(item)}
-                                    style={styles.descriptionOverlay}
+                                    activeOpacity={0.8}
                                 >
-                                    <Text style={styles.discoverSubtext}>
-                                        Discover more breathtaking{'\n'}{item.name.toLowerCase()} spots
-                                    </Text>
-                                    <Animated.View style={{ transform: [{ translateY: bounceValue }], marginTop: 10 }}>
-                                        <Ionicons name='arrow-down-outline' color="#00C6FF" size={25} />
-                                    </Animated.View>
+                                    <LinearGradient 
+                                        colors={['transparent', 'rgba(0,0,0,0.8)', 'rgba(0,0,0,0.95)']}
+                                        style={styles.descriptionGradientOverlay}
+                                    >
+                                        <Text style={styles.discoverSubtext}>
+                                            Find breathtaking views & hidden gems in our{' '}
+                                            <Text style={styles.AccentText}>{item.name.toLowerCase()}</Text> collection.
+                                        </Text>
+                                        
+                                        <Animated.View style={{ transform: [{ translateY: bounceValue }], marginTop: 12 }}>
+                                            <View style={styles.iconCircle}>
+                                                 <Ionicons name='arrow-forward' color="#fff" size={20} />
+                                            </View>
+                                        </Animated.View>
+                                    </LinearGradient>
                                 </TouchableOpacity>
                             </View>
                         )}
@@ -363,89 +183,141 @@ export default DiscoverWhatYouWant;
 
 const styles = StyleSheet.create({
     discoverSection: {
-        marginTop: 20,
+        marginTop: 0,
+    },
+    bannerContainer: {
+        width: "100%", 
+        height: 220,
+        marginTop: 0, 
+        marginBottom: 30,
+        position: 'relative',
+        justifyContent: 'flex-end'
+    },
+    bannerImage: {
+        width: "100%", 
+        height: "100%", 
+        objectFit: "cover",
+        position: 'absolute'
+    },
+    bannerTextContainer: {
+        padding: 20,
+        alignItems: 'center',
     },
     discoverTitle: {
         textAlign: 'center',
-        fontSize: 18,
+        fontSize: 24,
         textTransform: 'uppercase',
-        letterSpacing: 1,
-        fontWeight: '600',
-        marginBottom: 10,
+        letterSpacing: 2,
+        fontWeight: '800',
+        color: '#fff',
+        textShadowColor: 'rgba(0, 0, 0, 0.5)',
+        textShadowOffset: { width: 0, height: 2 },
+        textShadowRadius: 5,
+    },
+    titleUnderline: {
+        width: 60,
+        height: 3,
+        backgroundColor: '#00C6FF',
+        marginTop: 8,
+        borderRadius: 2
     },
     discoverRow: {
         flexDirection: 'row',
         width: '100%',
-        height: 400,
-        overflow: 'hidden',
+        height: 450,
+        backgroundColor: '#000'
     },
     discoverItem: {
         position: 'relative',
         height: '100%',
         overflow: 'hidden',
+        borderRightWidth: 0.5,
+        borderColor: 'rgba(255,255,255,0.2)', 
     },
     discoverImage: {
         width: '100%',
         height: '100%',
         resizeMode: 'cover',
+        position: 'absolute',
     },
+    
     rotatedTextContainer: {
         position: 'absolute',
-        top: 0,
-        bottom: 0,
-        left: 0,
-        right: 0,
+        top: 0, bottom: 0, left: 0, right: 0,
         justifyContent: 'center',
         alignItems: 'center',
         zIndex: 5,
     },
     inactiveDiscoverText: {
-        fontSize: 22,
-        fontWeight: "900",
-        color: '#ffffff',
+        fontSize: 18,
+        fontWeight: "800",
+        color: 'rgba(255,255,255,0.85)',
         transform: [{ rotate: '-90deg' }],
-        letterSpacing: 25,
-        width: 400,
+        letterSpacing: 6,
+        width: 450,
         textAlign: "center",
+        textShadowColor: 'rgba(0, 0, 0, 0.5)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 3,
     },
+
     activeItemContainer: {
         position: 'absolute',
-        top: 0,
-        bottom: 0,
-        left: 0,
-        right: 0,
+        top: 0, bottom: 0, left: 0, right: 0,
         justifyContent: 'space-between',
         zIndex: 10,
     },
-    titleOverlay: {
-        paddingTop: 20,
-        paddingHorizontal: 15,
+    titleGradientOverlay: {
+        paddingTop: 40,
+        paddingHorizontal: 20,
+        paddingBottom: 30,
         justifyContent: 'flex-start',
     },
-    activeTitle: {
-        fontSize: 28,
+    activeSubtitle: {
+        color: '#00C6FF',
+        fontSize: 12,
         fontWeight: '700',
-        color: '#ffffff',
-        textAlign: 'center',
-        letterSpacing: 1,
-        textShadowColor: 'rgba(0, 0, 0, 0.5)',
-        textShadowOffset: { width: 1, height: 1 },
-        textShadowRadius: 3,
+        letterSpacing: 1.5,
+        marginBottom: 4,
     },
-    descriptionOverlay: {
-        paddingBottom: 40,
-        paddingHorizontal: 15,
-        backgroundColor: 'rgba(0, 0, 0, 0.4)',
-        paddingVertical: 15,
-        display: "flex",
+    activeTitle: {
+        fontSize: 34,
+        fontWeight: '900',
+        color: '#ffffff',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        textShadowColor: 'rgba(0, 0, 0, 0.3)',
+        textShadowOffset: { width: 0, height: 2 },
+        textShadowRadius: 10,
+    },
+    descriptionGradientOverlay: {
+        paddingTop: 50,
+        paddingBottom: 30,
+        paddingHorizontal: 25,
         alignItems: "center",
         justifyContent: "center"
     },
     discoverSubtext: {
         textAlign: 'center',
-        fontSize: 14,
-        color: '#00C6FF',
+        fontSize: 15,
+        color: '#e0e0e0',
         fontWeight: '500',
-        lineHeight: 20,
+        lineHeight: 22,
     },
+    AccentText: {
+        color: '#00C6FF',
+        fontWeight: '700',
+    },
+    iconCircle: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: 'rgba(0, 198, 255, 0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: "#00C6FF",
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.5,
+        shadowRadius: 8,
+    }
 });

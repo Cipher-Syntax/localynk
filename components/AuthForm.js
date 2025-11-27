@@ -16,6 +16,11 @@ const AuthForm = ({ method }) => {
 
     const { control, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm();
     const [remember, setRemember] = useState(false);
+    
+    // --- NEW STATE FOR PASSWORD VISIBILITY ---
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
     const router = useRouter();
 
     const bgImage = method === 'login'
@@ -26,12 +31,12 @@ const AuthForm = ({ method }) => {
 
     // --- FIX APPLIED HERE ---
     // Change dependency array from [method] to []
-    // This makes the cleanup (clearMessage) only run when the component unmounts
-    // (i.e., when leaving the auth flow), allowing the success message to persist
-    // across the redirect from register to login.
+    // We REMOVED the "return () => clearMessage()"
+    // This allows the message to persist when router.replace switches from Register to Login
     useEffect(() => {
-        return () => clearMessage();
-    }, []); // <--- MODIFIED
+        // Optional: clear message on mount ONLY if it's not a success message meant for this screen.
+        // For now, leaving this empty is safest for your flow.
+    }, []); 
 
     const onSubmit = async (data) => {
         clearMessage(); // Clear any previous messages before submitting
@@ -63,9 +68,9 @@ const AuthForm = ({ method }) => {
 
             const result = await register(userData);
 
-            if (result.success) {
+            if (result && result.success) {
                 // Message is set in AuthContext. Router replaces the screen.
-                // The new login screen will pick up the message.
+                // Because we removed the useEffect cleanup, the new login screen will pick up the message.
                 router.replace('/auth/login')
             } else {
                 // AuthContext handles setting the message and messageType
@@ -77,15 +82,12 @@ const AuthForm = ({ method }) => {
     const handleResendVerification = async () => {
         const usernameOrEmail = watch('username'); 
         if (!usernameOrEmail) {
-            // Use the AuthContext's message for local errors too for consistency
             clearMessage();
-            // TODO: Potentially add a specific message for this case to AuthContext or pass it here
             Alert.alert("Error", "Please enter your email in the username field to resend verification.");
             return;
         }
-        clearMessage(); // Clear any previous messages
+        clearMessage(); 
         await resendVerificationEmail(usernameOrEmail);
-        // AuthContext handles setting success/error message
     };
 
 
@@ -104,19 +106,6 @@ const AuthForm = ({ method }) => {
                         </LinearGradient>
                     </MaskedView>
 
-                    {/* Debug logs for message and button condition */}
-                    {/* The code below is for debugging and can be removed in production */}
-                    {/*
-                    {console.log('AuthForm - Current message:', message)}
-                    {console.log('AuthForm - Current messageType:', messageType)}
-                    {console.log('AuthForm - Current method:', method)}
-                    {console.log('AuthForm - Condition 1 (message && messageType === "error"):', message && messageType === 'error')}
-                    {console.log('AuthForm - Condition 2 (message.includes("verify your email")):', message && message.includes('verify your email'))}
-                    {console.log('AuthForm - Condition 3 (method === "login"):', method === 'login')}
-                    {console.log('AuthForm - Combined button condition:', message && messageType === 'error' && message.includes('verify your email') && method === 'login')}
-                    */}
-                    {/* End Debug logs */}
-
                     {message && messageType === 'error' ? ( 
                         <>
                             <Text style={styles.errorText}>{message}</Text> 
@@ -128,7 +117,6 @@ const AuthForm = ({ method }) => {
                         </>
                     ) : null}
                     {message && messageType === 'success' ? ( 
-                        // This block will now render the success message on the login screen
                         <Text style={styles.successText}>{message}</Text> 
                     ) : null}
 
@@ -182,13 +170,25 @@ const AuthForm = ({ method }) => {
                         defaultValue=""
                         rules={{ required: 'Password is required', minLength: { value: 8, message: 'Password must be at least 8 characters' } }}
                         render={({ field: { onChange, value } }) => (
-                            <TextInput
-                                placeholder="Password"
-                                secureTextEntry
-                                value={value}
-                                onChangeText={onChange}
-                                style={styles.input}
-                            />
+                            <View style={{ width: '100%', position: 'relative' }}>
+                                <TextInput
+                                    placeholder="Password"
+                                    secureTextEntry={!showPassword}
+                                    value={value}
+                                    onChangeText={onChange}
+                                    style={[styles.input, { paddingRight: 45 }]}
+                                />
+                                <TouchableOpacity 
+                                    onPress={() => setShowPassword(!showPassword)}
+                                    style={styles.eyeIcon}
+                                >
+                                    <FontAwesome 
+                                        name={showPassword ? "eye" : "eye-slash"} 
+                                        size={20} 
+                                        color="gray" 
+                                    />
+                                </TouchableOpacity>
+                            </View>
                         )}
                     />
                     {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
@@ -204,13 +204,25 @@ const AuthForm = ({ method }) => {
                                     validate: (value) => value === watch('password') || 'Passwords do not match',
                                 }}
                                 render={({ field: { onChange, value } }) => (
-                                    <TextInput
-                                        placeholder="Confirm Password"
-                                        secureTextEntry
-                                        style={styles.input}
-                                        value={value}
-                                        onChangeText={onChange}
-                                    />
+                                    <View style={{ width: '100%', position: 'relative' }}>
+                                        <TextInput
+                                            placeholder="Confirm Password"
+                                            secureTextEntry={!showConfirmPassword}
+                                            style={[styles.input, { paddingRight: 45 }]}
+                                            value={value}
+                                            onChangeText={onChange}
+                                        />
+                                        <TouchableOpacity 
+                                            onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                                            style={styles.eyeIcon}
+                                        >
+                                            <FontAwesome 
+                                                name={showConfirmPassword ? "eye" : "eye-slash"} 
+                                                size={20} 
+                                                color="gray" 
+                                            />
+                                        </TouchableOpacity>
+                                    </View>
                                 )}
                             />
                             {errors.confirm_password && <Text style={styles.errorText}>{errors.confirm_password.message}</Text>}
@@ -309,7 +321,7 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     errorText: { color: 'red', fontSize: 12, marginBottom: 5, textAlign: 'left', alignSelf: 'flex-start', width: '100%' },
-    successText: { color: 'green', fontSize: 14, marginBottom: 15, textAlign: 'center', fontWeight: 'bold' }, // Added style
+    successText: { color: 'green', fontSize: 14, marginBottom: 15, textAlign: 'center', fontWeight: 'bold' },
     optionsRow: { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 5 },
     rememberRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     rememberText: { fontSize: 12, color: '#444' },
@@ -353,5 +365,11 @@ const styles = StyleSheet.create({
         textDecorationLine: 'underline',
         fontWeight: 'bold',
         fontSize: 14,
+    },
+    eyeIcon: {
+        position: 'absolute',
+        right: 15,
+        top: 22, 
+        zIndex: 1,
     },
 });

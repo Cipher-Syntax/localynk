@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
     View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, 
-    StatusBar, Image, Alert, ActivityIndicator 
+    StatusBar, Image, Alert, ActivityIndicator, AppState 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { User } from 'lucide-react-native';
@@ -26,6 +26,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
     const router = useRouter();
     const { refreshUser } = useAuth(); // Refresh user context if payment succeeds
     const pollingRef = useRef(null);
+    const appState = useRef(AppState.currentState);
 
     // Destructure Data
     const { 
@@ -33,7 +34,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         firstName, lastName, phoneNumber, country, email, 
         basePrice, totalPrice, paymentMethod, 
         groupType, numberOfPeople, validIdImage, bookingId,
-        isNewKycImage // <--- ADDED THIS FLAG
+        isNewKycImage 
     } = paymentData || {};
 
     const calculateDays = () => {
@@ -43,6 +44,78 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
     };
     const days = calculateDays();
 
+    // --- 1. REUSABLE CHECK STATUS FUNCTION ---
+    const checkPaymentStatus = useCallback(async (id) => {
+        if (!id) return;
+        
+        try {
+            console.log(`Checking status for Payment ID: ${id}`);
+            const statusResp = await api.get(`/api/payments/status/${id}/`);
+            const status = statusResp.data.status;
+            console.log(`Current status: ${status}`);
+
+            if (status === "succeeded" || status === "paid") {
+                if (pollingRef.current) clearInterval(pollingRef.current);
+                setPaymentId(null);
+                setShowPaymentLink(false);
+
+                if (refreshUser) refreshUser();
+
+                setIsPayment(true);
+                setShowConfirmationScreen(true);
+            } else if (status === "failed") {
+                if (pollingRef.current) clearInterval(pollingRef.current);
+                setPaymentId(null);
+                setShowPaymentLink(false);
+
+                Alert.alert("Payment Failed", "The payment process failed. Please try again.");
+            }
+        } catch (err) {
+            console.error("Check payment status failed:", err);
+        }
+    }, [refreshUser]);
+
+    // --- 2. START POLLING FUNCTION (Moved Up) ---
+    const startPolling = useCallback((id) => {
+        if (!id) return;
+        
+        // Clear any existing interval to prevent duplicates
+        if (pollingRef.current) clearInterval(pollingRef.current);
+
+        console.log(`Starting polling for Payment ID: ${id}`);
+
+        // Initial check immediately
+        checkPaymentStatus(id);
+
+        // Then check every 3 seconds
+        pollingRef.current = setInterval(() => {
+            checkPaymentStatus(id);
+        }, 3000); 
+    }, [checkPaymentStatus]);
+
+    // --- 3. APP STATE LISTENER (FIXED) ---
+    // This forces a RESTART of polling when user returns from browser
+    useEffect(() => {
+        const subscription = AppState.addEventListener('change', nextAppState => {
+            if (
+                appState.current.match(/inactive|background/) &&
+                nextAppState === 'active' &&
+                paymentId && 
+                showPaymentLink
+            ) {
+                console.log('App has come to the foreground! Resurrecting polling...');
+                // FIXED: Call startPolling instead of checkPaymentStatus to revive the interval
+                startPolling(paymentId);
+            }
+
+            appState.current = nextAppState;
+        });
+
+        return () => {
+            subscription.remove();
+        };
+    }, [paymentId, showPaymentLink, startPolling]); // dependency on startPolling is safe now
+
     // --- Cleanup Polling on Unmount ---
     useEffect(() => {
         return () => {
@@ -50,7 +123,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         };
     }, []);
 
-    // --- Main Action Handler ---
     // --- Main Action Handler ---
     const handleConfirm = async () => {
         setIsLoading(true);
@@ -64,7 +136,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                     booking_id: bookingId,
                     payment_method: paymentMethod 
                 }, {
-                    timeout: 15000 // <--- CHANGE 1: 15 Second Timeout
+                    timeout: 15000 
                 });
 
                 const { checkout_url, payment_id } = response.data;
@@ -74,6 +146,8 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                     setCheckoutUrl(checkout_url);
                     setPaymentId(payment_id);
                     setShowPaymentLink(true);
+                    
+                    // Open link and start polling
                     await Linking.openURL(checkout_url);
                     startPolling(payment_id);
                 } else {
@@ -149,42 +223,14 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
             setIsLoading(false);
         }
     };
-
-    const startPolling = (id) => {
-        if (!id) return;
-        if (pollingRef.current) clearInterval(pollingRef.current);
-
-        console.log(`Starting polling for Payment ID: ${id}`);
-
-        pollingRef.current = setInterval(async () => {
-            try {
-                const statusResp = await api.get(`/api/payments/status/${id}/`);
-                const status = statusResp.data.status;
-                console.log(`Polling status: ${status}`);
-
-                if (status === "succeeded") {
-                    clearInterval(pollingRef.current);
-                    if (refreshUser) refreshUser();
-                    
-                    setIsPayment(true);
-                    setShowConfirmationScreen(true); 
-                } else if (status === "failed") {
-                    clearInterval(pollingRef.current);
-                    Alert.alert("Payment Failed", "The payment process failed. Please try again.");
-                    setShowPaymentLink(false);
-                }
-            } catch (err) {
-                console.error("Polling payment status failed:", err);
-            }
-        }, 3000); 
-    };
-
   
     const handleOpenPaymentLink = async () => {
         if (checkoutUrl) {
             try {
                 await Linking.openURL(checkoutUrl);
                 Alert.alert("Redirecting", "Opening payment gateway...");
+                // Also restart polling if user manually clicks the link again
+                if (paymentId) startPolling(paymentId);
             } catch (error) {
                 Alert.alert("Error", "Could not open link.");
             }

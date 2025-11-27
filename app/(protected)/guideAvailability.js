@@ -5,7 +5,7 @@ import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { Map, Calendar as CalendarIcon, CheckCircle, Bed, ArrowRight } from "lucide-react-native";
-import api from '../../api/api'; 
+import api from '../../api/api';
 
 const { width } = Dimensions.get('window');
 
@@ -141,7 +141,7 @@ const GuideAvailability = () => {
     if (!guide) return <View style={styles.container}><Text>No Data</Text></View>;
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
              <StatusBar barStyle="dark-content" backgroundColor="#fff" />
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
@@ -269,7 +269,7 @@ const GuideAvailability = () => {
                     <ArrowRight size={20} color="#fff" />
                 </TouchableOpacity>
             </View>
-        </View>
+        </SafeAreaView>
     );
 };
 
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
     accInfo: { position: 'absolute', bottom: 8, left: 8, right: 8 },
     accTitle: { fontSize: 12, fontWeight: '700', color: '#fff', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 2 },
     accPrice: { fontSize: 10, color: '#00A8FF', fontWeight: '700', marginTop: 2 },
-    footer: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 10, borderTopWidth: 1, borderTopColor: '#eee' },
+    footer: { position: 'absolute', bottom: 10, left: 0, right: 0, backgroundColor: '#fff', padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 10, borderTopWidth: 1, borderTopColor: '#eee' },
     footerTextContainer: { justifyContent: 'center' },
     footerLabel: { fontSize: 14, fontWeight: '700', color: '#333' },
     footerSub: { fontSize: 12, color: '#888' },

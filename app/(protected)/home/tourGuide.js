@@ -57,7 +57,7 @@ export default function TourGuide() {
     // 1. Fully Approved Guide
     if (role === 'guide') {
         return (
-            <SafeAreaView style={styles.safeArea}>
+            <View style={styles.safeArea}>
                 <ScrollView contentContainerStyle={styles.scrollContent}>
                     {/* Renders the Guide Dashboard */}
                     <IsTourist /> 
@@ -93,7 +93,7 @@ export default function TourGuide() {
                         </View>
                     </View>
                 </Modal>
-            </SafeAreaView>
+            </View>
         );
     }
     

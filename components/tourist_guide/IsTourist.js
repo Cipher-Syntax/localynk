@@ -17,6 +17,9 @@ const IsTourist = () => {
     
     const [modalVisible, setModalVisible] = useState(false);
 
+    // --- TOAST STATE ---
+    const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
+
     useEffect(() => {
         if (user) {
             setIsGuideActive(user.is_guide_visible || false);
@@ -39,6 +42,15 @@ const IsTourist = () => {
         }, [])
     );
 
+    // --- TOAST HELPER ---
+    const showToast = (message, type = 'success') => {
+        setToast({ visible: true, message, type });
+        // Auto-hide after 3 seconds
+        setTimeout(() => {
+            setToast(prev => ({ ...prev, visible: false }));
+        }, 3000);
+    };
+
     const toggleActiveStatus = async () => {
         const newStatus = !isGuideActive;
         setIsGuideActive(newStatus);
@@ -46,13 +58,13 @@ const IsTourist = () => {
         try {
             await api.patch('api/guide/update-info/', { is_guide_visible: newStatus });
             if (newStatus) {
-                Alert.alert("You are Online!", "Tourists can now see your profile and bookings.");
+                showToast("You are now Online! Visible to tourists.", 'success');
             } else {
-                Alert.alert("You are Offline", "Your profile is hidden from search results.");
+                showToast("You are now Offline. Hidden from search.", 'neutral');
             }
         } catch (error) {
             setIsGuideActive(!newStatus);
-            Alert.alert("Error", "Failed to update status. Please check your internet.");
+            showToast("Failed to update status. Check internet.", 'error');
         }
     };
 
@@ -72,23 +84,40 @@ const IsTourist = () => {
         try {
             const newStatus = decision === 'accept' ? 'Accepted' : 'Declined';
             await api.patch(`/api/bookings/${id}/status/`, { status: newStatus });
+            
+            // Refresh data
             fetchBookings();
+            refreshUser(); 
+            
+            // Aesthetic Feedback
+            if (decision === 'accept') {
+                showToast("Booking Accepted successfully!", 'success');
+            } else {
+                showToast("Booking Declined.", 'neutral');
+            }
+
         } catch (error) {
             console.error(`Failed to ${decision} booking:`, error);
-            Alert.alert('Error', `Failed to ${decision} booking.`);
+            
+            if (error.response && error.response.status === 403) {
+                const serverMessage = typeof error.response.data === 'object' 
+                    ? JSON.stringify(error.response.data) 
+                    : error.response.data;
+                showToast(`Permission Denied: ${serverMessage}`, 'error');
+            } else {
+                showToast(`Failed to ${decision} booking.`, 'error');
+            }
         }
     };
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.container} edges={['top']}>
             <StatusBar barStyle="light-content" />
 
             {/* --- HEADER --- */}
             <View style={styles.header}>
-                {/* REPLACED WITH LOCAL REQUIRE - Change path to your own image */}
                 <Image
                     source={require('../../assets/localynk_images/header.png')} 
-                    // Or remove source and use backgroundColor if you prefer no image
                     style={styles.headerImage}
                 />
                 <LinearGradient
@@ -97,19 +126,18 @@ const IsTourist = () => {
                 />
                 <Text style={styles.headerTitle}>TOUR GUIDES DASHBOARD</Text>
 
-                {/* --- REDESIGNED TIER TRIGGER --- */}
                 <TouchableOpacity 
                     style={styles.tierBadge} 
                     onPress={() => setModalVisible(true)}
                     activeOpacity={0.8}
                 >
                     <Ionicons 
-                        name={user.guide_tier === 'paid' ? "ribbon" : "information-circle"} 
+                        name={user?.guide_tier === 'paid' ? "ribbon" : "information-circle"} 
                         size={16} 
                         color="#fff" 
                     />
                     <Text style={styles.tierBadgeText}>
-                        {user.guide_tier === 'paid' ? 'PREMIUM GUIDE' : 'FREE TIER'}
+                        {user?.guide_tier === 'paid' ? 'PREMIUM GUIDE' : 'FREE TIER'}
                     </Text>
                     <Ionicons name="chevron-forward" size={12} color="#fff" style={{marginLeft: 2}}/>
                 </TouchableOpacity>
@@ -254,6 +282,27 @@ const IsTourist = () => {
                 </View>
             </ScrollView>
 
+            {/* --- TOAST NOTIFICATION COMPONENT --- */}
+            {toast.visible && (
+                <View style={[
+                    styles.toastContainer, 
+                    toast.type === 'error' ? styles.toastError : 
+                    toast.type === 'neutral' ? styles.toastNeutral : 
+                    styles.toastSuccess
+                ]}>
+                    <Ionicons 
+                        name={
+                            toast.type === 'error' ? "alert-circle" : 
+                            toast.type === 'neutral' ? "information-circle" : 
+                            "checkmark-circle"
+                        } 
+                        size={24} 
+                        color="#fff" 
+                    />
+                    <Text style={styles.toastText}>{toast.message}</Text>
+                </View>
+            )}
+
             <Modal
                 animationType="fade"
                 transparent={true}
@@ -281,14 +330,6 @@ const IsTourist = () => {
                                     <Ionicons name="warning" size={16} color="#F57C00" />
                                     <Text style={styles.benefitText}>Limit: 1 Booking Only</Text>
                                 </View>
-                                {/* <View style={styles.benefitRow}>
-                                    <Ionicons name="eye-off-outline" size={16} color="#666" />
-                                    <Text style={styles.benefitText}>Standard Search Visibility</Text>
-                                </View>
-                                <View style={styles.benefitRow}>
-                                    <Ionicons name="remove-circle-outline" size={16} color="#666" />
-                                    <Text style={styles.benefitText}>No Verified Badge</Text>
-                                </View> */}
                             </View>
 
                             <View style={styles.divider}>
@@ -307,18 +348,10 @@ const IsTourist = () => {
                                     <Ionicons name="checkmark-circle" size={16} color="#00c853" />
                                     <Text style={styles.benefitText}>Unlimited Bookings</Text>
                                 </View>
-                                {/* <View style={styles.benefitRow}>
-                                    <Ionicons name="trending-up" size={16} color="#0072FF" />
-                                    <Text style={styles.benefitText}>Top Search Visibility</Text>
-                                </View>
-                                <View style={styles.benefitRow}>
-                                    <Ionicons name="shield-checkmark" size={16} color="#0072FF" />
-                                    <Text style={styles.benefitText}>Verified Guide Badge</Text>
-                                </View> */}
                             </View>
                         </ScrollView>
                         
-                        {user.guide_tier !== 'paid' && (
+                        {user?.guide_tier !== 'paid' && (
                             <TouchableOpacity 
                                 style={styles.modalUpgradeBtn}
                                 onPress={() => {
@@ -338,20 +371,20 @@ const IsTourist = () => {
                             </TouchableOpacity>
                         )}
                         
-                        {user.guide_tier === 'paid' && (
+                        {user?.guide_tier === 'paid' && (
                              <View style={styles.activeSubContainer}>
                                 <Text style={styles.activeSubText}>
                                     You are currently on Premium plan.
                                 </Text>
                                 <Text style={styles.activeSubDate}>
-                                    Expires: {new Date(user.subscription_end_date).toLocaleDateString()}
+                                    Expires: {user.subscription_end_date ? new Date(user.subscription_end_date).toLocaleDateString() : 'N/A'}
                                 </Text>
                              </View>
                         )}
                     </View>
                 </View>
             </Modal>
-        </SafeAreaView>
+        </View>
     );
 };
 
@@ -687,6 +720,39 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 12,
         fontWeight: '700'
+    },
+
+    // --- TOAST STYLES ---
+    toastContainer: {
+        position: 'absolute',
+        bottom: 40,
+        left: 20,
+        right: 20,
+        borderRadius: 12,
+        padding: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 10,
+        zIndex: 1000,
+    },
+    toastSuccess: {
+        backgroundColor: '#00c853', // Green
+    },
+    toastError: {
+        backgroundColor: '#ff5252', // Red
+    },
+    toastNeutral: {
+        backgroundColor: '#253347', // Dark Blue (matches theme)
+    },
+    toastText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '600',
+        marginLeft: 12,
     },
 
     // --- NEW MODAL STYLES ---

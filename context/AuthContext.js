@@ -7,20 +7,21 @@ import { useRouter } from 'expo-router';
 
 const AuthContext = createContext();
 
-const initialAuthState = {
-    isAuthenticated: false,
-    user: null,
-    token: null,
-    isLoading: true,
-    message: null,
-    messageType: null,
-};
-
 export function AuthProvider({ children }) {
-    const [state, setState] = useState(initialAuthState);
+    // 1. Define initial state logic INSIDE component or use a fresh object every time
+    // This prevents "zombie" data from persisting if the object was mutated elsewhere
+    const [state, setState] = useState({
+        isAuthenticated: false,
+        user: null,
+        token: null,
+        isLoading: true,
+        message: null,
+        messageType: null,
+    });
+    
     const router = useRouter();
 
-    // --- Clear messages (memoized so it NEVER changes)
+    // --- Clear messages
     const clearMessage = useCallback(() => {
         setState(prev => ({ ...prev, message: null, messageType: null }));
     }, []);
@@ -32,6 +33,7 @@ export function AuthProvider({ children }) {
             return response.data;
         } catch (error) {
             if (error.response?.status === 404) return null;
+            if (error.response?.status === 401) return null;
             throw error;
         }
     };
@@ -40,14 +42,12 @@ export function AuthProvider({ children }) {
     const updateUserProfile = async (profileData) => {
         try {
             const response = await api.patch('/api/profile/', profileData);
-
             setState(prev => ({
                 ...prev,
                 user: response.data,
                 message: "Profile updated successfully.",
                 messageType: "success"
             }));
-
             return true;
         } catch (err) {
             setState(prev => ({
@@ -80,6 +80,9 @@ export function AuthProvider({ children }) {
                 const refresh = await AsyncStorage.getItem(REFRESH_TOKEN);
 
                 if (access && refresh) {
+                    // Manually set header here to ensure fetchProfile works immediately on reload
+                    api.defaults.headers.common['Authorization'] = `Bearer ${access}`;
+                    
                     const user = await fetchProfile();
                     if (user) {
                         setState({
@@ -91,9 +94,7 @@ export function AuthProvider({ children }) {
                             messageType: null
                         });
                     } else {
-                        await AsyncStorage.removeItem(ACCESS_TOKEN);
-                        await AsyncStorage.removeItem(REFRESH_TOKEN);
-                        setState(prev => ({ ...prev, isLoading: false }));
+                        await logout(false); // Clean exit if token invalid
                     }
                 } else {
                     setState(prev => ({ ...prev, isLoading: false }));
@@ -109,28 +110,38 @@ export function AuthProvider({ children }) {
 
     // --- LOGIN
     const login = async (username, password) => {
-        setState(prev => ({ ...prev, isLoading: true }));
+        setState(prev => ({ ...prev, isLoading: true, message: null }));
 
         try {
             const response = await api.post('/api/token/', { username, password });
             const access = response.data.access;
             const refresh = response.data.refresh;
 
+            // 1. Set Storage
             await AsyncStorage.setItem(ACCESS_TOKEN, access);
             await AsyncStorage.setItem(REFRESH_TOKEN, refresh);
+            
+            // 2. FORCE Set API Header immediately (Critical for immediate requests)
+            api.defaults.headers.common['Authorization'] = `Bearer ${access}`;
 
+            // 3. Fetch User
             const user = await fetchProfile();
 
             if (!user) {
-                setState({
-                    ...initialAuthState,
+                // If we have a token but can't get profile, something is wrong.
+                 await AsyncStorage.multiRemove([ACCESS_TOKEN, REFRESH_TOKEN]);
+                 setState(prev => ({
+                    ...prev,
                     isLoading: false,
+                    isAuthenticated: false,
+                    user: null,
                     message: "Please verify your email first.",
                     messageType: "error",
-                });
+                }));
                 return false;
             }
 
+            // 4. Update State
             setState({
                 isAuthenticated: true,
                 user,
@@ -143,14 +154,25 @@ export function AuthProvider({ children }) {
             return user; 
         } 
         catch (error) {
+            // --- DEBUG LOGS ---
+            console.log("LOGIN ERROR DATA:", error.response?.data); 
+            console.log("LOGIN ERROR STATUS:", error.response?.status);
+
             let msg = "Invalid username or password";
-            if (error.response?.data?.detail?.includes("verify")) {
+            const errorDetail = error.response?.data?.detail;
+
+            // Check specifically for common "inactive" or "verify" messages
+            if (errorDetail && (
+                (typeof errorDetail === 'string' && errorDetail.toLowerCase().includes("verify")) || 
+                (typeof errorDetail === 'string' && errorDetail.toLowerCase().includes("active"))
+            )) {
                 msg = "Please verify your email before logging in.";
             }
 
             setState(prev => ({
                 ...prev,
                 isLoading: false,
+                isAuthenticated: false, // Ensure this is false on error
                 message: msg,
                 messageType: "error"
             }));
@@ -163,19 +185,29 @@ export function AuthProvider({ children }) {
     const register = async (data) => {
         try {
             await api.post('/api/register/', data);
-
             setState(prev => ({
                 ...prev,
                 message: "Registration successful. Check your email to verify.",
                 messageType: "success"
             }));
-
             return { success: true };
         } 
         catch (error) {
+            console.log("REGISTER ERROR:", error.response?.data);
+            
+            // Improved error handling
+            let errorMsg = "Registration failed.";
+            if (error.response?.data) {
+                const data = error.response.data;
+                if (data.username) errorMsg = Array.isArray(data.username) ? data.username[0] : data.username;
+                else if (data.email) errorMsg = Array.isArray(data.email) ? data.email[0] : data.email;
+                else if (data.password) errorMsg = Array.isArray(data.password) ? data.password[0] : data.password;
+                else if (data.detail) errorMsg = data.detail;
+            }
+
             setState(prev => ({
                 ...prev,
-                message: "Registration failed.",
+                message: errorMsg,
                 messageType: "error"
             }));
             return false;
@@ -186,13 +218,11 @@ export function AuthProvider({ children }) {
     const resendVerificationEmail = async (email) => {
         try {
             const response = await api.post("/api/resend-verify-email/", { email });
-
             setState(prev => ({
                 ...prev,
                 message: response.data.detail,
                 messageType: "success"
             }));
-
         } catch (error) {
             setState(prev => ({
                 ...prev,
@@ -203,24 +233,47 @@ export function AuthProvider({ children }) {
     };
 
     // --- LOGOUT
-    const logout = async () => {
-        await AsyncStorage.removeItem(ACCESS_TOKEN);
-        await AsyncStorage.removeItem(REFRESH_TOKEN);
+    const logout = async (shouldRedirect = true) => {
+        try {
+            // 1. Remove Tokens from Device
+            await AsyncStorage.multiRemove([ACCESS_TOKEN, REFRESH_TOKEN]);
+            
+            // 2. CRITICAL: Remove Header from Memory
+            // This ensures the next request doesn't accidentally use the old token
+            delete api.defaults.headers.common['Authorization'];
 
-        setState({
-            ...initialAuthState,
-            isLoading: false,
-            message: "Logged out",
-            messageType: "info"
-        });
+            // 3. Reset State to a FRESH object (not a variable reference)
+            setState({
+                isAuthenticated: false,
+                user: null,
+                token: null,
+                isLoading: false,
+                message: "Logged out successfully",
+                messageType: "success"
+            });
 
-        router.replace("/auth/landingPage");
+            if (shouldRedirect) {
+                router.replace("/auth/login");
+            }
+
+        } catch (e) {
+            console.error("Logout failed", e);
+            // Force reset anyway
+            setState({
+                isAuthenticated: false,
+                user: null,
+                token: null,
+                isLoading: false,
+                message: "Logged out",
+                messageType: "info"
+            });
+            router.replace("/auth/login");
+        }
     };
 
     // --- Memoized context values
     const value = useMemo(() => {
-        // --- Calculate the role based on the user object ---
-        let role = 'tourist'; // Default role
+        let role = 'tourist'; 
         
         if (state.user) {
             if (state.user.is_local_guide && state.user.guide_approved) {
@@ -247,7 +300,7 @@ export function AuthProvider({ children }) {
         return (
             <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="large" color="#007AFF" />
-                <Text>Authenticating...</Text>
+                <Text style={{ marginTop: 10 }}>Loading...</Text>
             </View>
         );
     }

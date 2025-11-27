@@ -67,13 +67,13 @@ const Home = () => {
 
     return (
         <ScrollView>
-            <SafeAreaView>
+            <View>
                 <Header />
                 <FeaturedPlaces isPublic={false} />
                 <HomePlacesBrowse isPublic={false} />
                 <DiscoverWhatYouWant isPublic={false} />
                 <About />
-            </SafeAreaView>
+            </View>
         </ScrollView>
     );
 }
