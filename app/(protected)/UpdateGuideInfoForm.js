@@ -4,11 +4,9 @@ import api from '../../api/api';
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker'; 
-// IMPORTANT: Import your Auth Hook here to get the data seen in your logs
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'expo-router';
 
-// --- CONFIGURATION: Common Specialties ---
 const SPECIALTY_OPTIONS = [
     'History & Culture',
     'Food & Culinary',
@@ -24,29 +22,24 @@ const SPECIALTY_OPTIONS = [
 
 const UpdateGuideInfoForm = () => {
     const router = useRouter();
-    // 1. Get the user data directly from Context (avoids the 405 GET error)
     const { user, isLoading: authLoading } = useAuth();
     
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    // --- Form State ---
     const [languages, setLanguages] = useState([]);
     
-    // Specialty Logic
     const [selectedSpecialty, setSelectedSpecialty] = useState(SPECIALTY_OPTIONS[0]);
     const [customSpecialty, setCustomSpecialty] = useState('');
 
     const [experience, setExperience] = useState('');
     const [price, setPrice] = useState('');
     
-    // --- Calendar & Availability State ---
     const [availableDays, setAvailableDays] = useState([]);
     const [markedDates, setMarkedDates] = useState({});
 
     const daysOptions = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const dayMapping = { 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6, 'Sun': 0 };
 
-    // --- 2. Initial Data Population (from User Object) ---
     useEffect(() => {
         if (user) {
             populateForm(user);
@@ -56,7 +49,6 @@ const UpdateGuideInfoForm = () => {
     const populateForm = (data) => {
         console.log("Populating Form with User Data:", data);
         
-        // 1. Languages (Handle array or string)
         if (Array.isArray(data.languages)) {
             setLanguages(data.languages);
         } else if (typeof data.languages === 'string' && data.languages.length > 0) {
@@ -65,27 +57,22 @@ const UpdateGuideInfoForm = () => {
             setLanguages([]);
         }
 
-        // 2. Basic Fields (Handle potential nulls)
         setExperience(data.experience_years ? data.experience_years.toString() : '');
         setPrice(data.price_per_day ? data.price_per_day.toString() : '');
         setAvailableDays(data.available_days || []);
         
-        // 3. Specialty Logic (Smart Pre-fill)
         const incomingSpecialty = data.specialty || '';
         if (incomingSpecialty) {
             if (SPECIALTY_OPTIONS.includes(incomingSpecialty)) {
-                // It's a standard option
                 setSelectedSpecialty(incomingSpecialty);
                 setCustomSpecialty('');
             } else {
-                // It's a custom specialty not in the list
                 setSelectedSpecialty('Other');
                 setCustomSpecialty(incomingSpecialty);
             }
         }
 
-        // 4. Calendar Dates
-        // Transform array ['2025-12-25'] into Object {'2025-12-25': {selected: true...}}
+   
         const existingMarkedDates = (data.specific_available_dates || []).reduce((acc, dateString) => {
             acc[dateString] = { selected: true, marked: true, selectedColor: '#007AFF' };
             return acc;
@@ -93,7 +80,6 @@ const UpdateGuideInfoForm = () => {
         setMarkedDates(existingMarkedDates);
     };
 
-    // --- 3. Logic: Toggle Weekdays ---
     const toggleDay = (day) => {
         if (availableDays.includes(day)) {
             setAvailableDays(availableDays.filter(d => d !== day));
@@ -102,20 +88,18 @@ const UpdateGuideInfoForm = () => {
         }
     };
 
-    // --- 4. Logic: Toggle Specific Calendar Dates ---
     const onDayPress = (day) => {
         const dateString = day.dateString;
         const newMarkedDates = { ...markedDates };
 
         if (newMarkedDates[dateString]) {
-            delete newMarkedDates[dateString]; // Deselect
+            delete newMarkedDates[dateString];
         } else {
-            newMarkedDates[dateString] = { selected: true, marked: true, selectedColor: '#007AFF' }; // Select
+            newMarkedDates[dateString] = { selected: true, marked: true, selectedColor: '#007AFF' };
         }
         setMarkedDates(newMarkedDates);
     };
 
-    // --- 5. Logic: Disable dates based on Weekdays ---
     const disabledDays = useMemo(() => {
         const enabledDayNumbers = availableDays.map(day => dayMapping[day]);
         const disabled = {};
@@ -143,10 +127,8 @@ const UpdateGuideInfoForm = () => {
         return disabled;
     }, [availableDays]);
 
-    // --- 6. Submit ---
     const handleSubmit = async () => {
         setIsSubmitting(true);
-        // Determine final specialty value
         const finalSpecialty = selectedSpecialty === 'Other' ? customSpecialty : selectedSpecialty;
         
         if (selectedSpecialty === 'Other' && !customSpecialty.trim()) {
@@ -158,7 +140,6 @@ const UpdateGuideInfoForm = () => {
         const specific_dates = Object.keys(markedDates);
 
         try {
-            // NOTE: 'api/guide/update-info/' is correct for PATCH (Update), but likely blocked for GET (Fetch)
             await api.patch('api/guide/update-info/', {
                 languages, 
                 specialty: finalSpecialty,
@@ -177,7 +158,6 @@ const UpdateGuideInfoForm = () => {
         }
     };
 
-    // --- LOADING STATE ---
     if (authLoading || !user) {
         return (
             <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -187,14 +167,12 @@ const UpdateGuideInfoForm = () => {
         );
     }
 
-    // --- MAIN RENDER ---
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView style={styles.container}>
                 
                 <Text style={styles.header}>Update Profile</Text>
 
-                {/* Subscription Status Card */}
                 <View style={styles.card}>
                     <Text style={styles.label}>Subscription Status</Text>
                     {user.guide_tier === 'paid' ? (
@@ -206,14 +184,13 @@ const UpdateGuideInfoForm = () => {
                         <>
                             <Text style={styles.subText}>You are on the Free Tier.</Text>
                             <Text style={styles.subText}>You can only accept one booking.</Text>
-                            <TouchableOpacity style={styles.upgradeBtn} onPress={() => router.push('/(protected)/upgrade')}>
+                            <TouchableOpacity style={styles.upgradeBtn} onPress={() => router.push('/(protected)/upgradeMembership')}>
                                 <Text style={styles.upgradeBtnText}>Upgrade to Paid</Text>
                             </TouchableOpacity>
                         </>
                     )}
                 </View>
 
-                {/* Section 1: Basic Info */}
                 <View style={styles.card}>
                     <Text style={styles.label}>Languages</Text>
                     <TextInput
@@ -223,7 +200,6 @@ const UpdateGuideInfoForm = () => {
                         placeholder="e.g. English, Tagalog"
                     />
 
-                    {/* --- SPECIALTY DROPDOWN --- */}
                     <Text style={styles.label}>Specialty</Text>
                     <View style={styles.pickerContainer}>
                         <Picker
@@ -237,7 +213,6 @@ const UpdateGuideInfoForm = () => {
                         </Picker>
                     </View>
 
-                    {/* --- CONDITIONAL "OTHER" INPUT --- */}
                     {selectedSpecialty === 'Other' && (
                         <View style={{marginTop: 10, marginBottom: 5}}>
                             <Text style={styles.label}>Please specify your specialty</Text>
@@ -274,7 +249,6 @@ const UpdateGuideInfoForm = () => {
                     </View>
                 </View>
 
-                {/* Section 2: Weekday Selection */}
                 <View style={styles.card}>
                     <Text style={styles.label}>1. Select Available Days</Text>
                     <Text style={styles.helper}>Which days of the week do you usually work?</Text>
@@ -297,14 +271,13 @@ const UpdateGuideInfoForm = () => {
                     </View>
                 </View>
 
-                {/* Section 3: Calendar Selection */}
                 <View style={styles.card}>
                     <Text style={styles.label}>2. Specific Dates</Text>
                     <Text style={styles.helper}>Tap specific dates below to add them to your schedule. (Days not enabled above are grayed out).</Text>
                     
+                    
                     <Calendar
                         onDayPress={onDayPress}
-                        // Merge disabled days (grayed out) with selected dates (blue)
                         markedDates={{...disabledDays, ...markedDates}}
                         minDate={new Date().toISOString().split('T')[0]}
                         theme={{
@@ -318,7 +291,6 @@ const UpdateGuideInfoForm = () => {
                     />
                 </View>
 
-                {/* Submit Button */}
                 <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={isSubmitting}>
                     {isSubmitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Update Information</Text>}
                 </TouchableOpacity>
@@ -375,7 +347,6 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
     
-    // Dropdown Style
     pickerContainer: {
         borderWidth: 1,
         borderColor: '#E5E7EB',
@@ -390,7 +361,6 @@ const styles = StyleSheet.create({
         height: 50,
     },
 
-    // Chip Styles
     daysContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',

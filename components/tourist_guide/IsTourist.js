@@ -9,27 +9,22 @@ import { useAuth } from '../../context/AuthContext';
 
 const IsTourist = () => {
     const router = useRouter();
-    const { user, refreshUser } = useAuth(); // Get user and refresh function from auth context
+    const { user, refreshUser } = useAuth();
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(false);
 
-    // --- NEW: Availability Status State ---
-    const [isGuideActive, setIsGuideActive] = useState(false); // Default Inactive
+    const [isGuideActive, setIsGuideActive] = useState(false); 
     
-    // --- NEW: Tier Modal State ---
     const [modalVisible, setModalVisible] = useState(false);
 
-    // Set initial active status from the user context
     useEffect(() => {
         if (user) {
             setIsGuideActive(user.is_guide_visible || false);
         }
     }, [user]);
 
-    // --- 1. Fetch Data (Bookings Only) ---
     const fetchBookings = async () => {
         try {
-            // Fetch Bookings
             const bookingRes = await api.get('/api/bookings/');
             setBookings(bookingRes.data);
         } catch (error) {
@@ -40,18 +35,15 @@ const IsTourist = () => {
     useFocusEffect(
         useCallback(() => {
             fetchBookings();
-            refreshUser(); // Refresh the main user profile
+            refreshUser();
         }, [])
     );
 
-    // --- 2. Toggle Active Status ---
     const toggleActiveStatus = async () => {
-        // 1. Optimistic Update (Change UI immediately)
         const newStatus = !isGuideActive;
         setIsGuideActive(newStatus);
 
         try {
-            // 2. Send to Backend
             await api.patch('api/guide/update-info/', { is_guide_visible: newStatus });
             if (newStatus) {
                 Alert.alert("You are Online!", "Tourists can now see your profile and bookings.");
@@ -59,14 +51,12 @@ const IsTourist = () => {
                 Alert.alert("You are Offline", "Your profile is hidden from search results.");
             }
         } catch (error) {
-            // Revert if failed
             setIsGuideActive(!newStatus);
             Alert.alert("Error", "Failed to update status. Please check your internet.");
         }
     };
 
     const handleDecision = async (id, decision) => {
-        // FREE TIER LOGIC
         if (user.guide_tier === 'free' && user.booking_count >= 1 && decision === 'accept') {
             Alert.alert(
                 "Upgrade Required",
@@ -264,7 +254,6 @@ const IsTourist = () => {
                 </View>
             </ScrollView>
 
-            {/* --- MEMBERSHIP INFO MODAL (NEW) --- */}
             <Modal
                 animationType="fade"
                 transparent={true}
@@ -281,7 +270,6 @@ const IsTourist = () => {
                         </View>
 
                         <ScrollView style={styles.modalScroll}>
-                            {/* Free Tier Column */}
                             <View style={[styles.planBox, styles.freePlanBox]}>
                                 <View style={styles.planHeader}>
                                     <Ionicons name="person-outline" size={24} color="#666" />
@@ -335,7 +323,7 @@ const IsTourist = () => {
                                 style={styles.modalUpgradeBtn}
                                 onPress={() => {
                                     setModalVisible(false);
-                                    router.push('/(protected)/upgrade');
+                                    router.push('/(protected)/upgradeMembership');
                                 }}
                             >
                                 <LinearGradient
