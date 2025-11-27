@@ -9,7 +9,8 @@ import { useAuth } from '../../context/AuthContext';
 
 const UpgradeMembership = () => {
     const [isLoading, setIsLoading] = useState(false);
-    const [isPaymentStarted, setIsPaymentStarted] = useState(false); // New state to track if link was opened
+    const [price, setPrice] = useState(null);
+    const [isPaymentStarted, setIsPaymentStarted] = useState(false);
     const [showConfirmation, setShowConfirmation] = useState(false);
     const pollingRef = useRef(null);
     const router = useRouter();
@@ -17,10 +18,24 @@ const UpgradeMembership = () => {
 
     const premiumFeatures = [
         { icon: "infinite", text: "Accept Unlimited Bookings" },
-        { icon: "shield-checkmark", text: "Verified Guide Badge" },
-        { icon: "trending-up", text: "Top Search Visibility" },
-        { icon: "star", text: "Priority Support" },
+        // { icon: "shield-checkmark", text: "Verified Guide Badge" },
+        // { icon: "trending-up", text: "Top Search Visibility" },
+        // { icon: "star", text: "Priority Support" },
     ];
+
+    useEffect(() => {
+        const fetchPrice = async () => {
+            try {
+                const response = await api.get('/api/payments/subscription-price/');
+                setPrice(response.data.price);
+            } catch (error) {
+                console.error('Failed to fetch subscription price:', error);
+                Alert.alert('Error', 'Could not fetch subscription price.');
+            }
+        };
+
+        fetchPrice();
+    }, []);
 
     useEffect(() => {
         return () => {
@@ -30,7 +45,6 @@ const UpgradeMembership = () => {
         };
     }, []);
 
-    // --- 1. Polling Logic (With 404 Guard) ---
     const startPolling = (id) => {
         if (!id) return;
         if (pollingRef.current) clearInterval(pollingRef.current);
@@ -49,11 +63,9 @@ const UpgradeMembership = () => {
                     setIsLoading(false);
                 } else if (status === "failed") {
                     clearInterval(pollingRef.current);
-                    // Don't alert here, let the user manually check if they want
                     setIsLoading(false);
                 }
             } catch (err) {
-                // STOP POLLING IF 404 (ID is invalid/not found)
                 if (err.response && err.response.status === 404) {
                     console.log("Polling stopped: ID not found in backend (404). Switching to manual verification.");
                     clearInterval(pollingRef.current);
@@ -64,14 +76,10 @@ const UpgradeMembership = () => {
         }, 3000);
     };
 
-    // --- 2. Manual Verification Logic ---
     const handleManualVerify = async () => {
         setIsLoading(true);
         await refreshUser();
-        
-        // Check if the user status updated
-        // Note: You might need to check 'user.guide_tier' or 'user.is_paid' depending on your schema
-        // We use a small timeout to allow the refresh to propagate
+ 
         setTimeout(() => {
             if (user && user.guide_tier === 'paid') {
                 setShowConfirmation(true);
@@ -194,9 +202,15 @@ const UpgradeMembership = () => {
                         </View>
                         <Text style={styles.periodText}>Yearly Subscription</Text>
                         <View style={styles.priceRow}>
-                            <Text style={styles.currencySymbol}>₱</Text>
-                            <Text style={styles.priceText}>3,000</Text>
-                            <Text style={styles.perYearText}>/year</Text>
+                            {price ? (
+                                <>
+                                    <Text style={styles.currencySymbol}>₱</Text>
+                                    <Text style={styles.priceText}>{price}</Text>
+                                    <Text style={styles.perYearText}>/year</Text>
+                                </>
+                            ) : (
+                                <ActivityIndicator size="large" color="#111827" />
+                            )}
                         </View>
                     </View>
 
@@ -215,7 +229,6 @@ const UpgradeMembership = () => {
                 </ScrollView>
 
                 <View style={styles.footer}>
-                    {/* BUTTON LOGIC: Switches based on isPaymentStarted state */}
                     {!isPaymentStarted ? (
                         <TouchableOpacity
                             style={[styles.upgradeButton, isLoading && styles.buttonDisabled]}
@@ -249,7 +262,7 @@ const UpgradeMembership = () => {
                             activeOpacity={0.8}
                         >
                             <LinearGradient
-                                colors={['#111827', '#374151']} // Dark color for verification button
+                                colors={['#111827', '#374151']} 
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 0 }}
                                 style={styles.gradientButton}
