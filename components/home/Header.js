@@ -1,5 +1,5 @@
-// import React, { useState, useRef, useCallback } from 'react';
-// import { View, Text, TextInput, ImageBackground, StyleSheet, TouchableOpacity, Dimensions, Image } from 'react-native';
+// import React, { useState, useRef, useCallback, useEffect } from 'react';
+// import { View, Text, TextInput, ImageBackground, StyleSheet, TouchableOpacity, Dimensions, Image, ActivityIndicator } from 'react-native';
 // import { Feather, Ionicons } from '@expo/vector-icons';
 // import Swiper from 'react-native-swiper';
 // import MaskedView from '@react-native-masked-view/masked-view';
@@ -7,50 +7,34 @@
 // import { useRouter, useFocusEffect } from 'expo-router';
 
 // // Import your API utility
-// import api from '../../api/api'; 
-
-// import LoginBackground from '../../assets/localynk_images/login_background.png';
-// import RegisterBackground from '../../assets/localynk_images/register_background.png';
+// import api from '../../api/api'; // Ensure this path matches your project structure
 
 // const { width } = Dimensions.get('window');
 
-// const dataSlider = [
-//     {
-//         id: 1,
-//         image: LoginBackground,
-//         logo: "DISCOVER NATURE'S SERENITY!",
-//         name: "MUTI, GRASSLAND",
-//         description: "Nestled in the heart of nature, Muti Grassland offers a breathtaking escape into rolling green hills and open skies.",
-//         rating: 4.8,
-//         reviews: 234
-//     },
-//     {
-//         id: 2,
-//         image: RegisterBackground,
-//         logo: "DISCOVER COASTAL TRANQUILITY!",
-//         name: "BOLONG BEACH",
-//         description: "Breathe in the sea breeze and let your worries drift away at Bolong Beach — where calm waters meet golden sands.",
-//         rating: 4.9,
-//         reviews: 512
-//     },
-//     {
-//         id: 3,
-//         image: RegisterBackground,
-//         logo: "DISCOVER SUNSET BLISS!",
-//         name: "ZAMBOANGA CITY, BOULEVARD",
-//         description: "Watch the sky come alive at Zamboanga's Boulevard, where every sunset paints a masterpiece over calm waves.",
-//         rating: 4.7,
-//         reviews: 189
-//     }
-// ];
-
 // const Header = () => {
 //     const [activeIndex, setActiveIndex] = useState(0);
-//     const [unreadCount, setUnreadCount] = useState(0); // State for dynamic count
+//     const [unreadCount, setUnreadCount] = useState(0);
+    
+//     // 1. State for Destinations
+//     const [destinations, setDestinations] = useState([]);
+//     const [loading, setLoading] = useState(true);
+
 //     const swiperRef = useRef(null);
 //     const router = useRouter();
 
-//     // Function to fetch the unread count from backend
+//     // 2. Fetch Destinations from API
+//     const fetchDestinations = async () => {
+//         try {
+//             const response = await api.get('/api/destinations/');
+//             console.log(response.data)
+//             setDestinations(response.data);
+//         } catch (error) {
+//             console.error("Failed to fetch destinations:", error);
+//         } finally {
+//             setLoading(false);
+//         }
+//     };
+
 //     const fetchUnreadCount = async () => {
 //         try {
 //             const response = await api.get('/api/alerts/unread-count/');
@@ -62,9 +46,9 @@
 //         }
 //     };
 
-//     // useFocusEffect runs every time this screen comes into focus
 //     useFocusEffect(
 //         useCallback(() => {
+//             fetchDestinations();
 //             fetchUnreadCount();
 //         }, [])
 //     );
@@ -74,19 +58,20 @@
 //     };
 
 //     const handleNotificationPress = () => {
-//         // Optimistically clear count or wait for return
 //         router.push('/(protected)/notification');
 //     };
 
-//     const handleExplorePress = () => {
+//     // 3. Updated Explore Press to pass the specific ID
+//     const handleExplorePress = (destinationId) => {
 //         router.push({
 //             pathname: "/(protected)/placesDetails",
-//             params: {
-//                 id: "1",
-//                 image: Image.resolveAssetSource(LoginBackground).uri,
-//             },
+//             params: { id: destinationId }, // Pass the ID to the details page
 //         });
 //     };
+
+//     if (loading) {
+//         return <View style={{height: 380, justifyContent:'center'}}><ActivityIndicator size="large" color="#00C6FF"/></View>;
+//     }
 
 //     return (
 //         <View style={{ flex: 1 }}>
@@ -104,8 +89,6 @@
 //                     onPress={handleNotificationPress}
 //                 >
 //                     <Ionicons name='notifications' size={24} color="white" />
-                    
-//                     {/* CONDITIONAL RENDERING: Only show if count > 0 */}
 //                     {unreadCount > 0 && (
 //                         <View style={styles.notificationBadge}>
 //                             <Text style={styles.badgeText}>
@@ -113,66 +96,82 @@
 //                             </Text>
 //                         </View>
 //                     )}
-
 //                 </TouchableOpacity>
 //             </View>
            
 //             <View style={{ height: 380 }}>
-//                 <Swiper 
-//                     ref={swiperRef}
-//                     autoplay 
-//                     loop 
-//                     showsPagination={false}
-//                     autoplayTimeout={6}
-//                     onIndexChanged={handleIndexChanged}
-//                 >
-//                     {dataSlider.map(item => (
-//                         <ImageBackground
-//                             key={item.id}
-//                             source={item.image}
-//                             style={styles.slide}
-//                             resizeMode="cover"
-//                         >
-//                             <LinearGradient
-//                                 colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.7)']}
-//                                 style={styles.gradientOverlay}
-//                             />
-                            
-//                             <View style={styles.slideContent}>
-//                                 <View style={styles.topBadge}>
-//                                     <Ionicons name="star" size={14} color="#FFD700" />
-//                                     <Text style={styles.ratingValue}>{item.rating}</Text>
-//                                     <Text style={styles.reviewCount}>({item.reviews} reviews)</Text>
-//                                 </View>
+//                 {destinations.length > 0 ? (
+//                     <Swiper 
+//                         ref={swiperRef}
+//                         autoplay 
+//                         loop 
+//                         showsPagination={false}
+//                         autoplayTimeout={6}
+//                         onIndexChanged={handleIndexChanged}
+//                     >
+//                         {/* 4. Map through API Data */}
+//                         {destinations.map(item => (
+//                             <ImageBackground
+//                                 key={item.id}
+//                                 // Use first_image from API, or a placeholder if null
+//                                 source={item.image ? { uri: item.image || item.first_image || item.thumbnail || '' } : require('../../assets/localynk_images/login_background.png')}
+//                                 style={styles.slide}
+//                                 resizeMode="cover"
+//                             >
+//                                 <LinearGradient
+//                                     colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.7)']}
+//                                     style={styles.gradientOverlay}
+//                                 />
+                                
+//                                 <View style={styles.slideContent}>
+//                                     <View style={styles.topBadge}>
+//                                         <Ionicons name="star" size={14} color="#FFD700" />
+//                                         {/* Use API data for rating */}
+//                                         <Text style={styles.ratingValue}>{item.average_rating || 'New'}</Text>
+//                                     </View>
 
-//                                 <View style={styles.textContainer}>
-//                                     <MaskedView maskElement={<Text style={styles.logo}>{item.logo}</Text>}>
-//                                         <LinearGradient colors={['#FFFFFF', '#00C6FF']}>
-//                                             <Text style={[styles.logo, { opacity: 0 }]}>{item.logo}</Text>
-//                                         </LinearGradient>
-//                                     </MaskedView>
+//                                     <View style={styles.textContainer}>
+//                                         <MaskedView maskElement={<Text style={styles.logo}>DISCOVER {item.category}!</Text>}>
+//                                             <LinearGradient colors={['#FFFFFF', '#00C6FF']}>
+//                                                 <Text style={[styles.logo, { opacity: 0 }]}>DISCOVER {item.category}!</Text>
+//                                             </LinearGradient>
+//                                         </MaskedView>
         
-//                                     <MaskedView maskElement={<Text style={styles.name}>{item.name}</Text>}>
-//                                         <LinearGradient colors={['#FFFFFF', '#00C6FF']}>
-//                                             <Text style={[styles.name, { opacity: 0 }]}>{item.name}</Text>
-//                                         </LinearGradient>
-//                                     </MaskedView>
+//                                         <MaskedView maskElement={<Text style={styles.name}>{item.name}</Text>}>
+//                                             <LinearGradient colors={['#FFFFFF', '#00C6FF']}>
+//                                                 <Text style={[styles.name, { opacity: 0 }]}>{item.name}</Text>
+//                                             </LinearGradient>
+//                                         </MaskedView>
         
-//                                     <Text style={styles.description}>{item.description}</Text>
-//                                 </View>
+//                                         <Text style={styles.description} numberOfLines={2}>
+//                                             {item.location}
+//                                         </Text>
+//                                         <Text style={{color: "white", fontSize: 11}}>
+//                                             {item.description}
+//                                         </Text>
+//                                     </View>
 
-//                                 <TouchableOpacity style={styles.exploreBtn} activeOpacity={0.8} onPress={handleExplorePress}>
-//                                     <Text style={styles.exploreText}>Explore Now</Text>
-//                                     <Ionicons name="arrow-forward" size={16} color="white" />
-//                                 </TouchableOpacity>
-//                             </View>
-//                         </ImageBackground>
-//                     ))}
-//                 </Swiper>
+//                                     <TouchableOpacity 
+//                                         style={styles.exploreBtn} 
+//                                         activeOpacity={0.8} 
+//                                         onPress={() => handleExplorePress(item.id)}
+//                                     >
+//                                         <Text style={styles.exploreText}>Explore Now</Text>
+//                                         <Ionicons name="arrow-forward" size={16} color="white" />
+//                                     </TouchableOpacity>
+//                                 </View>
+//                             </ImageBackground>
+//                         ))}
+//                     </Swiper>
+//                 ) : (
+//                     <View style={{flex:1, justifyContent:'center', alignItems:'center', backgroundColor:'#eee'}}>
+//                         <Text style={{color:'#666'}}>No destinations found.</Text>
+//                     </View>
+//                 )}
 //             </View>
 
 //             <View style={styles.indicatorContainer}>
-//                 {dataSlider.map((_, index) => (
+//                 {destinations.slice(0, 3).map((_, index) => (
 //                     <TouchableOpacity
 //                         key={index}
 //                         style={[
@@ -241,10 +240,10 @@
 //         position: 'absolute',
 //         top: -2,
 //         right: -2,
-//         minWidth: 22, // Changed to minWidth for 2 digits
+//         minWidth: 22, 
 //         height: 22,
 //         borderRadius: 11,
-//         backgroundColor: '#FF3B30', // iOS Standard Red
+//         backgroundColor: '#FF3B30', 
 //         justifyContent: 'center',
 //         alignItems: 'center',
 //         borderWidth: 2,
@@ -358,60 +357,21 @@
 //     },
 // });
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TextInput, ImageBackground, StyleSheet, TouchableOpacity, Dimensions, Image, ActivityIndicator } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, TextInput, ImageBackground, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import Swiper from 'react-native-swiper';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter, useFocusEffect } from 'expo-router';
-
-// Import your API utility
-import api from '../../api/api'; // Ensure this path matches your project structure
+import { useRouter } from 'expo-router';
 
 const { width } = Dimensions.get('window');
 
-const Header = () => {
+// Accept props from Parent
+const Header = ({ destinations = [], unreadCount = 0 }) => {
     const [activeIndex, setActiveIndex] = useState(0);
-    const [unreadCount, setUnreadCount] = useState(0);
-    
-    // 1. State for Destinations
-    const [destinations, setDestinations] = useState([]);
-    const [loading, setLoading] = useState(true);
-
     const swiperRef = useRef(null);
     const router = useRouter();
-
-    // 2. Fetch Destinations from API
-    const fetchDestinations = async () => {
-        try {
-            const response = await api.get('/api/destinations/');
-            console.log(response.data)
-            setDestinations(response.data);
-        } catch (error) {
-            console.error("Failed to fetch destinations:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const fetchUnreadCount = async () => {
-        try {
-            const response = await api.get('/api/alerts/unread-count/');
-            if (response.data && response.data.unread_count !== undefined) {
-                setUnreadCount(response.data.unread_count);
-            }
-        } catch (error) {
-            console.log("Failed to fetch unread count:", error);
-        }
-    };
-
-    useFocusEffect(
-        useCallback(() => {
-            fetchDestinations();
-            fetchUnreadCount();
-        }, [])
-    );
 
     const handleIndexChanged = (index) => {
         setActiveIndex(index);
@@ -421,17 +381,14 @@ const Header = () => {
         router.push('/(protected)/notification');
     };
 
-    // 3. Updated Explore Press to pass the specific ID
     const handleExplorePress = (destinationId) => {
         router.push({
             pathname: "/(protected)/placesDetails",
-            params: { id: destinationId }, // Pass the ID to the details page
+            params: { id: destinationId },
         });
     };
 
-    if (loading) {
-        return <View style={{height: 380, justifyContent:'center'}}><ActivityIndicator size="large" color="#00C6FF"/></View>;
-    }
+    // No loading check here; parent handles it.
 
     return (
         <View style={{ flex: 1 }}>
@@ -469,11 +426,9 @@ const Header = () => {
                         autoplayTimeout={6}
                         onIndexChanged={handleIndexChanged}
                     >
-                        {/* 4. Map through API Data */}
                         {destinations.map(item => (
                             <ImageBackground
                                 key={item.id}
-                                // Use first_image from API, or a placeholder if null
                                 source={item.image ? { uri: item.image || item.first_image || item.thumbnail || '' } : require('../../assets/localynk_images/login_background.png')}
                                 style={styles.slide}
                                 resizeMode="cover"
@@ -486,7 +441,6 @@ const Header = () => {
                                 <View style={styles.slideContent}>
                                     <View style={styles.topBadge}>
                                         <Ionicons name="star" size={14} color="#FFD700" />
-                                        {/* Use API data for rating */}
                                         <Text style={styles.ratingValue}>{item.average_rating || 'New'}</Text>
                                     </View>
 
@@ -506,7 +460,7 @@ const Header = () => {
                                         <Text style={styles.description} numberOfLines={2}>
                                             {item.location}
                                         </Text>
-                                        <Text style={{color: "white", fontSize: 11}}>
+                                        <Text style={{color: "white", fontSize: 11}} numberOfLines={2}>
                                             {item.description}
                                         </Text>
                                     </View>
@@ -646,11 +600,6 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '700',
         color: '#1a1a1a',
-        marginLeft: 4,
-    },
-    reviewCount: {
-        fontSize: 11,
-        color: '#666',
         marginLeft: 4,
     },
     textContainer: {

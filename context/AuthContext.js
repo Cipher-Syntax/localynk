@@ -8,8 +8,6 @@ import { useRouter } from 'expo-router';
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-    // 1. Define initial state logic INSIDE component or use a fresh object every time
-    // This prevents "zombie" data from persisting if the object was mutated elsewhere
     const [state, setState] = useState({
         isAuthenticated: false,
         user: null,
@@ -59,7 +57,6 @@ export function AuthProvider({ children }) {
         }
     };
 
-    // --- Refresh User
     const refreshUser = async () => {
         try {
             const user = await fetchProfile();
@@ -72,7 +69,6 @@ export function AuthProvider({ children }) {
         }
     };
 
-    // --- Load tokens on startup
     useEffect(() => {
         const loadStoredUser = async () => {
             try {
@@ -80,7 +76,6 @@ export function AuthProvider({ children }) {
                 const refresh = await AsyncStorage.getItem(REFRESH_TOKEN);
 
                 if (access && refresh) {
-                    // Manually set header here to ensure fetchProfile works immediately on reload
                     api.defaults.headers.common['Authorization'] = `Bearer ${access}`;
                     
                     const user = await fetchProfile();
@@ -94,7 +89,7 @@ export function AuthProvider({ children }) {
                             messageType: null
                         });
                     } else {
-                        await logout(false); // Clean exit if token invalid
+                        await logout(false);
                     }
                 } else {
                     setState(prev => ({ ...prev, isLoading: false }));
@@ -108,7 +103,6 @@ export function AuthProvider({ children }) {
     }, []);
 
 
-    // --- LOGIN
     const login = async (username, password) => {
         setState(prev => ({ ...prev, isLoading: true, message: null }));
 
@@ -117,7 +111,6 @@ export function AuthProvider({ children }) {
             const access = response.data.access;
             const refresh = response.data.refresh;
 
-            // 1. Set Storage
             await AsyncStorage.setItem(ACCESS_TOKEN, access);
             await AsyncStorage.setItem(REFRESH_TOKEN, refresh);
             

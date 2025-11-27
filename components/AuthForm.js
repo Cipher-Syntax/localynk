@@ -1,23 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ImageBackground, StyleSheet, Pressable, Switch, ScrollView, Dimensions, Alert } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
-import MaskedView from '@react-native-masked-view/masked-view';
+import { 
+    View, 
+    Text, 
+    TextInput, 
+    TouchableOpacity, 
+    ImageBackground, 
+    StyleSheet, 
+    Dimensions, 
+    Alert, 
+    KeyboardAvoidingView, 
+    Platform,
+    TouchableWithoutFeedback,
+    Keyboard
+} from 'react-native';
+import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useForm, Controller } from 'react-hook-form';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../context/AuthContext'; 
 
-const { height } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 const AuthForm = ({ method }) => {
-
     // --- Context Hook ---
     const { login, register, resendVerificationEmail, message, messageType, clearMessage } = useAuth(); 
 
     const { control, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm();
     const [remember, setRemember] = useState(false);
     
-    // --- NEW STATE FOR PASSWORD VISIBILITY ---
+    // --- STATE FOR PASSWORD VISIBILITY ---
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -27,19 +38,15 @@ const AuthForm = ({ method }) => {
         ? require('../assets/localynk_images/login_background.png')
         : require('../assets/localynk_images/register_background.png');
 
-    const status = method === 'login' ? 'Welcome Back Adventurer' : 'Join The Adventure';
+    const titleText = method === 'login' ? 'Welcome Back' : 'Start Journey';
+    const subtitleText = method === 'login' ? 'Continue your adventure' : 'Join the community of explorers';
 
-    // --- FIX APPLIED HERE ---
-    // Change dependency array from [method] to []
-    // We REMOVED the "return () => clearMessage()"
-    // This allows the message to persist when router.replace switches from Register to Login
     useEffect(() => {
-        // Optional: clear message on mount ONLY if it's not a success message meant for this screen.
-        // For now, leaving this empty is safest for your flow.
+        // Optional clear on mount
     }, []); 
 
     const onSubmit = async (data) => {
-        clearMessage(); // Clear any previous messages before submitting
+        clearMessage(); 
 
         if (method === 'login') {
             const successUser = await login(data.username, data.password); 
@@ -49,14 +56,10 @@ const AuthForm = ({ method }) => {
                 const isLastNameMissing = !successUser.last_name || String(successUser.last_name).trim() === "";
 
                 if (isFirstNameMissing || isLastNameMissing) {
-                    console.log("Login success: First-time user detected (Missing KYC), redirecting to profile setup.");
                     router.replace('/onboarding/profile_setup');
                 } else {
-                    console.log("Login success: Profile complete, redirecting to home.");
                     router.replace('/home'); 
                 }
-            } else {
-                // AuthContext handles setting the message and messageType
             }
         } else {
             const userData = {
@@ -69,15 +72,10 @@ const AuthForm = ({ method }) => {
             const result = await register(userData);
 
             if (result && result.success) {
-                // Message is set in AuthContext. Router replaces the screen.
-                // Because we removed the useEffect cleanup, the new login screen will pick up the message.
                 router.replace('/auth/login')
-            } else {
-                // AuthContext handles setting the message and messageType
             }
         }
     };
-
 
     const handleResendVerification = async () => {
         const usernameOrEmail = watch('username'); 
@@ -90,286 +88,354 @@ const AuthForm = ({ method }) => {
         await resendVerificationEmail(usernameOrEmail);
     };
 
+    // Helper to render input with icon
+    const renderInput = (controlName, placeholder, iconName, isPassword = false, showPassState = false, setShowPassState = null, rules = {}) => (
+        <View style={styles.inputWrapper}>
+            <Controller
+                control={control}
+                name={controlName}
+                defaultValue=""
+                rules={rules}
+                render={({ field: { onChange, value } }) => (
+                    <View style={[styles.inputContainer, errors[controlName] && styles.inputError]}>
+                        <View style={styles.iconContainer}>
+                            <FontAwesome name={iconName} size={20} color="#94A3B8" />
+                        </View>
+                        <TextInput
+                            placeholder={placeholder}
+                            placeholderTextColor="#94A3B8"
+                            style={styles.input}
+                            secureTextEntry={isPassword && !showPassState}
+                            value={value}
+                            onChangeText={onChange}
+                            autoCapitalize="none"
+                        />
+                        {isPassword && (
+                            <TouchableOpacity onPress={() => setShowPassState(!showPassState)} style={styles.eyeIcon}>
+                                <Ionicons name={showPassState ? "eye-off-outline" : "eye-outline"} size={22} color="#94A3B8" />
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                )}
+            />
+            {errors[controlName] && <Text style={styles.errorText}>{errors[controlName].message}</Text>}
+        </View>
+    );
 
     return (
-        <View style={styles.container}>
-            <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
-                <ImageBackground source={bgImage} style={styles.topHalf} resizeMode="cover" />
-
-                <View style={styles.formContainer}>
-
-                    <MaskedView
-                        maskElement={<Text style={[styles.title, { backgroundColor: 'transparent' }]}>{status}</Text>}
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.container}>
+                <ImageBackground source={bgImage} style={styles.bgImage} resizeMode="cover">
+                    {/* Gradient Overlay for text readability */}
+                    <LinearGradient
+                        colors={['rgba(0,0,0,0.1)', 'rgba(15, 23, 42, 0.85)']}
+                        style={styles.gradientOverlay}
                     >
-                        <LinearGradient colors={['#0F172A', '#007AAD']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-                            <Text style={[styles.title, { opacity: 0 }]}>{status}</Text>
-                        </LinearGradient>
-                    </MaskedView>
+                        <KeyboardAvoidingView 
+                            behavior={Platform.OS === "ios" ? "padding" : "height"}
+                            style={styles.keyboardView}
+                        >
+                            <View style={styles.contentContainer}>
+                                
+                                {/* Header Section */}
+                                <View style={styles.headerContainer}>
+                                    <Text style={styles.welcomeText}>{titleText}</Text>
+                                    <Text style={styles.subtitleText}>{subtitleText}</Text>
+                                </View>
 
-                    {message && messageType === 'error' ? ( 
-                        <>
-                            <Text style={styles.errorText}>{message}</Text> 
-                            {message.includes('verify your email') && method === 'login' && ( 
-                                <Pressable style={styles.resendLink} onPress={handleResendVerification}>
-                                    <Text style={styles.resendLinkText}>Resend Verification Email</Text>
-                                </Pressable>
-                            )}
-                        </>
-                    ) : null}
-                    {message && messageType === 'success' ? ( 
-                        <Text style={styles.successText}>{message}</Text> 
-                    ) : null}
+                                {/* Form Section */}
+                                <View style={styles.formCard}>
+                                    
+                                    {/* Messages */}
+                                    {message ? (
+                                        <View style={[styles.messageBox, messageType === 'error' ? styles.msgError : styles.msgSuccess]}>
+                                            <Text style={[styles.messageText, messageType === 'error' ? {color:'#EF4444'} : {color:'#10B981'}]}>
+                                                {message}
+                                            </Text>
+                                            {message.includes('verify your email') && method === 'login' && (
+                                                <TouchableOpacity onPress={handleResendVerification}>
+                                                    <Text style={styles.resendText}>Resend Email</Text>
+                                                </TouchableOpacity>
+                                            )}
+                                        </View>
+                                    ) : null}
 
-                    {/* Username */}
-                    <Controller
-                        control={control}
-                        name="username"
-                        defaultValue=""
-                        rules={{ required: 'Username is required' }}
-                        render={({ field: { onChange, value } }) => (
-                            <TextInput
-                                placeholder="Username"
-                                style={styles.input}
-                                value={value}
-                                onChangeText={onChange}
-                            />
-                        )}
-                    />
-                    {errors.username && <Text style={styles.errorText}>{errors.username.message}</Text>}
+                                    {/* Inputs */}
+                                    {renderInput('username', 'Username', 'user', false, null, null, { required: 'Username is required' })}
+                                    
+                                    {method === 'register' && renderInput('email', 'Email Address', 'envelope', false, null, null, { 
+                                        required: 'Email is required', 
+                                        pattern: { value: /^\S+@\S+$/i, message: "Invalid email format" } 
+                                    })}
 
-                    {/* Email */}
-                    {method === 'register' && (
-                        <>
-                            <Controller
-                                control={control}
-                                name="email"
-                                defaultValue=""
-                                rules={{
-                                    required: 'Email is required',
-                                    pattern: { value: /^\S+@\S+$/i, message: "Invalid email address" }
-                                }}
-                                render={({ field: { onChange, value } }) => (
-                                    <TextInput
-                                        placeholder="Email"
-                                        keyboardType="email-address"
-                                        autoCapitalize="none"
-                                        value={value}
-                                        onChangeText={onChange}
-                                        style={styles.input}
-                                    />
-                                )}
-                            />
-                            {errors.email && <Text style={styles.errorText}>{errors.email.message}</Text>}
-                        </>
-                    )}
+                                    {renderInput('password', 'Password', 'lock', true, showPassword, setShowPassword, { 
+                                        required: 'Password is required', 
+                                        minLength: { value: 8, message: 'Min 8 characters' } 
+                                    })}
 
-                    {/* Password */}
-                    <Controller
-                        control={control}
-                        name="password"
-                        defaultValue=""
-                        rules={{ required: 'Password is required', minLength: { value: 8, message: 'Password must be at least 8 characters' } }}
-                        render={({ field: { onChange, value } }) => (
-                            <View style={{ width: '100%', position: 'relative' }}>
-                                <TextInput
-                                    placeholder="Password"
-                                    secureTextEntry={!showPassword}
-                                    value={value}
-                                    onChangeText={onChange}
-                                    style={[styles.input, { paddingRight: 45 }]}
-                                />
-                                <TouchableOpacity 
-                                    onPress={() => setShowPassword(!showPassword)}
-                                    style={styles.eyeIcon}
-                                >
-                                    <FontAwesome 
-                                        name={showPassword ? "eye" : "eye-slash"} 
-                                        size={20} 
-                                        color="gray" 
-                                    />
-                                </TouchableOpacity>
-                            </View>
-                        )}
-                    />
-                    {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
+                                    {method === 'register' && renderInput('confirm_password', 'Confirm Password', 'lock', true, showConfirmPassword, setShowConfirmPassword, {
+                                        required: 'Confirm your password',
+                                        validate: (val) => val === watch('password') || 'Passwords do not match'
+                                    })}
 
-                    {/* Confirm Password */}
-                    {method === 'register' && (
-                        <>
-                            <Controller
-                                control={control}
-                                name="confirm_password"
-                                rules={{
-                                    required: 'Please confirm your password',
-                                    validate: (value) => value === watch('password') || 'Passwords do not match',
-                                }}
-                                render={({ field: { onChange, value } }) => (
-                                    <View style={{ width: '100%', position: 'relative' }}>
-                                        <TextInput
-                                            placeholder="Confirm Password"
-                                            secureTextEntry={!showConfirmPassword}
-                                            style={[styles.input, { paddingRight: 45 }]}
-                                            value={value}
-                                            onChangeText={onChange}
-                                        />
-                                        <TouchableOpacity 
-                                            onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                                            style={styles.eyeIcon}
+                                    {/* Login Extras */}
+                                    {method === 'login' && (
+                                        <View style={styles.optionsRow}>
+                                            <TouchableOpacity 
+                                                style={styles.rememberRow} 
+                                                activeOpacity={0.8}
+                                                onPress={() => setRemember(!remember)}
+                                            >
+                                                <View style={[styles.checkbox, remember && styles.checkboxChecked]}>
+                                                    {remember && <FontAwesome name="check" size={10} color="#fff" />}
+                                                </View>
+                                                <Text style={styles.rememberText}>Remember me</Text>
+                                            </TouchableOpacity>
+                                            
+                                            <TouchableOpacity onPress={() => console.log('Forgot')}>
+                                                <Text style={styles.forgotText}>Forgot Password?</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    )}
+
+                                    {/* Submit Button */}
+                                    <TouchableOpacity
+                                        style={styles.mainButtonShadow}
+                                        onPress={handleSubmit(onSubmit)}
+                                        disabled={isSubmitting}
+                                    >
+                                        <LinearGradient
+                                            colors={['#0072FF', '#00C6FF']}
+                                            start={{ x: 0, y: 0 }} 
+                                            end={{ x: 1, y: 0 }}
+                                            style={styles.mainButton}
                                         >
-                                            <FontAwesome 
-                                                name={showConfirmPassword ? "eye" : "eye-slash"} 
-                                                size={20} 
-                                                color="gray" 
+                                            <Text style={styles.mainButtonText}>
+                                                {isSubmitting ? 'Please wait...' : (method === 'login' ? 'Log In' : 'Sign Up')}
+                                            </Text>
+                                            <Ionicons name="arrow-forward" size={20} color="#fff" />
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+
+                                    {/* Social & Switch */}
+                                    <View style={styles.footerContainer}>
+                                        <View style={styles.dividerRow}>
+                                            <View style={styles.divider} />
+                                            <Text style={styles.orText}>OR</Text>
+                                            <View style={styles.divider} />
+                                        </View>
+
+                                        <TouchableOpacity style={styles.googleButton}>
+                                            <ImageBackground 
+                                                source={{uri: 'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg'}} 
+                                                style={{width: 20, height: 20}} 
                                             />
+                                            <FontAwesome name="google" size={20} color="#DB4437" />
+                                            <Text style={styles.googleText}>Continue with Google</Text>
                                         </TouchableOpacity>
+
+                                        <View style={styles.switchContainer}>
+                                            <Text style={styles.switchText}>
+                                                {method === 'login' ? "Don't have an account? " : "Already have an account? "}
+                                            </Text>
+                                            <TouchableOpacity onPress={() => router.push(method === 'login' ? '/auth/register' : '/auth/login')}>
+                                                <Text style={styles.switchLink}>
+                                                    {method === 'login' ? 'Sign Up' : 'Log In'}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        </View>
                                     </View>
-                                )}
-                            />
-                            {errors.confirm_password && <Text style={styles.errorText}>{errors.confirm_password.message}</Text>}
-                        </>
-                    )}
 
-                    {/* Only for login */}
-                    {method === 'login' && (
-                        <View style={styles.optionsRow}>
-                            <View style={styles.rememberRow}>
-                                <Switch
-                                    value={remember}
-                                    onValueChange={setRemember}
-                                    thumbColor={remember ? '#007AAD' : '#ccc'}
-                                    trackColor={{ false: '#ccc', true: '#007AAD55' }}
-                                />
-                                <Text style={styles.rememberText}>Keep me signed in</Text>
+                                </View>
                             </View>
-                            <Pressable onPress={() => console.log('Forgot password')}>
-                                <Text style={styles.forgotText}>Forgot?</Text>
-                            </Pressable>
-                        </View>
-                    )}
-
-                    {/* Submit */}
-                    <TouchableOpacity
-                        style={[styles.button, isSubmitting && { opacity: 0.6 }]}
-                        onPress={handleSubmit(onSubmit)}
-                        disabled={isSubmitting}
-                    >
-                        <Text style={styles.buttonText}>
-                            {method === 'login' ? 'Login' : 'Register'}
-                        </Text>
-                    </TouchableOpacity>
-
-                    {/* Switch login/register */}
-                    <View style={{ marginTop: 15 }}>
-                        <Text style={styles.smallText}>
-                            {method === 'login' ? `New to LocaLynk? ` : `Already have an account? `}
-                            <Text
-                                style={styles.link}
-                                onPress={() => router.push(method === 'login' ? '/auth/register' : '/auth/login')}
-                            >
-                                {method === 'login' ? 'Create an account' : 'Login'}
-                            </Text>
-                        </Text>
-                    </View>
-
-                    <View style={styles.dividerContainer}>
-                        <View style={styles.divider} />
-                        <Text style={styles.dividerText}>or</Text>
-                        <View style={styles.divider} />
-                    </View>
-
-                    <TouchableOpacity
-                        style={styles.googleButton}
-                        onPress={() => console.log('Sign in with Google')}
-                    >
-                        <FontAwesome name="google" size={25} />
-                        <Text style={styles.googleText}>Continue with Google</Text>
-                    </TouchableOpacity>
-
-                </View>
-            </ScrollView>
-        </View>
+                        </KeyboardAvoidingView>
+                    </LinearGradient>
+                </ImageBackground>
+            </View>
+        </TouchableWithoutFeedback>
     );
 };
 
 export default AuthForm;
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#D9E2E9' },
-    topHalf: { height: height * 0.4, width: '100%' },
-    formContainer: {
-        flex: 1,
-        marginTop: -40,
-        backgroundColor: '#D9E2E9',
-        borderTopLeftRadius: 40,
-        borderTopRightRadius: 40,
-        padding: 20,
-        paddingTop: 50,
-        alignItems: 'center',
-        zIndex: 10,
-    },
-    title: { fontSize: 30, fontWeight: '900', color: '#0F172A', marginBottom: 20, textAlign: 'center' },
-    input: {
+    container: { flex: 1 },
+    bgImage: { flex: 1, width: '100%', height: '100%' },
+    gradientOverlay: { flex: 1, justifyContent: 'flex-end' },
+    keyboardView: { flex: 1, justifyContent: 'flex-end' },
+    
+    contentContainer: {
         width: '100%',
-        height: 55,
-        backgroundColor: '#fff',
-        borderRadius: 8,
-        borderColor: '#0F172A',
-        borderWidth: 1,
-        marginVertical: 5,
+        paddingHorizontal: 20,
+        paddingBottom: 40,
+        alignItems: 'center',
+    },
+
+    // Header
+    headerContainer: {
+        width: '100%',
+        marginBottom: 25,
         paddingHorizontal: 10,
-        fontSize: 14,
-        marginBottom: 10,
     },
-    errorText: { color: 'red', fontSize: 12, marginBottom: 5, textAlign: 'left', alignSelf: 'flex-start', width: '100%' },
-    successText: { color: 'green', fontSize: 14, marginBottom: 15, textAlign: 'center', fontWeight: 'bold' },
-    optionsRow: { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 5 },
-    rememberRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-    rememberText: { fontSize: 12, color: '#444' },
-    forgotText: { fontSize: 12, color: '#0F172A', textDecorationLine: 'underline', fontWeight: '500' },
-    button: {
-        backgroundColor: '#0072FF',
-        padding: 15,
-        borderRadius: 8,
+    welcomeText: {
+        fontSize: 36,
+        fontWeight: '800',
+        color: '#FFFFFF',
+        letterSpacing: 0.5,
+        textShadowColor: 'rgba(0, 0, 0, 0.3)',
+        textShadowOffset: { width: 0, height: 2 },
+        textShadowRadius: 4,
+    },
+    subtitleText: {
+        fontSize: 16,
+        color: '#E2E8F0',
+        marginTop: 5,
+        fontWeight: '500',
+    },
+
+    // Card
+    formCard: {
         width: '100%',
-        marginTop: 15,
-        alignItems: 'center',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 30,
+        paddingVertical: 30,
+        paddingHorizontal: 25,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 3,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.25,
+        shadowRadius: 15,
+        elevation: 10,
     },
-    buttonText: { color: '#fff', fontWeight: '900' },
-    smallText: { color: '#555', fontSize: 14, textAlign: 'center' },
-    link: { color: '#007AAD', fontWeight: '900' },
-    dividerContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 20, marginBottom: 10, width: '100%', justifyContent: 'space-between' },
-    divider: { flex: 1, height: 1, backgroundColor: '#0F172A' },
-    dividerText: { marginHorizontal: 10, color: '#444', fontSize: 13 },
+
+    // Inputs
+    inputWrapper: { marginBottom: 15 },
+    inputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F1F5F9', // Light gray background
+        borderRadius: 16,
+        height: 56,
+        paddingHorizontal: 15,
+        borderWidth: 1,
+        borderColor: 'transparent',
+    },
+    inputError: {
+        borderColor: '#EF4444',
+        backgroundColor: '#FEF2F2',
+    },
+    iconContainer: {
+        width: 30,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 10,
+    },
+    input: {
+        flex: 1,
+        fontSize: 16,
+        color: '#0F172A',
+        height: '100%',
+    },
+    eyeIcon: {
+        padding: 10,
+    },
+    errorText: {
+        color: '#EF4444',
+        fontSize: 12,
+        marginLeft: 5,
+        marginTop: 4,
+        fontWeight: '500'
+    },
+
+    // Messages
+    messageBox: {
+        padding: 12,
+        borderRadius: 12,
+        marginBottom: 20,
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center'
+    },
+    msgError: { backgroundColor: '#FEF2F2' },
+    msgSuccess: { backgroundColor: '#ECFDF5' },
+    messageText: { fontSize: 13, textAlign: 'center', fontWeight: '600' },
+    resendText: { color: '#0072FF', fontWeight: 'bold', marginTop: 5, textDecorationLine: 'underline' },
+
+    // Options Row (Login)
+    optionsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 25,
+        marginTop: 5,
+    },
+    rememberRow: { flexDirection: 'row', alignItems: 'center' },
+    checkbox: {
+        width: 20,
+        height: 20,
+        borderRadius: 6,
+        borderWidth: 2,
+        borderColor: '#CBD5E1',
+        marginRight: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    checkboxChecked: {
+        backgroundColor: '#0072FF',
+        borderColor: '#0072FF',
+    },
+    rememberText: { color: '#64748B', fontSize: 14, fontWeight: '500' },
+    forgotText: { color: '#0072FF', fontSize: 14, fontWeight: '600' },
+
+    // Main Button
+    mainButtonShadow: {
+        shadowColor: '#0072FF',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.4,
+        shadowRadius: 12,
+        elevation: 8,
+        borderRadius: 16,
+    },
+    mainButton: {
+        height: 56,
+        borderRadius: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    mainButtonText: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '700',
+        marginRight: 10,
+    },
+
+    // Footer / Social
+    footerContainer: { marginTop: 25, alignItems: 'center' },
+    dividerRow: { flexDirection: 'row', alignItems: 'center', width: '100%', marginBottom: 20 },
+    divider: { flex: 1, height: 1, backgroundColor: '#E2E8F0' },
+    orText: { marginHorizontal: 15, color: '#94A3B8', fontSize: 14, fontWeight: '600' },
+    
     googleButton: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        borderColor: '#ccc',
-        borderWidth: 1,
-        borderRadius: 8,
         width: '100%',
-        paddingVertical: 10,
-        marginTop: 5,
+        height: 56,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        backgroundColor: '#fff',
+        marginBottom: 20,
     },
-    googleText: { marginLeft: 10, color: '#444', fontSize: 14, fontWeight: '900' },
-    resendLink: {
-        marginTop: 10,
-        marginBottom: 10,
+    googleText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#334155',
+        marginLeft: 12,
     },
-    resendLinkText: {
-        color: '#007AAD',
-        textDecorationLine: 'underline',
-        fontWeight: 'bold',
-        fontSize: 14,
-    },
-    eyeIcon: {
-        position: 'absolute',
-        right: 15,
-        top: 22, 
-        zIndex: 1,
-    },
+
+    // Switch Login/Register
+    switchContainer: { flexDirection: 'row', alignItems: 'center' },
+    switchText: { color: '#64748B', fontSize: 15 },
+    switchLink: { color: '#0072FF', fontSize: 15, fontWeight: '700' },
 });

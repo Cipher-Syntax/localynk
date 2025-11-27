@@ -1,11 +1,24 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TextInput, Alert, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { 
+    View, 
+    Text, 
+    TextInput, 
+    Alert, 
+    ScrollView, 
+    StyleSheet, 
+    TouchableOpacity, 
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
+    Keyboard
+} from 'react-native';
 import api from '../../api/api'; 
 import { Calendar } from 'react-native-calendars';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'; // <--- Added Hook
 import { Picker } from '@react-native-picker/picker'; 
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 const SPECIALTY_OPTIONS = [
     'History & Culture',
@@ -23,6 +36,7 @@ const SPECIALTY_OPTIONS = [
 const UpdateGuideInfoForm = () => {
     const router = useRouter();
     const { user, isLoading: authLoading } = useAuth();
+    const insets = useSafeAreaInsets(); // <--- Get safe area values
     
     const [isSubmitting, setIsSubmitting] = useState(false);
     
@@ -47,8 +61,6 @@ const UpdateGuideInfoForm = () => {
     }, [user]);
 
     const populateForm = (data) => {
-        console.log("Populating Form with User Data:", data);
-        
         if (Array.isArray(data.languages)) {
             setLanguages(data.languages);
         } else if (typeof data.languages === 'string' && data.languages.length > 0) {
@@ -72,7 +84,6 @@ const UpdateGuideInfoForm = () => {
             }
         }
 
-   
         const existingMarkedDates = (data.specific_available_dates || []).reduce((acc, dateString) => {
             acc[dateString] = { selected: true, marked: true, selectedColor: '#007AFF' };
             return acc;
@@ -128,6 +139,7 @@ const UpdateGuideInfoForm = () => {
     }, [availableDays]);
 
     const handleSubmit = async () => {
+        Keyboard.dismiss();
         setIsSubmitting(true);
         const finalSpecialty = selectedSpecialty === 'Other' ? customSpecialty : selectedSpecialty;
         
@@ -148,7 +160,9 @@ const UpdateGuideInfoForm = () => {
                 available_days: availableDays,
                 specific_available_dates: specific_dates
             });
-            Alert.alert('Success', 'Guide info updated successfully!');
+            Alert.alert('Success', 'Guide info updated successfully!', [
+                { text: "OK", onPress: () => router.back() }
+            ]);
         } catch (error) {
             const errorData = error.response?.data || error.message;
             console.log("Update Error:", errorData);
@@ -158,145 +172,184 @@ const UpdateGuideInfoForm = () => {
         }
     };
 
+    const handleCancel = () => {
+        router.back();
+    };
+
     if (authLoading || !user) {
         return (
-            <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
+            <View style={[styles.loadingContainer]}>
                 <ActivityIndicator size="large" color="#007AFF" />
                 <Text style={{ marginTop: 10, color: '#666' }}>Loading your profile...</Text>
-            </SafeAreaView>
+            </View>
         );
     }
 
     return (
-        <SafeAreaView style={styles.safeArea}>
-            <ScrollView style={styles.container}>
-                
-                <Text style={styles.header}>Update Profile</Text>
+        <SafeAreaView style={styles.safeArea} edges={['top']}>
+            <View style={styles.headerContainer}>
+                <TouchableOpacity onPress={handleCancel} style={styles.backButton}>
+                    <Ionicons name="arrow-back" size={24} color="#1F2937" />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Edit Guide Profile</Text>
+                <View style={{ width: 24 }} /> 
+            </View>
 
-                <View style={styles.card}>
-                    <Text style={styles.label}>Subscription Status</Text>
-                    {user.guide_tier === 'paid' ? (
-                        <>
-                            <Text style={styles.subText}>You are a Paid Member.</Text>
-                            <Text style={styles.subText}>Your subscription is valid until: {new Date(user.subscription_end_date).toLocaleDateString()}</Text>
-                        </>
-                    ) : (
-                        <>
-                            <Text style={styles.subText}>You are on the Free Tier.</Text>
-                            <Text style={styles.subText}>You can only accept one booking.</Text>
-                            <TouchableOpacity style={styles.upgradeBtn} onPress={() => router.push('/(protected)/upgradeMembership')}>
-                                <Text style={styles.upgradeBtnText}>Upgrade to Paid</Text>
-                            </TouchableOpacity>
-                        </>
-                    )}
-                </View>
-
-                <View style={styles.card}>
-                    <Text style={styles.label}>Languages</Text>
-                    <TextInput
-                        value={languages.join(', ')}
-                        onChangeText={text => setLanguages(text.split(',').map(l => l.trim()))}
-                        style={styles.input}
-                        placeholder="e.g. English, Tagalog"
-                    />
-
-                    <Text style={styles.label}>Specialty</Text>
-                    <View style={styles.pickerContainer}>
-                        <Picker
-                            selectedValue={selectedSpecialty}
-                            onValueChange={(itemValue) => setSelectedSpecialty(itemValue)}
-                            style={styles.picker}
-                        >
-                            {SPECIALTY_OPTIONS.map((opt) => (
-                                <Picker.Item key={opt} label={opt} value={opt} style={{fontSize: 14}} />
-                            ))}
-                        </Picker>
-                    </View>
-
-                    {selectedSpecialty === 'Other' && (
-                        <View style={{marginTop: 10, marginBottom: 5}}>
-                            <Text style={styles.label}>Please specify your specialty</Text>
-                            <TextInput
-                                value={customSpecialty}
-                                onChangeText={setCustomSpecialty}
-                                style={styles.input}
-                                placeholder="e.g. Bird Watching, Extreme Sports"
-                            />
-                        </View>
-                    )}
-
-                    <View style={{flexDirection: 'row', gap: 10, marginTop: 10}}>
-                        <View style={{flex: 1}}>
-                            <Text style={styles.label}>Experience (Yrs)</Text>
-                            <TextInput
-                                value={experience}
-                                onChangeText={setExperience}
-                                keyboardType="numeric"
-                                style={styles.input}
-                                placeholder="0"
-                            />
-                        </View>
-                        <View style={{flex: 1}}>
-                            <Text style={styles.label}>Price/Day (₱)</Text>
-                            <TextInput
-                                value={price}
-                                onChangeText={setPrice}
-                                keyboardType="numeric"
-                                style={styles.input}
-                                placeholder="0.00"
-                            />
-                        </View>
-                    </View>
-                </View>
-
-                <View style={styles.card}>
-                    <Text style={styles.label}>1. Select Available Days</Text>
-                    <Text style={styles.helper}>Which days of the week do you usually work?</Text>
+            <KeyboardAvoidingView 
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                style={{ flex: 1 }}
+            >
+                <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                     
-                    <View style={styles.daysContainer}>
-                        {daysOptions.map(day => {
-                            const isSelected = availableDays.includes(day);
-                            return (
-                                <TouchableOpacity
-                                    key={day}
-                                    style={[styles.dayChip, isSelected && styles.dayChipSelected]}
-                                    onPress={() => toggleDay(day)}
-                                >
-                                    <Text style={[styles.dayText, isSelected && styles.dayTextSelected]}>
-                                        {day}
-                                    </Text>
+                    <View style={styles.card}>
+                        <View style={styles.cardHeaderRow}>
+                            <Ionicons name="ribbon-outline" size={20} color="#007AFF" />
+                            <Text style={styles.label}>Subscription Status</Text>
+                        </View>
+                        {user.guide_tier === 'paid' ? (
+                            <View style={styles.statusBox}>
+                                <Text style={styles.subTextPaid}>You are a Paid Member</Text>
+                                <Text style={styles.subTextDate}>Expires: {new Date(user.subscription_end_date).toLocaleDateString()}</Text>
+                            </View>
+                        ) : (
+                            <View>
+                                <Text style={styles.subText}>Free Tier: 1 Booking Limit</Text>
+                                <TouchableOpacity style={styles.upgradeBtn} onPress={() => router.push('/(protected)/upgradeMembership')}>
+                                    <Text style={styles.upgradeBtnText}>Upgrade to Premium</Text>
                                 </TouchableOpacity>
-                            );
-                        })}
+                            </View>
+                        )}
                     </View>
-                </View>
 
-                <View style={styles.card}>
-                    <Text style={styles.label}>2. Specific Dates</Text>
-                    <Text style={styles.helper}>Tap specific dates below to add them to your schedule. (Days not enabled above are grayed out).</Text>
-                    
-                    
-                    <Calendar
-                        onDayPress={onDayPress}
-                        markedDates={{...disabledDays, ...markedDates}}
-                        minDate={new Date().toISOString().split('T')[0]}
-                        theme={{
-                            todayTextColor: '#007AFF',
-                            selectedDayBackgroundColor: '#007AFF',
-                            arrowColor: '#007AFF',
-                            textDayFontWeight: '500',
-                            textMonthFontWeight: 'bold',
-                            textDayHeaderFontWeight: '600'
-                        }}
-                    />
-                </View>
+                    <View style={styles.card}>
+                        <Text style={styles.cardTitle}>General Information</Text>
+                        
+                        <Text style={styles.inputLabel}>Languages</Text>
+                        <TextInput
+                            value={languages.join(', ')}
+                            onChangeText={text => setLanguages(text.split(',').map(l => l.trim()))}
+                            style={styles.input}
+                            placeholder="e.g. English, Tagalog"
+                            placeholderTextColor="#A0AEC0"
+                        />
 
-                <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={isSubmitting}>
-                    {isSubmitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Update Information</Text>}
+                        <Text style={styles.inputLabel}>Specialty</Text>
+                        <View style={styles.pickerContainer}>
+                            <Picker
+                                selectedValue={selectedSpecialty}
+                                onValueChange={(itemValue) => setSelectedSpecialty(itemValue)}
+                                style={styles.picker}
+                            >
+                                {SPECIALTY_OPTIONS.map((opt) => (
+                                    <Picker.Item key={opt} label={opt} value={opt} style={{fontSize: 14}} />
+                                ))}
+                            </Picker>
+                        </View>
+
+                        {selectedSpecialty === 'Other' && (
+                            <View style={{marginTop: 10}}>
+                                <Text style={styles.inputLabel}>Specify Specialty</Text>
+                                <TextInput
+                                    value={customSpecialty}
+                                    onChangeText={setCustomSpecialty}
+                                    style={styles.input}
+                                    placeholder="e.g. Bird Watching"
+                                />
+                            </View>
+                        )}
+
+                        <View style={styles.rowInputs}>
+                            <View style={{flex: 1}}>
+                                <Text style={styles.inputLabel}>Experience (Yrs)</Text>
+                                <TextInput
+                                    value={experience}
+                                    onChangeText={setExperience}
+                                    keyboardType="numeric"
+                                    style={styles.input}
+                                    placeholder="0"
+                                />
+                            </View>
+                            <View style={{flex: 1}}>
+                                <Text style={styles.inputLabel}>Price/Day (₱)</Text>
+                                <TextInput
+                                    value={price}
+                                    onChangeText={setPrice}
+                                    keyboardType="numeric"
+                                    style={styles.input}
+                                    placeholder="0.00"
+                                />
+                            </View>
+                        </View>
+                    </View>
+
+                    <View style={styles.card}>
+                        <Text style={styles.cardTitle}>Schedule</Text>
+                        
+                        <Text style={styles.inputLabel}>1. Recurring Days</Text>
+                        <Text style={styles.helper}>Which days do you usually work?</Text>
+                        
+                        <View style={styles.daysContainer}>
+                            {daysOptions.map(day => {
+                                const isSelected = availableDays.includes(day);
+                                return (
+                                    <TouchableOpacity
+                                        key={day}
+                                        style={[styles.dayChip, isSelected && styles.dayChipSelected]}
+                                        onPress={() => toggleDay(day)}
+                                    >
+                                        <Text style={[styles.dayText, isSelected && styles.dayTextSelected]}>
+                                            {day}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+
+                        <Text style={[styles.inputLabel, {marginTop: 20}]}>2. Specific Dates</Text>
+                        <Text style={styles.helper}>Tap to add/remove specific availability.</Text>
+                        
+                        <Calendar
+                            onDayPress={onDayPress}
+                            markedDates={{...disabledDays, ...markedDates}}
+                            minDate={new Date().toISOString().split('T')[0]}
+                            theme={{
+                                todayTextColor: '#007AFF',
+                                selectedDayBackgroundColor: '#007AFF',
+                                arrowColor: '#007AFF',
+                                textDayFontWeight: '500',
+                                textMonthFontWeight: 'bold',
+                                textDayHeaderFontWeight: '600'
+                            }}
+                            style={styles.calendar}
+                        />
+                    </View>
+
+                    <View style={{height: 40}} /> 
+                </ScrollView>
+            </KeyboardAvoidingView>
+
+
+            <View style={[styles.footer, { paddingBottom: insets.bottom > 0 ? insets.bottom : 20 }]}>
+                <TouchableOpacity 
+                    style={styles.cancelButton} 
+                    onPress={handleCancel}
+                    disabled={isSubmitting}
+                >
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
                 </TouchableOpacity>
 
-                <View style={{height: 40}} /> 
-            </ScrollView>
+                <TouchableOpacity 
+                    style={styles.saveButton} 
+                    onPress={handleSubmit}
+                    disabled={isSubmitting}
+                >
+                    {isSubmitting ? (
+                        <ActivityIndicator color="#fff" />
+                    ) : (
+                        <Text style={styles.saveButtonText}>Save Changes</Text>
+                    )}
+                </TouchableOpacity>
+            </View>
         </SafeAreaView>
     );
 };
@@ -306,37 +359,79 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#F2F4F7'
     },
-    container: {
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#F2F4F7'
+    },
+    // --- Header ---
+    headerContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 15,
+        backgroundColor: '#fff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#E5E7EB',
+    },
+    backButton: {
+        padding: 4,
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#1F2937',
+    },
+
+    scrollContent: {
         padding: 20,
+        paddingBottom: 150, // INCREASED: Ensures content scrolls above the footer + nav bar
     },
-    header: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#253347',
-        marginBottom: 20,
-    },
+    
+    // --- Cards ---
     card: {
         backgroundColor: '#fff',
         borderRadius: 12,
-        padding: 15,
-        marginBottom: 15,
+        padding: 16,
+        marginBottom: 16,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.05,
         shadowRadius: 2,
         elevation: 2,
     },
+    cardHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 10,
+        gap: 8
+    },
+    cardTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#111827',
+        marginBottom: 16,
+    },
     label: {
         fontSize: 14,
         fontWeight: '700',
         color: '#333',
+    },
+    inputLabel: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#4B5563',
         marginBottom: 6,
     },
     helper: {
         fontSize: 12,
-        color: '#666',
+        color: '#6B7280',
         marginBottom: 12,
     },
+    
+    // --- Inputs ---
     input: {
         borderWidth: 1,
         borderColor: '#E5E7EB',
@@ -345,14 +440,18 @@ const styles = StyleSheet.create({
         marginBottom: 15,
         backgroundColor: '#FAFAFA',
         fontSize: 14,
+        color: '#1F2937'
     },
-    
+    rowInputs: {
+        flexDirection: 'row',
+        gap: 12
+    },
     pickerContainer: {
         borderWidth: 1,
         borderColor: '#E5E7EB',
         borderRadius: 8,
         backgroundColor: '#FAFAFA',
-        marginBottom: 10,
+        marginBottom: 15,
         justifyContent: 'center',
         height: 50, 
     },
@@ -361,49 +460,23 @@ const styles = StyleSheet.create({
         height: 50,
     },
 
-    daysContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-        marginBottom: 5,
+    // --- Membership Styles ---
+    statusBox: {
+        backgroundColor: '#F0F9FF',
+        padding: 10,
+        borderRadius: 8,
+        borderLeftWidth: 4,
+        borderLeftColor: '#007AFF'
     },
-    dayChip: {
-        paddingVertical: 8,
-        paddingHorizontal: 16,
-        borderRadius: 20,
-        backgroundColor: '#f0f0f0',
-        borderWidth: 1,
-        borderColor: '#e0e0e0',
-    },
-    dayChipSelected: {
-        backgroundColor: '#007AFF',
-        borderColor: '#007AFF',
-    },
-    dayText: {
-        fontSize: 13,
-        color: '#555',
-        fontWeight: '600',
-    },
-    dayTextSelected: {
-        color: '#fff',
-    },
-
-    submitBtn: {
-        backgroundColor: '#007AFF',
-        paddingVertical: 16,
-        borderRadius: 12,
-        alignItems: 'center',
-        marginTop: 10,
-        shadowColor: '#007AFF',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 5,
-        elevation: 5,
-    },
-    submitBtnText: {
-        color: '#fff',
-        fontSize: 16,
+    subTextPaid: {
+        color: '#007AFF',
         fontWeight: '700',
+        fontSize: 14
+    },
+    subTextDate: {
+        color: '#666',
+        fontSize: 12,
+        marginTop: 2
     },
     subText: {
         fontSize: 14,
@@ -415,13 +488,99 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         borderRadius: 8,
         alignItems: 'center',
-        marginTop: 10,
+        marginTop: 5,
     },
     upgradeBtnText: {
         color: '#fff',
         fontSize: 14,
         fontWeight: '700',
-    }
+    },
+
+    // --- Availability ---
+    daysContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginBottom: 5,
+    },
+    dayChip: {
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        backgroundColor: '#f3f4f6',
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+    },
+    dayChipSelected: {
+        backgroundColor: '#E0F2FE',
+        borderColor: '#007AFF',
+    },
+    dayText: {
+        fontSize: 13,
+        color: '#6B7280',
+        fontWeight: '600',
+    },
+    dayTextSelected: {
+        color: '#007AFF',
+    },
+    calendar: {
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        borderRadius: 8,
+    },
+
+    // --- FOOTER ---
+    footer: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: '#fff',
+        paddingHorizontal: 20,
+        paddingTop: 15,
+        // paddingBottom is handled inline based on insets
+        flexDirection: 'row',
+        gap: 15,
+        borderTopWidth: 1,
+        borderTopColor: '#E5E7EB',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 5,
+        elevation: 10,
+        zIndex: 100,
+    },
+    cancelButton: {
+        flex: 1,
+        paddingVertical: 14,
+        borderRadius: 12,
+        backgroundColor: '#F3F4F6',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    cancelButtonText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#4B5563',
+    },
+    saveButton: {
+        flex: 2,
+        paddingVertical: 14,
+        borderRadius: 12,
+        backgroundColor: '#007AFF',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#007AFF',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    saveButtonText: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#fff',
+    },
 });
 
 export default UpdateGuideInfoForm;

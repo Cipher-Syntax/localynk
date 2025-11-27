@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
     ScrollView,
     StatusBar,
@@ -10,38 +10,24 @@ import {
     TouchableOpacity,
     Alert,
     ActivityIndicator,
-    Platform
+    Platform,
+    Dimensions
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Picker } from '@react-native-picker/picker';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import api from '../../api/api';
 
+const { width } = Dimensions.get('window');
+
 const AddAccommodation = () => {
     const router = useRouter();
+    const insets = useSafeAreaInsets(); // <--- Get safe area insets
     const [loading, setLoading] = useState(false);
-
-    // --- OPTIONS ---
-    const accommodationTypes = [
-        { id: 1, label: 'Room', value: 'Room' },
-        { id: 2, label: 'Hostel', value: 'Hostel' },
-        { id: 3, label: 'Hotel', value: 'Hotel' },
-        { id: 4, label: 'Apartment', value: 'Apartment' },
-    ];
-
-    const roomTypes = [
-        { id: 1, label: 'Single', value: 'Single' },
-        { id: 2, label: 'Double', value: 'Double' },
-        { id: 3, label: 'Suite', value: 'Suite' },
-    ];
-
-    const yesNoOptions = [
-        { id: 1, label: 'Yes', value: true },
-        { id: 2, label: 'No', value: false },
-    ];
+    const [currentStep, setCurrentStep] = useState(1);
+    const scrollViewRef = useRef(null);
 
     // --- FORM STATE ---
     const initialFormState = {
@@ -64,17 +50,21 @@ const AddAccommodation = () => {
     };
 
     const [formData, setFormData] = useState(initialFormState);
-    
-    // Images
-    const [accommodationImage, setAccommodationImage] = useState(null);
-    const [roomImage, setRoomImage] = useState(null);
-    const [transportImage, setTransportImage] = useState(null);
+    const [images, setImages] = useState({
+        accommodation: null,
+        room: null,
+        transport: null
+    });
+
+    // --- OPTIONS ---
+    const accommodationTypes = ['Room', 'Hostel', 'Hotel', 'Apartment'];
+    const roomTypes = ['Single', 'Double', 'Suite', 'Family'];
 
     // --- HELPERS ---
     const pickImage = async (type) => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-            Alert.alert('Permission required', 'We need access to your photos to upload an image.');
+            Alert.alert('Permission required', 'We need access to your photos.');
             return;
         }
 
@@ -82,64 +72,65 @@ const AddAccommodation = () => {
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
             aspect: [4, 3],
-            quality: 0.8,
+            quality: 0.7,
         });
 
         if (!result.canceled) {
-            const uri = result.assets[0].uri;
-            if (type === 'accommodation') setAccommodationImage(uri);
-            else if (type === 'room') setRoomImage(uri);
-            else if (type === 'transport') setTransportImage(uri);
+            setImages(prev => ({ ...prev, [type]: result.assets[0].uri }));
         }
     };
 
-    const handleOfferingToggle = (offering) => {
-        setFormData({
-            ...formData,
-            offerings: {
-                ...formData.offerings,
-                [offering]: !formData.offerings[offering],
-            },
-        });
+    const toggleOffering = (key) => {
+        setFormData(prev => ({
+            ...prev,
+            offerings: { ...prev.offerings, [key]: !prev.offerings[key] }
+        }));
     };
 
-    const handleCancel = () => {
-        router.back();
+    const validateStep = (step) => {
+        if (step === 1) {
+            if (!formData.name || !formData.address || !formData.pricePerNight) {
+                Alert.alert("Missing Info", "Please fill in Name, Address, and Price.");
+                return false;
+            }
+        }
+        return true;
+    };
+
+    const nextStep = () => {
+        if (validateStep(currentStep)) {
+            setCurrentStep(prev => prev + 1);
+            scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+        }
+    };
+
+    const prevStep = () => {
+        setCurrentStep(prev => prev - 1);
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     };
 
     // --- SUBMIT ---
     const handleSubmit = async () => {
-        if (!formData.name || !formData.address || !formData.pricePerNight) {
-            Alert.alert('Validation Error', 'Please fill in Name, Address, and Price.');
-            return;
-        }
-
         setLoading(true);
         try {
             const data = new FormData();
             
-            // 1. Basic Info
+            // Text Data
             data.append('title', formData.name);
             data.append('description', formData.description);
             data.append('location', formData.address);
             data.append('price', formData.pricePerNight);
-            
-            // 2. Type Info (Matches Backend Fields)
             data.append('accommodation_type', formData.type);
             data.append('room_type', formData.roomType);
-            
-            // 3. Amenities (Convert Object to JSON String)
             data.append('amenities', JSON.stringify(formData.offerings));
-
-            // 4. Transportation
-            // Convert boolean to string "true"/"false" for FormData
             data.append('offer_transportation', formData.transportation ? "true" : "false");
+            
             if (formData.transportation) {
                 data.append('vehicle_type', formData.vehicleType);
                 data.append('transport_capacity', formData.capacity || 0);
             }
 
-            // 5. Images
+            // Image Data
             const appendImage = (uri, fieldName) => {
                 if (uri) {
                     const filename = uri.split('/').pop();
@@ -153,270 +144,607 @@ const AddAccommodation = () => {
                 }
             };
 
-            appendImage(accommodationImage, 'photo');
-            appendImage(roomImage, 'room_image');
-            if (formData.transportation) {
-                appendImage(transportImage, 'transport_image');
-            }
+            appendImage(images.accommodation, 'photo');
+            appendImage(images.room, 'room_image');
+            if (formData.transportation) appendImage(images.transport, 'transport_image');
 
-            // API CALL (Matches router 'accommodations')
             await api.post('/api/accommodations/', data, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
 
-            Alert.alert('Success', 'Accommodation added successfully!', [
-                { text: 'OK', onPress: () => router.back() }
+            Alert.alert('Success', 'Accommodation listed successfully!', [
+                { text: 'Great', onPress: () => router.back() }
             ]);
             
         } catch (error) {
             console.error("Submit Error:", error);
-            const errorMsg = error.response?.data?.detail || "Failed to add accommodation.";
-            Alert.alert('Error', errorMsg);
+            Alert.alert('Error', "Failed to upload listing. Please try again.");
         } finally {
             setLoading(false);
         }
     };
 
-    return (
-        <ScrollView style={styles.container}>
-            <SafeAreaView>
-                <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-
-                {/* HEADER */}
-                <View style={styles.header}>
-                    <Image
-                        source={require('../../assets/localynk_images/header.png')}
-                        style={styles.headerImage}
-                    />
-                    <LinearGradient
-                        colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
-                        style={styles.overlay}
-                    />
-                    <Text style={styles.headerTitle}>ADD ACCOMMODATION</Text>
-                </View>
-
-                {/* BASIC DETAILS */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>BASIC ACCOMMODATION DETAILS</Text>
-
-                    <Text style={styles.label}>Accommodation Name</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="e.g. Sunny Beach Resort"
-                        value={formData.name}
-                        onChangeText={(text) => setFormData({ ...formData, name: text })}
-                    />
-
-                    <Text style={styles.label}>Type of Accommodation</Text>
-                    <View style={styles.pickerWrapper}>
-                        <Picker
-                            selectedValue={formData.type}
-                            onValueChange={(value) => setFormData({ ...formData, type: value })}
-                        >
-                            {accommodationTypes.map((item) => (
-                                <Picker.Item key={item.id} label={item.label} value={item.value} />
-                            ))}
-                        </Picker>
-                    </View>
-
-                    <Text style={styles.label}>Description</Text>
-                    <TextInput
-                        style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
-                        placeholder="Describe the amenities, vibe, etc."
-                        multiline
-                        numberOfLines={4}
-                        value={formData.description}
-                        onChangeText={(text) => setFormData({ ...formData, description: text })}
-                    />
-
-                    <Text style={styles.label}>Address</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="e.g. Santa Cruz Island"
-                        value={formData.address}
-                        onChangeText={(text) => setFormData({ ...formData, address: text })}
-                    />
-
-                    <Text style={styles.label}>Main Photo</Text>
-                    <TouchableOpacity style={styles.imagePicker} onPress={() => pickImage('accommodation')}>
-                        {accommodationImage ? (
-                            <Image source={{ uri: accommodationImage }} style={styles.image} />
-                        ) : (
-                            <View style={{alignItems:'center'}}>
-                                <Ionicons name="camera-outline" size={30} color="#ccc" />
-                                <Text style={{fontSize:12, color:'#999', marginTop:5}}>Upload Cover Photo</Text>
-                            </View>
-                        )}
-                        {accommodationImage && (
-                            <TouchableOpacity style={styles.removeIcon} onPress={() => setAccommodationImage(null)}>
-                                <Ionicons name="close" size={16} color="#fff" />
-                            </TouchableOpacity>
-                        )}
-                    </TouchableOpacity>
-                </View>
-
-                {/* ROOM DETAILS */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>ROOM DETAILS</Text>
-
-                    <Text style={styles.label}>Room Type</Text>
-                    <View style={styles.pickerWrapper}>
-                        <Picker
-                            selectedValue={formData.roomType}
-                            onValueChange={(value) => setFormData({ ...formData, roomType: value })}
-                        >
-                            {roomTypes.map((item) => (
-                                <Picker.Item key={item.id} label={item.label} value={item.value} />
-                            ))}
-                        </Picker>
-                    </View>
-
-                    <Text style={styles.label}>Price per Night (₱)</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="0.00"
-                        keyboardType="numeric"
-                        value={formData.pricePerNight}
-                        onChangeText={(text) => setFormData({ ...formData, pricePerNight: text })}
-                    />
-
-                    <Text style={styles.label}>Amenities & Inclusions</Text>
-                    {Object.keys(formData.offerings).map((offering) => (
-                        <TouchableOpacity
-                            key={offering}
-                            style={styles.checkboxRow}
-                            onPress={() => handleOfferingToggle(offering)}
-                        >
-                            <Text style={styles.checkboxLabel}>
-                                {offering.charAt(0).toUpperCase() + offering.slice(1)}
+    const renderProgressBar = () => (
+        <View style={styles.progressContainer}>
+            <View style={styles.progressInner}>
+                {[1, 2, 3].map((step, index) => (
+                    <React.Fragment key={step}>
+                        {/* The Dot */}
+                        <View style={[styles.stepDot, currentStep >= step && styles.stepDotActive]}>
+                            <Text style={[styles.stepNumber, currentStep >= step && styles.stepNumberActive]}>
+                                {step}
                             </Text>
-                            <View style={[styles.checkbox, formData.offerings[offering] && styles.checked]}>
-                                {formData.offerings[offering] && <Ionicons name="checkmark" size={14} color="#fff" />}
-                            </View>
-                        </TouchableOpacity>
-                    ))}
+                        </View>
 
-                    <Text style={[styles.label, { marginTop: 20 }]}>Room Image (Optional)</Text>
-                    <TouchableOpacity style={styles.imagePicker} onPress={() => pickImage('room')}>
-                        {roomImage ? (
-                            <Image source={{ uri: roomImage }} style={styles.image} />
-                        ) : (
-                            <View style={{alignItems:'center'}}>
-                                <Ionicons name="camera-outline" size={30} color="#ccc" />
-                                <Text style={{fontSize:12, color:'#999', marginTop:5}}>Upload Room Photo</Text>
-                            </View>
+                        {/* The Line (Only render if it's not the last step) */}
+                        {index < 2 && (
+                            <View style={[styles.stepLine, currentStep > step && styles.stepLineActive]} />
                         )}
-                        {roomImage && (
-                            <TouchableOpacity style={styles.removeIcon} onPress={() => setRoomImage(null)}>
-                                <Ionicons name="close" size={16} color="#fff" />
-                            </TouchableOpacity>
-                        )}
+                    </React.Fragment>
+                ))}
+            </View>
+        </View>
+    );
+
+    const renderStep1 = () => (
+        <View style={styles.stepContainer}>
+            <Text style={styles.stepTitle}>The Basics</Text>
+            <Text style={styles.stepSubtitle}>Let's start with the essential details.</Text>
+
+            <Text style={styles.label}>Listing Title</Text>
+            <TextInput
+                style={styles.input}
+                placeholder="e.g., Sunset Beach Villa"
+                value={formData.name}
+                onChangeText={t => setFormData({ ...formData, name: t })}
+            />
+
+            <Text style={styles.label}>Where is it located?</Text>
+            <View style={styles.inputIconRow}>
+                <Ionicons name="location-outline" size={20} color="#666" style={{ marginRight: 10 }} />
+                <TextInput
+                    style={{ flex: 1 }}
+                    placeholder="Address or Landmark"
+                    value={formData.address}
+                    onChangeText={t => setFormData({ ...formData, address: t })}
+                />
+            </View>
+
+            <Text style={styles.label}>Property Type</Text>
+            <View style={styles.pillContainer}>
+                {accommodationTypes.map(type => (
+                    <TouchableOpacity
+                        key={type}
+                        style={[styles.pill, formData.type === type && styles.pillActive]}
+                        onPress={() => setFormData({ ...formData, type })}
+                    >
+                        <Text style={[styles.pillText, formData.type === type && styles.pillTextActive]}>{type}</Text>
                     </TouchableOpacity>
-                </View>
+                ))}
+            </View>
 
-                {/* TRANSPORTATION */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>TRANSPORTATION</Text>
+            <Text style={styles.label}>Price per Night (₱)</Text>
+            <View style={styles.inputIconRow}>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#666', marginRight: 5 }}>₱</Text>
+                <TextInput
+                    style={{ flex: 1, fontSize: 16, fontWeight: '600' }}
+                    placeholder="0.00"
+                    keyboardType="numeric"
+                    value={formData.pricePerNight}
+                    onChangeText={t => setFormData({ ...formData, pricePerNight: t })}
+                />
+            </View>
 
-                    <Text style={styles.label}>Do you offer transportation?</Text>
-                    <View style={styles.pickerWrapper}>
-                        <Picker
-                            selectedValue={formData.transportation}
-                            onValueChange={(value) => setFormData({ ...formData, transportation: value })}
+            <Text style={styles.label}>Description</Text>
+            <TextInput
+                style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
+                placeholder="Tell tourists what makes your place special..."
+                multiline
+                value={formData.description}
+                onChangeText={t => setFormData({ ...formData, description: t })}
+            />
+        </View>
+    );
+
+    const renderStep2 = () => (
+        <View style={styles.stepContainer}>
+            <Text style={styles.stepTitle}>Room & Amenities</Text>
+            <Text style={styles.stepSubtitle}>What does the space look like?</Text>
+
+            <Text style={styles.label}>Room Arrangement</Text>
+            <View style={styles.pillContainer}>
+                {roomTypes.map(type => (
+                    <TouchableOpacity
+                        key={type}
+                        style={[styles.pill, formData.roomType === type && styles.pillActive]}
+                        onPress={() => setFormData({ ...formData, roomType: type })}
+                    >
+                        <Text style={[styles.pillText, formData.roomType === type && styles.pillTextActive]}>{type}</Text>
+                    </TouchableOpacity>
+                ))}
+            </View>
+
+            <Text style={styles.label}>Amenities</Text>
+            <View style={styles.gridContainer}>
+                {Object.keys(formData.offerings).map(key => {
+                    const icons = {
+                        wifi: 'wifi', breakfast: 'restaurant', ac: 'snow', parking: 'car', pool: 'water'
+                    };
+                    return (
+                        <TouchableOpacity
+                            key={key}
+                            style={[styles.gridItem, formData.offerings[key] && styles.gridItemActive]}
+                            onPress={() => toggleOffering(key)}
                         >
-                            <Picker.Item label="No" value={false} />
-                            <Picker.Item label="Yes" value={true} />
-                        </Picker>
+                            <Ionicons 
+                                name={icons[key]} 
+                                size={24} 
+                                color={formData.offerings[key] ? '#fff' : '#666'} 
+                            />
+                            <Text style={[styles.gridText, formData.offerings[key] && styles.gridTextActive]}>
+                                {key.charAt(0).toUpperCase() + key.slice(1)}
+                            </Text>
+                        </TouchableOpacity>
+                    );
+                })}
+            </View>
+
+            <Text style={[styles.label, { marginTop: 25 }]}>Room Photo (Optional)</Text>
+            <TouchableOpacity style={styles.imageUploadLarge} onPress={() => pickImage('room')}>
+                {images.room ? (
+                    <Image source={{ uri: images.room }} style={styles.uploadedImage} />
+                ) : (
+                    <View style={styles.uploadPlaceholder}>
+                        <Ionicons name="bed-outline" size={40} color="#0072FF" />
+                        <Text style={styles.uploadText}>Upload Interior Photo</Text>
                     </View>
+                )}
+            </TouchableOpacity>
+        </View>
+    );
 
-                    {formData.transportation && (
-                        <>
-                            <Text style={styles.label}>Vehicle Type</Text>
+    const renderStep3 = () => (
+        <View style={styles.stepContainer}>
+            <Text style={styles.stepTitle}>Media & Logistics</Text>
+            <Text style={styles.stepSubtitle}>Final touches to make it stand out.</Text>
+
+            <Text style={styles.label}>Cover Photo (Required)</Text>
+            <TouchableOpacity style={styles.imageUploadLarge} onPress={() => pickImage('accommodation')}>
+                {images.accommodation ? (
+                    <Image source={{ uri: images.accommodation }} style={styles.uploadedImage} />
+                ) : (
+                    <View style={styles.uploadPlaceholder}>
+                        <Ionicons name="image-outline" size={40} color="#0072FF" />
+                        <Text style={styles.uploadText}>Upload Main Listing Photo</Text>
+                    </View>
+                )}
+            </TouchableOpacity>
+
+            <View style={styles.divider} />
+
+            <View style={styles.switchRow}>
+                <View>
+                    <Text style={styles.switchTitle}>Offer Transportation?</Text>
+                    <Text style={styles.switchSub}>Do you pick up guests?</Text>
+                </View>
+                <TouchableOpacity 
+                    style={[styles.toggle, formData.transportation && styles.toggleActive]}
+                    onPress={() => setFormData({ ...formData, transportation: !formData.transportation })}
+                >
+                    <View style={[styles.toggleCircle, formData.transportation && styles.toggleCircleActive]} />
+                </TouchableOpacity>
+            </View>
+
+            {formData.transportation && (
+                <View style={styles.transportContainer}>
+                    <Text style={styles.label}>Vehicle Type</Text>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="e.g. Van, Boat, Tricycle"
+                        value={formData.vehicleType}
+                        onChangeText={t => setFormData({ ...formData, vehicleType: t })}
+                    />
+                    
+                    <View style={{flexDirection: 'row', gap: 15}}>
+                        <View style={{flex: 1}}>
+                            <Text style={styles.label}>Capacity</Text>
                             <TextInput
                                 style={styles.input}
-                                placeholder="e.g. Van, Boat, Tricycle"
-                                value={formData.vehicleType}
-                                onChangeText={(text) => setFormData({ ...formData, vehicleType: text })}
-                            />
-
-                            <Text style={styles.label}>Capacity (Pax)</Text>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="e.g. 10"
-                                value={formData.capacity}
-                                onChangeText={(text) => setFormData({ ...formData, capacity: text })}
+                                placeholder="Pax"
                                 keyboardType="numeric"
+                                value={formData.capacity}
+                                onChangeText={t => setFormData({ ...formData, capacity: t })}
                             />
-
-                            <Text style={styles.label}>Transportation Image</Text>
-                            <TouchableOpacity style={styles.imagePicker} onPress={() => pickImage('transport')}>
-                                {transportImage ? (
-                                    <Image source={{ uri: transportImage }} style={styles.image} />
+                        </View>
+                        <View style={{flex: 1}}>
+                            <Text style={styles.label}>Vehicle Photo</Text>
+                            <TouchableOpacity style={styles.imageUploadSmall} onPress={() => pickImage('transport')}>
+                                {images.transport ? (
+                                    <Image source={{ uri: images.transport }} style={styles.uploadedImage} />
                                 ) : (
-                                    <View style={{alignItems:'center'}}>
-                                        <Ionicons name="camera-outline" size={30} color="#ccc" />
-                                        <Text style={{fontSize:12, color:'#999', marginTop:5}}>Upload Vehicle Photo</Text>
-                                    </View>
-                                )}
-                                {transportImage && (
-                                    <TouchableOpacity style={styles.removeIcon} onPress={() => setTransportImage(null)}>
-                                        <Ionicons name="close" size={16} color="#fff" />
-                                    </TouchableOpacity>
+                                    <Ionicons name="camera" size={24} color="#ccc" />
                                 )}
                             </TouchableOpacity>
-                        </>
-                    )}
+                        </View>
+                    </View>
+                </View>
+            )}
+        </View>
+    );
+
+    return (
+        <View style={styles.container}>
+            <StatusBar barStyle="dark-content" />
+            <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+                
+                {/* Header */}
+                <View style={styles.header}>
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                        <Ionicons name="arrow-back" size={24} color="#1F2937" />
+                    </TouchableOpacity>
+                    <Text style={styles.headerTitleText}>List Accommodation</Text>
+                    <View style={{ width: 24 }} />
                 </View>
 
-                {/* BUTTONS */}
-                <View style={{paddingHorizontal: 15, paddingBottom: 40}}>
-                    <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={loading}>
-                        <LinearGradient colors={['#00B2FF', '#006AFF']} style={styles.gradientButton}>
-                            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>SUBMIT LISTING</Text>}
-                        </LinearGradient>
-                    </TouchableOpacity>
+                {renderProgressBar()}
 
-                    <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
-                        <Text style={styles.cancelText}>CANCEL</Text>
+                <ScrollView 
+                    ref={scrollViewRef}
+                    contentContainerStyle={{ paddingBottom: 120 }} // Extra padding for footer
+                    showsVerticalScrollIndicator={false}
+                >
+                    {currentStep === 1 && renderStep1()}
+                    {currentStep === 2 && renderStep2()}
+                    {currentStep === 3 && renderStep3()}
+                </ScrollView>
+
+                {/* Footer Navigation - FIXED WITH INSETS */}
+                <View style={[styles.footer, { paddingBottom: insets.bottom + 20 }]}>
+                    {currentStep > 1 && (
+                        <TouchableOpacity style={styles.secondaryButton} onPress={prevStep}>
+                            <Text style={styles.secondaryButtonText}>Back</Text>
+                        </TouchableOpacity>
+                    )}
+                    
+                    <TouchableOpacity 
+                        style={[styles.primaryButton, currentStep === 1 && { flex: 1 }]} 
+                        onPress={currentStep === 3 ? handleSubmit : nextStep}
+                        disabled={loading}
+                    >
+                        <LinearGradient
+                            colors={['#0072FF', '#00C6FF']}
+                            style={styles.gradientBtn}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                        >
+                            {loading ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <Text style={styles.primaryButtonText}>
+                                    {currentStep === 3 ? 'Submit Listing' : 'Next Step'}
+                                </Text>
+                            )}
+                        </LinearGradient>
                     </TouchableOpacity>
                 </View>
 
             </SafeAreaView>
-        </ScrollView>
+        </View>
     );
 };
 
 export default AddAccommodation;
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F2F4F7' },
-    header: { position: 'relative', height: 120, justifyContent: 'center', marginBottom: 15 },
-    headerImage: { width: '100%', height: '100%', resizeMode: 'cover', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
-    overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
-    headerTitle: { position: 'absolute', bottom: 15, left: 20, color: '#fff', fontSize: 20, fontWeight: '700', letterSpacing: 1 },
+    container: {
+        flex: 1,
+        backgroundColor: '#F9FAFB',
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 15,
+        backgroundColor: '#fff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#F3F4F6'
+    },
+    headerTitleText: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#1F2937'
+    },
+    progressContainer: {
+        backgroundColor: '#fff',
+        paddingVertical: 20,
+        marginBottom: 10,
+    },
+    progressInner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '90%',
+        margin: "auto"
+    },
+    stepDot: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#F3F4F6',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        zIndex: 2,
+    },
+    stepDotActive: {
+        backgroundColor: '#0072FF',
+        borderColor: '#0072FF',
+        elevation: 4,
+        shadowColor: '#0072FF',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+    },
+    stepNumber: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#9CA3AF',
+    },
+    stepNumberActive: {
+        color: '#fff',
+    },
+    stepLine: {
+        width: 60, // <--- Fixed width instead of flex ensures perfect centering
+        height: 3, // Slightly thicker for better visibility
+        backgroundColor: '#E5E7EB',
+        marginHorizontal: 4, // Small gap prevents touching the circle border directly
+        borderRadius: 2,
+    },
+    stepLineActive: {
+        backgroundColor: '#0072FF',
+    },
+    stepLine: {
+        flex: 1,
+        height: 2,
+        backgroundColor: '#E5E7EB',
+        marginHorizontal: -2
+    },
+    stepLineActive: {
+        backgroundColor: '#0072FF'
+    },
     
-    section: { backgroundColor: '#fff', marginVertical: 10, borderRadius: 10, padding: 20, marginHorizontal: 15, elevation: 2 },
-    sectionTitle: { fontSize: 14, fontWeight: '700', marginBottom: 15, color: '#333', letterSpacing: 0.5 },
-    
-    label: { fontSize: 12, fontWeight: '600', marginBottom: 6, color: '#555' },
-    input: { borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 15, backgroundColor: '#FAFAFA', fontSize: 14 },
-    
-    pickerWrapper: { borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, marginBottom: 15, backgroundColor: '#FAFAFA', justifyContent: 'center' },
-    
-    imagePicker: { borderWidth: 1, borderColor: '#E5E7EB', borderStyle: 'dashed', borderRadius: 8, height: 150, justifyContent: 'center', alignItems: 'center', position: 'relative', overflow: 'hidden', backgroundColor: '#F9FAFB' },
-    image: { width: '100%', height: '100%', resizeMode: 'cover' },
-    addIcon: { position: 'absolute', bottom: 5, right: 5 },
-    removeIcon: { position: 'absolute', top: 5, right: 5, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 12, padding: 4 },
+    // --- STEP CONTENT ---
+    stepContainer: {
+        padding: 20,
+    },
+    stepTitle: {
+        fontSize: 24,
+        fontWeight: '800',
+        color: '#1F2937',
+        marginBottom: 5
+    },
+    stepSubtitle: {
+        fontSize: 14,
+        color: '#6B7280',
+        marginBottom: 25
+    },
+    label: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#374151',
+        marginBottom: 8,
+        marginTop: 15
+    },
+    input: {
+        backgroundColor: '#fff',
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        borderRadius: 12,
+        paddingHorizontal: 15,
+        paddingVertical: 12,
+        fontSize: 15,
+        color: '#1F2937'
+    },
+    inputIconRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        borderRadius: 12,
+        paddingHorizontal: 15,
+        paddingVertical: 12,
+    },
+    pillContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 10
+    },
+    pill: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: '#F3F4F6',
+        borderWidth: 1,
+        borderColor: '#E5E7EB'
+    },
+    pillActive: {
+        backgroundColor: '#EFF6FF',
+        borderColor: '#0072FF'
+    },
+    pillText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#6B7280'
+    },
+    pillTextActive: {
+        color: '#0072FF'
+    },
 
-    checkboxRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, paddingVertical: 5 },
-    checkboxLabel: { flex: 1, fontSize: 14, color: '#333' },
-    checkbox: { width: 24, height: 24, borderWidth: 1, borderColor: '#007AFF', borderRadius: 4, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
-    checked: { backgroundColor: '#007AFF' },
+    // --- GRID FOR AMENITIES ---
+    gridContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12
+    },
+    gridItem: {
+        width: (width - 64) / 3,
+        aspectRatio: 1,
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        gap: 8
+    },
+    gridItemActive: {
+        backgroundColor: '#0072FF',
+        borderColor: '#0072FF'
+    },
+    gridText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#6B7280'
+    },
+    gridTextActive: {
+        color: '#fff'
+    },
 
-    submitButton: { borderRadius: 12, overflow: 'hidden', elevation: 4 },
-    gradientButton: { paddingVertical: 15, alignItems: 'center' },
-    submitText: { color: '#fff', fontWeight: '700', textAlign: 'center', fontSize: 16 },
-    
-    cancelButton: { marginTop: 15, borderRadius: 8, paddingVertical: 14, backgroundColor: '#E5E5EA' },
-    cancelText: { color: '#333', fontWeight: '600', textAlign: 'center', fontSize: 14 },
+    // --- IMAGES ---
+    imageUploadLarge: {
+        height: 180,
+        backgroundColor: '#EFF6FF',
+        borderRadius: 16,
+        borderWidth: 2,
+        borderColor: '#DBEAFE',
+        borderStyle: 'dashed',
+        justifyContent: 'center',
+        alignItems: 'center',
+        overflow: 'hidden'
+    },
+    imageUploadSmall: {
+        height: 50,
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        justifyContent: 'center',
+        alignItems: 'center',
+        overflow: 'hidden'
+    },
+    uploadedImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover'
+    },
+    uploadPlaceholder: {
+        alignItems: 'center',
+        gap: 10
+    },
+    uploadText: {
+        fontSize: 14,
+        color: '#0072FF',
+        fontWeight: '600'
+    },
+
+    // --- TOGGLE & TRANSPORT ---
+    divider: {
+        height: 1,
+        backgroundColor: '#E5E7EB',
+        marginVertical: 25
+    },
+    switchRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 15
+    },
+    switchTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#1F2937'
+    },
+    switchSub: {
+        fontSize: 13,
+        color: '#6B7280'
+    },
+    toggle: {
+        width: 50,
+        height: 28,
+        backgroundColor: '#E5E7EB',
+        borderRadius: 14,
+        padding: 2,
+        justifyContent: 'center'
+    },
+    toggleActive: {
+        backgroundColor: '#0072FF'
+    },
+    toggleCircle: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: '#fff',
+        shadowColor: '#000',
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2
+    },
+    toggleCircleActive: {
+        alignSelf: 'flex-end'
+    },
+    transportContainer: {
+        backgroundColor: '#fff',
+        padding: 15,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#E5E7EB'
+    },
+
+    // --- FOOTER ---
+    footer: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: '#fff',
+        borderTopWidth: 1,
+        borderTopColor: '#F3F4F6',
+        padding: 20,
+        flexDirection: 'row',
+        gap: 15,
+        elevation: 10,
+        // Padding bottom handles safely in JSX via style override
+    },
+    secondaryButton: {
+        paddingHorizontal: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#F3F4F6',
+        borderRadius: 12,
+        height: 50
+    },
+    secondaryButtonText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#4B5563'
+    },
+    primaryButton: {
+        flex: 1,
+        height: 50,
+        borderRadius: 12,
+        overflow: 'hidden'
+    },
+    gradientBtn: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center'
+    },
+    primaryButtonText: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#fff'
+    }
 });

@@ -3,9 +3,9 @@ import { View, StyleSheet, Image, Text, TouchableOpacity, StatusBar } from 'reac
 import { LinearGradient } from 'expo-linear-gradient';
 import IsTourist from './IsTourist';
 import RegisterModalForm from './RegisterOpenModalForm';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import MaskedView from '@react-native-masked-view/masked-view'
+import MaskedView from '@react-native-masked-view/masked-view';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const Action = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -23,7 +23,7 @@ const Action = () => {
 
     return (
         <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+            <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
             <View style={styles.header}>
                 <Image
@@ -62,7 +62,6 @@ const Action = () => {
 
                 <TouchableOpacity
                     activeOpacity={0.8}
-                    // onPress={() => setIsModalOpen(true)}
                     onPress={() => router.push({pathname: "/(protected)/termsAndAgreement", params: {showActions: true}})}
                 >
                     <LinearGradient
@@ -75,7 +74,11 @@ const Action = () => {
                     </LinearGradient>
                 </TouchableOpacity>
 
-                <TouchableOpacity activeOpacity={0.8} style={styles.secondaryButton} onPress={() => router.push({pathname: "/(protected)/termsAndAgreement", params: {showActions: false}})}>
+                <TouchableOpacity 
+                    activeOpacity={0.8} 
+                    style={styles.secondaryButton} 
+                    onPress={() => router.push({pathname: "/(protected)/termsAndAgreement", params: {showActions: false}})}
+                >
                     <Text style={styles.secondaryButtonText}>View Requirements</Text>
                 </TouchableOpacity>
             </View>
@@ -103,6 +106,7 @@ const styles = StyleSheet.create({
         height: 120,
         justifyContent: 'center',
         position: 'relative',
+        marginTop: 0,
     },
     headerImage: {
         width: '100%',
@@ -134,7 +138,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         width: '100%',
         paddingBottom: 20,
-        height: 490
+        height: 490,
     },
     title: {
         fontSize: 30,

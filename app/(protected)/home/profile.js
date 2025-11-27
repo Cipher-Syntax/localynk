@@ -1,584 +1,136 @@
-// import { View, Text, ActivityIndicator, ScrollView, StyleSheet, StatusBar, Image, TouchableOpacity } from "react-native";
-// import React, { useState, useEffect } from "react";
-// import { LinearGradient } from "expo-linear-gradient";
-// import { Ionicons, AntDesign } from "@expo/vector-icons";
-// import { useRouter, useLocalSearchParams } from "expo-router";
-// import { SafeAreaView } from "react-native-safe-area-context";
-// import { useAuth } from "../../../context/AuthContext";
-// import api from "../../../api/api";
-
-// export default function Profile() {
-//     const [loading, setLoading] = useState(true);
-//     const { user, logout } = useAuth();
-//     const params = useLocalSearchParams();
-//     const userId = params.userId;
-//     const [profile, setProfile] = useState(null);
-//     const router = useRouter();
-
-//     useEffect(() => {
-//         const fetchProfile = async () => {
-//             try {
-//                 const response = await api.get(`/api/guides/${userId}/`);
-//                 setProfile(response.data);
-//             } catch (error) {
-//                 console.error("Failed to fetch profile:", error);
-//             } finally {
-//                 setLoading(false);
-//             }
-//         };
-
-//         if (userId) {
-//             fetchProfile();
-//         } else {
-//             setProfile(user);
-//             setLoading(false);
-//         }
-//     }, [userId, user]);
-
-//     if (loading || !profile) {
-//         return (
-//             <View style={styles.centerContainer}>
-//                 <ActivityIndicator size="large" color="#0000ff" />
-//             </View>
-//         );
-//     }
-
-//     const isOwnProfile = !userId || (user && profile && user.id === profile.id);
-//     const isGuide = profile.is_local_guide && profile.guide_approved;
-//     const isTourist = profile.is_tourist;
-
-//     const profileData = {
-//         name: profile.first_name && profile.last_name 
-//             ? `${profile.first_name} ${profile.last_name}` 
-//             : profile.username || "User",
-//         image: profile.profile_picture || null, 
-//         recentTours: [
-//             { id: 1, title: "Historic City Walking Tour", rating: 5, guide: "Guide Joshua Jameson", date: "Oct 15, 2025" },
-//             { id: 2, title: "Mountain Hiking", rating: 3, guide: "Guide Frank Sabastine", date: "Sept 20, 2025" }
-//         ],
-//         stats: isGuide ? { bookings: 12, completions: 50, rating: 4.8 } : null
-//     };
-
-//     const touristSettingsItems = [
-//         { id: 1, icon: "bookmarks-outline", label: "My Bookings", hasNotification: true },
-//         { id: 2, icon: "heart-outline", label: "Favorite Guides" },
-//         { id: 3, icon: "card-outline", label: "Payment Methods" },
-//         { id: 4, icon: "shield-outline", label: "Privacy and Security" },
-//         { id: 5, icon: "help-circle-outline", label: "Help and Support" }
-//     ];
-
-//     const guideSettingsItems = [
-//         { id: 1, icon: "calendar-outline", label: "My Reservations", hasNotification: true },
-//         { id: 2, icon: "home-outline", label: "View Accommodations" },
-//         { id: 3, icon: "wallet-outline", label: "Earnings/Payouts" },
-//         { id: 4, icon: "settings-outline", label: "Guide Profile Settings" },
-//         { id: 5, icon: "shield-outline", label: "Privacy and Security" }
-//     ];
-
-//     return (
-//         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-//             <View>
-//                 <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-
-//                 <View style={styles.header}>
-//                     <Image
-//                         source={require('../../../assets/localynk_images/header.png')}
-//                         style={styles.headerImage}
-//                     />
-//                     <LinearGradient
-//                         colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
-//                         style={styles.overlay}
-//                     />
-//                     <Text style={styles.headerTitle}>
-//                         {isGuide ? "GUIDE PROFILE" : "TOURIST PROFILE"}
-//                     </Text>
-//                 </View>
-
-//                 <View style={styles.profileCard}>
-//                     <View style={styles.profileHeader}>
-                        
-//                         <View style={styles.profileImagePlaceholder}>
-//                             {profileData.image ? (
-//                                 <Image 
-//                                     source={{ uri: profileData.image }} 
-//                                     style={styles.realProfileImage} 
-//                                 />
-//                             ) : (
-//                                 <Ionicons name="person-circle-outline" size={80} color="#1a2f5a" />
-//                             )}
-//                         </View>
-
-//                         <Text style={styles.profileName}>{profileData.name}</Text>
-//                         {
-//                             isGuide ? (
-//                                 <Text style={styles.badge}>Tourist / Local Guide</Text>
-//                             ) : (
-//                                 <Text style={styles.badge}>Tourist</Text>
-//                             )
-//                         }
-
-//                         {profile.phone_number && (
-//                             <Text style={styles.profileDetail}>
-//                                 <Ionicons name="call-outline" size={14} color="#666" /> {profile.phone_number}
-//                             </Text>
-//                         )}
-//                         {profile.location && (
-//                             <Text style={styles.profileDetail}>
-//                                 <Ionicons name="location-outline" size={14} color="#666" /> {profile.location}
-//                             </Text>
-//                         )}
-//                         {profile.bio && (
-//                             <Text style={styles.profileBio}>{profile.bio}</Text>
-//                         )}
-//                     </View>
-
-//                     {isGuide && profileData.stats && (
-//                         <View style={styles.statsContainer}>
-//                             <View style={styles.statItem}>
-//                                 <Ionicons name="map" size={20} color="#1a2f5a" />
-//                                 <Text style={styles.statNumber}>{profileData.stats.tours}</Text>
-//                                 <Text style={styles.statLabel}>Tours Created</Text>
-//                             </View>
-//                             <View style={styles.statItem}>
-//                                 <AntDesign name="star" size={20} color="#FFD700" />
-//                                 <Text style={styles.statNumber}>{profileData.stats.rating}</Text>
-//                                 <Text style={styles.statLabel}>Avg. Rating</Text>
-//                             </View>
-//                             <View style={styles.statItem}>
-//                                 <Ionicons name="checkmark-circle" size={20} color="#00c853" />
-//                                 <Text style={styles.statNumber}>{profileData.stats.completions}</Text>
-//                                 <Text style={styles.statLabel}>Completed Tours</Text>
-//                             </View>
-//                         </View>
-//                     )}
-                    
-//                     {/* <View style={styles.recentToursSection}>
-//                         <Text style={styles.sectionTitle}>Recent Tours</Text>
-//                         {profileData.recentTours.map((tour) => (
-//                             <View key={tour.id} style={styles.tourItem}>
-//                                 <Ionicons name="images" size={24} color="#1a2f5a" style={styles.tourIcon} />
-//                                 <View style={styles.tourInfo}>
-//                                     <Text style={styles.tourTitle}>{tour.title}</Text>
-//                                     <Text style={styles.tourDetails}>{tour.guide}</Text>
-//                                     <Text style={styles.tourDate}>{tour.date}</Text>
-//                                 </View>
-//                                 <View style={styles.ratingContainer}>
-//                                     <AntDesign name="star" size={16} color="#FFD700" />
-//                                     <Text style={styles.ratingNumber}>{tour.rating}.0</Text>
-//                                 </View>
-//                             </View>
-//                         ))}
-//                     </View> */}
-
-//                     {isOwnProfile && (
-//                         <View style={styles.settingsSection}>
-//                             <Text style={styles.sectionTitle}>Account Settings</Text>
-//                             {(isGuide ? guideSettingsItems : touristSettingsItems).map((item) => (
-//                                 <TouchableOpacity
-//                                     key={item.id}
-//                                     style={styles.settingItem}
-//                                     onPress={() => {
-//                                         // Navigate to View Accommodations page for guides
-//                                         if (item.label === 'View Accommodations') {
-//                                             router.push(`/(protected)/viewAccommodations?userId=${profile.id}`);
-//                                             return;
-//                                         }
-
-//                                         // Handle other items if needed (placeholder)
-//                                         // For now, navigate to a generic settings route or noop
-//                                         // router.push('/settings');
-//                                     }}
-//                                 >
-//                                     <View style={styles.settingLeft}>
-//                                         <Ionicons name={item.icon} size={20} color="#1a2f5a" />
-//                                         <Text style={styles.settingLabel}>{item.label}</Text>
-//                                     </View>
-//                                     {item.hasNotification ? (
-//                                         <View style={styles.notification}>
-//                                             <Text style={styles.notificationText}>1</Text>
-//                                         </View>
-//                                     ) : (
-//                                         <Ionicons name="chevron-forward" size={20} color="#1a2f5a" />
-//                                     )}
-//                                 </TouchableOpacity>
-//                             ))}
-//                         </View>
-//                     )}
-
-//                     {isOwnProfile && (
-//                         <View style={styles.buttonContainer}>
-//                             <TouchableOpacity 
-//                                 style={styles.editButton}
-//                                 onPress={() => router.push('/profile/edit_profile')}
-//                             >
-//                                 <Ionicons name="create-outline" size={18} color="#fff" style={{marginRight: 5}} />
-//                                 <Text style={styles.buttonText}>Edit Profile</Text>
-//                             </TouchableOpacity>
-//                             <TouchableOpacity 
-//                                 style={styles.logoutButton} 
-//                                 onPress={async () => {
-//                                     await logout();
-//                                 }}
-//                             >
-//                                 <Ionicons name="log-out-outline" size={18} color="#fff" style={{marginRight: 5}} />
-//                                 <Text style={styles.logoutButtonText}>Log Out</Text>
-//                             </TouchableOpacity>
-//                         </View>
-//                     )}
-//                 </View>
-//             </View>
-//         </ScrollView>
-//     );
-// }
-
-// const styles = StyleSheet.create({
-//     container: {
-//         flex: 1,
-//         backgroundColor: '#F5F7FA', 
-//     },
-//     centerContainer: {
-//         flex: 1,
-//         justifyContent: "center",
-//         alignItems: "center",
-//         backgroundColor: "#fff"
-//     },
-//     header: {
-//         position: 'relative',
-//         height: 120,
-//         justifyContent: 'center',
-//     },
-//     headerImage: {
-//         width: '100%',
-//         height: '100%',
-//         resizeMode: 'cover',
-//         borderBottomLeftRadius: 25,
-//         borderBottomRightRadius: 25,
-//     },
-//     overlay: {
-//         ...StyleSheet.absoluteFillObject,
-//         borderBottomLeftRadius: 25,
-//         borderBottomRightRadius: 25,
-//     },
-//     headerTitle: {
-//         position: 'absolute',
-//         bottom: 15,
-//         left: 20,
-//         color: '#fff',
-//         fontSize: 18,
-//         fontWeight: '700',
-//         letterSpacing: 1,
-//     },
-//     profileCard: {
-//         position: 'relative',
-//         marginHorizontal: 16,
-//         marginTop: 30,
-//         borderRadius: 20,
-//         paddingVertical: 20,
-//         paddingHorizontal: 16,
-//         marginBottom: 20,
-//         shadowColor: '#000',
-//         shadowOpacity: 0.1,
-//     },
-//     profileHeader: {
-//         alignItems: 'center',
-//         marginBottom: 20,
-//     },
-//     profileImagePlaceholder: {
-//         width: 100,  // Set fixed width
-//         height: 100, // Set fixed height
-//         alignItems: 'center',
-//         justifyContent: 'center',
-//         marginBottom: 12,
-//         backgroundColor: '#EBF0F5',
-//         borderRadius: 50,
-//         overflow: 'hidden', // This ensures the square image is clipped to the circle
-//     },
-//     realProfileImage: {
-//         width: '100%',
-//         height: '100%',
-//         resizeMode: 'cover',
-//     },
-//     profileName: {
-//         fontSize: 20,
-//         fontWeight: '700',
-//         color: '#1a2f5a',
-//         marginBottom: 4,
-//     },
-//     badge: {
-//         fontSize: 10,
-//         fontWeight: '600',
-//         color: '#fff',
-//         backgroundColor: '#00A8FF', 
-//         paddingHorizontal: 8,
-//         paddingVertical: 4,
-//         borderRadius: 4,
-//         textTransform: 'uppercase'
-//     },
-//     profileDetail: {
-//         fontSize: 13,
-//         color: '#666',
-//         marginTop: 5,
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         gap: 5,
-//     },
-//     profileBio: {
-//         fontSize: 13,
-//         color: '#666',
-//         marginTop: 10,
-//         textAlign: 'center',
-//         lineHeight: 18,
-//     },
-//     statsContainer: {
-//         flexDirection: 'row',
-//         justifyContent: 'space-around',
-//         backgroundColor: '#EBF0F5',
-//         borderRadius: 12,
-//         paddingVertical: 12,
-//         marginBottom: 20,
-//     },
-//     statItem: {
-//         alignItems: 'center',
-//     },
-//     statNumber: {
-//         fontSize: 16,
-//         fontWeight: '700',
-//         color: '#1a2f5a',
-//         marginTop: 4,
-//     },
-//     statLabel: {
-//         fontSize: 11,
-//         color: '#666',
-//         marginTop: 2,
-//     },
-//     recentToursSection: {
-//         marginBottom: 20,
-//     },
-//     sectionTitle: {
-//         fontSize: 14,
-//         fontWeight: '700',
-//         color: '#1a2f5a',
-//         marginBottom: 12,
-//         marginLeft: 4,
-//     },
-//     tourItem: {
-//         flexDirection: 'row',
-//         backgroundColor: '#fff',
-//         borderRadius: 12,
-//         padding: 12,
-//         marginBottom: 10,
-//         alignItems: 'flex-start',
-//         borderWidth: 1,
-//         borderColor: '#E0E6ED'
-//     },
-//     tourIcon: {
-//         marginRight: 12,
-//         marginTop: 4,
-//     },
-//     tourInfo: {
-//         flex: 1,
-//     },
-//     tourTitle: {
-//         fontSize: 13,
-//         fontWeight: '600',
-//         color: '#1a2f5a',
-//         marginBottom: 2,
-//     },
-//     tourDetails: {
-//         fontSize: 11,
-//         color: '#666',
-//         marginBottom: 2,
-//     },
-//     tourDate: {
-//         fontSize: 10,
-//         color: '#999',
-//     },
-//     ratingContainer: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         gap: 2,
-//     },
-//     ratingNumber: {
-//         fontSize: 11,
-//         fontWeight: '600',
-//         color: '#1a2f5a',
-//         marginLeft: 4,
-//     },
-//     settingsSection: {
-//         marginBottom: 20,
-//     },
-//     settingItem: {
-//         flexDirection: 'row',
-//         justifyContent: 'space-between',
-//         alignItems: 'center',
-//         backgroundColor: '#fff',
-//         borderRadius: 12,
-//         paddingVertical: 12,
-//         paddingHorizontal: 14,
-//         marginBottom: 8,
-//         borderWidth: 1,
-//         borderColor: '#E0E6ED'
-//     },
-//     settingLeft: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         gap: 12,
-//     },
-//     settingLabel: {
-//         fontSize: 13,
-//         fontWeight: '500',
-//         color: '#1a2f5a',
-//     },
-//     notification: {
-//         width: 24,
-//         height: 24,
-//         borderRadius: 12,
-//         backgroundColor: '#ff4444',
-//         justifyContent: 'center',
-//         alignItems: 'center',
-//     },
-//     notificationText: {
-//         fontSize: 12,
-//         fontWeight: '700',
-//         color: '#fff',
-//     },
-//     buttonContainer: {
-//         flexDirection: 'row', // Layout horizontally
-//         justifyContent: 'space-between',
-//         gap: 12,
-//         paddingHorizontal: 4,
-//         paddingBottom: 20
-//     },
-//     editButton: {
-//         flex: 2, // Takes up 2/3 of the space (Main Action)
-//         backgroundColor: '#00A8FF',
-//         borderRadius: 12,
-//         paddingVertical: 15,
-//         flexDirection: 'row',
-//         justifyContent: 'center',
-//         alignItems: 'center',
-//     },
-//     buttonText: {
-//         fontSize: 13,
-//         fontWeight: '600',
-//         color: '#fff',
-//     },
-//     logoutButton: {
-//         flex: 1, // Takes up 1/3 of the space (Secondary Action)
-//         backgroundColor: '#FF5A5F', 
-//         borderRadius: 12,
-//         paddingVertical: 15,
-//         flexDirection: 'row',
-//         justifyContent: 'center',
-//         alignItems: 'center',
-//     },
-//     logoutButtonText: {
-//         fontSize: 13,
-//         fontWeight: '600',
-//         color: '#fff',
-//     },
-// });
-import { View, Text, ActivityIndicator, ScrollView, StyleSheet, StatusBar, Image, TouchableOpacity } from "react-native";
 import React, { useState, useEffect, useCallback } from "react";
+import { 
+    View, 
+    Text, 
+    ActivityIndicator, 
+    ScrollView, 
+    StyleSheet, 
+    StatusBar, 
+    Image, 
+    TouchableOpacity, 
+    RefreshControl,
+    Dimensions
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons, AntDesign } from "@expo/vector-icons";
+import { Ionicons, AntDesign, MaterialIcons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../../context/AuthContext";
 import api from "../../../api/api";
 
+const { width } = Dimensions.get('window');
+
 const Profile = () => {
     const [loading, setLoading] = useState(true);
-    const { user, logout, refreshUser } = useAuth(); // Import refreshUser
+    const [refreshing, setRefreshing] = useState(false);
+    const { user, logout, refreshUser } = useAuth(); 
     const params = useLocalSearchParams();
     const userId = params.userId;
     const [profile, setProfile] = useState(null);
     const router = useRouter();
 
-    // FIXED: Use useFocusEffect to force refresh when screen comes into view
-    // This solves the issue of seeing old data after relogin
+    // --- DATA FETCHING ---
+    const fetchProfileData = async () => {
+        try {
+            if (userId) {
+                const response = await api.get(`/api/guides/${userId}/`);
+                setProfile(response.data);
+            } else {
+                await refreshUser();
+                // Profile updates via the useEffect hook listening to 'user'
+            }
+        } catch (error) {
+            console.error("Failed to fetch profile:", error);
+        }
+    };
+
+    useEffect(() => {
+        if (!userId && user) {
+            setProfile(user);
+        }
+    }, [user, userId]);
+
     useFocusEffect(
         useCallback(() => {
-            const loadData = async () => {
-                setLoading(true);
-                
-                // If viewing another user
-                if (userId) {
-                    try {
-                        const response = await api.get(`/api/guides/${userId}/`);
-                        setProfile(response.data);
-                    } catch (error) {
-                        console.error("Failed to fetch profile:", error);
-                    }
-                } 
-                // If viewing own profile
-                else {
-                    // Ensure we have the latest user data from context
-                    // Optional: You can await refreshUser() here if you want to hit API every time
-                    setProfile(user); 
-                }
-                
+            const loadInitialData = async () => {
+                if (!profile) setLoading(true);
+                await fetchProfileData();
                 setLoading(false);
             };
-
-            loadData();
-        }, [userId, user]) // specific dependencies
+            loadInitialData();
+        }, [userId])
     );
 
-    if (loading) {
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await fetchProfileData();
+        setRefreshing(false);
+    }, [userId]);
+
+    // --- LOADING STATES ---
+    if (loading && !profile) {
         return (
             <View style={styles.centerContainer}>
-                <ActivityIndicator size="large" color="#0000ff" />
+                <ActivityIndicator size="large" color="#00C6FF" />
             </View>
         );
     }
 
-    // Safety check if profile is null after loading
-    if (!profile) {
+    if (!profile && !loading) {
          return (
             <View style={styles.centerContainer}>
-                <Text>Profile not found.</Text>
+                <Text style={{color: '#64748B'}}>Profile not found.</Text>
             </View>
         );
     }
 
+    // --- PROFILE LOGIC ---
     const isOwnProfile = !userId || (user && profile && user.id === profile.id);
     const isGuide = profile.is_local_guide && profile.guide_approved;
-    // const isTourist = profile.is_tourist; // Unused variable warning fix
 
     const profileData = {
         name: profile.first_name && profile.last_name 
             ? `${profile.first_name} ${profile.last_name}` 
             : profile.username || "User",
         image: profile.profile_picture || null, 
-        recentTours: [
-            { id: 1, title: "Historic City Walking Tour", rating: 5, guide: "Guide Joshua Jameson", date: "Oct 15, 2025" },
-            { id: 2, title: "Mountain Hiking", rating: 3, guide: "Guide Frank Sabastine", date: "Sept 20, 2025" }
-        ],
         stats: isGuide ? { tours: 12, completions: 50, rating: 4.8 } : null
     };
 
     const touristSettingsItems = [
-        { id: 1, icon: "bookmarks-outline", label: "My Bookings", hasNotification: true },
-        { id: 2, icon: "heart-outline", label: "Favorite Guides" },
-        { id: 3, icon: "card-outline", label: "Payment Methods" },
-        { id: 4, icon: "shield-outline", label: "Privacy and Security" },
-        { id: 5, icon: "help-circle-outline", label: "Help and Support" }
+        { id: 1, icon: "bookmarks", label: "My Bookings", hasNotification: true, route: '/bookings' },
+        { id: 2, icon: "heart", label: "Favorite Guides", route: '/favorites' },
+        { id: 3, icon: "card", label: "Payment Methods", route: '/payments' },
+        { id: 4, icon: "shield-checkmark", label: "Privacy & Security", route: '/privacy' },
+        { id: 5, icon: "help-circle", label: "Help & Support", route: '/support' }
     ];
 
     const guideSettingsItems = [
-        { id: 1, icon: "calendar-outline", label: "My Reservations", hasNotification: true },
-        { id: 2, icon: "home-outline", label: "View Accommodations" },
-        { id: 3, icon: "wallet-outline", label: "Earnings/Payouts" },
-        { id: 4, icon: "settings-outline", label: "Guide Profile Settings" },
-        { id: 5, icon: "shield-outline", label: "Privacy and Security" }
+        { id: 1, icon: "calendar", label: "My Reservations", hasNotification: true, route: '/reservations' },
+        { id: 2, icon: "business", label: "View Accommodations", route: `/(protected)/viewAccommodations?userId=${profile.id}` },
+        { id: 3, icon: "wallet", label: "Earnings & Payouts", route: '/earnings' },
+        { id: 4, icon: "settings", label: "Guide Settings", route: '/guide-settings' },
+        { id: 5, icon: "shield-checkmark", label: "Privacy & Security", route: '/privacy' }
     ];
 
+    const menuItems = isGuide ? guideSettingsItems : touristSettingsItems;
+
     return (
-        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+            style={styles.container} 
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+                <RefreshControl 
+                    refreshing={refreshing} 
+                    onRefresh={onRefresh} 
+                    colors={["#00C6FF"]} 
+                    tintColor="#00C6FF" 
+                />
+            }
+        >
             <View>
                 <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
+                {/* --- HEADER --- */}
                 <View style={styles.header}>
                     <Image
                         source={require('../../../assets/localynk_images/header.png')}
@@ -593,113 +145,141 @@ const Profile = () => {
                     </Text>
                 </View>
 
-                <View style={styles.profileCard}>
-                    <View style={styles.profileHeader}>
-                        
-                        <View style={styles.profileImagePlaceholder}>
+                {/* --- BODY --- */}
+                <View style={styles.bodyContainer}>
+                    
+                    {/* Floating Avatar */}
+                    <View style={styles.avatarContainer}>
+                        <View style={styles.avatarWrapper}>
                             {profileData.image ? (
                                 <Image 
                                     source={{ uri: profileData.image }} 
-                                    style={styles.realProfileImage} 
+                                    style={styles.avatarImage} 
                                 />
                             ) : (
-                                <Ionicons name="person-circle-outline" size={80} color="#1a2f5a" />
+                                <View style={[styles.avatarImage, { backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' }]}>
+                                    <Ionicons name="person" size={50} color="#CBD5E1" />
+                                </View>
+                            )}
+                            {/* Edit Icon Badge */}
+                            {isOwnProfile && (
+                                <TouchableOpacity style={styles.editAvatarBadge} onPress={() => router.push('/profile/edit_profile')}>
+                                    <Ionicons name="camera" size={14} color="#fff" />
+                                </TouchableOpacity>
                             )}
                         </View>
+                    </View>
 
+                    {/* Name & Role */}
+                    <View style={styles.infoSection}>
                         <Text style={styles.profileName}>{profileData.name}</Text>
-                        {
-                            isGuide ? (
-                                <Text style={styles.badge}>Tourist / Local Guide</Text>
-                            ) : (
-                                <Text style={styles.badge}>Tourist</Text>
-                            )
-                        }
-
-                        {profile.phone_number && (
-                            <Text style={styles.profileDetail}>
-                                <Ionicons name="call-outline" size={14} color="#666" /> {profile.phone_number}
-                            </Text>
+                        
+                        {/* Details Row (Location & Phone) */}
+                        {(profile.location || profile.phone_number) && (
+                            <View style={styles.detailRow}>
+                                {profile.location && (
+                                    <View style={styles.detailItem}>
+                                        <Ionicons name="location-sharp" size={14} color="#94A3B8" />
+                                        <Text style={styles.detailText}>{profile.location}</Text>
+                                    </View>
+                                )}
+                                {/* Separator if both exist */}
+                                {profile.location && profile.phone_number && (
+                                    <View style={styles.dotSeparator} />
+                                )}
+                                {profile.phone_number && (
+                                    <View style={styles.detailItem}>
+                                        <Ionicons name="call" size={14} color="#94A3B8" />
+                                        <Text style={styles.detailText}>{profile.phone_number}</Text>
+                                    </View>
+                                )}
+                            </View>
                         )}
-                        {profile.location && (
-                            <Text style={styles.profileDetail}>
-                                <Ionicons name="location-outline" size={14} color="#666" /> {profile.location}
-                            </Text>
-                        )}
+                        
+                        {/* Bio */}
                         {profile.bio && (
-                            <Text style={styles.profileBio}>{profile.bio}</Text>
+                            <Text style={styles.bioText} numberOfLines={4}>{profile.bio}</Text>
                         )}
                     </View>
 
+                    {/* Stats Row (Only for Guides) */}
                     {isGuide && profileData.stats && (
-                        <View style={styles.statsContainer}>
+                        <View style={styles.statsRow}>
                             <View style={styles.statItem}>
-                                <Ionicons name="map" size={20} color="#1a2f5a" />
-                                <Text style={styles.statNumber}>{profileData.stats.tours}</Text>
-                                <Text style={styles.statLabel}>Tours Created</Text>
+                                <Text style={styles.statValue}>{profileData.stats.tours}</Text>
+                                <Text style={styles.statLabel}>Tours</Text>
                             </View>
+                            <View style={styles.verticalDivider} />
                             <View style={styles.statItem}>
-                                <AntDesign name="star" size={20} color="#FFD700" />
-                                <Text style={styles.statNumber}>{profileData.stats.rating}</Text>
-                                <Text style={styles.statLabel}>Avg. Rating</Text>
+                                <View style={{flexDirection: 'row', alignItems: 'center', gap: 2}}>
+                                    <Text style={styles.statValue}>{profileData.stats.rating}</Text>
+                                    <AntDesign name="star" size={14} color="#FFD700" />
+                                </View>
+                                <Text style={styles.statLabel}>Rating</Text>
                             </View>
+                            <View style={styles.verticalDivider} />
                             <View style={styles.statItem}>
-                                <Ionicons name="checkmark-circle" size={20} color="#00c853" />
-                                <Text style={styles.statNumber}>{profileData.stats.completions}</Text>
-                                <Text style={styles.statLabel}>Completed Tours</Text>
+                                <Text style={styles.statValue}>{profileData.stats.completions}</Text>
+                                <Text style={styles.statLabel}>Trips</Text>
                             </View>
-                        </View>
-                    )}
-                    
-                    {isOwnProfile && (
-                        <View style={styles.settingsSection}>
-                            <Text style={styles.sectionTitle}>Account Settings</Text>
-                            {(isGuide ? guideSettingsItems : touristSettingsItems).map((item) => (
-                                <TouchableOpacity
-                                    key={item.id}
-                                    style={styles.settingItem}
-                                    onPress={() => {
-                                        if (item.label === 'View Accommodations') {
-                                            router.push(`/(protected)/viewAccommodations?userId=${profile.id}`);
-                                            return;
-                                        }
-                                    }}
-                                >
-                                    <View style={styles.settingLeft}>
-                                        <Ionicons name={item.icon} size={20} color="#1a2f5a" />
-                                        <Text style={styles.settingLabel}>{item.label}</Text>
-                                    </View>
-                                    {item.hasNotification ? (
-                                        <View style={styles.notification}>
-                                            <Text style={styles.notificationText}>1</Text>
-                                        </View>
-                                    ) : (
-                                        <Ionicons name="chevron-forward" size={20} color="#1a2f5a" />
-                                    )}
-                                </TouchableOpacity>
-                            ))}
                         </View>
                     )}
 
+                    {/* --- MENU SECTION --- */}
                     {isOwnProfile && (
-                        <View style={styles.buttonContainer}>
+                        <View style={styles.menuSection}>
+                            <Text style={styles.menuTitle}>General</Text>
+                            <View style={styles.menuContainer}>
+                                {menuItems.map((item, index) => (
+                                    <TouchableOpacity 
+                                        key={item.id} 
+                                        style={[styles.menuItem, index === menuItems.length - 1 && styles.menuItemLast]}
+                                        onPress={() => {
+                                            if (item.label === 'View Accommodations') {
+                                                router.push(item.route);
+                                            }
+                                            // Handle other routes
+                                        }}
+                                    >
+                                        <View style={[styles.menuIconBox, { backgroundColor: isGuide ? '#EFF6FF' : '#ECFDF5' }]}>
+                                            <Ionicons name={item.icon} size={20} color={isGuide ? '#0072FF' : '#10B981'} />
+                                        </View>
+                                        <Text style={styles.menuLabel}>{item.label}</Text>
+                                        
+                                        {item.hasNotification ? (
+                                            <View style={styles.notificationBadge}>
+                                                <Text style={styles.notificationText}>1</Text>
+                                            </View>
+                                        ) : (
+                                            <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
+                                        )}
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+
+                            {/* --- ACTIONS --- */}
+                            <Text style={[styles.menuTitle, {marginTop: 25}]}>Settings</Text>
+                            <View style={styles.menuContainer}>
+                                <TouchableOpacity 
+                                    style={[styles.menuItem, styles.menuItemLast]}
+                                    onPress={() => router.push('/profile/edit_profile')}
+                                >
+                                    <View style={[styles.menuIconBox, { backgroundColor: '#F1F5F9' }]}>
+                                        <Ionicons name="person-circle" size={22} color="#64748B" />
+                                    </View>
+                                    <Text style={styles.menuLabel}>Edit Profile</Text>
+                                    <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
+                                </TouchableOpacity>
+                            </View>
+
                             <TouchableOpacity 
-                                style={styles.editButton}
-                                onPress={() => router.push('/profile/edit_profile')}
+                                style={styles.logoutButton}
+                                onPress={async () => await logout()}
                             >
-                                <Ionicons name="create-outline" size={18} color="#fff" style={{marginRight: 5}} />
-                                <Text style={styles.buttonText}>Edit Profile</Text>
+                                <Text style={styles.logoutText}>Log Out</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity 
-                                style={styles.logoutButton} 
-                                onPress={async () => {
-                                    // Make sure logout completes
-                                    await logout();
-                                }}
-                            >
-                                <Ionicons name="log-out-outline" size={18} color="#fff" style={{marginRight: 5}} />
-                                <Text style={styles.logoutButtonText}>Log Out</Text>
-                            </TouchableOpacity>
+                            
+                            <Text style={styles.versionText}>LocaLynk v1.0.2</Text>
                         </View>
                     )}
                 </View>
@@ -708,10 +288,12 @@ const Profile = () => {
     );
 }
 
+export default Profile;
+
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F5F7FA', 
+        backgroundColor: '#F8FAFC', 
     },
     centerContainer: {
         flex: 1,
@@ -719,6 +301,8 @@ const styles = StyleSheet.create({
         alignItems: "center",
         backgroundColor: "#fff"
     },
+    
+    // Header
     header: {
         position: 'relative',
         height: 120,
@@ -745,215 +329,214 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         letterSpacing: 1,
     },
-    profileCard: {
-        position: 'relative',
-        marginHorizontal: 16,
-        marginTop: 30,
-        borderRadius: 20,
-        paddingVertical: 20,
-        paddingHorizontal: 16,
-        marginBottom: 20,
-        shadowColor: '#000',
-        shadowOpacity: 0.1,
+
+    // Body
+    bodyContainer: {
+        flex: 1,
+        backgroundColor: '#F8FAFC',
+        marginTop: 10, 
+        paddingHorizontal: 20,
+        paddingBottom: 40,
     },
-    profileHeader: {
+
+    // Avatar
+    avatarContainer: {
         alignItems: 'center',
-        marginBottom: 20,
+        marginTop: -60, // Negative margin to overlap with the header
+        marginBottom: 15,
     },
-    profileImagePlaceholder: {
-        width: 100,  
-        height: 100, 
+    avatarWrapper: {
+        position: 'relative',
+        padding: 4,
+        backgroundColor: '#fff',
+        borderRadius: 60,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 5,
+    },
+    avatarImage: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+    },
+    editAvatarBadge: {
+        position: 'absolute',
+        bottom: 0,
+        right: 0,
+        backgroundColor: '#0072FF',
+        width: 32,
+        height: 32,
+        borderRadius: 16,
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 12,
-        backgroundColor: '#EBF0F5',
-        borderRadius: 50,
-        overflow: 'hidden', 
+        borderWidth: 2,
+        borderColor: '#fff',
     },
-    realProfileImage: {
-        width: '100%',
-        height: '100%',
-        resizeMode: 'cover',
+
+    // Info
+    infoSection: {
+        alignItems: 'center',
+        marginBottom: 25,
     },
     profileName: {
-        fontSize: 20,
-        fontWeight: '700',
-        color: '#1a2f5a',
+        fontSize: 22,
+        fontWeight: '800',
+        color: '#1E293B',
         marginBottom: 4,
     },
-    badge: {
-        fontSize: 10,
-        fontWeight: '600',
-        color: '#fff',
-        backgroundColor: '#00A8FF', 
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 4,
-        textTransform: 'uppercase'
-    },
-    profileDetail: {
-        fontSize: 13,
-        color: '#666',
-        marginTop: 5,
+    detailRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 5,
+        justifyContent: 'center',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginBottom: 10,
+        marginTop: 4,
     },
-    profileBio: {
-        fontSize: 13,
-        color: '#666',
-        marginTop: 10,
-        textAlign: 'center',
-        lineHeight: 18,
-    },
-    statsContainer: {
+    detailItem: {
         flexDirection: 'row',
-        justifyContent: 'space-around',
-        backgroundColor: '#EBF0F5',
-        borderRadius: 12,
-        paddingVertical: 12,
-        marginBottom: 20,
+        alignItems: 'center',
+        gap: 4,
+    },
+    detailText: {
+        fontSize: 13,
+        color: '#64748B',
+        fontWeight: '500',
+    },
+    dotSeparator: {
+        width: 4,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: '#CBD5E1',
+        marginHorizontal: 4,
+    },
+    bioText: {
+        textAlign: 'center',
+        fontSize: 14,
+        color: '#475569',
+        lineHeight: 20,
+        marginHorizontal: 20,
+    },
+
+    // Stats
+    statsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        paddingVertical: 15,
+        paddingHorizontal: 30,
+        marginBottom: 30,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 2,
     },
     statItem: {
         alignItems: 'center',
-    },
-    statNumber: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#1a2f5a',
-        marginTop: 4,
-    },
-    statLabel: {
-        fontSize: 11,
-        color: '#666',
-        marginTop: 2,
-    },
-    recentToursSection: {
-        marginBottom: 20,
-    },
-    sectionTitle: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: '#1a2f5a',
-        marginBottom: 12,
-        marginLeft: 4,
-    },
-    tourItem: {
-        flexDirection: 'row',
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        padding: 12,
-        marginBottom: 10,
-        alignItems: 'flex-start',
-        borderWidth: 1,
-        borderColor: '#E0E6ED'
-    },
-    tourIcon: {
-        marginRight: 12,
-        marginTop: 4,
-    },
-    tourInfo: {
         flex: 1,
     },
-    tourTitle: {
-        fontSize: 13,
+    statValue: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: '#0F172A',
+    },
+    statLabel: {
+        fontSize: 12,
+        color: '#94A3B8',
+        marginTop: 2,
         fontWeight: '600',
-        color: '#1a2f5a',
-        marginBottom: 2,
     },
-    tourDetails: {
-        fontSize: 11,
-        color: '#666',
-        marginBottom: 2,
+    verticalDivider: {
+        width: 1,
+        height: 30,
+        backgroundColor: '#E2E8F0',
     },
-    tourDate: {
-        fontSize: 10,
-        color: '#999',
+
+    // Menu
+    menuSection: {
+        flex: 1,
     },
-    ratingContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 2,
+    menuTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#1E293B',
+        marginBottom: 10,
+        marginLeft: 5,
     },
-    ratingNumber: {
-        fontSize: 11,
-        fontWeight: '600',
-        color: '#1a2f5a',
-        marginLeft: 4,
-    },
-    settingsSection: {
-        marginBottom: 20,
-    },
-    settingItem: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
+    menuContainer: {
         backgroundColor: '#fff',
-        borderRadius: 12,
-        paddingVertical: 12,
-        paddingHorizontal: 14,
-        marginBottom: 8,
-        borderWidth: 1,
-        borderColor: '#E0E6ED'
+        borderRadius: 16,
+        paddingVertical: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.03,
+        shadowRadius: 5,
+        elevation: 2,
     },
-    settingLeft: {
+    menuItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
+        paddingVertical: 15,
+        paddingHorizontal: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F1F5F9',
     },
-    settingLabel: {
-        fontSize: 13,
-        fontWeight: '500',
-        color: '#1a2f5a',
+    menuItemLast: {
+        borderBottomWidth: 0,
     },
-    notification: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        backgroundColor: '#ff4444',
-        justifyContent: 'center',
+    menuIconBox: {
+        width: 36,
+        height: 36,
+        borderRadius: 10,
         alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 15,
+    },
+    menuLabel: {
+        flex: 1,
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#334155',
+    },
+    notificationBadge: {
+        backgroundColor: '#EF4444',
+        borderRadius: 10,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        marginRight: 5,
     },
     notificationText: {
-        fontSize: 12,
-        fontWeight: '700',
         color: '#fff',
+        fontSize: 10,
+        fontWeight: 'bold',
     },
-    buttonContainer: {
-        flexDirection: 'row', 
-        justifyContent: 'space-between',
-        gap: 12,
-        paddingHorizontal: 4,
-        paddingBottom: 20
-    },
-    editButton: {
-        flex: 2, 
-        backgroundColor: '#00A8FF',
-        borderRadius: 12,
-        paddingVertical: 15,
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    buttonText: {
-        fontSize: 13,
-        fontWeight: '600',
-        color: '#fff',
-    },
+
+    // Logout
     logoutButton: {
-        flex: 1, 
-        backgroundColor: '#FF5A5F', 
-        borderRadius: 12,
-        paddingVertical: 15,
-        flexDirection: 'row',
-        justifyContent: 'center',
+        marginTop: 30,
+        marginBottom: 10,
         alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 15,
+        borderRadius: 16,
+        backgroundColor: '#FEF2F2', // Light Red
+        borderWidth: 1,
+        borderColor: '#FECACA',
     },
-    logoutButtonText: {
-        fontSize: 13,
-        fontWeight: '600',
-        color: '#fff',
+    logoutText: {
+        color: '#EF4444',
+        fontWeight: '700',
+        fontSize: 15,
+    },
+    versionText: {
+        textAlign: 'center',
+        color: '#CBD5E1',
+        fontSize: 12,
+        marginTop: 10,
     },
 });
-
-export default Profile

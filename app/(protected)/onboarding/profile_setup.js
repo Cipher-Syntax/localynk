@@ -1,224 +1,390 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Dimensions } from 'react-native';
+import { 
+    View, 
+    Text, 
+    TextInput, 
+    TouchableOpacity, 
+    StyleSheet, 
+    ScrollView, 
+    Alert, 
+    Image, 
+    Platform,
+    ActivityIndicator,
+    KeyboardAvoidingView 
+} from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../../context/AuthContext';
-import { KeyboardAvoidingView, Platform } from 'react-native';
-
-const { height } = Dimensions.get('window');
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
+import api from '../../../api/api';
 
 const ProfileSetupScreen = () => {
-    // We assume the user object is already populated from the successful login redirect
-    const { user, updateUserProfile, isLoading: isAuthLoading } = useAuth(); 
+    const { user, refreshUser } = useAuth(); 
     const router = useRouter();
     
-    // Default values are pre-filled with existing user data if available
-    const { control, handleSubmit, formState: { errors, isSubmitting } } = useForm({
+    const [isLoading, setIsLoading] = useState(false);
+    const [profileImage, setProfileImage] = useState(null);
+
+    const { control, handleSubmit, formState: { errors } } = useForm({
         defaultValues: {
-            // Use existing user data for pre-filling/editing
             first_name: user?.first_name || '',
+            middle_name: user?.middle_name ||  '',
             last_name: user?.last_name || '',
             phone_number: user?.phone_number || '',
             location: user?.location || '',
             bio: user?.bio || '',
         }
     });
-    const [apiError, setApiError] = useState('');
+
+    const pickImage = async () => {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Permission required', 'We need access to your photos to upload a profile picture.');
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.5,
+        });
+
+        if (!result.canceled) {
+            setProfileImage(result.assets[0].uri);
+        }
+    };
 
     const onSubmit = async (data) => {
-        setApiError('');
-        
-        // Data contains: { first_name, last_name, phone_number, location, bio }
-        // The API only expects fields that can be updated (PATCH).
+        setIsLoading(true);
+        try {
+            const formData = new FormData();
+            
+            formData.append('first_name', data.first_name);
+            formData.append('last_name', data.last_name);
+            if (data.middle_name) formData.append('middle_name', data.middle_name);
+            formData.append('phone_number', data.phone_number);
+            formData.append('location', data.location);
+            formData.append('bio', data.bio);
 
-        // You might need to adjust the path to the AuthContext update function
-        const success = await updateUserProfile(data); 
+            if (profileImage) {
+                const filename = profileImage.split('/').pop();
+                const match = /\.(\w+)$/.exec(filename);
+                const type = match ? `image/${match[1]}` : `image/jpeg`;
+                formData.append('profile_picture', {
+                    uri: Platform.OS === 'ios' ? profileImage.replace('file://', '') : profileImage,
+                    name: filename,
+                    type: type,
+                });
+            }
 
-        if (success) {
+            await api.patch('/api/profile/', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+
+            await refreshUser();
+
             Alert.alert("Success", "Profile updated! Welcome to LocaLynk.", [
-                { text: "OK", onPress: () => router.replace('/home') }
+                { text: "Let's Go", onPress: () => router.replace('/home') }
             ]);
-        } else {
-            // The AuthContext will handle setting the error state/message
-            // We can just show a general error here or rely on the global message system
-            setApiError("Failed to update profile. Please check the information and try again.");
+
+        } catch (error) {
+            console.error("Profile Update Error:", error);
+            const msg = error.response?.data?.detail || "Failed to update profile. Please try again.";
+            Alert.alert("Error", msg);
+        } finally {
+            setIsLoading(false);
         }
     };
 
     return (
-        <KeyboardAvoidingView 
-            style={{ flex: 1 }} 
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-            <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
-                <View style={styles.container}>
-                    <Text style={styles.title}>👋 Complete Your Profile</Text>
-                    <Text style={styles.subtitle}>
-                        We just need a few more details for KYC and a personalized experience.
-                    </Text>
-
-                    {apiError ? <Text style={styles.errorText}>{apiError}</Text> : null}
-                    
-                    {/* First Name (Mandatory for first-time onboarding) */}
-                    <Controller
-                        control={control}
-                        name="first_name"
-                        rules={{ required: 'First Name is required' }}
-                        render={({ field: { onChange, value } }) => (
-                            <TextInput
-                                placeholder="First Name"
-                                style={styles.input}
-                                value={value}
-                                onChangeText={onChange}
-                            />
-                        )}
-                    />
-                    {errors.first_name && <Text style={styles.errorText}>{errors.first_name.message}</Text>}
-
-                    {/* Last Name (Mandatory for first-time onboarding) */}
-                    <Controller
-                        control={control}
-                        name="last_name"
-                        rules={{ required: 'Last Name is required' }}
-                        render={({ field: { onChange, value } }) => (
-                            <TextInput
-                                placeholder="Last Name"
-                                style={styles.input}
-                                value={value}
-                                onChangeText={onChange}
-                            />
-                        )}
-                    />
-                    {errors.last_name && <Text style={styles.errorText}>{errors.last_name.message}</Text>}
-
-                    {/* Phone Number (Optional) */}
-                    <Controller
-                        control={control}
-                        name="phone_number"
-                        render={({ field: { onChange, value } }) => (
-                            <TextInput
-                                placeholder="Phone Number (Optional)"
-                                style={styles.input}
-                                value={value}
-                                onChangeText={onChange}
-                                keyboardType="phone-pad"
-                            />
-                        )}
-                    />
-
-                    {/* Location (Optional) */}
-                    <Controller
-                        control={control}
-                        name="location"
-                        render={({ field: { onChange, value } }) => (
-                            <TextInput
-                                placeholder="Location (e.g., City, Province)"
-                                style={styles.input}
-                                value={value}
-                                onChangeText={onChange}
-                            />
-                        )}
-                    />
-
-                    {/* Bio (Optional) */}
-                    <Controller
-                        control={control}
-                        name="bio"
-                        render={({ field: { onChange, value } }) => (
-                            <TextInput
-                                placeholder="Bio/About Me (Optional)"
-                                style={[styles.input, styles.bioInput]}
-                                value={value}
-                                onChangeText={onChange}
-                                multiline
-                            />
-                        )}
-                    />
-
-                    {/* Submit Button */}
-                    <TouchableOpacity
-                        style={[styles.button, (isSubmitting || isAuthLoading) && { opacity: 0.6 }]}
-                        onPress={handleSubmit(onSubmit)}
-                        disabled={isSubmitting || isAuthLoading}
+        <View style={styles.container}>
+            <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+                <KeyboardAvoidingView 
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    style={{ flex: 1 }}
+                >
+                    <ScrollView 
+                        contentContainerStyle={styles.scrollContent}
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
                     >
-                        <Text style={styles.buttonText}>
-                            {isSubmitting ? 'Saving...' : 'Continue to App'}
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-            </ScrollView>
-        </KeyboardAvoidingView>
+                        {/* Header Text */}
+                        <View style={styles.headerContainer}>
+                            <Text style={styles.headerTitle}>Complete Your Profile</Text>
+                            <Text style={styles.headerSubtitle}>Let's get to know you better.</Text>
+                        </View>
+
+                        <View style={styles.avatarContainer}>
+                            <TouchableOpacity onPress={pickImage} style={styles.avatarWrapper}>
+                                {profileImage ? (
+                                    <Image source={{ uri: profileImage }} style={styles.avatarImage} />
+                                ) : (
+                                    <View style={styles.avatarPlaceholder}>
+                                        <Ionicons name="camera" size={32} color="#9CA3AF" />
+                                        <Text style={styles.avatarText}>Upload Photo</Text>
+                                    </View>
+                                )}
+                                <View style={styles.editBadge}>
+                                    <Ionicons name="pencil" size={12} color="#fff" />
+                                </View>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Form Fields */}
+                        <View style={styles.formContainer}>
+                            <Text style={styles.label}>First Name</Text>
+                            <Controller
+                                control={control}
+                                name="first_name"
+                                rules={{ required: 'First Name is required' }}
+                                render={({ field: { onChange, value } }) => (
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="e.g. John"
+                                        value={value}
+                                        onChangeText={onChange}
+                                    />
+                                )}
+                            />
+                            {errors.first_name && <Text style={styles.errorText}>{errors.first_name.message}</Text>}
+
+                            <Text style={styles.label}>Middle Name (Optional)</Text>
+                            <Controller
+                                control={control}
+                                name="middle_name"
+                                render={({ field: { onChange, value } }) => (
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="e.g. Quincy"
+                                        value={value}
+                                        onChangeText={onChange}
+                                    />
+                                )}
+                            />
+
+                            <Text style={styles.label}>Last Name</Text>
+                            <Controller
+                                control={control}
+                                name="last_name"
+                                rules={{ required: 'Last Name is required' }}
+                                render={({ field: { onChange, value } }) => (
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="e.g. Doe"
+                                        value={value}
+                                        onChangeText={onChange}
+                                    />
+                                )}
+                            />
+                            {errors.last_name && <Text style={styles.errorText}>{errors.last_name.message}</Text>}
+
+                            <Text style={styles.label}>Phone Number</Text>
+                            <Controller
+                                control={control}
+                                name="phone_number"
+                                rules={{ required: 'Phone Number is required' }}
+                                render={({ field: { onChange, value } }) => (
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="0912 345 6789"
+                                        keyboardType="phone-pad"
+                                        value={value}
+                                        onChangeText={onChange}
+                                    />
+                                )}
+                            />
+                            {errors.phone_number && <Text style={styles.errorText}>{errors.phone_number.message}</Text>}
+
+                            <Text style={styles.label}>Location</Text>
+                            <Controller
+                                control={control}
+                                name="location"
+                                rules={{ required: 'Location is required' }}
+                                render={({ field: { onChange, value } }) => (
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="City, Province"
+                                        value={value}
+                                        onChangeText={onChange}
+                                    />
+                                )}
+                            />
+                            {errors.location && <Text style={styles.errorText}>{errors.location.message}</Text>}
+
+                            <Text style={styles.label}>Bio</Text>
+                            <Controller
+                                control={control}
+                                name="bio"
+                                render={({ field: { onChange, value } }) => (
+                                    <TextInput
+                                        style={[styles.input, styles.textArea]}
+                                        placeholder="I love hiking and exploring hidden gems..."
+                                        multiline
+                                        numberOfLines={4}
+                                        value={value}
+                                        onChangeText={onChange}
+                                        textAlignVertical="top"
+                                    />
+                                )}
+                            />
+                        </View>
+
+                        {/* Submit Button */}
+                        <TouchableOpacity 
+                            style={styles.submitButtonContainer} 
+                            onPress={handleSubmit(onSubmit)}
+                            disabled={isLoading}
+                        >
+                            <LinearGradient
+                                colors={['#0072FF', '#00C6FF']}
+                                style={styles.gradientBtn}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                            >
+                                {isLoading ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.submitButtonText}>Complete Setup</Text>
+                                )}
+                            </LinearGradient>
+                        </TouchableOpacity>
+
+                    </ScrollView>
+                </KeyboardAvoidingView>
+            </SafeAreaView>
+        </View>
     );
-}
+};
 
 export default ProfileSetupScreen;
 
 const styles = StyleSheet.create({
-    scrollContainer: {
-        flexGrow: 1,
-        justifyContent: 'center',
-        padding: 20,
-        backgroundColor: '#D9E2E9',
-    },
     container: {
-        width: '100%',
+        flex: 1,
+        backgroundColor: '#F9FAFB',
+    },
+    scrollContent: {
+        padding: 20,
+        paddingBottom: 40,
+    },
+    headerContainer: {
+        marginBottom: 30,
+        alignItems: 'center',
+    },
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: '800',
+        color: '#1F2937',
+        marginBottom: 5,
+    },
+    headerSubtitle: {
+        fontSize: 14,
+        color: '#6B7280',
+    },
+    
+    // Avatar Styles
+    avatarContainer: {
+        alignItems: 'center',
+        marginBottom: 25,
+    },
+    avatarWrapper: {
+        position: 'relative',
+    },
+    avatarPlaceholder: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: '#EFF6FF',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: '#DBEAFE',
+        borderStyle: 'dashed',
+    },
+    avatarImage: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        borderWidth: 2,
+        borderColor: '#0072FF',
+    },
+    avatarText: {
+        fontSize: 10,
+        color: '#6B7280',
+        marginTop: 4,
+        fontWeight: '600',
+    },
+    editBadge: {
+        position: 'absolute',
+        bottom: 0,
+        right: 0,
+        backgroundColor: '#0072FF',
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: '#fff',
+    },
+
+    // Form
+    formContainer: {
+        marginBottom: 20,
+    },
+    label: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#374151',
+        marginBottom: 8,
+        marginTop: 5,
+    },
+    input: {
         backgroundColor: '#fff',
-        borderRadius: 15,
-        padding: 25,
-        shadowColor: '#000',
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        borderRadius: 12,
+        paddingHorizontal: 15,
+        paddingVertical: 12,
+        fontSize: 15,
+        color: '#1F2937',
+        marginBottom: 10,
+    },
+    textArea: {
+        height: 100,
+    },
+    errorText: {
+        color: '#EF4444',
+        fontSize: 12,
+        marginTop: -5,
+        marginBottom: 10,
+        marginLeft: 5,
+    },
+
+    // Submit Button
+    submitButtonContainer: {
+        marginTop: 10,
+        height: 50,
+        borderRadius: 12,
+        overflow: 'hidden',
+        shadowColor: '#0072FF',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
+        shadowOpacity: 0.3,
         shadowRadius: 5,
         elevation: 5,
     },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#0F172A',
-        marginBottom: 10,
-        textAlign: 'center',
-    },
-    subtitle: {
-        fontSize: 14,
-        color: '#555',
-        marginBottom: 20,
-        textAlign: 'center',
-    },
-    input: {
-        width: '100%',
-        height: 50,
-        backgroundColor: '#f9f9f9',
-        borderRadius: 8,
-        borderColor: '#ccc',
-        borderWidth: 1,
-        marginVertical: 8,
-        paddingHorizontal: 15,
-        fontSize: 14,
-    },
-    bioInput: {
-        height: 100,
-        paddingTop: 15,
-        textAlignVertical: 'top',
-    },
-    errorText: {
-        color: 'red',
-        fontSize: 12,
-        marginBottom: 5,
-        textAlign: 'left',
-        alignSelf: 'flex-start',
-        width: '100%',
-    },
-    button: {
-        backgroundColor: '#0072FF',
-        padding: 15,
-        borderRadius: 8,
-        width: '100%',
-        marginTop: 20,
+    gradientBtn: {
+        flex: 1,
+        justifyContent: 'center',
         alignItems: 'center',
     },
-    buttonText: {
-        color: '#fff',
-        fontWeight: '700',
+    submitButtonText: {
         fontSize: 16,
+        fontWeight: '700',
+        color: '#fff',
     },
 });

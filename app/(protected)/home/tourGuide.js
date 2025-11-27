@@ -1,8 +1,17 @@
-import { View, Text, ScrollView, ActivityIndicator, StyleSheet, Modal, TouchableOpacity, Alert } from "react-native";
-// Assuming IsTourist is the Guide Dashboard and Action is the Tourist/Initial screen
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { 
+    View, 
+    Text, 
+    ScrollView, 
+    ActivityIndicator, 
+    StyleSheet, 
+    Modal, 
+    TouchableOpacity, 
+    Alert, 
+    RefreshControl // Added import
+} from "react-native";
 import { IsTourist, Action, PendingGuide } from "../../../components/tourist_guide"; 
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../../context/AuthContext";
 import { useRouter } from 'expo-router';
 
@@ -10,9 +19,27 @@ export default function TourGuide() {
     const [loading, setLoading] = useState(true);
     const { role, isLoading: isAuthLoading, refreshUser, user } = useAuth();
     const [showWelcomeModal, setShowWelcomeModal] = useState(false);
-    const router = useRouter();
+    
+    // --- REFRESH STATE ---
+    const [refreshing, setRefreshing] = useState(false);
 
+    const router = useRouter();
     const prevRoleRef = useRef();
+
+    // --- REFRESH HANDLER ---
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        try {
+            console.log("Pull-to-refresh: Updating user data...");
+            await refreshUser();
+            // If IsTourist or other components need specific data reloading, 
+            // the state change in 'user' or 'role' will typically trigger their internal useEffects.
+        } catch (error) {
+            console.error("Refresh failed", error);
+        } finally {
+            setRefreshing(false);
+        }
+    }, [refreshUser]);
 
     const handleDebugRefresh = async () => {
         console.log("Refreshing user data...");
@@ -58,7 +85,16 @@ export default function TourGuide() {
     if (role === 'guide') {
         return (
             <View style={styles.safeArea}>
-                <ScrollView contentContainerStyle={styles.scrollContent}>
+                <ScrollView 
+                    contentContainerStyle={styles.scrollContent}
+                    refreshControl={
+                        <RefreshControl 
+                            refreshing={refreshing} 
+                            onRefresh={onRefresh} 
+                            colors={["#00C6FF"]} 
+                        />
+                    }
+                >
                     {/* Renders the Guide Dashboard */}
                     <IsTourist /> 
                 </ScrollView>
@@ -101,7 +137,16 @@ export default function TourGuide() {
     if (role === 'pending_guide') {
         return (
             <SafeAreaView style={styles.safeArea}>
-                <ScrollView contentContainerStyle={styles.scrollContent}>
+                <ScrollView 
+                    contentContainerStyle={styles.scrollContent}
+                    refreshControl={
+                        <RefreshControl 
+                            refreshing={refreshing} 
+                            onRefresh={onRefresh} 
+                            colors={["#00C6FF"]} 
+                        />
+                    }
+                >
                     {/* Renders the Pending Guide page */}
                     <PendingGuide /> 
                     <TouchableOpacity onPress={handleDebugRefresh} style={styles.debugButton}>
@@ -115,7 +160,16 @@ export default function TourGuide() {
     // 3. Tourist (Default) or other non-guide roles
     return (
         <SafeAreaView style={styles.safeArea}>
-            <ScrollView contentContainerStyle={styles.scrollContent}>
+            <ScrollView 
+                contentContainerStyle={styles.scrollContent}
+                refreshControl={
+                    <RefreshControl 
+                        refreshing={refreshing} 
+                        onRefresh={onRefresh} 
+                        colors={["#00C6FF"]} 
+                    />
+                }
+            >
                 <Action />
             </ScrollView>
         </SafeAreaView>
@@ -130,7 +184,8 @@ const styles = StyleSheet.create({
         backgroundColor: "#fff"
     },
     safeArea: {
-        flex: 1
+        flex: 1,
+        backgroundColor: "#F5F7FA" // Consistent background
     },
     scrollContent: { 
         flexGrow: 1 
