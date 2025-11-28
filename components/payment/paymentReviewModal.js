@@ -34,7 +34,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         firstName, lastName, phoneNumber, country, email, 
         basePrice, totalPrice, paymentMethod, 
         groupType, numberOfPeople, validIdImage, bookingId,
-        isNewKycImage 
+        placeId, isNewKycImage 
     } = paymentData || {};
 
     const calculateDays = () => {
@@ -178,6 +178,10 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                     formData.append('guide', String(guide.id));
                 } else if (agency && agency.id) {
                     formData.append('agency', String(agency.id));
+                }
+
+                if (placeId) {
+                    formData.append('destination', placeId);
                 }
                 
                 if (validIdImage && isNewKycImage) {

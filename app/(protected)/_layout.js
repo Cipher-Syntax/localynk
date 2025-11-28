@@ -44,7 +44,9 @@ export default function ProtectedLayout() {
         '/profile/edit_profile',
         '/explore',
         '/viewAccommodations',
-        '/upgradeMembership'
+        '/upgradeMembership',
+        '/reviewModal',
+        '/myReviews'
     ]; 
 
     useEffect(() => {

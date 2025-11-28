@@ -93,7 +93,7 @@ const Profile = () => {
             ? `${profile.first_name} ${profile.last_name}` 
             : profile.username || "User",
         image: profile.profile_picture || null, 
-        stats: isGuide ? { tours: 12, completions: 50, rating: 4.8 } : null
+        stats: isGuide ? { tours: 12, completions: 50, rating: profile.guide_rating || 0 } : null
     };
 
     const touristSettingsItems = [
@@ -108,8 +108,9 @@ const Profile = () => {
         { id: 1, icon: "calendar", label: "My Reservations", hasNotification: true, route: '/reservations' },
         { id: 2, icon: "business", label: "View Accommodations", route: `/(protected)/viewAccommodations?userId=${profile.id}` },
         { id: 3, icon: "wallet", label: "Earnings & Payouts", route: '/earnings' },
-        { id: 4, icon: "settings", label: "Guide Settings", route: '/guide-settings' },
-        { id: 5, icon: "shield-checkmark", label: "Privacy & Security", route: '/privacy' }
+        { id: 4, icon: "star", label: "Reviews & Ratings", route: '/myReviews' },
+        { id: 5, icon: "settings", label: "Guide Settings", route: '/guide-settings' },
+        { id: 6, icon: "shield-checkmark", label: "Privacy & Security", route: '/privacy' }
     ];
 
     const menuItems = isGuide ? guideSettingsItems : touristSettingsItems;
@@ -212,7 +213,9 @@ const Profile = () => {
                             <View style={styles.verticalDivider} />
                             <View style={styles.statItem}>
                                 <View style={{flexDirection: 'row', alignItems: 'center', gap: 2}}>
-                                    <Text style={styles.statValue}>{profileData.stats.rating}</Text>
+                                    <Text style={styles.statValue}>
+                                        {parseFloat(profileData.stats.rating).toFixed(1)}
+                                    </Text>
                                     <AntDesign name="star" size={14} color="#FFD700" />
                                 </View>
                                 <Text style={styles.statLabel}>Rating</Text>
@@ -235,10 +238,9 @@ const Profile = () => {
                                         key={item.id} 
                                         style={[styles.menuItem, index === menuItems.length - 1 && styles.menuItemLast]}
                                         onPress={() => {
-                                            if (item.label === 'View Accommodations') {
+                                            if (item.route) {
                                                 router.push(item.route);
                                             }
-                                            // Handle other routes
                                         }}
                                     >
                                         <View style={[styles.menuIconBox, { backgroundColor: isGuide ? '#EFF6FF' : '#ECFDF5' }]}>

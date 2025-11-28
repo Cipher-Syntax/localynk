@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StatusBar, StyleSheet, Image, TextInput, TouchableOpacity, Pressable, ActivityIndicator, Alert, Linking } from 'react-native';
+import { View, Text, ScrollView, StatusBar, StyleSheet, Image, TextInput, TouchableOpacity, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { User } from 'lucide-react-native';
@@ -12,7 +12,8 @@ import { useLocalSearchParams } from 'expo-router';
 
 const AgencyBookingDetails = () => {
     const params = useLocalSearchParams();
-    const { agencyName, agencyId, placeName, bookingId } = params;
+    // Correctly destructure placeId from params
+    const { agencyName, agencyId, placeName, bookingId, placeId } = params;
     const isConfirmed = !!params.bookingId;
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -24,7 +25,7 @@ const AgencyBookingDetails = () => {
         name: agencyName || "Selected Agency",
         purpose: placeName ? `Tour at ${placeName}` : "Private Tour", 
         address: "Local Agency",
-        basePrice: 1000, // This should come from the agency object
+        basePrice: 1000, 
         serviceFee: 100,
     };
 
@@ -36,7 +37,6 @@ const AgencyBookingDetails = () => {
     const [selectedOption, setSelectedOption] = useState('solo');
     const [numPeople, setNumPeople] = useState('1');
 
-    // Billing State
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
@@ -47,7 +47,6 @@ const AgencyBookingDetails = () => {
 
     const [totalPrice, setTotalPrice] = useState(agency.basePrice - agency.serviceFee);
 
-    // Auto-fill
     useEffect(() => {
         if (user) {
             setFirstName(user.first_name || '');
@@ -108,7 +107,6 @@ const AgencyBookingDetails = () => {
                 </View>
 
                 <View style={styles.contentContainer}>
-                    {/* Agency Info */}
                     <View style={styles.guideInfoCard}>
                         <View style={styles.guideHeader}>
                             <View style={styles.guideIcon}>
@@ -122,7 +120,6 @@ const AgencyBookingDetails = () => {
                         </View>
                     </View>
 
-                    {/* Set Dates */}
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Set Dates</Text>
                         <View style={styles.dateRow}>
@@ -140,7 +137,7 @@ const AgencyBookingDetails = () => {
                             isVisible={isStartPickerVisible}
                             mode="date"
                             onConfirm={(date) => { setStartDate(date); setStartPickerVisible(false); }}
-                            onCancel={() => setEndPickerVisible(false)}
+                            onCancel={() => setStartPickerVisible(false)}
                         />
                         <DateTimePickerModal
                             isVisible={isEndPickerVisible}
@@ -150,7 +147,6 @@ const AgencyBookingDetails = () => {
                         />
                     </View>
 
-                    {/* Booking Type */}
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Booking Type</Text>
                         <View style={styles.selectionButtons}>
@@ -184,7 +180,6 @@ const AgencyBookingDetails = () => {
                         )}
                     </View>
 
-                    {/* Price Card */}
                     <View style={styles.priceCard}>
                         <View style={styles.priceRow}>
                             <Text style={styles.priceLabel}>Base Price</Text>
@@ -207,7 +202,6 @@ const AgencyBookingDetails = () => {
                         </View>
                     </View>
 
-                    {/* Billing Info */}
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Billing Information</Text>
                         <View style={styles.billingRow}>
@@ -221,7 +215,6 @@ const AgencyBookingDetails = () => {
                         <TextInput style={[styles.billingInput, styles.fullWidthInput]} placeholder="Email" placeholderTextColor="#8B98A8" value={email} onChangeText={setEmail} />
                     </View>
 
-                    {/* Identity Verification */}
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Identity Verification</Text>
                         <Text style={styles.helperText}>
@@ -271,10 +264,12 @@ const AgencyBookingDetails = () => {
                             serviceFee: agency.serviceFee,
                             totalPrice: totalPrice,
                             bookingId: params.bookingId,
+                            placeId: placeId, // Correctly passing placeId
                             paymentMethod: isConfirmed ? 'gcash' : null,
                             groupType: selectedOption,
                             numberOfPeople: selectedOption === 'group' ? (parseInt(numPeople) < 2 ? 2 : parseInt(numPeople)) : 1,
                             validIdImage: validIdImage,
+                            isNewKycImage: validIdImage && validIdImage.startsWith('file://')
                         }}
                     />
                 )}
@@ -324,31 +319,12 @@ const styles = StyleSheet.create({
     confirmButton: { backgroundColor: '#00A8FF', paddingVertical: 12, borderRadius: 8, alignItems: 'center', marginTop: 10 },
     confirmButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
     helperText: { fontSize: 12, color: '#8B98A8', marginBottom: 12, lineHeight: 18 },
-    uploadContainer: {
-        height: 150,
-        borderWidth: 1,
-        borderColor: '#E0E6ED',
-        borderStyle: 'dashed',
-        borderRadius: 12,
-        backgroundColor: '#F5F7FA',
-        justifyContent: 'center',
-        alignItems: 'center',
-        overflow: 'hidden'
-    },
+    uploadContainer: { height: 150, borderWidth: 1, borderColor: '#E0E6ED', borderStyle: 'dashed', borderRadius: 12, backgroundColor: '#F5F7FA', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
     uploadPlaceholder: { alignItems: 'center' },
     uploadText: { marginTop: 10, fontSize: 13, fontWeight: '600', color: '#00A8FF' },
     uploadSubText: { fontSize: 11, color: '#8B98A8', marginTop: 4 },
     imagePreviewContainer: { width: '100%', height: '100%', position: 'relative' },
     previewImage: { width: '100%', height: '100%', resizeMode: 'cover' },
-    reuploadOverlay: {
-        position: 'absolute',
-        bottom: 0, left: 0, right: 0,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingVertical: 8,
-        gap: 6
-    },
+    reuploadOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.5)', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, gap: 6 },
     reuploadText: { color: '#fff', fontSize: 12, fontWeight: '600' }
 });

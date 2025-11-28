@@ -439,6 +439,7 @@ const Payment = () => {
                             serviceFee: bookingEntity.serviceFee,
                             totalPrice,
                             bookingId: params.bookingId,
+                            placeId: params.placeId,
                             paymentMethod: isConfirmed ? 'gcash' : null,
                             groupType: selectedOption,
                             numberOfPeople: selectedOption === 'group' ? (parseInt(numPeople) < 2 ? 2 : parseInt(numPeople)) : 1,
