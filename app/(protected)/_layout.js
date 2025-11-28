@@ -17,12 +17,15 @@ export default function ProtectedLayout() {
         !user.last_name || 
         String(user.last_name).trim() === ""
     );
+    const hasAcceptedTerms = user?.has_accepted_terms;
     
-    const ONBOARDING_PATH = '/onboarding/profile_setup';
+    const PROFILE_SETUP_PATH = '/onboarding/profile_setup';
+    const TERMS_PATH = '/onboarding/terms_and_conditions';
     const HOME_PATH = '/home';
     
     const protectedNonTabPaths = [
-        ONBOARDING_PATH,
+        PROFILE_SETUP_PATH,
+        TERMS_PATH,
         '/touristGuideDetails',
         '/payment',
         '/message',
@@ -37,7 +40,6 @@ export default function ProtectedLayout() {
         '/agencySelection',
         '/agencyBookingDetails',
         '/termsAndAgreement',
-        '/notification',
         '/completePayment',
         '/completeRegistrationFee',
         '/profile',
@@ -51,47 +53,45 @@ export default function ProtectedLayout() {
 
     useEffect(() => {
         if (isLoading) return;
-
         if (navigationAttempted.current) return;
 
-        console.log("ProtectedLayout: pathname:", pathname, { isAuthenticated, isLoading, user });
-
-        const authPaths = [
-            "/auth/landingPage",
-            "/auth/login",
-            "/auth/register",
-        ];
-
+        // --- Auth Check ---
         if (!isAuthenticated) {
-            const onAuthPath = authPaths.some(p => pathname.startsWith(p));
-            if (!onAuthPath) {
+            const authPaths = ["/auth/landingPage", "/auth/login", "/auth/register"];
+            if (!authPaths.some(p => pathname.startsWith(p))) {
                 navigationAttempted.current = true;
-                console.log("ProtectedLayout: not auth -> redirect to landing");
                 router.replace("/auth/landingPage");
             }
             return;
         }
 
-        if (isProfileIncomplete && pathname !== ONBOARDING_PATH) {
+        // --- Onboarding Flow ---
+        // 1. Profile Setup
+        if (isProfileIncomplete && pathname !== PROFILE_SETUP_PATH) {
             navigationAttempted.current = true;
-            console.log("ProtectedLayout: profile incomplete -> onboarding");
-            router.replace(ONBOARDING_PATH);
+            router.replace(PROFILE_SETUP_PATH);
             return;
         }
         
-        if (!isProfileIncomplete) {
-            const isInsideTabs = pathname.startsWith(HOME_PATH);
-            const isProtectedNonTab = protectedNonTabPaths.some(p => pathname.startsWith(p));
+        // 2. Terms and Conditions
+        if (!isProfileIncomplete && !hasAcceptedTerms && pathname !== TERMS_PATH) {
+            navigationAttempted.current = true;
+            router.replace(TERMS_PATH);
+            return;
+        }
 
-            if (pathname === ONBOARDING_PATH || (!isInsideTabs && !isProtectedNonTab)) {
-                navigationAttempted.current = true;
-                console.log("ProtectedLayout: redirecting to home from", pathname);
-                router.replace(HOME_PATH);
-                return;
+        // --- Final Redirect to Home ---
+        // If profile and terms are complete, but user is on an onboarding page, send to home.
+        if (!isProfileIncomplete && hasAcceptedTerms) {
+            const isInsideOnboarding = pathname.startsWith('/onboarding');
+            if (isInsideOnboarding) {
+                 navigationAttempted.current = true;
+                 router.replace(HOME_PATH);
+                 return;
             }
         }
         
-    }, [isLoading, isAuthenticated, pathname, isProfileIncomplete]);
+    }, [isLoading, isAuthenticated, pathname, isProfileIncomplete, hasAcceptedTerms]);
 
     if (isLoading) {
         return (

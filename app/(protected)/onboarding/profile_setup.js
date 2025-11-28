@@ -88,7 +88,7 @@ const ProfileSetupScreen = () => {
             await refreshUser();
 
             Alert.alert("Success", "Profile updated! Welcome to LocaLynk.", [
-                { text: "Let's Go", onPress: () => router.replace('/home') }
+                { text: "Let's Go", onPress: () => router.replace('/(protected)/onboarding/terms_and_conditions') }
             ]);
 
         } catch (error) {
