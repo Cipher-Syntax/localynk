@@ -294,11 +294,11 @@ const IsTourist = () => {
                                         <View style={styles.userInfo}>
                                             <View style={styles.avatarPlaceholder}>
                                                 <Text style={styles.avatarLetter}>
-                                                    {booking.tourist_username.charAt(0).toUpperCase()}
+                                                    {booking.tourist_username ? booking.tourist_username.charAt(0).toUpperCase() : 'U'}
                                                 </Text>
                                             </View>
                                             <View>
-                                                <Text style={styles.touristName}>{booking.tourist_username}</Text>
+                                                <Text style={styles.touristName}>{booking.tourist_username || 'Unknown User'}</Text>
                                                 <Text style={styles.touristRole}>Tourist</Text>
                                             </View>
                                         </View>
@@ -349,7 +349,15 @@ const IsTourist = () => {
                                             </TouchableOpacity>
                                         </View>
                                     ) : (
-                                        <TouchableOpacity style={styles.messageBtn}>
+                                        <TouchableOpacity style={styles.messageBtn}
+                                            onPress={() => router.push({
+                                                pathname: '/(protected)/message',
+                                                params: { 
+                                                    partnerId: booking.tourist_id, 
+                                                    partnerName: booking.tourist_username 
+                                                }
+                                            })}
+                                        >
                                             <Ionicons name="chatbubble-ellipses" size={18} color="#fff" style={{marginRight: 8}} />
                                             <Text style={styles.messageBtnText}>Message Client</Text>
                                         </TouchableOpacity>
