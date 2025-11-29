@@ -69,8 +69,7 @@ const GuideProfile = () => {
 
         fetchData();
         
-    // 4. ADD 'user' TO DEPENDENCY ARRAY
-    // This forces the effect to run again if the logged-in user changes
+
     }, [userId, placeId, user]); 
 
     const renderAvailability = (guideDays) => {

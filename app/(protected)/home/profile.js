@@ -29,7 +29,6 @@ const Profile = () => {
     const [profile, setProfile] = useState(null);
     const router = useRouter();
 
-    // --- DATA FETCHING ---
     const fetchProfileData = async () => {
         try {
             if (userId) {
@@ -37,7 +36,6 @@ const Profile = () => {
                 setProfile(response.data);
             } else {
                 await refreshUser();
-                // Profile updates via the useEffect hook listening to 'user'
             }
         } catch (error) {
             console.error("Failed to fetch profile:", error);
@@ -67,7 +65,6 @@ const Profile = () => {
         setRefreshing(false);
     }, [userId]);
 
-    // --- LOADING STATES ---
     if (loading && !profile) {
         return (
             <View style={styles.centerContainer}>
@@ -84,7 +81,6 @@ const Profile = () => {
         );
     }
 
-    // --- PROFILE LOGIC ---
     const isOwnProfile = !userId || (user && profile && user.id === profile.id);
     const isGuide = profile.is_local_guide && profile.guide_approved;
 
@@ -97,7 +93,7 @@ const Profile = () => {
     };
 
     const touristSettingsItems = [
-        { id: 1, icon: "bookmarks", label: "My Bookings", hasNotification: true, route: '/bookings' },
+        { id: 1, icon: "bookmarks", label: "My Bookings", route: '/(protected)/bookings' },
         { id: 2, icon: "heart", label: "Favorite Guides", route: '/favorites' },
         { id: 3, icon: "card", label: "Payment Methods", route: '/payments' },
         { id: 4, icon: "shield-checkmark", label: "Privacy & Security", route: '/privacy' },
@@ -105,7 +101,7 @@ const Profile = () => {
     ];
 
     const guideSettingsItems = [
-        { id: 1, icon: "calendar", label: "My Reservations", hasNotification: true, route: '/reservations' },
+        { id: 1, icon: "calendar", label: "My Reservations", route: '/reservations' },
         { id: 2, icon: "business", label: "View Accommodations", route: `/(protected)/viewAccommodations?userId=${profile.id}` },
         { id: 3, icon: "wallet", label: "Earnings & Payouts", route: '/earnings' },
         { id: 4, icon: "star", label: "Reviews & Ratings", route: '/myReviews' },
@@ -131,7 +127,6 @@ const Profile = () => {
             <View>
                 <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-                {/* --- HEADER --- */}
                 <View style={styles.header}>
                     <Image
                         source={require('../../../assets/localynk_images/header.png')}
@@ -146,10 +141,8 @@ const Profile = () => {
                     </Text>
                 </View>
 
-                {/* --- BODY --- */}
                 <View style={styles.bodyContainer}>
                     
-                    {/* Floating Avatar */}
                     <View style={styles.avatarContainer}>
                         <View style={styles.avatarWrapper}>
                             {profileData.image ? (
@@ -162,7 +155,6 @@ const Profile = () => {
                                     <Ionicons name="person" size={50} color="#CBD5E1" />
                                 </View>
                             )}
-                            {/* Edit Icon Badge */}
                             {isOwnProfile && (
                                 <TouchableOpacity style={styles.editAvatarBadge} onPress={() => router.push('/profile/edit_profile')}>
                                     <Ionicons name="camera" size={14} color="#fff" />
@@ -171,11 +163,9 @@ const Profile = () => {
                         </View>
                     </View>
 
-                    {/* Name & Role */}
                     <View style={styles.infoSection}>
                         <Text style={styles.profileName}>{profileData.name}</Text>
                         
-                        {/* Details Row (Location & Phone) */}
                         {(profile.location || profile.phone_number) && (
                             <View style={styles.detailRow}>
                                 {profile.location && (
@@ -184,7 +174,6 @@ const Profile = () => {
                                         <Text style={styles.detailText}>{profile.location}</Text>
                                     </View>
                                 )}
-                                {/* Separator if both exist */}
                                 {profile.location && profile.phone_number && (
                                     <View style={styles.dotSeparator} />
                                 )}
@@ -197,13 +186,11 @@ const Profile = () => {
                             </View>
                         )}
                         
-                        {/* Bio */}
                         {profile.bio && (
                             <Text style={styles.bioText} numberOfLines={4}>{profile.bio}</Text>
                         )}
                     </View>
 
-                    {/* Stats Row (Only for Guides) */}
                     {isGuide && profileData.stats && (
                         <View style={styles.statsRow}>
                             <View style={styles.statItem}>
@@ -228,7 +215,6 @@ const Profile = () => {
                         </View>
                     )}
 
-                    {/* --- MENU SECTION --- */}
                     {isOwnProfile && (
                         <View style={styles.menuSection}>
                             <Text style={styles.menuTitle}>General</Text>
@@ -248,18 +234,11 @@ const Profile = () => {
                                         </View>
                                         <Text style={styles.menuLabel}>{item.label}</Text>
                                         
-                                        {item.hasNotification ? (
-                                            <View style={styles.notificationBadge}>
-                                                <Text style={styles.notificationText}>1</Text>
-                                            </View>
-                                        ) : (
-                                            <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
-                                        )}
+                                       
                                     </TouchableOpacity>
                                 ))}
                             </View>
 
-                            {/* --- ACTIONS --- */}
                             <Text style={[styles.menuTitle, {marginTop: 25}]}>Settings</Text>
                             <View style={styles.menuContainer}>
                                 <TouchableOpacity 
@@ -303,8 +282,6 @@ const styles = StyleSheet.create({
         alignItems: "center",
         backgroundColor: "#fff"
     },
-    
-    // Header
     header: {
         position: 'relative',
         height: 120,
@@ -331,8 +308,6 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         letterSpacing: 1,
     },
-
-    // Body
     bodyContainer: {
         flex: 1,
         backgroundColor: '#F8FAFC',
@@ -340,11 +315,9 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingBottom: 40,
     },
-
-    // Avatar
     avatarContainer: {
         alignItems: 'center',
-        marginTop: -60, // Negative margin to overlap with the header
+        marginTop: -60,
         marginBottom: 15,
     },
     avatarWrapper: {
@@ -376,8 +349,6 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         borderColor: '#fff',
     },
-
-    // Info
     infoSection: {
         alignItems: 'center',
         marginBottom: 25,
@@ -421,8 +392,6 @@ const styles = StyleSheet.create({
         lineHeight: 20,
         marginHorizontal: 20,
     },
-
-    // Stats
     statsRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -458,8 +427,6 @@ const styles = StyleSheet.create({
         height: 30,
         backgroundColor: '#E2E8F0',
     },
-
-    // Menu
     menuSection: {
         flex: 1,
     },
@@ -517,8 +484,6 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontWeight: 'bold',
     },
-
-    // Logout
     logoutButton: {
         marginTop: 30,
         marginBottom: 10,
@@ -526,7 +491,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         paddingVertical: 15,
         borderRadius: 16,
-        backgroundColor: '#FEF2F2', // Light Red
+        backgroundColor: '#FEF2F2',
         borderWidth: 1,
         borderColor: '#FECACA',
     },
