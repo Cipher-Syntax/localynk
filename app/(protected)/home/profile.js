@@ -101,12 +101,13 @@ const Profile = () => {
     ];
 
     const guideSettingsItems = [
-        { id: 1, icon: "calendar", label: "My Reservations", route: '/reservations' },
-        { id: 2, icon: "business", label: "View Accommodations", route: `/(protected)/viewAccommodations?userId=${profile.id}` },
-        { id: 3, icon: "wallet", label: "Earnings & Payouts", route: '/earnings' },
-        { id: 4, icon: "star", label: "Reviews & Ratings", route: '/myReviews' },
-        { id: 5, icon: "settings", label: "Guide Settings", route: '/guide-settings' },
-        { id: 6, icon: "shield-checkmark", label: "Privacy & Security", route: '/privacy' }
+        { id: 1, icon: "calendar", label: "My Bookings", route: '/(protected)/bookings' },
+        { id: 2, icon: "heart", label: "Favorite Guides", route: '/favorites' },
+        { id: 3, icon: "business", label: "View Accommodations", route: `/(protected)/viewAccommodations?userId=${profile.id}` },
+        { id: 4, icon: "wallet", label: "Earnings & Payouts", route: '/earnings' },
+        { id: 5, icon: "star", label: "Reviews & Ratings", route: '/myReviews' },
+        { id: 6, icon: "settings", label: "Guide Settings", route: '/guide-settings' },
+        { id: 7, icon: "shield-checkmark", label: "Privacy & Security", route: '/privacy' }
     ];
 
     const menuItems = isGuide ? guideSettingsItems : touristSettingsItems;

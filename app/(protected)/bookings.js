@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { 
     View, 
     Text, 
@@ -7,13 +7,14 @@ import {
     ActivityIndicator, 
     StatusBar, 
     TouchableOpacity,
-    Alert,
     RefreshControl,
     Image,
-    Dimensions
+    Dimensions,
+    Modal,
+    Animated
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient'; // Make sure to install this
+import { LinearGradient } from 'expo-linear-gradient'; 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 
@@ -28,11 +29,46 @@ const MyBookings = () => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     
-    // Modal State
-    const [modalVisible, setModalVisible] = useState(false);
+    // Details Modal State
+    const [detailsModalVisible, setDetailsModalVisible] = useState(false);
     const [selectedBooking, setSelectedBooking] = useState(null);
+
+    // --- TOAST STATE (Matches your snippet) ---
+    const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+
+    // --- Confirmation Modal State ---
+    const [confirmVisible, setConfirmVisible] = useState(false);
+    const [bookingIdToCancel, setBookingIdToCancel] = useState(null);
     
     const { user } = useAuth();
+
+    // --- TOAST LOGIC ---
+    const showToast = (message, type = 'success') => {
+        setToast({ show: true, message, type });
+        
+        // Fade In
+        Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true,
+        }).start();
+
+        // Auto Hide after 3 seconds
+        setTimeout(() => {
+            hideToast();
+        }, 3000);
+    };
+
+    const hideToast = () => {
+        Animated.timing(fadeAnim, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true,
+        }).start(() => {
+            setToast(prev => ({ ...prev, show: false }));
+        });
+    };
 
     const fetchBookings = async () => {
         try {
@@ -40,7 +76,7 @@ const MyBookings = () => {
             setBookings(response.data || []);
         } catch (error) {
             console.error('Failed to fetch bookings:', error);
-            Alert.alert("Error", "Failed to fetch bookings. Please try again.");
+            showToast("Failed to fetch bookings.", "error");
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -59,45 +95,47 @@ const MyBookings = () => {
         fetchBookings();
     }, []);
 
-    const handleCancelBooking = async (bookingId) => {
-        Alert.alert(
-            "Confirm Cancellation",
-            "Are you sure you want to cancel this booking?",
-            [
-                { text: "No", style: "cancel" },
-                { 
-                    text: "Yes, Cancel", 
-                    onPress: async () => {
-                        try {
-                            await api.delete(`/api/bookings/${bookingId}/`);
-                            Alert.alert("Success", "Booking cancelled successfully.");
-                            setBookings(prevBookings => 
-                                prevBookings.map(b => 
-                                    b.id === bookingId ? { ...b, status: 'cancelled' } : b
-                                )
-                            );
-                        } catch (error) {
-                            console.error('Failed to cancel booking:', error);
-                            Alert.alert("Error", "Could not cancel the booking. Please try again.");
-                        }
-                    },
-                    style: 'destructive'
-                }
-            ]
-        );
+    // --- CANCELLATION LOGIC ---
+
+    const initiateCancellation = (bookingId) => {
+        setBookingIdToCancel(bookingId);
+        setConfirmVisible(true);
+    };
+
+    const confirmCancellation = async () => {
+        setConfirmVisible(false);
+        if (!bookingIdToCancel) return;
+
+        try {
+            await api.delete(`/api/bookings/${bookingIdToCancel}/`);
+            
+            // Optimistic Update
+            setBookings(prevBookings => 
+                prevBookings.map(b => 
+                    b.id === bookingIdToCancel ? { ...b, status: 'cancelled' } : b
+                )
+            );
+            
+            showToast("Booking cancelled successfully!", "success");
+        } catch (error) {
+            console.error('Failed to cancel booking:', error);
+            showToast("Could not cancel the booking.", "error");
+        } finally {
+            setBookingIdToCancel(null);
+        }
     };
 
     const handleOpenModal = (booking) => {
         setSelectedBooking(booking);
-        setModalVisible(true);
+        setDetailsModalVisible(true);
     };
 
     const handleCloseModal = () => {
-        setModalVisible(false);
+        setDetailsModalVisible(false);
         setSelectedBooking(null);
     };
 
-    // --- Helper Logic (Same as before) ---
+    // --- HELPER LOGIC ---
     const getStatusStyle = (status) => {
         const normalizedStatus = String(status || '').toLowerCase();
         switch (normalizedStatus) {
@@ -124,17 +162,17 @@ const MyBookings = () => {
         return "N/A";
     };
 
-    // --- Render Items ---
+    // --- RENDER ITEMS ---
 
     const renderHeader = () => (
-        <View style={styles.headerContainer}>
+        <View style={styles.header}>
             <Image
-                source={require('../../assets/localynk_images/header.png')} // Matches your reference
+                source={require('../../assets/localynk_images/header.png')}
                 style={styles.headerImage}
             />
             <LinearGradient
-                colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.3)', 'transparent']}
-                style={styles.headerOverlay}
+                colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
+                style={styles.overlay}
             />
             <View style={styles.headerContent}>
                 <Text style={styles.headerTitle}>MY BOOKINGS</Text>
@@ -145,7 +183,7 @@ const MyBookings = () => {
 
     const renderBookingItem = ({ item }) => {
         const { badge, text, icon } = getStatusStyle(item.status);
-        const canCancel = item.status.toLowerCase() === 'pending' || item.status.toLowerCase() === 'accepted';
+        const canCancel = item.status.toLowerCase() === 'pending';
         const providerName = getProviderName(item);
 
         const bookingType = item.accommodation_detail 
@@ -162,11 +200,9 @@ const MyBookings = () => {
                 style={styles.cardContainer}
             >
                 <View style={styles.bookingCard}>
-                    {/* Status Strip on Left */}
                     <View style={[styles.statusStrip, badge]} />
 
                     <View style={styles.cardContent}>
-                        {/* Header: Title & Status */}
                         <View style={styles.cardHeader}>
                             <View style={{flex: 1}}>
                                 <Text style={styles.cardTitle} numberOfLines={1}>{titleName}</Text>
@@ -178,10 +214,8 @@ const MyBookings = () => {
                             </View>
                         </View>
 
-                        {/* Divider */}
                         <View style={styles.divider} />
 
-                        {/* Details */}
                         <View style={styles.detailsContainer}>
                             <View style={styles.detailRow}>
                                 <Ionicons name="location-sharp" size={16} color="#3B82F6" style={styles.iconWidth} />
@@ -199,12 +233,11 @@ const MyBookings = () => {
                             </View>
                         </View>
 
-                        {/* Action Footer */}
                         {canCancel && (
                             <View style={styles.cardFooter}>
                                 <TouchableOpacity 
                                     style={styles.cancelButton}
-                                    onPress={() => handleCancelBooking(item.id)}
+                                    onPress={() => initiateCancellation(item.id)}
                                 >
                                     <Text style={styles.cancelButtonText}>Cancel Booking</Text>
                                 </TouchableOpacity>
@@ -226,7 +259,7 @@ const MyBookings = () => {
 
     return (
         <SafeAreaView style={styles.mainContainer}>
-            <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+            <StatusBar barStyle="dark-content" backgroundColor="transparent" />
             
             <FlatList
                 data={bookings}
@@ -247,19 +280,77 @@ const MyBookings = () => {
                         refreshing={refreshing} 
                         onRefresh={onRefresh} 
                         colors={["#00A8FF"]} 
-                        progressViewOffset={140} // Pushes the spinner down below the header
+                        progressViewOffset={140}
                     />
                 }
             />
 
             <BookingDetailsModal 
                 booking={selectedBooking} 
-                visible={modalVisible} 
+                visible={detailsModalVisible} 
                 onClose={handleCloseModal} 
             />
+
+            {/* --- CONFIRMATION MODAL --- */}
+            <Modal
+                transparent={true}
+                visible={confirmVisible}
+                animationType="fade"
+                onRequestClose={() => setConfirmVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.confirmModalBox}>
+                        <View style={styles.confirmIconBg}>
+                            <Ionicons name="alert" size={32} color="#EF4444" />
+                        </View>
+                        <Text style={styles.confirmTitle}>Cancel Booking?</Text>
+                        <Text style={styles.confirmDesc}>
+                            Are you sure you want to cancel this booking? This action cannot be undone.
+                        </Text>
+                        <View style={styles.confirmBtnRow}>
+                            <TouchableOpacity 
+                                style={[styles.modalBtn, styles.modalBtnCancel]} 
+                                onPress={() => setConfirmVisible(false)}
+                            >
+                                <Text style={styles.modalBtnTextCancel}>Keep it</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={[styles.modalBtn, styles.modalBtnConfirm]} 
+                                onPress={confirmCancellation}
+                            >
+                                <Text style={styles.modalBtnTextConfirm}>Yes, Cancel</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {toast.show && (
+                <Animated.View style={[
+                    styles.toastContainer, 
+                    { opacity: fadeAnim },
+                    toast.type === 'success' ? styles.toastSuccess : styles.toastError
+                ]}>
+                    <View style={styles.toastContent}>
+                        <Ionicons 
+                            name={toast.type === 'success' ? 'checkmark-circle' : 'alert-circle'} 
+                            size={24} 
+                            color="white" 
+                        />
+                        <Text style={styles.toastText}>{toast.message}</Text>
+                    </View>
+                    
+                    <TouchableOpacity onPress={hideToast} style={styles.toastCloseBtn}>
+                        <Ionicons name="close-circle" size={20} color="rgba(255,255,255,0.8)" />
+                    </TouchableOpacity>
+                </Animated.View>
+            )}
+
         </SafeAreaView>
     );
 };
+
+export default MyBookings;
 
 const styles = StyleSheet.create({
     mainContainer: {
@@ -276,28 +367,27 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
     },
 
-    // --- Header Styles (Matches Reference) ---
-    headerContainer: {
-        height: 180, // Slightly taller for better visual
+    header: {
         position: 'relative',
+        height: 120,
         justifyContent: 'center',
-        marginBottom: 10,
+        marginBottom: 30
     },
     headerImage: {
         width: '100%',
         height: '100%',
         resizeMode: 'cover',
-        borderBottomLeftRadius: 30,
-        borderBottomRightRadius: 30,
+        borderBottomLeftRadius: 25,
+        borderBottomRightRadius: 25,
     },
-    headerOverlay: {
+    overlay: {
         ...StyleSheet.absoluteFillObject,
-        borderBottomLeftRadius: 30,
-        borderBottomRightRadius: 30,
+        borderBottomLeftRadius: 25,
+        borderBottomRightRadius: 25,
     },
     headerContent: {
         position: 'absolute',
-        bottom: 30,
+        bottom: 10,
         left: 20,
     },
     headerTitle: {
@@ -320,14 +410,12 @@ const styles = StyleSheet.create({
     cardContainer: {
         paddingHorizontal: 20,
         marginBottom: 16,
-        marginTop: 20
     },
     bookingCard: {
         flexDirection: 'row',
         backgroundColor: '#fff',
         borderRadius: 16,
         overflow: 'hidden',
-        // Shadow
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.08,
@@ -375,7 +463,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     iconWidth: {
-        width: 24, // Ensures text aligns perfectly even if icon changes
+        width: 24,
     },
     detailText: {
         fontSize: 14,
@@ -408,16 +496,16 @@ const styles = StyleSheet.create({
         paddingVertical: 4,
         borderRadius: 20,
     },
-    acceptedBadge: { backgroundColor: '#dcfce7' }, // Light Green
+    acceptedBadge: { backgroundColor: '#dcfce7' }, 
     acceptedText: { color: '#16a34a', fontWeight: '700', fontSize: 11 },
     
-    pendingBadge: { backgroundColor: '#fef9c3' }, // Light Yellow
+    pendingBadge: { backgroundColor: '#fef9c3' }, 
     pendingText: { color: '#ca8a04', fontWeight: '700', fontSize: 11 },
     
-    declinedBadge: { backgroundColor: '#fee2e2' }, // Light Red
+    declinedBadge: { backgroundColor: '#fee2e2' }, 
     declinedText: { color: '#dc2626', fontWeight: '700', fontSize: 11 },
     
-    defaultBadge: { backgroundColor: '#f3f4f6' }, // Grey
+    defaultBadge: { backgroundColor: '#f3f4f6' }, 
     defaultText: { color: '#6b7280', fontWeight: '700', fontSize: 11 },
 
     // Empty State
@@ -437,6 +525,118 @@ const styles = StyleSheet.create({
         color: '#9ca3af',
         marginTop: 8,
     },
-});
 
-export default MyBookings;
+    // --- TOAST NOTIFICATION STYLES ---
+    toastContainer: {
+        position: 'absolute',
+        top: 50, // Display at the top like the web snippet
+        alignSelf: 'center',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 14,
+        borderRadius: 12,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 10,
+        zIndex: 2000,
+        width: '90%',
+    },
+    toastContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    toastSuccess: { 
+        backgroundColor: '#1E293B', // Dark slate bg like snippet
+        borderWidth: 1,
+        borderColor: 'rgba(74, 222, 128, 0.5)', // Green border
+    }, 
+    toastError: { 
+        backgroundColor: '#1E293B', // Dark slate bg
+        borderWidth: 1,
+        borderColor: 'rgba(248, 113, 113, 0.5)', // Red border
+    },
+    toastText: {
+        color: '#fff',
+        fontWeight: '600',
+        marginLeft: 12,
+        fontSize: 14,
+        flex: 1, // Allow text to wrap if needed
+    },
+    toastCloseBtn: {
+        padding: 4,
+        marginLeft: 8,
+    },
+
+    // --- Confirmation Modal Styles ---
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    confirmModalBox: {
+        width: '80%',
+        backgroundColor: '#fff',
+        borderRadius: 20,
+        padding: 24,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 5,
+    },
+    confirmIconBg: {
+        width: 60,
+        height: 60,
+        backgroundColor: '#FEF2F2',
+        borderRadius: 30,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    confirmTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#1F2937',
+        marginBottom: 8,
+    },
+    confirmDesc: {
+        fontSize: 14,
+        color: '#6B7280',
+        textAlign: 'center',
+        marginBottom: 24,
+    },
+    confirmBtnRow: {
+        flexDirection: 'row',
+        gap: 12,
+        width: '100%',
+    },
+    modalBtn: {
+        flex: 1,
+        paddingVertical: 12,
+        borderRadius: 12,
+        alignItems: 'center',
+    },
+    modalBtnCancel: {
+        backgroundColor: '#F3F4F6',
+    },
+    modalBtnTextCancel: {
+        color: '#374151',
+        fontWeight: '600',
+        fontSize: 16,
+    },
+    modalBtnConfirm: {
+        backgroundColor: '#EF4444',
+    },
+    modalBtnTextConfirm: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: 16,
+    },
+});

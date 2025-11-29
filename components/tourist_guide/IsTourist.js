@@ -23,7 +23,9 @@ const IsTourist = () => {
 
     const fetchBookings = async () => {
         try {
-            const bookingRes = await api.get('/api/bookings/');
+            const bookingRes = await api.get('/api/bookings/', {
+                params: { view_as: 'guide' }
+            });
             setBookings(bookingRes.data);
         } catch (error) {
             console.error('Failed to fetch dashboard data:', error);
@@ -99,7 +101,6 @@ const IsTourist = () => {
         }
     };
 
-    // --- HELPER FOR DARK THEME STATUS PILLS ---
     const getStatusStyles = (status) => {
         switch (status) {
             case 'Pending':
@@ -115,11 +116,18 @@ const IsTourist = () => {
         }
     };
 
+    // --- 🔥 CALCULATE REAL STATS HERE ---
+    const totalBookings = bookings.length;
+    const pendingBookings = bookings.filter(b => b.status === 'Pending').length;
+    const completedBookings = bookings.filter(b => b.status === 'Completed').length;
+    // Assuming 'average_rating' exists on your user model, otherwise defaults to 0.0
+    const ratingValue = user?.average_rating ? parseFloat(user.average_rating).toFixed(1) : "0.0";
+
     const statsData = [
-        { label: "Total Bookings", value: "127", icon: "stats-chart", color: "#00C6FF", subtext: "All time" },
-        { label: "Active Queue", value: bookings.length, icon: "calendar", color: "#00E676", subtext: "Current requests" },
-        { label: "Completed", value: "15", icon: "checkmark-done-circle", color: "#FFD700", subtext: "Successful tours" },
-        { label: "Rating", value: "4.8", icon: "star", color: "#FFAB00", subtext: "Average" }
+        { label: "Total Bookings", value: totalBookings.toString(), icon: "stats-chart", color: "#00C6FF", subtext: "All time" },
+        { label: "Active Queue", value: pendingBookings.toString(), icon: "calendar", color: "#00E676", subtext: "Current requests" },
+        { label: "Completed", value: completedBookings.toString(), icon: "checkmark-done-circle", color: "#FFD700", subtext: "Successful tours" },
+        { label: "Rating", value: ratingValue, icon: "star", color: "#FFAB00", subtext: "Average" }
     ];
 
     return (
@@ -803,8 +811,6 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         fontSize: 14
     },
-
-    // --- TOAST & MODAL (UNCHANGED) ---
     toastContainer: { position: 'absolute', bottom: 40, left: 20, right: 20, borderRadius: 12, padding: 16, flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 10, zIndex: 1000 },
     toastSuccess: { backgroundColor: '#00c853' },
     toastError: { backgroundColor: '#ff5252' },

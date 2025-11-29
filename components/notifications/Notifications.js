@@ -18,10 +18,13 @@ const Notifications = () => {
         "New Booking Request": <Ionicons name="calendar-number-outline" size={28} color="#FF9500" />,
         "New Message": <Ionicons name="chatbubble-ellipses-outline" size={28} color="#0A2342" />,
         "Payment Successful": <FontAwesome5 name="money-check-alt" size={24} color="#007AFF" />,
-        "Warning from Admin": <FontAwesome5 name="exclamation-triangle" size={24} color="#FFA500" />,
         "Application Submitted": <Ionicons name="time-outline" size={28} color="#8E8E93" />,
         "How was your trip?": <Ionicons name="star-outline" size={28} color="#FF8C00" />,
         "You have a new review!": <Ionicons name="star-half-outline" size={28} color="#007AFF" />,
+        
+        // 🔥 UPDATED: Added "Content Warning" to match the Backend
+        "Content Warning": <FontAwesome5 name="exclamation-triangle" size={24} color="#FF3B30" />, 
+        "Warning from Admin": <FontAwesome5 name="exclamation-triangle" size={24} color="#FFA500" />,
     };
 
     const fetchNotifications = async () => {
@@ -74,8 +77,7 @@ const Notifications = () => {
             markAsRead(item.id);
         }
 
-        // --- DEBUG LOG ---
-        console.log(`DEBUG: Tapped notification. Title is: "${item.title}" (Length: ${item.title.length})`);
+        console.log(`DEBUG: Tapped notification. Title: "${item.title}"`);
 
         if (item.title === "How was your trip?") {
             router.push({
@@ -128,11 +130,15 @@ const Notifications = () => {
                 params: { partnerId, partnerName }
             });
         } 
-        else if (item.title === "Warning from Admin" || item.title === "Application Submitted") {
+        // 🔥 UPDATED: Handle "Content Warning" specifically
+        else if (item.title === "Content Warning" || item.title === "Warning from Admin") {
+            Alert.alert("⚠️ Administrative Warning", item.message);
+        }
+        else if (item.title === "Application Submitted") {
             Alert.alert(item.title, item.message);
         }
         else {
-            console.log('Generic notification pressed, showing alert:', item);
+            // Generic Fallback
             Alert.alert(item.title, item.message);
         }
     };

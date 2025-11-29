@@ -10,9 +10,6 @@ import {
     Dimensions 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
-
-const { width } = Dimensions.get('window');
 
 const BookingDetailsModal = ({ booking, visible, onClose }) => {
     if (!booking) return null;
@@ -27,11 +24,18 @@ const BookingDetailsModal = ({ booking, visible, onClose }) => {
     
     const typeLabel = isAccommodation ? 'Accommodation Stay' : 'Guided Tour';
 
-    // 2. Determine Image (Priority: Accomm Photo -> Guide Profile -> Fallback)
-    // Note: Ensure your backend sends full URLs for images, or prepend base URL if needed.
+    // 2. 🔥 FIX: Logic updated to include Destination Image
+    // Add this log right before your heroImage logic
     const heroImage = isAccommodation 
-        ? { uri: booking.accommodation_detail.photo } 
-        : (booking.guide_detail?.profile_picture ? { uri: booking.guide_detail.profile_picture } : null);
+    ? { uri: booking.accommodation_detail.photo } 
+    : (booking.destination_detail?.image // <--- This will now work!
+        ? { uri: booking.destination_detail.image } 
+        : (booking.guide_detail?.profile_picture 
+            ? { uri: booking.guide_detail.profile_picture } 
+            : null
+        )
+    );
+    
 
     // 3. Determine Provider Info
     const providerName = isAccommodation 
@@ -214,7 +218,6 @@ const styles = StyleSheet.create({
         elevation: 5,
         overflow: 'hidden',
     },
-    // Hero Image
     imageContainer: {
         height: 220,
         width: '100%',
@@ -254,8 +257,6 @@ const styles = StyleSheet.create({
         fontSize: 12,
         textTransform: 'uppercase',
     },
-    
-    // Content
     contentContainer: {
         padding: 20,
     },
@@ -280,8 +281,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#f0f0f0',
         marginVertical: 15,
     },
-
-    // Sections
     section: {
         marginBottom: 10,
     },
@@ -291,8 +290,6 @@ const styles = StyleSheet.create({
         color: '#333',
         marginBottom: 12,
     },
-    
-    // Provider
     providerRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -320,8 +317,6 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: '#888',
     },
-
-    // Details Grid
     detailRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -344,8 +339,6 @@ const styles = StyleSheet.create({
         color: '#333',
         fontWeight: '500',
     },
-
-    // Amenities
     amenitiesContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
@@ -368,8 +361,6 @@ const styles = StyleSheet.create({
         color: '#999',
         fontStyle: 'italic',
     },
-
-    // Price
     priceSection: {
         backgroundColor: '#f8f9fa',
         padding: 15,
@@ -397,8 +388,6 @@ const styles = StyleSheet.create({
         color: '#888',
         marginTop: 4,
     },
-
-    // Footer
     footer: {
         padding: 20,
         borderTopWidth: 1,
