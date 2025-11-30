@@ -5,7 +5,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import api from '../../../api/api';
 
-// A polished, modern custom checkbox
 const CustomCheckbox = ({ value, onValueChange }) => {
     return (
         <TouchableOpacity 
@@ -31,12 +30,13 @@ const OnboardingTerms = () => {
         setIsSubmitting(true);
         try {
             await api.post('/api/accept-terms/');
-            // Use replace to prevent user from going back to the onboarding flow
             router.replace('/(protected)/home');
-        } catch (error) {
+        } 
+        catch (error) {
             console.error("Failed to accept terms:", error);
             Alert.alert("Error", "An error occurred. Please try again.");
-        } finally {
+        } 
+        finally {
             setIsSubmitting(false);
         }
     };
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#555',
         lineHeight: 22,
-        textAlign: 'left', // Left aligned text is better for reading inside centered cards
+        textAlign: 'left',
     },
     footerContainer: {
         alignItems: 'center',

@@ -1,17 +1,5 @@
 import React, { useState } from 'react';
-import { 
-    View, 
-    Text, 
-    TextInput, 
-    TouchableOpacity, 
-    StyleSheet, 
-    ScrollView, 
-    Alert, 
-    Image, 
-    Platform,
-    ActivityIndicator,
-    KeyboardAvoidingView 
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Image, Platform,ActivityIndicator, KeyboardAvoidingView } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../../context/AuthContext';
@@ -26,12 +14,12 @@ const EditProfile = () => {
     const router = useRouter();
     
     const [isLoading, setIsLoading] = useState(false);
-    const [profileImage, setProfileImage] = useState(null); // New image picked by user
+    const [profileImage, setProfileImage] = useState(null);
 
     const { control, handleSubmit, formState: { errors } } = useForm({
         defaultValues: {
             first_name: user?.first_name || '',
-            middle_name: user?.middle_name || '', // Added Middle Name
+            middle_name: user?.middle_name || '',
             last_name: user?.last_name || '',
             phone_number: user?.phone_number || '',
             location: user?.location || '',
@@ -39,7 +27,6 @@ const EditProfile = () => {
         }
     });
 
-    // --- HELPER: IMAGE PICKER ---
     const pickImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
@@ -65,7 +52,6 @@ const EditProfile = () => {
         try {
             const formData = new FormData();
             
-            // Append Text Fields
             formData.append('first_name', data.first_name);
             formData.append('last_name', data.last_name);
             if (data.middle_name) formData.append('middle_name', data.middle_name);
@@ -73,7 +59,6 @@ const EditProfile = () => {
             formData.append('location', data.location);
             formData.append('bio', data.bio);
 
-            // Append Image only if a new one was selected
             if (profileImage) {
                 const filename = profileImage.split('/').pop();
                 const match = /\.(\w+)$/.exec(filename);
@@ -86,12 +71,10 @@ const EditProfile = () => {
                 });
             }
 
-            // Using direct API call for multipart support
             await api.patch('/api/profile/', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
 
-            // Update local context
             await refreshUser();
 
             Alert.alert("Success", "Profile updated successfully!", [
@@ -117,7 +100,6 @@ const EditProfile = () => {
             <SafeAreaView style={{ flex: 1, backgroundColor: '#F9FAFB' }}>
                 <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
                     
-                    {/* Header with Back Button */}
                     <View style={styles.header}>
                         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
                             <Ionicons name="arrow-back" size={24} color="#1F2937" />
@@ -126,7 +108,6 @@ const EditProfile = () => {
                         <View style={{ width: 40 }} /> 
                     </View>
 
-                    {/* Profile Image Section */}
                     <View style={styles.avatarContainer}>
                         <TouchableOpacity onPress={pickImage} style={styles.avatarWrapper}>
                             {displayImage ? (
@@ -145,7 +126,6 @@ const EditProfile = () => {
 
                     <View style={styles.formContainer}>
                         
-                        {/* First Name */}
                         <Text style={styles.label}>First Name</Text>
                         <Controller
                             control={control}
@@ -165,7 +145,6 @@ const EditProfile = () => {
                         />
                         {errors.first_name && <Text style={styles.errorText}>{errors.first_name.message}</Text>}
 
-                        {/* Middle Name */}
                         <Text style={styles.label}>Middle Name</Text>
                         <Controller
                             control={control}
@@ -183,7 +162,6 @@ const EditProfile = () => {
                             )}
                         />
 
-                        {/* Last Name */}
                         <Text style={styles.label}>Last Name</Text>
                         <Controller
                             control={control}
@@ -203,7 +181,6 @@ const EditProfile = () => {
                         />
                         {errors.last_name && <Text style={styles.errorText}>{errors.last_name.message}</Text>}
 
-                        {/* Phone */}
                         <Text style={styles.label}>Phone Number</Text>
                         <Controller
                             control={control}
@@ -222,7 +199,6 @@ const EditProfile = () => {
                             )}
                         />
 
-                        {/* Location */}
                         <Text style={styles.label}>Location</Text>
                         <Controller
                             control={control}
@@ -240,7 +216,6 @@ const EditProfile = () => {
                             )}
                         />
 
-                        {/* Bio */}
                         <Text style={styles.label}>Bio</Text>
                         <Controller
                             control={control}
@@ -261,7 +236,6 @@ const EditProfile = () => {
                             )}
                         />
 
-                        {/* Submit Button */}
                         <TouchableOpacity
                             style={styles.submitButtonContainer}
                             onPress={handleSubmit(onSubmit)}
@@ -313,8 +287,6 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#1F2937',
     },
-    
-    // Avatar
     avatarContainer: {
         alignItems: 'center',
         marginVertical: 25,
@@ -364,8 +336,6 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         borderColor: '#fff',
     },
-
-    // Form
     formContainer: {
         paddingHorizontal: 20,
         backgroundColor: '#fff',
@@ -415,8 +385,6 @@ const styles = StyleSheet.create({
         marginBottom: 10,
         marginLeft: 4,
     },
-
-    // Submit
     submitButtonContainer: {
         marginTop: 20,
         height: 50,

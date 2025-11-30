@@ -5,7 +5,6 @@ import { Ionicons } from '@expo/vector-icons';
 import api from '../../api/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Simple Star Rating Component
 const StarRating = ({ rating, onRate }) => {
     return (
         <View style={styles.starContainer}>
@@ -28,16 +27,10 @@ const ReviewModal = () => {
     const [booking, setBooking] = useState(null);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
-
-    // State for guide review
     const [guideRating, setGuideRating] = useState(0);
     const [guideComment, setGuideComment] = useState('');
-
-    // State for AGENCY review
     const [agencyRating, setAgencyRating] = useState(0);
     const [agencyComment, setAgencyComment] = useState('');
-
-    // State for destination review
     const [destinationRating, setDestinationRating] = useState(0);
     const [destinationComment, setDestinationComment] = useState('');
 
@@ -62,7 +55,6 @@ const ReviewModal = () => {
     const handleSubmit = async () => {
         const destinationToReview = booking?.destination || booking?.accommodation?.destination;
         
-        // Validation: Check if at least one rating (Guide OR Agency OR Destination) is provided
         const hasGuideRating = booking?.guide && guideRating > 0;
         const hasAgencyRating = booking?.agency && agencyRating > 0;
         const hasDestRating = destinationToReview && destinationRating > 0;
@@ -76,27 +68,24 @@ const ReviewModal = () => {
         try {
             const promises = [];
 
-            // 1. Submit GUIDE review if applicable
             if (booking.guide && guideRating > 0) {
                 promises.push(api.post('/api/reviews/', {
-                    reviewed_user: booking.guide, // This is the ID
+                    reviewed_user: booking.guide,
                     rating: guideRating,
                     comment: guideComment,
                     booking: bookingId,
                 }));
             }
 
-            // 2. Submit AGENCY review if applicable
             if (booking.agency && agencyRating > 0) {
                 promises.push(api.post('/api/reviews/', {
-                    reviewed_user: booking.agency, // This is the ID (Agency is also a User)
+                    reviewed_user: booking.agency,
                     rating: agencyRating,
                     comment: agencyComment,
                     booking: bookingId,
                 }));
             }
 
-            // 3. Submit DESTINATION review if applicable
             if (destinationToReview && destinationRating > 0) {
                 const destId = typeof destinationToReview === 'object' ? destinationToReview.id : destinationToReview;
                 promises.push(api.post('/api/destination_reviews/', {
@@ -138,7 +127,6 @@ const ReviewModal = () => {
                     </TouchableOpacity>
                 </View>
 
-                {/* --- GUIDE Review Section --- */}
                 {booking?.guide && (
                     <View style={styles.reviewSection}>
                         <Text style={styles.sectionTitle}>Review Your Guide</Text>
@@ -154,7 +142,6 @@ const ReviewModal = () => {
                     </View>
                 )}
 
-                {/* --- AGENCY Review Section --- */}
                 {booking?.agency && (
                     <View style={styles.reviewSection}>
                         <Text style={styles.sectionTitle}>Review Agency</Text>
@@ -170,7 +157,6 @@ const ReviewModal = () => {
                     </View>
                 )}
 
-                {/* --- DESTINATION Review Section --- */}
                 {destinationForReview && (
                     <View style={styles.reviewSection}>
                         <Text style={styles.sectionTitle}>Review the Destination</Text>

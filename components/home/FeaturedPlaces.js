@@ -3,7 +3,6 @@ import { View, Text, FlatList, Image, StyleSheet, TouchableOpacity, ActivityIndi
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
-// Assuming you have an api utility like in your web app, otherwise use axios directly
 import api from '../../api/api'; 
 
 import FallbackImage from '../../assets/localynk_images/featured1.png';
@@ -12,16 +11,13 @@ const FeaturedPlaces = ({ isPublic = false }) => {
     const router = useRouter();
     const { isAuthenticated } = useAuth();
     
-    // State for data and loading
     const [featuredDestinations, setFeaturedDestinations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeIndex, setActiveIndex] = useState(0);
 
-    // --- FETCH DATA ---
     useEffect(() => {
         const fetchFeatured = async () => {
             try {
-                // Fetch only items marked as "is_featured=true"
                 const response = await api.get('api/destinations/?is_featured=true');
                 setFeaturedDestinations(response.data);
             } catch (error) {
@@ -48,7 +44,6 @@ const FeaturedPlaces = ({ isPublic = false }) => {
                 pathname: "/(protected)/placesDetails",
                 params: {
                     id: item.id.toString(),
-                    // Use the 'image' field from DestinationListSerializer (which handles the absolute URL)
                     image: item.image || '', 
                 },
             });
@@ -56,7 +51,6 @@ const FeaturedPlaces = ({ isPublic = false }) => {
     };
 
     const renderCard = ({ item, index }) => {
-        // Handle Image: API provides 'image' (single URL) or we use fallback
         const imageSource = item.image 
             ? { uri: item.image } 
             : FallbackImage;
@@ -105,7 +99,7 @@ const FeaturedPlaces = ({ isPublic = false }) => {
     }
 
     if (!featuredDestinations || featuredDestinations.length === 0) {
-        return null; // Or return a "No featured places" text
+        return null;
     }
 
     return (
@@ -125,7 +119,7 @@ const FeaturedPlaces = ({ isPublic = false }) => {
                 contentContainerStyle={styles.featureList}
                 scrollEventThrottle={16}
                 onScroll={handleScroll}
-                snapToInterval={192} // 180 width + 12 margin
+                snapToInterval={192}
                 decelerationRate="fast"
                 renderItem={renderCard}
             />

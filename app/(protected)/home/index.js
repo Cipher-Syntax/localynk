@@ -18,14 +18,14 @@ const Home = () => {
                 api.get('/api/alerts/unread-count/')
             ]);
 
-            console.log("API: Success. Items found:", destinationsRes.data?.length || "Unknown structure");
-
             let safeDestinations = [];
             if (Array.isArray(destinationsRes.data)) {
                 safeDestinations = destinationsRes.data;
-            } else if (destinationsRes.data?.results && Array.isArray(destinationsRes.data.results)) {
+            } 
+            else if (destinationsRes.data?.results && Array.isArray(destinationsRes.data.results)) {
                 safeDestinations = destinationsRes.data.results;
-            } else if (destinationsRes.data?.data && Array.isArray(destinationsRes.data.data)) {
+            } 
+            else if (destinationsRes.data?.data && Array.isArray(destinationsRes.data.data)) {
                 safeDestinations = destinationsRes.data.data;
             }
 
@@ -35,10 +35,11 @@ const Home = () => {
                 setUnreadCount(unreadRes.data.unread_count);
             }
 
-        } catch (error) {
-            console.error("API ERROR: Fetch failed", error);
-            // setDestinations([]); 
-        } finally {
+        } 
+        catch (error) {
+            setDestinations([]); 
+        }
+        finally {
             setLoading(false);
             setRefreshing(false);
         }

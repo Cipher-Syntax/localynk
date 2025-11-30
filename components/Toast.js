@@ -6,18 +6,16 @@ const { width } = Dimensions.get('window');
 
 export default function Toast() {
     const { message, messageType, clearMessage } = useAuth();
-    const slideAnim = React.useRef(new Animated.Value(-100)).current; // start above screen
+    const slideAnim = React.useRef(new Animated.Value(-100)).current;
 
     useEffect(() => {
         if (message) {
-            // Slide in
             Animated.timing(slideAnim, {
                 toValue: 30,
                 duration: 300,
                 useNativeDriver: true,
             }).start();
 
-            // Auto hide after 3 seconds
             const timer = setTimeout(() => {
                 Animated.timing(slideAnim, {
                     toValue: -100,
@@ -32,7 +30,7 @@ export default function Toast() {
 
     if (!message) return null;
 
-    let backgroundColor = '#007AFF'; // default info
+    let backgroundColor = '#007AFF';
     if (messageType === 'error') backgroundColor = '#FF4D4F';
     else if (messageType === 'success') backgroundColor = '#4BB543';
 

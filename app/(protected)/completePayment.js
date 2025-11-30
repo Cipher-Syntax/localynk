@@ -93,7 +93,6 @@ const CompletePayment = () => {
                 </View>
 
                 <View style={styles.contentContainer}>
-                    {/* Guide Info (Read-only) */}
                     <View style={styles.guideInfoCard}>
                         <View style={styles.guideHeader}>
                             <View style={styles.guideIcon}>
@@ -107,7 +106,6 @@ const CompletePayment = () => {
                         </View>
                     </View>
 
-                    {/*Dates (Read-only) */}
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Booking Dates (Confirmed)</Text>
                         <View style={styles.dateRow}>
@@ -122,7 +120,6 @@ const CompletePayment = () => {
                         </View>
                     </View>
 
-                    {/* Booking Type (Read-only) */}
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Booking Type (Confirmed)</Text>
                         <ReadOnlyField label="Type" value={bookingData.selectedOption === 'group' ? 'Group' : 'Solo'} />
@@ -131,7 +128,6 @@ const CompletePayment = () => {
                         )}
                     </View>
                     
-                    {/*Price Breakdown (Read-only) */}
                     <View style={styles.priceCard}>
                         <View style={styles.priceRow}>
                             <Text style={styles.priceLabel}>Base Price</Text>
@@ -163,7 +159,6 @@ const CompletePayment = () => {
                         </View>
                     </View>
 
-                    {/* Billing Info (Read-only) */}
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Billing Information</Text>
                         <ReadOnlyRow>
@@ -177,7 +172,6 @@ const CompletePayment = () => {
                         <ReadOnlyField label="Email" value={bookingData.billingInfo.email} />
                     </View>
 
-                    {/* The only interactive part */}
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Payment Options</Text>
                         <TouchableOpacity

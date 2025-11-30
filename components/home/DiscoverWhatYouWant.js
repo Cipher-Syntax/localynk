@@ -1,26 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-    View, 
-    Text, 
-    Image, 
-    StyleSheet, 
-    Animated, 
-    TouchableOpacity, 
-    Easing,
-    Platform
-} from 'react-native';
+import { View, Text, Image, StyleSheet, Animated, TouchableOpacity, Easing, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../context/AuthContext';
 
-// Import images
 import DiscoverPlace1 from '../../assets/localynk_images/discover1.png';
 import DiscoverPlace2 from '../../assets/localynk_images/discover2.png';
 import DiscoverPlace3 from '../../assets/localynk_images/discover3.png';
 import DiscoverPlace4 from '../../assets/localynk_images/discover4.png';
 
-// Create Animated Touchable component
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 const DiscoverWhatYouWant = ({ isPublic = false }) => {
@@ -28,7 +17,6 @@ const DiscoverWhatYouWant = ({ isPublic = false }) => {
     const { isAuthenticated } = useAuth();
     const [isActive, setIsActive] = useState(2);
 
-    // Animation values
     const bounceValue = useRef(new Animated.Value(0)).current;
 
     const items = [
@@ -38,32 +26,29 @@ const DiscoverWhatYouWant = ({ isPublic = false }) => {
         { id: 4, image: DiscoverPlace4, name: 'ISLANDS', touristGuide: "Doe", subtitle: "Tropical Escapes" },
     ];
 
-    // Initialize flex values
     const flexAnimations = useRef(
         items.map(item => new Animated.Value(item.id === 2 ? 4 : 1))
     ).current;
 
-    // Handle Flex Expansion Animation
     useEffect(() => {
         const animations = items.map((item, index) => {
             return Animated.timing(flexAnimations[index], {
                 toValue: item.id === isActive ? 4 : 1,
                 duration: 500,
-                easing: Easing.out(Easing.cubic), // Slightly smoother easing
+                easing: Easing.out(Easing.cubic),
                 useNativeDriver: false,
             });
         });
         Animated.parallel(animations).start();
     }, [isActive]);
 
-    // Handle Arrow Bounce Animation
     useEffect(() => {
         const startBounce = () => {
             bounceValue.setValue(0);
             Animated.loop(
                 Animated.sequence([
                     Animated.timing(bounceValue, {
-                        toValue: -8, // Slightly subtler bounce
+                        toValue: -8, 
                         duration: 500,
                         easing: Easing.inOut(Easing.ease),
                         useNativeDriver: true,

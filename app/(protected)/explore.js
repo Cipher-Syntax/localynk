@@ -1,5 +1,4 @@
 import { View, Text, ScrollView, ActivityIndicator, StyleSheet } from "react-native";
-// import ExplorePlaces from "../../components/explore/ExplorePlaces"; // Corrected import path
 import { ExplorePlaces } from '../../components/explore'
 import React, { useState, useEffect } from 'react';
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -20,11 +19,11 @@ export default function Explore() {
         );
     }
     return (
-        <ScrollView style={{ flex: 1 }}>
+        <View style={{ flex: 1 }}>
             <SafeAreaView style={{ flex: 1 }}>
                 <ExplorePlaces />
             </SafeAreaView>
-        </ScrollView>
+        </View>
     );
 }
 

@@ -14,21 +14,17 @@ import { Ionicons } from '@expo/vector-icons';
 const BookingDetailsModal = ({ booking, visible, onClose }) => {
     if (!booking) return null;
 
-    // --- Helper Logic to Extract Data based on Booking Type ---
     const isAccommodation = !!booking.accommodation_detail;
     
-    // 1. Determine Title & Type
     const title = isAccommodation 
         ? booking.accommodation_detail.title 
         : (booking.destination_detail?.name ? `${booking.destination_detail.name} Tour` : 'Custom Tour');
     
     const typeLabel = isAccommodation ? 'Accommodation Stay' : 'Guided Tour';
 
-    // 2. 🔥 FIX: Logic updated to include Destination Image
-    // Add this log right before your heroImage logic
     const heroImage = isAccommodation 
     ? { uri: booking.accommodation_detail.photo } 
-    : (booking.destination_detail?.image // <--- This will now work!
+    : (booking.destination_detail?.image 
         ? { uri: booking.destination_detail.image } 
         : (booking.guide_detail?.profile_picture 
             ? { uri: booking.guide_detail.profile_picture } 
@@ -37,14 +33,12 @@ const BookingDetailsModal = ({ booking, visible, onClose }) => {
     );
     
 
-    // 3. Determine Provider Info
     const providerName = isAccommodation 
         ? booking.accommodation_detail.host_full_name 
         : (booking.guide_detail ? `${booking.guide_detail.first_name} ${booking.guide_detail.last_name}` : booking.agency_detail?.username);
 
     const providerRole = isAccommodation ? 'Host' : (booking.guide_detail ? 'Local Guide' : 'Agency');
 
-    // 4. Status Color Helper
     const getStatusColor = (status) => {
         switch(status?.toLowerCase()) {
             case 'accepted': return '#28a745';
@@ -65,7 +59,6 @@ const BookingDetailsModal = ({ booking, visible, onClose }) => {
             <View style={styles.centeredView}>
                 <View style={styles.modalView}>
                     
-                    {/* --- HERO IMAGE SECTION --- */}
                     <View style={styles.imageContainer}>
                         {heroImage ? (
                             <Image source={heroImage} style={styles.heroImage} resizeMode="cover" />
@@ -75,12 +68,10 @@ const BookingDetailsModal = ({ booking, visible, onClose }) => {
                             </View>
                         )}
                         
-                        {/* Status Badge Overlay */}
                         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(booking.status) }]}>
                             <Text style={styles.statusText}>{booking.status}</Text>
                         </View>
 
-                        {/* Close Button Overlay */}
                         <TouchableOpacity style={styles.closeButton} onPress={onClose}>
                             <View style={styles.closeButtonBlur}>
                                 <Ionicons name="close" size={22} color="#000" />
@@ -88,10 +79,8 @@ const BookingDetailsModal = ({ booking, visible, onClose }) => {
                         </TouchableOpacity>
                     </View>
 
-                    {/* --- SCROLLABLE CONTENT --- */}
                     <ScrollView contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
                         
-                        {/* Header Info */}
                         <Text style={styles.title}>{title}</Text>
                         <View style={styles.locationRow}>
                             <Ionicons name="location-sharp" size={16} color="#00A8FF" />
@@ -102,7 +91,6 @@ const BookingDetailsModal = ({ booking, visible, onClose }) => {
 
                         <View style={styles.divider} />
 
-                        {/* Provider Section */}
                         <View style={styles.section}>
                             <Text style={styles.sectionHeader}>Service Provider</Text>
                             <View style={styles.providerRow}>
@@ -118,7 +106,6 @@ const BookingDetailsModal = ({ booking, visible, onClose }) => {
 
                         <View style={styles.divider} />
 
-                        {/* Booking Details Grid */}
                         <View style={styles.section}>
                             <Text style={styles.sectionHeader}>Booking Details</Text>
                             
@@ -174,7 +161,6 @@ const BookingDetailsModal = ({ booking, visible, onClose }) => {
 
                         <View style={styles.divider} />
 
-                        {/* Price Section */}
                         <View style={styles.priceSection}>
                             <View style={styles.priceRow}>
                                 <Text style={styles.priceLabel}>Total Price</Text>

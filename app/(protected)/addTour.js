@@ -1,8 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-    ScrollView, StatusBar, View, Text, Image, StyleSheet, TextInput, 
-    TouchableOpacity, Alert, ActivityIndicator, Modal, FlatList, Platform, Dimensions 
-} from 'react-native';
+import { ScrollView, StatusBar, View, Text, Image, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, Modal, FlatList, Platform, Dimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
@@ -21,20 +18,16 @@ const AddTour = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [currentStep, setCurrentStep] = useState(1);
 
-    // --- Data Sources ---
     const [destinations, setDestinations] = useState([]);
     const [accommodations, setAccommodations] = useState([]); 
     const [isFetchingData, setIsFetchingData] = useState(true);
     
-    // --- Selection States ---
     const [selectedDest, setSelectedDest] = useState(null); 
     const [destModalVisible, setDestModalVisible] = useState(false);
 
-    // --- Tour Data State ---
-    const [featuredPlaces, setFeaturedPlaces] = useState([null]); // Image URIs
-    const [placeNames, setPlaceNames] = useState(['']); // Text Names
+    const [featuredPlaces, setFeaturedPlaces] = useState([null]); 
+    const [placeNames, setPlaceNames] = useState(['']); 
 
-    // --- Timeline State ---
     const [timeline, setTimeline] = useState([]); 
     const [tempTimelineRow, setTempTimelineRow] = useState({
         startTime: '',
@@ -53,7 +46,6 @@ const AddTour = () => {
         additionalPerHeadPerDay: '',
     });
 
-    // --- Initial Fetch ---
     useEffect(() => {
         fetchInitialData();
     }, []);
@@ -74,7 +66,6 @@ const AddTour = () => {
         }
     };
 
-    // --- Logic Helpers ---
     const pickImage = async (index) => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') return Alert.alert('Permission required');
@@ -143,7 +134,6 @@ const AddTour = () => {
         setTimeline(newTimeline);
     };
 
-    // --- Navigation Logic ---
     const validateStep = (step) => {
         if (step === 1) {
             if (!selectedDest || !formData.name || !formData.description) {
@@ -172,7 +162,6 @@ const AddTour = () => {
         scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     };
 
-    // --- Final Submit ---
     const handleFinalSubmit = async () => {
         if (!validateStep(3)) return;
         setIsLoading(true);
@@ -212,15 +201,16 @@ const AddTour = () => {
             if (response.status === 201) {
                 Alert.alert("Success", "Tour Created Successfully!", [{ text: "OK", onPress: () => router.back() }]);
             }
-        } catch (error) {
+        } 
+        catch (error) {
             console.error("Submit Error:", error);
             Alert.alert("Error", "Failed to create tour.");
-        } finally {
+        } 
+        finally {
             setIsLoading(false);
         }
     };
 
-    // --- Render Steps ---
     const renderProgressBar = () => (
         <View style={styles.progressContainer}>
             <View style={styles.progressInner}>
@@ -241,7 +231,6 @@ const AddTour = () => {
             <Text style={styles.stepTitle}>The Essentials</Text>
             <Text style={styles.stepSubtitle}>Where are you taking them?</Text>
 
-            {/* Destination Selector */}
             <Text style={styles.label}>Destination</Text>
             <TouchableOpacity style={styles.dropdownSelector} onPress={() => setDestModalVisible(true)}>
                 <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
@@ -325,7 +314,6 @@ const AddTour = () => {
                     </View>
                 ))}
                 
-                {/* Add New Stop Button */}
                 <TouchableOpacity style={styles.addStopButton} onPress={addPlace}>
                     <Ionicons name="add-circle" size={30} color="#0072FF" />
                     <Text style={styles.addStopText}>Add Another Stop</Text>
@@ -347,7 +335,6 @@ const AddTour = () => {
             <Text style={styles.stepTitle}>Pricing & Schedule</Text>
             <Text style={styles.stepSubtitle}>Finalize the itinerary.</Text>
 
-            {/* Pricing Section */}
             <View style={styles.pricingCard}>
                 <View style={styles.row}>
                     <View style={{ flex: 1, marginRight: 10 }}>
@@ -379,11 +366,9 @@ const AddTour = () => {
                 </View>
             </View>
 
-            {/* Timeline Builder */}
             <Text style={[styles.label, { marginTop: 25 }]}>Itinerary Builder</Text>
             <View style={styles.builderContainer}>
                 
-                {/* Inputs Row */}
                 <View style={styles.row}>
                     <TextInput 
                         style={[styles.inputSmall, {flex: 1, marginRight: 5}]} 
@@ -399,7 +384,6 @@ const AddTour = () => {
                     />
                 </View>
 
-                {/* Activity Picker */}
                 <View style={styles.pickerWrapper}>
                     <Picker
                         selectedValue={tempTimelineRow.selectedActivityIndex}
@@ -422,7 +406,6 @@ const AddTour = () => {
                     <Text style={styles.addTimeBtnText}>+ Add to Schedule</Text>
                 </TouchableOpacity>
 
-                {/* Timeline Visualization */}
                 <View style={styles.timelineList}>
                     {timeline.length === 0 ? (
                         <Text style={styles.emptyTimelineText}>No activities added yet.</Text>
@@ -453,7 +436,6 @@ const AddTour = () => {
             <StatusBar barStyle="dark-content" />
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
                 
-                {/* Header */}
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                         <Ionicons name="arrow-back" size={24} color="#1F2937" />
@@ -474,7 +456,6 @@ const AddTour = () => {
                     {currentStep === 3 && renderStep3()}
                 </ScrollView>
 
-                {/* Footer Navigation */}
                 <View style={[styles.footer, { paddingBottom: insets.bottom + 20 }]}>
                     {currentStep > 1 && (
                         <TouchableOpacity style={styles.secondaryButton} onPress={prevStep}>
@@ -506,7 +487,6 @@ const AddTour = () => {
 
             </SafeAreaView>
 
-            {/* Destination Modal */}
             <Modal visible={destModalVisible} animationType="slide" transparent={true}>
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
@@ -542,7 +522,6 @@ export default AddTour;
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F9FAFB' },
     
-    // Header
     header: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
         paddingHorizontal: 20, paddingVertical: 15, backgroundColor: '#fff',
@@ -550,7 +529,6 @@ const styles = StyleSheet.create({
     },
     headerTitleText: { fontSize: 18, fontWeight: '700', color: '#1F2937' },
 
-    // Progress Bar
     progressContainer: { backgroundColor: '#fff', paddingVertical: 20, marginBottom: 10 },
     progressInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: '100%' },
     stepDot: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', zIndex: 2 },
@@ -560,13 +538,11 @@ const styles = StyleSheet.create({
     stepLine: { width: 60, height: 3, backgroundColor: '#E5E7EB', marginHorizontal: 4, borderRadius: 2 },
     stepLineActive: { backgroundColor: '#0072FF' },
 
-    // Step Layouts
     stepContainer: { padding: 20 },
     stepTitle: { fontSize: 24, fontWeight: '800', color: '#1F2937', marginBottom: 5 },
     stepSubtitle: { fontSize: 14, color: '#6B7280', marginBottom: 25 },
     row: { flexDirection: 'row', alignItems: 'center' },
     
-    // Inputs & Labels
     label: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8, marginTop: 15 },
     labelSmall: { fontSize: 12, fontWeight: '600', color: '#6B7280', marginBottom: 5 },
     input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, paddingHorizontal: 15, paddingVertical: 12, fontSize: 15, color: '#1F2937' },
@@ -576,7 +552,6 @@ const styles = StyleSheet.create({
     dropdownTextPlaceholder: { color: '#9CA3AF', fontSize: 15 },
     dropdownTextSelected: { color: '#1F2937', fontSize: 15, fontWeight: '600' },
 
-    // Step 2: Stops Grid
     gridContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
     gridItemCard: { width: (width - 50) / 2, backgroundColor: '#fff', borderRadius: 12, padding: 8, borderWidth: 1, borderColor: '#E5E7EB' },
     imageUploadSmall: { height: 100, backgroundColor: '#F3F4F6', borderRadius: 8, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', marginBottom: 8 },
@@ -586,7 +561,6 @@ const styles = StyleSheet.create({
     addStopButton: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 15, marginTop: 10, borderStyle: 'dashed', borderWidth: 1, borderColor: '#0072FF', borderRadius: 12, backgroundColor: '#EFF6FF' },
     addStopText: { color: '#0072FF', fontWeight: '600', marginLeft: 8 },
 
-    // Step 3: Pricing & Builder
     pricingCard: { backgroundColor: '#fff', padding: 15, borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB' },
     priceInputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9FAFB', borderRadius: 8, paddingHorizontal: 10 },
     currency: { fontSize: 16, fontWeight: '700', color: '#9CA3AF', marginRight: 5 },
@@ -606,7 +580,6 @@ const styles = StyleSheet.create({
     timelineContent: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F3F4F6', padding: 10, borderRadius: 8 },
     activityName: { fontSize: 13, fontWeight: '600', color: '#1F2937' },
 
-    // Footer
     footer: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#F3F4F6', padding: 20, flexDirection: 'row', gap: 15, elevation: 10 },
     secondaryButton: { paddingHorizontal: 20, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F3F4F6', borderRadius: 12, height: 50 },
     secondaryButtonText: { fontSize: 16, fontWeight: '600', color: '#4B5563' },
@@ -614,7 +587,6 @@ const styles = StyleSheet.create({
     gradientBtn: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     primaryButtonText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 
-    // Modal
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
     modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '70%' },
     modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 15, textAlign: 'center' },

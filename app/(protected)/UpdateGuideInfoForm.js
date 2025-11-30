@@ -1,20 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-    View, 
-    Text, 
-    TextInput, 
-    Alert, 
-    ScrollView, 
-    StyleSheet, 
-    TouchableOpacity, 
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    Keyboard
-} from 'react-native';
+import { View, Text, TextInput, Alert, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator,KeyboardAvoidingView,Platform,Keyboard} from 'react-native';
 import api from '../../api/api'; 
 import { Calendar } from 'react-native-calendars';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'; // <--- Added Hook
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker'; 
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'expo-router';
@@ -36,21 +24,15 @@ const SPECIALTY_OPTIONS = [
 const UpdateGuideInfoForm = () => {
     const router = useRouter();
     const { user, isLoading: authLoading } = useAuth();
-    const insets = useSafeAreaInsets(); // <--- Get safe area values
-    
+    const insets = useSafeAreaInsets(); 
     const [isSubmitting, setIsSubmitting] = useState(false);
-    
     const [languages, setLanguages] = useState([]);
-    
     const [selectedSpecialty, setSelectedSpecialty] = useState(SPECIALTY_OPTIONS[0]);
     const [customSpecialty, setCustomSpecialty] = useState('');
-
     const [experience, setExperience] = useState('');
     const [price, setPrice] = useState('');
-    
     const [availableDays, setAvailableDays] = useState([]);
     const [markedDates, setMarkedDates] = useState({});
-
     const daysOptions = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const dayMapping = { 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6, 'Sun': 0 };
 
@@ -63,9 +45,11 @@ const UpdateGuideInfoForm = () => {
     const populateForm = (data) => {
         if (Array.isArray(data.languages)) {
             setLanguages(data.languages);
-        } else if (typeof data.languages === 'string' && data.languages.length > 0) {
+        } 
+        else if (typeof data.languages === 'string' && data.languages.length > 0) {
             setLanguages(data.languages.split(',').map(l => l.trim()));
-        } else {
+        } 
+        else {
             setLanguages([]);
         }
 
@@ -78,7 +62,8 @@ const UpdateGuideInfoForm = () => {
             if (SPECIALTY_OPTIONS.includes(incomingSpecialty)) {
                 setSelectedSpecialty(incomingSpecialty);
                 setCustomSpecialty('');
-            } else {
+            } 
+            else {
                 setSelectedSpecialty('Other');
                 setCustomSpecialty(incomingSpecialty);
             }
@@ -94,7 +79,8 @@ const UpdateGuideInfoForm = () => {
     const toggleDay = (day) => {
         if (availableDays.includes(day)) {
             setAvailableDays(availableDays.filter(d => d !== day));
-        } else {
+        } 
+        else {
             setAvailableDays([...availableDays, day]);
         }
     };
@@ -105,7 +91,8 @@ const UpdateGuideInfoForm = () => {
 
         if (newMarkedDates[dateString]) {
             delete newMarkedDates[dateString];
-        } else {
+        } 
+        else {
             newMarkedDates[dateString] = { selected: true, marked: true, selectedColor: '#007AFF' };
         }
         setMarkedDates(newMarkedDates);
@@ -365,7 +352,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: '#F2F4F7'
     },
-    // --- Header ---
     headerContainer: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -387,10 +373,8 @@ const styles = StyleSheet.create({
 
     scrollContent: {
         padding: 20,
-        paddingBottom: 150, // INCREASED: Ensures content scrolls above the footer + nav bar
+        paddingBottom: 150,
     },
-    
-    // --- Cards ---
     card: {
         backgroundColor: '#fff',
         borderRadius: 12,
@@ -430,8 +414,6 @@ const styles = StyleSheet.create({
         color: '#6B7280',
         marginBottom: 12,
     },
-    
-    // --- Inputs ---
     input: {
         borderWidth: 1,
         borderColor: '#E5E7EB',
@@ -459,8 +441,6 @@ const styles = StyleSheet.create({
         width: '100%',
         height: 50,
     },
-
-    // --- Membership Styles ---
     statusBox: {
         backgroundColor: '#F0F9FF',
         padding: 10,
@@ -495,8 +475,6 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '700',
     },
-
-    // --- Availability ---
     daysContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
@@ -528,8 +506,6 @@ const styles = StyleSheet.create({
         borderColor: '#E5E7EB',
         borderRadius: 8,
     },
-
-    // --- FOOTER ---
     footer: {
         position: 'absolute',
         bottom: 0,
@@ -538,7 +514,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         paddingHorizontal: 20,
         paddingTop: 15,
-        // paddingBottom is handled inline based on insets
         flexDirection: 'row',
         gap: 15,
         borderTopWidth: 1,

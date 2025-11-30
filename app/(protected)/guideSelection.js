@@ -78,20 +78,12 @@ const GuideSelection = () => {
     };
 
     const handleChooseGuide = (guide) => {
-        // --- DEBUG LOGS ---
-        console.log("--- BOOKING CHECK ---");
-        console.log(`Logged In ID: ${user?.id} | Guide ID: ${guide.id}`);
-
-        // 1. Comparison Logic
-        // Since your User model holds the guide info, guide.id IS the user ID.
-        // We convert both to strings to be safe (e.g. "45" vs 45).
         if (user && guide && String(user.id) === String(guide.id)) {
             console.log("MATCH DETECTED! You cannot book yourself.");
             setErrorModalVisible(true);
-            return; // <--- This stops the navigation
+            return;
         }
 
-        // 2. Proceed if different
         router.push({
             pathname: "/(protected)/guideAvailability",
             params: { 
@@ -219,7 +211,6 @@ const GuideSelection = () => {
                 </View>
             </ScrollView>
 
-            {/* --- ERROR MODAL --- */}
             <Modal
                 animationType="fade"
                 transparent={true}
@@ -295,7 +286,6 @@ const styles = StyleSheet.create({
     buttonContainer: { alignItems: 'center' },
     bookButton: { backgroundColor: '#00C6FF', color: '#fff', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, fontSize: 14, fontWeight: '700', textAlign: 'center', width: '100%', overflow: 'hidden' },
 
-    // --- MODAL STYLES ---
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',

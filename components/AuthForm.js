@@ -1,18 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    View, 
-    Text, 
-    TextInput, 
-    TouchableOpacity, 
-    ImageBackground, 
-    StyleSheet, 
-    Dimensions, 
-    Alert, 
-    KeyboardAvoidingView, 
-    Platform,
-    TouchableWithoutFeedback,
-    Keyboard
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ImageBackground, StyleSheet, Dimensions,  Alert, KeyboardAvoidingView, Platform,TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useForm, Controller } from 'react-hook-form';
@@ -22,13 +9,11 @@ import { useAuth } from '../context/AuthContext';
 const { width, height } = Dimensions.get('window');
 
 const AuthForm = ({ method }) => {
-    // --- Context Hook ---
     const { login, register, resendVerificationEmail, message, messageType, clearMessage } = useAuth(); 
 
     const { control, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm();
     const [remember, setRemember] = useState(false);
     
-    // --- STATE FOR PASSWORD VISIBILITY ---
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -42,7 +27,7 @@ const AuthForm = ({ method }) => {
     const subtitleText = method === 'login' ? 'Continue your adventure' : 'Join the community of explorers';
 
     useEffect(() => {
-        // Optional clear on mount
+        
     }, []); 
 
     const onSubmit = async (data) => {
@@ -88,7 +73,6 @@ const AuthForm = ({ method }) => {
         await resendVerificationEmail(usernameOrEmail);
     };
 
-    // Helper to render input with icon
     const renderInput = (controlName, placeholder, iconName, isPassword = false, showPassState = false, setShowPassState = null, rules = {}) => (
         <View style={styles.inputWrapper}>
             <Controller
@@ -126,7 +110,6 @@ const AuthForm = ({ method }) => {
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
             <View style={styles.container}>
                 <ImageBackground source={bgImage} style={styles.bgImage} resizeMode="cover">
-                    {/* Gradient Overlay for text readability */}
                     <LinearGradient
                         colors={['rgba(0,0,0,0.1)', 'rgba(15, 23, 42, 0.85)']}
                         style={styles.gradientOverlay}
@@ -137,16 +120,13 @@ const AuthForm = ({ method }) => {
                         >
                             <View style={styles.contentContainer}>
                                 
-                                {/* Header Section */}
                                 <View style={styles.headerContainer}>
                                     <Text style={styles.welcomeText}>{titleText}</Text>
                                     <Text style={styles.subtitleText}>{subtitleText}</Text>
                                 </View>
 
-                                {/* Form Section */}
                                 <View style={styles.formCard}>
                                     
-                                    {/* Messages */}
                                     {message ? (
                                         <View style={[styles.messageBox, messageType === 'error' ? styles.msgError : styles.msgSuccess]}>
                                             <Text style={[styles.messageText, messageType === 'error' ? {color:'#EF4444'} : {color:'#10B981'}]}>
@@ -160,7 +140,6 @@ const AuthForm = ({ method }) => {
                                         </View>
                                     ) : null}
 
-                                    {/* Inputs */}
                                     {renderInput('username', 'Username', 'user', false, null, null, { required: 'Username is required' })}
                                     
                                     {method === 'register' && renderInput('email', 'Email Address', 'envelope', false, null, null, { 
@@ -178,7 +157,6 @@ const AuthForm = ({ method }) => {
                                         validate: (val) => val === watch('password') || 'Passwords do not match'
                                     })}
 
-                                    {/* Login Extras */}
                                     {method === 'login' && (
                                         <View style={styles.optionsRow}>
                                             <TouchableOpacity 
@@ -198,7 +176,6 @@ const AuthForm = ({ method }) => {
                                         </View>
                                     )}
 
-                                    {/* Submit Button */}
                                     <TouchableOpacity
                                         style={styles.mainButtonShadow}
                                         onPress={handleSubmit(onSubmit)}
@@ -217,7 +194,6 @@ const AuthForm = ({ method }) => {
                                         </LinearGradient>
                                     </TouchableOpacity>
 
-                                    {/* Social & Switch */}
                                     <View style={styles.footerContainer}>
                                         <View style={styles.dividerRow}>
                                             <View style={styles.divider} />
@@ -271,7 +247,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
 
-    // Header
     headerContainer: {
         width: '100%',
         marginBottom: 25,
@@ -293,7 +268,6 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
 
-    // Card
     formCard: {
         width: '100%',
         backgroundColor: '#FFFFFF',
@@ -307,12 +281,11 @@ const styles = StyleSheet.create({
         elevation: 10,
     },
 
-    // Inputs
     inputWrapper: { marginBottom: 15 },
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#F1F5F9', // Light gray background
+        backgroundColor: '#F1F5F9',
         borderRadius: 16,
         height: 56,
         paddingHorizontal: 15,
@@ -346,7 +319,6 @@ const styles = StyleSheet.create({
         fontWeight: '500'
     },
 
-    // Messages
     messageBox: {
         padding: 12,
         borderRadius: 12,
@@ -360,7 +332,6 @@ const styles = StyleSheet.create({
     messageText: { fontSize: 13, textAlign: 'center', fontWeight: '600' },
     resendText: { color: '#0072FF', fontWeight: 'bold', marginTop: 5, textDecorationLine: 'underline' },
 
-    // Options Row (Login)
     optionsRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -386,7 +357,6 @@ const styles = StyleSheet.create({
     rememberText: { color: '#64748B', fontSize: 14, fontWeight: '500' },
     forgotText: { color: '#0072FF', fontSize: 14, fontWeight: '600' },
 
-    // Main Button
     mainButtonShadow: {
         shadowColor: '#0072FF',
         shadowOffset: { width: 0, height: 8 },
@@ -409,7 +379,6 @@ const styles = StyleSheet.create({
         marginRight: 10,
     },
 
-    // Footer / Social
     footerContainer: { marginTop: 25, alignItems: 'center' },
     dividerRow: { flexDirection: 'row', alignItems: 'center', width: '100%', marginBottom: 20 },
     divider: { flex: 1, height: 1, backgroundColor: '#E2E8F0' },
@@ -434,7 +403,6 @@ const styles = StyleSheet.create({
         marginLeft: 12,
     },
 
-    // Switch Login/Register
     switchContainer: { flexDirection: 'row', alignItems: 'center' },
     switchText: { color: '#64748B', fontSize: 15 },
     switchLink: { color: '#0072FF', fontSize: 15, fontWeight: '700' },

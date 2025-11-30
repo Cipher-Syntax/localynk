@@ -1,18 +1,5 @@
 import React, { useState, useRef } from "react";
-import { 
-    View, 
-    Text, 
-    TextInput, 
-    Modal, 
-    TouchableOpacity, 
-    ScrollView, 
-    Image, 
-    StyleSheet, 
-    ActivityIndicator, 
-    Alert,
-    Dimensions,
-    Platform 
-} from "react-native";
+import { View, Text, TextInput, Modal, TouchableOpacity, ScrollView, Image, StyleSheet, ActivityIndicator, Alert, Dimensions, Platform } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -119,7 +106,6 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
         try {
             const formData = new FormData();
             
-            // Text Data
             formData.append('first_name', form.firstName);
             formData.append('last_name', form.lastName);
             formData.append('middle_name', form.middleInitial);

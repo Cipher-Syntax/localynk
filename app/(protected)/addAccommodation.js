@@ -1,18 +1,5 @@
 import React, { useState, useRef } from 'react';
-import {
-    ScrollView,
-    StatusBar,
-    View,
-    Text,
-    Image,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    Alert,
-    ActivityIndicator,
-    Platform,
-    Dimensions
-} from 'react-native';
+import {ScrollView,StatusBar,View,Text,Image,StyleSheet,TextInput,TouchableOpacity,Alert,ActivityIndicator,Platform,Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,12 +11,11 @@ const { width } = Dimensions.get('window');
 
 const AddAccommodation = () => {
     const router = useRouter();
-    const insets = useSafeAreaInsets(); // <--- Get safe area insets
+    const insets = useSafeAreaInsets();
     const [loading, setLoading] = useState(false);
     const [currentStep, setCurrentStep] = useState(1);
     const scrollViewRef = useRef(null);
 
-    // --- FORM STATE ---
     const initialFormState = {
         name: '',
         type: 'Room',
@@ -56,11 +42,9 @@ const AddAccommodation = () => {
         transport: null
     });
 
-    // --- OPTIONS ---
     const accommodationTypes = ['Room', 'Hostel', 'Hotel', 'Apartment'];
     const roomTypes = ['Single', 'Double', 'Suite', 'Family'];
 
-    // --- HELPERS ---
     const pickImage = async (type) => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
@@ -109,13 +93,11 @@ const AddAccommodation = () => {
         scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     };
 
-    // --- SUBMIT ---
     const handleSubmit = async () => {
         setLoading(true);
         try {
             const data = new FormData();
             
-            // Text Data
             data.append('title', formData.name);
             data.append('description', formData.description);
             data.append('location', formData.address);
@@ -130,7 +112,6 @@ const AddAccommodation = () => {
                 data.append('transport_capacity', formData.capacity || 0);
             }
 
-            // Image Data
             const appendImage = (uri, fieldName) => {
                 if (uri) {
                     const filename = uri.split('/').pop();
@@ -156,10 +137,12 @@ const AddAccommodation = () => {
                 { text: 'Great', onPress: () => router.back() }
             ]);
             
-        } catch (error) {
+        } 
+        catch (error) {
             console.error("Submit Error:", error);
             Alert.alert('Error', "Failed to upload listing. Please try again.");
-        } finally {
+        } 
+        finally {
             setLoading(false);
         }
     };
@@ -169,14 +152,12 @@ const AddAccommodation = () => {
             <View style={styles.progressInner}>
                 {[1, 2, 3].map((step, index) => (
                     <React.Fragment key={step}>
-                        {/* The Dot */}
                         <View style={[styles.stepDot, currentStep >= step && styles.stepDotActive]}>
                             <Text style={[styles.stepNumber, currentStep >= step && styles.stepNumberActive]}>
                                 {step}
                             </Text>
                         </View>
 
-                        {/* The Line (Only render if it's not the last step) */}
                         {index < 2 && (
                             <View style={[styles.stepLine, currentStep > step && styles.stepLineActive]} />
                         )}
@@ -377,7 +358,6 @@ const AddAccommodation = () => {
             <StatusBar barStyle="dark-content" />
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
                 
-                {/* Header */}
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                         <Ionicons name="arrow-back" size={24} color="#1F2937" />
@@ -390,7 +370,7 @@ const AddAccommodation = () => {
 
                 <ScrollView 
                     ref={scrollViewRef}
-                    contentContainerStyle={{ paddingBottom: 120 }} // Extra padding for footer
+                    contentContainerStyle={{ paddingBottom: 120 }}
                     showsVerticalScrollIndicator={false}
                 >
                     {currentStep === 1 && renderStep1()}
@@ -496,10 +476,10 @@ const styles = StyleSheet.create({
         color: '#fff',
     },
     stepLine: {
-        width: 60, // <--- Fixed width instead of flex ensures perfect centering
-        height: 3, // Slightly thicker for better visibility
+        width: 60,
+        height: 3,
         backgroundColor: '#E5E7EB',
-        marginHorizontal: 4, // Small gap prevents touching the circle border directly
+        marginHorizontal: 4,
         borderRadius: 2,
     },
     stepLineActive: {
@@ -514,8 +494,6 @@ const styles = StyleSheet.create({
     stepLineActive: {
         backgroundColor: '#0072FF'
     },
-    
-    // --- STEP CONTENT ---
     stepContainer: {
         padding: 20,
     },
@@ -582,8 +560,6 @@ const styles = StyleSheet.create({
     pillTextActive: {
         color: '#0072FF'
     },
-
-    // --- GRID FOR AMENITIES ---
     gridContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
@@ -612,8 +588,6 @@ const styles = StyleSheet.create({
     gridTextActive: {
         color: '#fff'
     },
-
-    // --- IMAGES ---
     imageUploadLarge: {
         height: 180,
         backgroundColor: '#EFF6FF',
@@ -649,8 +623,6 @@ const styles = StyleSheet.create({
         color: '#0072FF',
         fontWeight: '600'
     },
-
-    // --- TOGGLE & TRANSPORT ---
     divider: {
         height: 1,
         backgroundColor: '#E5E7EB',
@@ -702,8 +674,6 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#E5E7EB'
     },
-
-    // --- FOOTER ---
     footer: {
         position: 'absolute',
         bottom: 0,
@@ -716,7 +686,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         gap: 15,
         elevation: 10,
-        // Padding bottom handles safely in JSX via style override
     },
     secondaryButton: {
         paddingHorizontal: 20,

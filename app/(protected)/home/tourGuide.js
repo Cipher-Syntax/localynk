@@ -1,15 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { 
-    View, 
-    Text, 
-    ScrollView, 
-    ActivityIndicator, 
-    StyleSheet, 
-    Modal, 
-    TouchableOpacity, 
-    Alert, 
-    RefreshControl
-} from "react-native";
+import { View, Text, ScrollView, ActivityIndicator, StyleSheet, Modal, TouchableOpacity, Alert, RefreshControl } from "react-native";
 import { IsTourist, Action, PendingGuide } from "../../../components/tourist_guide"; 
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../../context/AuthContext";
@@ -17,47 +7,42 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
-// Adjust this import path based on your project structure
 import api from '../../../api/api'; 
 
 export default function TourGuide() {
     const [loading, setLoading] = useState(true);
     const { role, isLoading: isAuthLoading, refreshUser, user } = useAuth();
     const [showWelcomeModal, setShowWelcomeModal] = useState(false);
-    
-    // --- SUBSCRIPTION STATE ---
     const [subscriptionPrice, setSubscriptionPrice] = useState(null);
     const [loadingPrice, setLoadingPrice] = useState(true);
-
-    // --- REFRESH STATE ---
-    const [refreshing, setRefreshing] = useState(false);
-
+    const [refreshing, setRefreshing] = useState(false)
     const router = useRouter();
     const prevRoleRef = useRef();
 
-    // --- REFRESH HANDLER ---
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
         try {
             console.log("Pull-to-refresh: Updating user data...");
             await refreshUser();
-        } catch (error) {
+        } 
+        catch (error) {
             console.error("Refresh failed", error);
-        } finally {
+        } 
+        finally {
             setRefreshing(false);
         }
     }, [refreshUser]);
 
-    // --- FETCH PRICE EFFECT ---
     useEffect(() => {
         const fetchPrice = async () => {
             try {
                 const response = await api.get('/api/payments/subscription-price/');
                 setSubscriptionPrice(response.data.price);
-            } catch (error) {
+            } 
+            catch (error) {
                 console.error('Failed to fetch subscription price:', error);
-                // Fallback price or handle error silently
-            } finally {
+            } 
+            finally {
                 setLoadingPrice(false);
             }
         };
@@ -92,9 +77,6 @@ export default function TourGuide() {
         router.push('/(protected)/upgrade');
     };
     
-    // --- CONDITIONAL RENDERING ---
-
-    // 1. Fully Approved Guide
     if (role === 'guide') {
         return (
             <View style={styles.safeArea}>
@@ -111,7 +93,6 @@ export default function TourGuide() {
                     <IsTourist /> 
                 </ScrollView>
 
-                {/* --- REDESIGNED WELCOME MODAL --- */}
                 <Modal
                     animationType="fade"
                     transparent={true}
@@ -120,7 +101,6 @@ export default function TourGuide() {
                 >
                     <View style={styles.modalOverlay}>
                         <View style={styles.modalCard}>
-                            {/* Header Icon */}
                             <View style={styles.crownContainer}>
                                 <LinearGradient
                                     colors={['#FFD700', '#FFB300']}
@@ -156,7 +136,6 @@ export default function TourGuide() {
                                 </View>
                             </View>
 
-                            {/* Buttons */}
                             <TouchableOpacity
                                 style={styles.subscribeButton}
                                 onPress={handleSubscription}
@@ -186,7 +165,6 @@ export default function TourGuide() {
         );
     }
     
-    // 2. Pending Guide Review
     if (role === 'pending_guide') {
         return (
             <SafeAreaView style={styles.safeArea}>
@@ -206,7 +184,6 @@ export default function TourGuide() {
         );
     }
 
-    // 3. Tourist (Default)
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView 
@@ -240,12 +217,11 @@ const styles = StyleSheet.create({
         flexGrow: 1 
     },
     
-    // --- MODAL STYLES ---
     modalOverlay: {
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
-        backgroundColor: 'rgba(0,0,0,0.6)', // Darker overlay for focus
+        backgroundColor: 'rgba(0,0,0,0.6)',
     },
     modalCard: {
         width: '85%',
@@ -260,7 +236,7 @@ const styles = StyleSheet.create({
         elevation: 10
     },
     crownContainer: {
-        marginTop: -50, // Pull icon above the card
+        marginTop: -50,
         marginBottom: 15,
         shadowColor: "#FFD700",
         shadowOffset: { width: 0, height: 4 },

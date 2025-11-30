@@ -12,7 +12,7 @@ import { useLocalSearchParams } from 'expo-router';
 
 const AgencyBookingDetails = () => {
     const params = useLocalSearchParams();
-    const { agencyName, agencyId, placeName, bookingId, placeId } = params; // FIX 1: Read placeId
+    const { agencyName, agencyId, placeName, bookingId, placeId } = params;
     const isConfirmed = !!params.bookingId;
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -263,7 +263,7 @@ const AgencyBookingDetails = () => {
                             serviceFee: agency.serviceFee,
                             totalPrice: totalPrice,
                             bookingId: params.bookingId,
-                            placeId: placeId, // FIX 2: Pass placeId to the modal
+                            placeId: placeId,
                             paymentMethod: isConfirmed ? 'gcash' : null,
                             groupType: selectedOption,
                             numberOfPeople: selectedOption === 'group' ? (parseInt(numPeople) < 2 ? 2 : parseInt(numPeople)) : 1,

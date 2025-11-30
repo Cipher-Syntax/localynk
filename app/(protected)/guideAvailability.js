@@ -18,7 +18,6 @@ const GuideAvailability = () => {
     const [tourPackage, setTourPackage] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // --- FETCH DATA ---
     useEffect(() => {
         const fetchData = async () => {
             if (!guideId || !placeId) return;
@@ -39,7 +38,6 @@ const GuideAvailability = () => {
         fetchData();
     }, [guideId, placeId]);
 
-    // --- HELPERS ---
     const getInclusions = () => {
         if (!tourPackage) return ["Standard Guide Services"];
         if (Array.isArray(tourPackage.inclusions) && tourPackage.inclusions.length > 0) return tourPackage.inclusions;
@@ -62,7 +60,6 @@ const GuideAvailability = () => {
         return [];
     }, [tourPackage, params.accommodations]);
 
-    // --- CALENDAR LOGIC ---
     const markedDates = useMemo(() => {
         if (!guide || !guide.specific_available_dates) return {};
 
@@ -79,14 +76,13 @@ const GuideAvailability = () => {
         return marked;
     }, [guide]);
 
-    // --- ITINERARY TIMELINE PARSING ---
     const timelineData = useMemo(() => {
         if (!tourPackage || !tourPackage.itinerary_timeline) return [];
         try {
             const raw = tourPackage.itinerary_timeline;
-            // If it's already an object/array, use it. If string, parse it.
             return typeof raw === 'string' ? JSON.parse(raw) : raw;
-        } catch (e) {
+        } 
+        catch (e) {
             console.error("Error parsing timeline:", e);
             return [];
         }
@@ -105,7 +101,6 @@ const GuideAvailability = () => {
                             <View style={styles.timeConnector} />
                         </View>
 
-                        {/* Content Column */}
                         <View style={styles.activityCard}>
                             <View style={styles.activityHeader}>
                                 <View style={[
@@ -158,7 +153,6 @@ const GuideAvailability = () => {
                     </Text>
                 </View>
 
-                {/* --- CALENDAR SECTION --- */}
                 <View style={styles.cardContainer}>
                     <View style={styles.sectionHeader}>
                         <CalendarIcon size={18} color="#1A2332" />
@@ -195,7 +189,6 @@ const GuideAvailability = () => {
                     </View>
                 </View>
 
-                {/* --- ITINERARY --- */}
                 <View style={styles.cardContainer}>
                     <View style={styles.sectionHeader}>
                         <Map size={18} color="#1A2332" />
@@ -210,7 +203,6 @@ const GuideAvailability = () => {
 
                     <View style={styles.divider} />
 
-                    {/* NEW TIMELINE SECTION */}
                     <Text style={styles.subHeader}>Schedule</Text>
                     {renderTimeline()}
 
@@ -227,7 +219,6 @@ const GuideAvailability = () => {
                     </View>
                 </View>
 
-                {/* --- ACCOMMODATIONS --- */}
                 {accommodations.length > 0 && (
                     <View style={styles.cardContainer}>
                         <View style={styles.sectionHeader}>
@@ -314,7 +305,6 @@ const styles = StyleSheet.create({
     proceedBtn: { backgroundColor: '#00A8FF', flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 30, gap: 8 },
     proceedText: { color: '#fff', fontWeight: '700', fontSize: 16 },
     
-    // --- TIMELINE STYLES ---
     timelineContainer: { marginTop: 10 },
     timelineItem: { flexDirection: 'row', marginBottom: 15 },
     timeColumn: { width: 70, alignItems: 'center', paddingRight: 10 },

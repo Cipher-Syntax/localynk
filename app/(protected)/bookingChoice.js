@@ -1,4 +1,3 @@
-// localynk/app/screens/bookingChoice.js
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Image } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -10,9 +9,6 @@ const BookingChoice = () => {
     const params = useLocalSearchParams();
     const { placeId, placeName } = params;
     const [selectedOption, setSelectedOption] = useState(null);
-
-
-    console.log('FETCHING THE ID AND NAME OF DESTINATION FROM PLACE DETAILS: ', placeId, placeName)
 
     const handleCustomGuide = () => {
         router.push({

@@ -20,7 +20,6 @@ export default function ViewAccommodations() {
     const [tours, setTours] = useState([]);
     const [error, setError] = useState(null);
 
-    // Helper to fix image URLs
     const getImageUrl = (imgPath) => {
         if (!imgPath) return 'https://via.placeholder.com/400x250';
         if (imgPath.startsWith('http')) return imgPath;
@@ -36,11 +35,9 @@ export default function ViewAccommodations() {
             setError(null);
 
             try {
-                // 1. Fetch Guide Info
                 const guideRes = await api.get(`/api/guides/${userId}/`);
                 setGuide(guideRes.data);
 
-                // 2. Fetch Accommodations (Try multiple endpoints)
                 let accs = [];
                 const tryEndpoints = [
                     `/api/guides/${userId}/accommodations/`,
@@ -54,19 +51,23 @@ export default function ViewAccommodations() {
                         const r = await api.get(ep);
                         if (Array.isArray(r.data)) {
                             accs = r.data;
-                        } else if (Array.isArray(r.data.results)) {
+                        } 
+                        else if (Array.isArray(r.data.results)) {
                             accs = r.data.results;
-                        } else if (r.data && typeof r.data === 'object') {
+                        } 
+                        else if (r.data && typeof r.data === 'object') {
                             if (Array.isArray(r.data.results)) accs = r.data.results;
                             else if (Array.isArray(r.data.data)) accs = r.data.data;
                             else accs = [r.data];
                         }
                         if (accs.length > 0) break;
-                    } catch (e) { /* continue */ }
+                    } 
+                    catch (e) { 
+                        console.log(e)
+                    }
                 }
                 setAccommodations(accs || []);
 
-                // 3. Fetch Tours
                 let foundTours = [];
                 const tourEndpoints = [
                     `/api/guides/${userId}/tours/`,
@@ -80,7 +81,10 @@ export default function ViewAccommodations() {
                         if (Array.isArray(r.data)) foundTours = r.data;
                         else if (Array.isArray(r.data.results)) foundTours = r.data.results;
                         if (foundTours.length > 0) break;
-                    } catch (e) { /* continue */ }
+                    } 
+                    catch (e) { 
+                        console.log(e)
+                    }
                 }
                 setTours(foundTours || []);
 
@@ -107,7 +111,6 @@ export default function ViewAccommodations() {
         <SafeAreaView style={styles.container}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 
-                {/* Header */}
                 <View style={styles.headerRow}>
                     <Ionicons name="arrow-back" size={24} onPress={() => router.back()} color="#1A2332" />
                     <Text style={styles.title}>Accommodations & Tours</Text>
@@ -117,7 +120,6 @@ export default function ViewAccommodations() {
                     <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View>
                 )}
 
-                {/* Guide Profile Card */}
                 {guide && (
                     <View style={styles.guideCard}>
                         <View style={styles.iconWrapper}>
@@ -134,7 +136,6 @@ export default function ViewAccommodations() {
                     </View>
                 )}
 
-                {/* --- ACCOMMODATIONS LIST (Vertical: 1 then 2) --- */}
                 <View style={styles.sectionHeader}>
                     <Ionicons name="bed" size={18} color="#1A2332" />
                     <Text style={styles.sectionTitle}>Accommodations ({accommodations.length})</Text>
@@ -143,13 +144,11 @@ export default function ViewAccommodations() {
                 {accommodations.length === 0 && <Text style={styles.empty}>No accommodations listed.</Text>}
 
                 {accommodations.map((acc, index) => {
-                    // Robust image finder
                     const img = acc.photo || acc.image || acc.images?.[0]?.image || acc.photos?.[0]?.url;
                     const amenities = acc.amenities || acc.features || acc.meta || {};
 
                     return (
                         <View key={acc.id || index} style={styles.verticalCard}>
-                            {/* Image Section */}
                             <View style={styles.imageContainer}>
                                 {img ? (
                                     <Image source={{ uri: getImageUrl(img) }} style={styles.cardImage} />
@@ -163,7 +162,6 @@ export default function ViewAccommodations() {
                                 </View>
                             </View>
 
-                            {/* Details Section */}
                             <View style={styles.cardContent}>
                                 <Text style={styles.cardTitle}>{acc.title || acc.name || 'Untitled Accommodation'}</Text>
                                 
@@ -178,7 +176,6 @@ export default function ViewAccommodations() {
                                     <Text style={styles.cardDesc} numberOfLines={2}>{acc.description}</Text>
                                 )}
 
-                                {/* Amenities Row */}
                                 <View style={styles.amenitiesRow}>
                                     {((amenities && amenities.wifi) || acc.wifi) && (
                                         <View style={styles.amenityTag}><Ionicons name="wifi" size={12} color="#666" /><Text style={styles.amenityText}>Wifi</Text></View>
@@ -195,7 +192,6 @@ export default function ViewAccommodations() {
                     );
                 })}
 
-                {/* --- TOURS LIST --- */}
                 <View style={[styles.sectionHeader, {marginTop: 20}]}>
                     <Ionicons name="map" size={18} color="#1A2332" />
                     <Text style={styles.sectionTitle}>Tours Packages ({tours.length})</Text>
@@ -214,7 +210,6 @@ export default function ViewAccommodations() {
                             {t.duration && <Text style={styles.locationText}>Duration: {t.duration}</Text>}
                             {t.description && <Text style={styles.cardDesc} numberOfLines={2}>{t.description}</Text>}
 
-                            {/* Tour Stops Preview */}
                             {t.stops && t.stops.length > 0 && (
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginTop: 10}}>
                                     {t.stops.map((stop, i) => (
@@ -244,14 +239,12 @@ const styles = StyleSheet.create({
     sectionHeader: { flexDirection: 'row', alignItems: 'center', marginTop: 10, marginBottom: 10, gap: 8 },
     sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1A2332' },
     
-    // Guide Card
     guideCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5F7FA', padding: 12, borderRadius: 12, marginBottom: 20, borderWidth: 1, borderColor: '#E0E6ED' },
     iconWrapper: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#1A2332', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
     profilePicture: { width: '100%', height: '100%' },
     guideName: { fontSize: 16, fontWeight: '700', color: '#1A2332' },
     guideSub: { fontSize: 13, color: '#666' },
 
-    // Vertical Card Style (Accommodations & Tours)
     verticalCard: {
         backgroundColor: '#fff',
         borderRadius: 12,

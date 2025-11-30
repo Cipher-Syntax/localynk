@@ -61,15 +61,18 @@ const UpgradeMembership = () => {
                     await refreshUser();
                     setShowConfirmation(true);
                     setIsLoading(false);
-                } else if (status === "failed") {
+                } 
+                else if (status === "failed") {
                     clearInterval(pollingRef.current);
                     setIsLoading(false);
                 }
-            } catch (err) {
+            } 
+            catch (err) {
                 if (err.response && err.response.status === 404) {
                     console.log("Polling stopped: ID not found in backend (404). Switching to manual verification.");
                     clearInterval(pollingRef.current);
-                } else {
+                } 
+                else {
                     console.log("Polling check failed (network):", err.message);
                 }
             }
@@ -120,15 +123,18 @@ const UpgradeMembership = () => {
                     setIsLoading(false); 
                     
                     if (pId) startPolling(pId);
-                } else {
+                } 
+                else {
                     Alert.alert("Error", "Cannot open payment link.");
                     setIsLoading(false);
                 }
-            } else {
+            } 
+            else {
                 Alert.alert('Payment Error', 'Could not generate payment link.');
                 setIsLoading(false);
             }
-        } catch (error) {
+        } 
+        catch (error) {
             console.error('Upgrade error:', error);
             const serverMsg = error.response?.data?.detail || error.response?.data?.message;
             Alert.alert('Error', serverMsg || 'An error occurred while trying to upgrade.');
@@ -541,7 +547,7 @@ const styles = StyleSheet.create({
         elevation: 5,
     },
     doneButtonText: {
-        color: '#FFFFFF', // White text
+        color: '#FFFFFF',
         fontWeight: 'bold',
         fontSize: 16,
     }

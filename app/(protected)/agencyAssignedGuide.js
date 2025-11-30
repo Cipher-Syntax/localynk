@@ -3,13 +3,12 @@ import { View, ScrollView, StyleSheet, StatusBar, Image, Text, TouchableOpacity,
 import { LinearGradient } from "expo-linear-gradient";
 import { User } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router'; // Use Expo Router imports
+import { useRouter, useLocalSearchParams } from 'expo-router'; 
 import { SafeAreaView } from 'react-native-safe-area-context';
-import api from '../../api/api'; // Placeholder for future API calls
+import api from '../../api/api';
 
-// --- MOCK Data Structure for Assigned Guides ---
 const MOCK_GUIDES_DATA = {
-    '123456789': [ // Corresponds to the mock bookingId in Notifications.js
+    '123456789': [
         {
             name: "Mica Dela Cruz (Lead)",
             address: "Zamboanga City Base",
@@ -33,14 +32,13 @@ const AgencyAssignedGuide = () => {
     const router = useRouter();
     const params = useLocalSearchParams();
     
-    // Destructure confirmed booking details passed from the notification
     const { bookingId, totalPrice, guideName } = params; 
 
     const [assignedGuides, setAssignedGuides] = useState([]);
     const [loading, setLoading] = useState(true);
     
     const formattedPrice = `₱${parseFloat(totalPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    const agencyName = "City Explorers Agency"; // Mock Agency Name
+    const agencyName = "City Explorers Agency";
 
     useEffect(() => {
         const fetchBookingDetails = async () => {
@@ -65,20 +63,16 @@ const AgencyAssignedGuide = () => {
 
 
     const handleProceedToPayment = () => {
-        // Navigate to the payment review modal, passing ALL required data
         router.push({
-            // CORRECTED PATH: Use the direct file name within the (protected) group
             pathname: '/(protected)/agencyPaymentReviewModal', 
             params: { 
                 bookingId: bookingId, 
-                totalPrice: totalPrice, // The total confirmed price
-                // We pass the name of the lead guide (or all names concatenated) for display in the modal:
+                totalPrice: totalPrice,
                 guideName: assignedGuides[0]?.name || guideName || "Team Assigned",
             }
         });
     };
 
-    // Renders a single guide card within the list
     const renderGuideCard = (guide, index) => (
         <View key={index} style={styles.guideCard}>
             <View style={styles.cardProfileSection}>
@@ -338,7 +332,7 @@ const styles = StyleSheet.create({
     },
     priceValueFooter: {
         fontSize: 22,
-        color: '#28A745', // Highlight price in green
+        color: '#28A745',
         fontWeight: '900',
         marginTop: 4,
     },

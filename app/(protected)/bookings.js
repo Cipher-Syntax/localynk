@@ -28,33 +28,24 @@ const MyBookings = () => {
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    
-    // Details Modal State
     const [detailsModalVisible, setDetailsModalVisible] = useState(false);
     const [selectedBooking, setSelectedBooking] = useState(null);
-
-    // --- TOAST STATE (Matches your snippet) ---
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
     const fadeAnim = useRef(new Animated.Value(0)).current;
-
-    // --- Confirmation Modal State ---
     const [confirmVisible, setConfirmVisible] = useState(false);
     const [bookingIdToCancel, setBookingIdToCancel] = useState(null);
     
     const { user } = useAuth();
 
-    // --- TOAST LOGIC ---
     const showToast = (message, type = 'success') => {
         setToast({ show: true, message, type });
         
-        // Fade In
         Animated.timing(fadeAnim, {
             toValue: 1,
             duration: 300,
             useNativeDriver: true,
         }).start();
 
-        // Auto Hide after 3 seconds
         setTimeout(() => {
             hideToast();
         }, 3000);
@@ -74,10 +65,12 @@ const MyBookings = () => {
         try {
             const response = await api.get('/api/bookings/');
             setBookings(response.data || []);
-        } catch (error) {
+        } 
+        catch (error) {
             console.error('Failed to fetch bookings:', error);
             showToast("Failed to fetch bookings.", "error");
-        } finally {
+        } 
+        finally {
             setLoading(false);
             setRefreshing(false);
         }
@@ -95,7 +88,6 @@ const MyBookings = () => {
         fetchBookings();
     }, []);
 
-    // --- CANCELLATION LOGIC ---
 
     const initiateCancellation = (bookingId) => {
         setBookingIdToCancel(bookingId);
@@ -109,7 +101,6 @@ const MyBookings = () => {
         try {
             await api.delete(`/api/bookings/${bookingIdToCancel}/`);
             
-            // Optimistic Update
             setBookings(prevBookings => 
                 prevBookings.map(b => 
                     b.id === bookingIdToCancel ? { ...b, status: 'cancelled' } : b
@@ -135,7 +126,6 @@ const MyBookings = () => {
         setSelectedBooking(null);
     };
 
-    // --- HELPER LOGIC ---
     const getStatusStyle = (status) => {
         const normalizedStatus = String(status || '').toLowerCase();
         switch (normalizedStatus) {
@@ -162,7 +152,6 @@ const MyBookings = () => {
         return "N/A";
     };
 
-    // --- RENDER ITEMS ---
 
     const renderHeader = () => (
         <View style={styles.header}>
@@ -291,7 +280,6 @@ const MyBookings = () => {
                 onClose={handleCloseModal} 
             />
 
-            {/* --- CONFIRMATION MODAL --- */}
             <Modal
                 transparent={true}
                 visible={confirmVisible}

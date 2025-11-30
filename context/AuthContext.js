@@ -20,12 +20,10 @@ export function AuthProvider({ children }) {
     
     const router = useRouter();
 
-    // --- Clear messages
     const clearMessage = useCallback(() => {
         setState(prev => ({ ...prev, message: null, messageType: null }));
     }, []);
 
-    // --- Fetch Profile
     const fetchProfile = async () => {
         try {
             const response = await api.get('/api/profile/');
@@ -37,7 +35,6 @@ export function AuthProvider({ children }) {
         }
     };
 
-    // --- UPDATE Profile
     const updateUserProfile = async (profileData) => {
         try {
             const response = await api.patch('/api/profile/', profileData);
@@ -115,14 +112,11 @@ export function AuthProvider({ children }) {
             await AsyncStorage.setItem(ACCESS_TOKEN, access);
             await AsyncStorage.setItem(REFRESH_TOKEN, refresh);
             
-            // 2. FORCE Set API Header immediately (Critical for immediate requests)
             api.defaults.headers.common['Authorization'] = `Bearer ${access}`;
 
-            // 3. Fetch User
             const user = await fetchProfile();
 
             if (!user) {
-                // If we have a token but can't get profile, something is wrong.
                  await AsyncStorage.multiRemove([ACCESS_TOKEN, REFRESH_TOKEN]);
                  setState(prev => ({
                     ...prev,
@@ -135,7 +129,6 @@ export function AuthProvider({ children }) {
                 return false;
             }
 
-            // 4. Update State
             setState({
                 isAuthenticated: true,
                 user,
@@ -148,14 +141,10 @@ export function AuthProvider({ children }) {
             return user; 
         } 
         catch (error) {
-            // --- DEBUG LOGS ---
-            console.log("LOGIN ERROR DATA:", error.response?.data); 
-            console.log("LOGIN ERROR STATUS:", error.response?.status);
 
             let msg = "Invalid username or password";
             const errorDetail = error.response?.data?.detail;
 
-            // Check specifically for common "inactive" or "verify" messages
             if (errorDetail && (
                 (typeof errorDetail === 'string' && errorDetail.toLowerCase().includes("verify")) || 
                 (typeof errorDetail === 'string' && errorDetail.toLowerCase().includes("active"))
@@ -166,7 +155,7 @@ export function AuthProvider({ children }) {
             setState(prev => ({
                 ...prev,
                 isLoading: false,
-                isAuthenticated: false, // Ensure this is false on error
+                isAuthenticated: false,
                 message: msg,
                 messageType: "error"
             }));
@@ -175,7 +164,6 @@ export function AuthProvider({ children }) {
         }
     };
 
-    // --- REGISTER
     const register = async (data) => {
         try {
             await api.post('/api/register/', data);
@@ -189,7 +177,6 @@ export function AuthProvider({ children }) {
         catch (error) {
             console.log("REGISTER ERROR:", error.response?.data);
             
-            // Improved error handling
             let errorMsg = "Registration failed.";
             if (error.response?.data) {
                 const data = error.response.data;
@@ -208,7 +195,6 @@ export function AuthProvider({ children }) {
         }
     };
 
-    // --- RESEND VERIFICATION
     const resendVerificationEmail = async (email) => {
         try {
             const response = await api.post("/api/resend-verify-email/", { email });
@@ -226,17 +212,12 @@ export function AuthProvider({ children }) {
         }
     };
 
-    // --- LOGOUT
     const logout = async (shouldRedirect = true) => {
         try {
             await AsyncStorage.multiRemove([ACCESS_TOKEN, REFRESH_TOKEN]);
             
             setApiToken(null); 
 
-            // (The 'delete api.defaults...' line you had is redundant if you use setApiToken(null), 
-            // but keeping it doesn't hurt. setApiToken does the real cleanup.)
-
-            // 3. Reset State
             setState({
                 isAuthenticated: false,
                 user: null,
@@ -252,8 +233,7 @@ export function AuthProvider({ children }) {
 
         } catch (e) {
             console.error("Logout failed", e);
-            // Force reset anyway
-            setApiToken(null); // Ensure cache is cleared even on error
+            setApiToken(null); 
             setState({
                 isAuthenticated: false,
                 user: null,
@@ -266,7 +246,6 @@ export function AuthProvider({ children }) {
         }
     }
 
-    // --- Memoized context values
     const value = useMemo(() => {
         let role = 'tourist'; 
         

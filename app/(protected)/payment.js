@@ -1,18 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import {
-    View,
-    Text,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Image,
-    TextInput,
-    TouchableOpacity,
-    Pressable,
-    ActivityIndicator,
-    Alert,
-    Modal
-} from 'react-native';
+import { View, Text, ScrollView, StatusBar, StyleSheet, Image, TextInput, TouchableOpacity, Pressable, ActivityIndicator, Alert, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { User } from 'lucide-react-native';
@@ -21,7 +8,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
-// Internal Imports
 import { PaymentReviewModal } from '../../components/payment';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api/api';
@@ -50,10 +36,8 @@ const Payment = () => {
     const resolvedName = entityName || guideName || (isAgency ? "Selected Agency" : "Selected Guide");
     const resolvedId = entityId || guideId;
 
-    // --- GUIDES STATE ---
     const [guideAvailability, setGuideAvailability] = useState(null);
     
-    // Freelance Guides (User model)
     const [assignedGuidesList, setAssignedGuidesList] = useState(() => {
         try {
             return assignedGuides && typeof assignedGuides === 'string' ? JSON.parse(assignedGuides) : [];
@@ -62,7 +46,6 @@ const Payment = () => {
         }
     });
 
-    // 🔥 AGENCY GUIDES (TouristGuide model)
     const [assignedAgencyGuidesList, setAssignedAgencyGuidesList] = useState([]);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -113,7 +96,6 @@ const Payment = () => {
         { key: 'shopeepay', name: 'ShopeePay' },
     ];
 
-    // 1. Load User Info
     useEffect(() => {
         if (user) {
             setFirstName(user.first_name || '');
@@ -127,7 +109,6 @@ const Payment = () => {
         }
     }, [user]);
 
-    // 2. Load Availability (Freelance Guides Only)
     useEffect(() => {
         const fetchGuideAvailability = async () => {
             if (!isAgency && resolvedId) {
@@ -142,7 +123,6 @@ const Payment = () => {
         fetchGuideAvailability();
     }, [resolvedId, isAgency]);
 
-    // 3. Load Booking Details (Include Guides)
     useEffect(() => {
         const fetchBookingDetails = async () => {
             if (isConfirmed && bookingId) {
@@ -278,7 +258,6 @@ const Payment = () => {
                 </View>
 
                 <View style={styles.contentContainer}>
-                    {/* INFO CARD */}
                     <View style={styles.guideInfoCard}>
                         <View style={styles.guideHeader}>
                             <View style={[styles.guideIcon, isAgency && styles.agencyIconBg]}>
@@ -451,7 +430,6 @@ const Payment = () => {
                         </>
                     )}
 
-                    {/* 🔥 REDESIGNED: Assigned Agency Guides Section */}
                     {isAgency && assignedAgencyGuidesList.length > 0 && (
                         <View style={styles.section}>
                             <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom: 12}}>
@@ -464,7 +442,7 @@ const Payment = () => {
                                     <View key={index} style={styles.assignedGuideCard}>
                                         <View style={styles.avatarContainer}>
                                             <Image
-                                                source={{ uri: guide.profile_picture || 'https://via.placeholder.com/150' }}
+                                                source={{ uri: guide.profile_picture || '' }}
                                                 style={styles.guideAvatarLarge}
                                             />
                                             <View style={styles.badgeIcon}>
@@ -669,7 +647,6 @@ const styles = StyleSheet.create({
     radioButtonSelected: { borderColor: '#00A8FF' },
     radioButtonInner: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#00A8FF' },
     
-    // 🔥 UPDATED REDESIGNED STYLES FOR GUIDES
     assignedGuidesContainer: { flexDirection: 'column', gap: 12 },
     assignedGuideCard: { 
         flexDirection: 'row', 
@@ -685,7 +662,7 @@ const styles = StyleSheet.create({
         shadowRadius: 6, 
         elevation: 3,
         borderLeftWidth: 4,
-        borderLeftColor: '#00A8FF' // Accent colored left border
+        borderLeftColor: '#00A8FF' 
     },
     avatarContainer: {
         position: 'relative',

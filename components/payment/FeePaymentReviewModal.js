@@ -110,7 +110,6 @@ const FeePaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => 
         };
     }, []);
 
-    // ⭐ FIX: Destructure paymentData to get the billing fields passed from CompleteRegistrationFee.js
     const { baseFee, serviceFee, totalPrice, paymentMethod, firstName, lastName, phoneNumber, country, email } = paymentData || {};
 
     return (
@@ -127,7 +126,6 @@ const FeePaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => 
                     </View>
 
                     <View style={styles.contentContainer}>
-                        {/* Fee Breakdown */}
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>Fee Breakdown</Text>
                             <View style={styles.priceCard}>
@@ -147,7 +145,6 @@ const FeePaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => 
                             </View>
                         </View>
 
-                        {/* Payment Method */}
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>Payment Method</Text>
                             <View style={styles.paymentCard}>
@@ -155,7 +152,6 @@ const FeePaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => 
                             </View>
                         </View>
 
-                        {/* Billing Info - NOW CORRECTLY DISPLAYING PROPS */}
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>Billing Information</Text>
                             <View style={styles.billingCard}>
@@ -186,7 +182,6 @@ const FeePaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => 
                             </View>
                         </View>
 
-                        {/* Buttons */}
                         {!showPaymentLink ? (
                             <TouchableOpacity style={styles.confirmButton} onPress={handleInitiatePayment} disabled={isLoading}>
                                 {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.confirmButtonText}>Initiate Payment Link</Text>}

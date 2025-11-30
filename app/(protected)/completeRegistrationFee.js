@@ -7,27 +7,17 @@ import { useLocalSearchParams } from 'expo-router';
 import FeePaymentReviewModal from '../../components/payment/FeePaymentReviewModal'; 
 import { useAuth } from '../../context/AuthContext'; 
 
-// Mock data for the registration fee
 const REGISTRATION_FEE_DETAILS = {
-    amount: 500.00, // Fixed registration fee
-    serviceFee: 50.00, // App's portion of the fee (example)
+    amount: 500.00,
+    serviceFee: 50.00,
 };
 
 const CompleteRegistrationFee = () => {
-    // ⭐ GET AUTH USER
     const { user } = useAuth();
-    
     const { feeAmount } = useLocalSearchParams(); 
-
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
-
-    // ⭐ REMOVE UNUSED BILLING STATE (firstName, lastName, phoneNumber, email, country)
-    // The data will be sourced directly from 'user' in the handleReviewPress logic.
-    
     const [paymentMethod, setPaymentMethod] = useState('gcash'); 
-
-    // Calculate final fee using the mock data or parameter
     const baseFee = parseFloat(feeAmount || REGISTRATION_FEE_DETAILS.amount) || REGISTRATION_FEE_DETAILS.amount;
     const finalServiceFee = REGISTRATION_FEE_DETAILS.serviceFee; 
     const totalToPay = baseFee + finalServiceFee;
@@ -39,7 +29,6 @@ const CompleteRegistrationFee = () => {
     }, []);
 
     const handleReviewPress = () => {
-        // ⭐ VALIDATION: Ensure essential user data is available (pulled from context)
         if (!user?.first_name || !user?.last_name || !user?.phone_number || !user?.email) {
             Alert.alert("Missing User Data", "Essential profile information (name, email, phone) is missing. Please update your profile first.");
             return;
@@ -55,13 +44,12 @@ const CompleteRegistrationFee = () => {
         );
     }
 
-    // ⭐ Define Billing Data for Modal from context user object
     const billingData = {
         firstName: user?.first_name || 'N/A',
         lastName: user?.last_name || 'N/A',
         phoneNumber: user?.phone_number || 'N/A',
         email: user?.email || 'N/A',
-        country: 'Philippines', // Defaulting country
+        country: 'Philippines',
     };
 
 
@@ -83,7 +71,6 @@ const CompleteRegistrationFee = () => {
                 </View>
 
                 <View style={styles.contentContainer}>
-                    {/* Fee Details Card */}
                     <View style={styles.priceCard}>
                         <Text style={styles.cardHeader}>Guide Registration Fee</Text>
                         <View style={styles.priceRow}>
@@ -103,7 +90,6 @@ const CompleteRegistrationFee = () => {
                         </View>
                     </View>
 
-                    {/* Payment Method - Simplified to GCash only */}
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Payment Method</Text>
                         <Pressable 
@@ -118,9 +104,6 @@ const CompleteRegistrationFee = () => {
                         <Text style={styles.infoText}>This is a one-time fee to activate your guide profile.</Text>
                     </View>
 
-                    {/* ⭐ REMOVED BILLING INPUT SECTION ENTIRELY ⭐ */}
-                    
-                    {/* Display a Review Card for Billing */}
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Billing Information (Auto-Filled)</Text>
                         <View style={styles.billingCardReview}>
@@ -150,7 +133,7 @@ const CompleteRegistrationFee = () => {
                         isModalOpen={isModalOpen} 
                         setIsModalOpen={setIsModalOpen}
                         paymentData={{
-                            ...billingData, // Pass the user's data for review
+                            ...billingData,
                             baseFee: baseFee,
                             serviceFee: finalServiceFee,
                             totalPrice: totalToPay,
@@ -165,7 +148,6 @@ const CompleteRegistrationFee = () => {
 
 export default CompleteRegistrationFee;
 
-// --- STYLES (Adjusted/Reused from Payment.jsx) ---
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#fff' },
     header: { position: 'relative', height: 120, justifyContent: 'center' },
@@ -192,7 +174,6 @@ const styles = StyleSheet.create({
     paymentOptionText: { fontSize: 13, color: '#1A2332', fontWeight: '500' },
     infoText: { fontSize: 12, color: '#8B98A8', marginTop: 8 },
 
-    // ⭐ NEW REVIEW CARD STYLES
     billingCardReview: { backgroundColor: '#F5F7FA', borderRadius: 8, padding: 12, borderWidth: 1, borderColor: '#E0E6ED' },
     billingRowReview: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
     billingLabelReview: { fontSize: 13, fontWeight: '500', color: '#8B98A8', width: '30%' },

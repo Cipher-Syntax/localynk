@@ -1,17 +1,5 @@
 import React, { useState } from 'react';
-import { 
-    View, 
-    Text, 
-    TextInput, 
-    TouchableOpacity, 
-    StyleSheet, 
-    ScrollView, 
-    Alert, 
-    Image, 
-    Platform,
-    ActivityIndicator,
-    KeyboardAvoidingView 
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Image, Platform,ActivityIndicator,KeyboardAvoidingView } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../../context/AuthContext';
@@ -24,7 +12,6 @@ import api from '../../../api/api';
 const ProfileSetupScreen = () => {
     const { user, refreshUser } = useAuth(); 
     const router = useRouter();
-    
     const [isLoading, setIsLoading] = useState(false);
     const [profileImage, setProfileImage] = useState(null);
 
@@ -112,7 +99,6 @@ const ProfileSetupScreen = () => {
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
                     >
-                        {/* Header Text */}
                         <View style={styles.headerContainer}>
                             <Text style={styles.headerTitle}>Complete Your Profile</Text>
                             <Text style={styles.headerSubtitle}>Let's get to know you better.</Text>
@@ -134,7 +120,6 @@ const ProfileSetupScreen = () => {
                             </TouchableOpacity>
                         </View>
 
-                        {/* Form Fields */}
                         <View style={styles.formContainer}>
                             <Text style={styles.label}>First Name</Text>
                             <Controller
@@ -233,7 +218,6 @@ const ProfileSetupScreen = () => {
                             />
                         </View>
 
-                        {/* Submit Button */}
                         <TouchableOpacity 
                             style={styles.submitButtonContainer} 
                             onPress={handleSubmit(onSubmit)}
@@ -285,8 +269,6 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#6B7280',
     },
-    
-    // Avatar Styles
     avatarContainer: {
         alignItems: 'center',
         marginBottom: 25,
@@ -331,8 +313,6 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         borderColor: '#fff',
     },
-
-    // Form
     formContainer: {
         marginBottom: 20,
     },
@@ -364,8 +344,6 @@ const styles = StyleSheet.create({
         marginBottom: 10,
         marginLeft: 5,
     },
-
-    // Submit Button
     submitButtonContainer: {
         marginTop: 10,
         height: 50,

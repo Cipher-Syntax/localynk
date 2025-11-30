@@ -1,8 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { 
-    View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, 
-    StatusBar, Image, Alert, ActivityIndicator, AppState 
-} from 'react-native';
+import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, StatusBar, Image, Alert, ActivityIndicator, AppState } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { User } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -12,23 +9,19 @@ import api from '../../api/api';
 import { useAuth } from "../../context/AuthContext"; 
 
 const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
-    // UI State
     const [showConfirmationScreen, setShowConfirmationScreen] = useState(false);
-    const [isPayment, setIsPayment] = useState(false); // Controls success message (Payment vs Request)
+    const [isPayment, setIsPayment] = useState(false);
     
-    // Polling & Payment State
     const [isLoading, setIsLoading] = useState(false);
     const [checkoutUrl, setCheckoutUrl] = useState('');
     const [showPaymentLink, setShowPaymentLink] = useState(false);
     const [paymentId, setPaymentId] = useState(null);
     
-    // Hooks
     const router = useRouter();
-    const { refreshUser } = useAuth(); // Refresh user context if payment succeeds
+    const { refreshUser } = useAuth();
     const pollingRef = useRef(null);
     const appState = useRef(AppState.currentState);
 
-    // Destructure Data
     const { 
         guide, agency, accommodation, startDate, endDate, 
         firstName, lastName, phoneNumber, country, email, 
@@ -44,7 +37,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
     };
     const days = calculateDays();
 
-    // --- 1. REUSABLE CHECK STATUS FUNCTION ---
     const checkPaymentStatus = useCallback(async (id) => {
         if (!id) return;
         
@@ -75,26 +67,20 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         }
     }, [refreshUser]);
 
-    // --- 2. START POLLING FUNCTION (Moved Up) ---
     const startPolling = useCallback((id) => {
         if (!id) return;
         
-        // Clear any existing interval to prevent duplicates
         if (pollingRef.current) clearInterval(pollingRef.current);
 
         console.log(`Starting polling for Payment ID: ${id}`);
 
-        // Initial check immediately
         checkPaymentStatus(id);
 
-        // Then check every 3 seconds
         pollingRef.current = setInterval(() => {
             checkPaymentStatus(id);
         }, 3000); 
     }, [checkPaymentStatus]);
 
-    // --- 3. APP STATE LISTENER (FIXED) ---
-    // This forces a RESTART of polling when user returns from browser
     useEffect(() => {
         const subscription = AppState.addEventListener('change', nextAppState => {
             if (
@@ -104,7 +90,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                 showPaymentLink
             ) {
                 console.log('App has come to the foreground! Resurrecting polling...');
-                // FIXED: Call startPolling instead of checkPaymentStatus to revive the interval
                 startPolling(paymentId);
             }
 
@@ -114,16 +99,14 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         return () => {
             subscription.remove();
         };
-    }, [paymentId, showPaymentLink, startPolling]); // dependency on startPolling is safe now
+    }, [paymentId, showPaymentLink, startPolling]);
 
-    // --- Cleanup Polling on Unmount ---
     useEffect(() => {
         return () => {
             if (pollingRef.current) clearInterval(pollingRef.current);
         };
     }, []);
 
-    // --- Main Action Handler ---
     const handleConfirm = async () => {
         setIsLoading(true);
 
@@ -131,7 +114,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
             if (paymentMethod) {
                 console.log("Initiating payment for Booking ID:", bookingId);
 
-                // 1. Initiate Payment
                 const response = await api.post('/api/payments/initiate/', {
                     booking_id: bookingId,
                     payment_method: paymentMethod 
@@ -147,7 +129,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                     setPaymentId(payment_id);
                     setShowPaymentLink(true);
                     
-                    // Open link and start polling
                     await Linking.openURL(checkout_url);
                     startPolling(payment_id);
                 } else {

@@ -1,15 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { 
-    View, 
-    Text, 
-    TextInput, 
-    ImageBackground, 
-    StyleSheet, 
-    TouchableOpacity, 
-    Dimensions, 
-    FlatList, 
-    Image 
-} from 'react-native';
+import { View, Text, TextInput, ImageBackground, StyleSheet, TouchableOpacity, Dimensions, FlatList, Image } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import Swiper from 'react-native-swiper';
 import MaskedView from '@react-native-masked-view/masked-view';
@@ -20,14 +10,10 @@ const { width } = Dimensions.get('window');
 
 const Header = ({ destinations = [], unreadCount = 0 }) => {
     const [activeIndex, setActiveIndex] = useState(0);
-    
-    // --- 1. SEARCH STATE ---
     const [searchQuery, setSearchQuery] = useState('');
     const [filteredDestinations, setFilteredDestinations] = useState([]);
-
     const swiperRef = useRef(null);
     const router = useRouter();
-
     const handleIndexChanged = (index) => {
         setActiveIndex(index);
     };
@@ -43,7 +29,6 @@ const Header = ({ destinations = [], unreadCount = 0 }) => {
         });
     };
 
-    // --- 2. SEARCH FUNCTION ---
     const onSearch = (text) => {
         setSearchQuery(text);
         if (text) {
@@ -56,19 +41,16 @@ const Header = ({ destinations = [], unreadCount = 0 }) => {
         }
     };
 
-    // --- 3. HANDLE SELECTION ---
     const onSelectDestination = (id) => {
-        setSearchQuery(''); // Clear search bar
-        setFilteredDestinations([]); // Hide list
+        setSearchQuery('');
+        setFilteredDestinations([]);
         handleExplorePress(id);
     };
 
     return (
         <View style={{ flex: 1 }}>
-            {/* Header Bar */}
             <View style={[styles.headerBar, { width: width * 1 }]}>
                 
-                {/* 4. SEARCH WRAPPER */}
                 <View style={styles.searchWrapper}>
                     <View style={styles.searchBox}>
                         <Feather name='search' size={18} color="#666" />
@@ -86,7 +68,6 @@ const Header = ({ destinations = [], unreadCount = 0 }) => {
                         )}
                     </View>
 
-                    {/* 5. SEARCH RESULTS DROPDOWN LIST */}
                     {searchQuery.length > 0 && (
                         <View style={styles.dropdownContainer}>
                             {filteredDestinations.length > 0 ? (
@@ -99,12 +80,10 @@ const Header = ({ destinations = [], unreadCount = 0 }) => {
                                             style={styles.dropdownItem}
                                             onPress={() => onSelectDestination(item.id)}
                                         >
-                                            {/* Image on Left */}
                                             <Image 
                                                 source={item.image ? { uri: item.image || item.first_image || item.thumbnail } : require('../../assets/localynk_images/login_background.png')} 
                                                 style={styles.dropdownImage} 
                                             />
-                                            {/* Name on Right */}
                                             <Text style={styles.dropdownText}>{item.name}</Text>
                                         </TouchableOpacity>
                                     )}
@@ -118,7 +97,6 @@ const Header = ({ destinations = [], unreadCount = 0 }) => {
                     )}
                 </View>
 
-                {/* Notification Button */}
                 <TouchableOpacity 
                     style={styles.notificationBtn}
                     onPress={handleNotificationPress}
@@ -134,7 +112,6 @@ const Header = ({ destinations = [], unreadCount = 0 }) => {
                 </TouchableOpacity>
             </View>
            
-            {/* Swiper Slider */}
             <View style={{ height: 380 }}>
                 {destinations.length > 0 ? (
                     <Swiper 
@@ -260,27 +237,21 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#333',
     },
-    
-    // --- DROPDOWN STYLES (Glassmorphism / Not too bright) ---
     dropdownContainer: {
         position: 'absolute',
         top: 55, 
         left: 0,
         right: 0,
-        // Semi-transparent off-white for glass effect
         backgroundColor: 'rgba(255, 255, 255, 0.92)', 
         borderRadius: 16,
-        // Soft shadows
         elevation: 10,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.15,
         shadowRadius: 12,
-        // Layout
         maxHeight: 250, 
         zIndex: 102,
         overflow: 'hidden',
-        // Glass border effect
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.5)',
     },
@@ -288,7 +259,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         padding: 12,
-        // Very subtle divider
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(0, 0, 0, 0.05)',
     },
@@ -305,8 +275,6 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         flex: 1,
     },
-    // ----------------------------------------------------
-
     notificationBtn: {
         width: 50,
         height: 50,

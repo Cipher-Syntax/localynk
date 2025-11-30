@@ -21,7 +21,6 @@ const TouristGuideDetails = () => {
     const params = useLocalSearchParams();
     const { guideId, placeId } = params;
 
-    // --- FETCH DATA ---
     useEffect(() => {
         const fetchData = async () => {
             if (!guideId || !placeId) return;
@@ -51,7 +50,6 @@ const TouristGuideDetails = () => {
         fetchData();
     }, [guideId, placeId]);
 
-    // --- HELPER: Image URL Fixer ---
     const getImageUrl = (imgPath) => {
         if (!imgPath) return 'https://via.placeholder.com/300';
         if (imgPath.startsWith('http')) return imgPath;
@@ -59,7 +57,6 @@ const TouristGuideDetails = () => {
         return `${base}${imgPath}`;
     };
 
-    // --- HELPER: Render Vertical Timeline (Schedule) ---
     const renderTimeline = (rawTimeline, tourContext) => {
         if (!rawTimeline) return null;
         
@@ -113,7 +110,6 @@ const TouristGuideDetails = () => {
         );
     };
 
-    // --- CALENDAR LOGIC ---
     const markedDates = useMemo(() => {
         if (!guide || !guide.specific_available_dates) return {};
         const marked = {};
@@ -155,7 +151,8 @@ const TouristGuideDetails = () => {
     let finalImage = null;
     if (destination?.images?.length > 0) {
         finalImage = destination.images[0].image;
-    } else if (tourPackages.length > 0 && tourPackages[0].stops?.length > 0) {
+    } 
+    else if (tourPackages.length > 0 && tourPackages[0].stops?.length > 0) {
         finalImage = tourPackages[0].stops[0].image;
     }
 
@@ -176,7 +173,6 @@ const TouristGuideDetails = () => {
                 <View style={styles.contentContainer}>
                     <View style={styles.guideCard}>
                         
-                        {/* Profile Header */}
                         <View style={styles.cardProfileSection}>
                             <View style={styles.iconWrapper}>
                                 {guide.profile_picture ? (
@@ -219,7 +215,6 @@ const TouristGuideDetails = () => {
                             <Text style={styles.destinationName}>{destination?.name || "Loading..."}</Text>
                         </View>
                         
-                        {/* --- TOUR PACKAGES SECTION --- */}
                         {tourPackages.length > 0 && (
                              <View style={styles.detailsSection}>
                                 <View style={styles.sectionHeader}>
@@ -228,7 +223,6 @@ const TouristGuideDetails = () => {
                                 </View>
 
                                 {tourPackages.map((tour, index) => {
-                                    // Timeline Parsing
                                     let scheduleItems = [];
                                     try {
                                         const raw = tour.itinerary_timeline;
@@ -258,7 +252,6 @@ const TouristGuideDetails = () => {
                                                     </View>
                                                 </View>
                                                 
-                                                {/* Row 2: Base Price & Additional Fee */}
                                                 <View style={[styles.detailRow, {marginTop: 8}]}>
                                                     <View style={styles.packageDetailItem}>
                                                         <Text style={styles.priceLabel}>Base Price:</Text>
@@ -317,7 +310,6 @@ const TouristGuideDetails = () => {
                             </View>
                         )}
 
-                        {/* ACCOMMODATIONS SECTION */}
                         {accommodations.length > 0 && (
                             <View style={styles.detailsSection}>
                                 <View style={styles.sectionHeader}>
@@ -405,10 +397,8 @@ const TouristGuideDetails = () => {
                             style={styles.bookButton} 
                             activeOpacity={0.8} 
                             onPress={() => {
-                                // Calculate Total Accommodation Price
                                 const totalAccomPrice = accommodations.reduce((sum, acc) => sum + parseFloat(acc.price || 0), 0);
                                 
-                                // Get selected/first tour details
                                 const selectedTour = tourPackages.length > 0 ? tourPackages[0] : null;
                                 const tourPrice = selectedTour ? parseFloat(selectedTour.price_per_day || 0) : parseFloat(guide.price_per_day || 0);
                                 const extraFee = selectedTour ? parseFloat(selectedTour.additional_fee_per_head || 0) : 0;

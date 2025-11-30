@@ -1,17 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import {
-    View,
-    Text,
-    ActivityIndicator,
-    ScrollView,
-    StyleSheet,
-    StatusBar,
-    Image,
-    TouchableOpacity,
-    TextInput,
-    Modal,
-    Alert,
-} from "react-native";
+import {View,Text,ActivityIndicator,ScrollView,StyleSheet,StatusBar,Image,TouchableOpacity,TextInput,Modal,Alert,} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -34,7 +22,7 @@ export default function Message() {
 
     const fetchMessages = async () => {
         if (!partnerId) {
-            setLoading(false); // Stop loading if no partnerId is provided
+            setLoading(false);
             return;
         }
         try {
@@ -52,7 +40,7 @@ export default function Message() {
 
         const interval = setInterval(() => {
             fetchMessages();
-        }, 5000); // Poll every 5 seconds
+        }, 5000);
 
         return () => clearInterval(interval);
     }, [partnerId]);
@@ -75,11 +63,9 @@ export default function Message() {
             await api.post(`/api/conversations/${partnerId}/messages/`, {
                 content: inputText,
             });
-            // Optionally, refetch messages to get the real message from the server
             fetchMessages();
         } catch (error) {
             console.error('Failed to send message:', error);
-            // Revert optimistic update on failure
             setMessages(prevMessages => prevMessages.filter(m => m.id !== optimisticMessage.id));
             Alert.alert("Error", "Failed to send message.");
         }

@@ -8,7 +8,6 @@ export default function ProtectedLayout() {
     const router = useRouter();
     const pathnameRaw = usePathname();
     const navigationAttempted = useRef(false);
-    
     const pathname = (pathnameRaw || '').split('?')[0].replace(/\/+$/, '') || '/';
     
     const isProfileIncomplete = user && (
@@ -55,7 +54,6 @@ export default function ProtectedLayout() {
         if (isLoading) return;
         if (navigationAttempted.current) return;
 
-        // --- Auth Check ---
         if (!isAuthenticated) {
             const authPaths = ["/auth/landingPage", "/auth/login", "/auth/register"];
             if (!authPaths.some(p => pathname.startsWith(p))) {
@@ -65,23 +63,18 @@ export default function ProtectedLayout() {
             return;
         }
 
-        // --- Onboarding Flow ---
-        // 1. Profile Setup
         if (isProfileIncomplete && pathname !== PROFILE_SETUP_PATH) {
             navigationAttempted.current = true;
             router.replace(PROFILE_SETUP_PATH);
             return;
         }
         
-        // 2. Terms and Conditions
         if (!isProfileIncomplete && !hasAcceptedTerms && pathname !== TERMS_PATH) {
             navigationAttempted.current = true;
             router.replace(TERMS_PATH);
             return;
         }
 
-        // --- Final Redirect to Home ---
-        // If profile and terms are complete, but user is on an onboarding page, send to home.
         if (!isProfileIncomplete && hasAcceptedTerms) {
             const isInsideOnboarding = pathname.startsWith('/onboarding');
             if (isInsideOnboarding) {

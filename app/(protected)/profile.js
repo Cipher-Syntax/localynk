@@ -8,13 +8,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../api/api';
 import { Calendar } from 'react-native-calendars';
 
-// 1. IMPORT USEAUTH
 import { useAuth } from '../../context/AuthContext'; 
 
 const { width } = Dimensions.get('window');
 
 const GuideProfile = () => {
-    // 2. GET CURRENT USER FROM CONTEXT
     const { user } = useAuth(); 
 
     const [guide, setGuide] = useState(null);
@@ -40,8 +38,6 @@ const GuideProfile = () => {
                 return;
             }
 
-            // 3. RESET STATE AND START LOADING
-            // This ensures previous user data is wiped before fetching new data
             setLoading(true);
             setGuide(null);
             
@@ -136,7 +132,6 @@ const GuideProfile = () => {
                 <View style={styles.contentContainer}>
                     <View style={styles.guideCard}>
                         
-                        {/* Profile Header */}
                         <View style={styles.cardProfileSection}>
                             <View style={styles.iconWrapper}>
                                 {guide.profile_picture ? (
@@ -156,7 +151,6 @@ const GuideProfile = () => {
                             <Ionicons name="heart-outline" size={22} color="#FF5A5F" />
                         </View>
 
-                        {/* Action Buttons */}
                         <View style={styles.buttonRow}>
                             <TouchableOpacity style={styles.actionButton} onPress={() => router.push({ pathname: "/(protected)/message", params: { partnerId: guide.id, partnerName: `${guide.first_name} ${guide.last_name}` } })}>
                                 <Ionicons name="chatbubble" size={14} color="#fff" />
@@ -164,7 +158,6 @@ const GuideProfile = () => {
                             </TouchableOpacity>
                         </View>
 
-                        {/* Destination Image */}
                         <View style={styles.destinationImageContainer}>
                             {finalImage ? (
                                 <Image source={{uri: getImageUrl(finalImage)}} style={styles.destinationImage} />
@@ -177,7 +170,6 @@ const GuideProfile = () => {
                             <Text style={styles.destinationName}>{destination?.name || "Loading..."}</Text>
                         </View>
                         
-                        {/* Tour Package Section */}
                         {tourPackage && (
                              <View style={styles.detailsSection}>
                                 <View style={styles.sectionHeader}>
@@ -202,7 +194,6 @@ const GuideProfile = () => {
                             </View>
                         )}
 
-                        {/* Tour Stops Section */}
                         {tourPackage?.stops && tourPackage.stops.length > 0 && (
                             <View style={styles.detailsSection}>
                                  <View style={styles.sectionHeader}>
@@ -220,7 +211,6 @@ const GuideProfile = () => {
                             </View>
                         )}
 
-                        {/* 🔥 ACCOMMODATIONS SECTION 🔥 */}
                         {accommodations.length > 0 && (
                             <View style={styles.detailsSection}>
                                 <View style={styles.sectionHeader}>
@@ -280,15 +270,25 @@ const GuideProfile = () => {
                             </View>
                         )}
 
-                        {/* Guide Details Section */}
                         <View style={styles.detailsSection}>
                             <Text style={styles.detailsHeader}>Guide Details</Text>
-                            <View style={styles.infoItem}><Languages size={16} color="#1A2332" /><Text style={styles.detailText}><Text style={styles.detailLabel}>Language: </Text>{Array.isArray(guide.languages) ? guide.languages.join(', ') : guide.languages}</Text></View>
-                            <View style={styles.infoItem}><Compass size={16} color="#1A2332" /><Text style={styles.detailText}><Text style={styles.detailLabel}>Specialty: </Text>{guide.specialty}</Text></View>
+                            <View style={styles.infoItem}>
+                                <Languages size={16} color="#1A2332" />
+                                <Text style={styles.detailText}>
+                                    <Text style={styles.detailLabel}>
+                                        Language: </Text>{Array.isArray(guide.languages) ? guide.languages.join(', ') : guide.languages}
+                                    </Text>
+                                </View>
+                            <View style={styles.infoItem}>
+                                <Compass size={16} color="#1A2332" />
+                                <Text style={styles.detailText}>
+                                    <Text style={styles.detailLabel}>Specialty: </Text>
+                                    {guide.specialty}
+                                </Text>
+                            </View>
                             <View style={styles.infoItem}><Clock size={16} color="#1A2332" /><Text style={styles.detailText}><Text style={styles.detailLabel}>Experience: </Text>{guide.experience_years} years</Text></View>
                         </View>
 
-                        {/* Availability Section */}
                         <View style={styles.detailsSection}>
                             <View style={styles.sectionHeader}>
                                 <CalendarIcon size={18} color="#1A2332" />
@@ -385,7 +385,6 @@ const styles = StyleSheet.create({
     detailLabel: { fontWeight: '600', color: '#1A2332' },
     itineraryText: { fontSize: 14, color: '#555', lineHeight: 20 },
     
-    // --- ACCOMMODATION CARD STYLES ---
     accSwiperContainer: { paddingRight: 20, paddingVertical: 10 },
     accCard: { 
         width: 240, 
@@ -414,7 +413,6 @@ const styles = StyleSheet.create({
     accPerNight: { fontSize: 11, color: '#999', fontWeight: '400' },
     accAmenities: { flexDirection: 'row' },
 
-    // Calendar & Legend
     calendarContainer: { backgroundColor: '#fff', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#eee' },
     calendarStyle: { borderRadius: 8, overflow: 'hidden' },
     legendContainer: { flexDirection: 'row', justifyContent: 'center', gap: 20, marginTop: 15, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#f0f0f0' },

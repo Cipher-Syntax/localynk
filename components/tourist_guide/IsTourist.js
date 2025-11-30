@@ -116,11 +116,9 @@ const IsTourist = () => {
         }
     };
 
-    // --- 🔥 CALCULATE REAL STATS HERE ---
     const totalBookings = bookings.length;
     const pendingBookings = bookings.filter(b => b.status === 'Pending').length;
     const completedBookings = bookings.filter(b => b.status === 'Completed').length;
-    // Assuming 'average_rating' exists on your user model, otherwise defaults to 0.0
     const ratingValue = user?.average_rating ? parseFloat(user.average_rating).toFixed(1) : "0.0";
 
     const statsData = [
@@ -134,7 +132,6 @@ const IsTourist = () => {
         <View style={styles.container} edges={['top']}>
             <StatusBar barStyle="light-content" />
 
-            {/* --- HEADER --- */}
             <View style={styles.header}>
                 <Image
                     source={require('../../assets/localynk_images/header.png')} 
@@ -165,7 +162,6 @@ const IsTourist = () => {
 
             <ScrollView contentContainerStyle={styles.mainContent} showsVerticalScrollIndicator={false}>
                 
-                {/* --- STATUS TOGGLE --- */}
                 <View style={styles.statusToggleContainer}>
                     <View style={styles.statusTextContainer}>
                         <Text style={styles.readyPromptText}>
@@ -190,7 +186,6 @@ const IsTourist = () => {
                     />
                 </View>
 
-                {/* --- GRID STATS --- */}
                 <View style={styles.statsGrid}>
                     {statsData.map((stat, index) => (
                         <View key={index} style={styles.statCard}>
@@ -208,11 +203,9 @@ const IsTourist = () => {
                     ))}
                 </View>
 
-                {/* --- GUIDE SETUP CHECKLIST --- */}
                 <View style={styles.bookingsSection}>
                     <Text style={styles.sectionTitle}>GUIDE SETUP CHECKLIST</Text>
                     
-                    {/* STEP 1 */}
                     <TouchableOpacity 
                         style={[styles.stepCard, styles.stepCardActive]}
                         onPress={() => router.push({pathname: "/(protected)/UpdateGuideInfoForm"})}
@@ -239,7 +232,6 @@ const IsTourist = () => {
                         <View style={styles.dottedLine} />
                     </View>
 
-                    {/* STEP 2 */}
                     <TouchableOpacity 
                         style={styles.stepCard}
                         onPress={() => router.push({pathname: "/(protected)/addAccommodation"})}
@@ -263,7 +255,6 @@ const IsTourist = () => {
                         <View style={styles.dottedLine} />
                     </View>
 
-                    {/* STEP 3 */}
                     <TouchableOpacity 
                         style={styles.stepCard}
                         onPress={() => router.push({pathname: "/(protected)/addTour"})}
@@ -283,7 +274,6 @@ const IsTourist = () => {
                         </View>
                     </TouchableOpacity>
 
-                    {/* --- BOOKING REQUESTS (PREMIUM DARK UI) --- */}
                     <Text style={[styles.sectionTitle, { marginTop: 30, marginBottom: 15 }]}>BOOKING REQUESTS</Text>
 
                     {bookings.length === 0 ? (
@@ -297,7 +287,6 @@ const IsTourist = () => {
                             return (
                                 <View key={booking.id} style={styles.bookingCard}>
                                     
-                                    {/* CARD HEADER */}
                                     <View style={styles.cardHeader}>
                                         <View style={styles.userInfo}>
                                             <View style={styles.avatarPlaceholder}>
@@ -319,7 +308,6 @@ const IsTourist = () => {
                                         </View>
                                     </View>
 
-                                    {/* CARD BODY: DATES */}
                                     <View style={styles.cardBody}>
                                         <View style={styles.dateContainer}>
                                             <View style={styles.dateItem}>
@@ -334,7 +322,6 @@ const IsTourist = () => {
                                         </View>
                                     </View>
 
-                                    {/* CARD FOOTER: ACTIONS */}
                                     {booking.status === 'Pending' ? (
                                         <View style={styles.actionRow}>
                                             <TouchableOpacity 
@@ -378,7 +365,6 @@ const IsTourist = () => {
                 </View>
             </ScrollView>
 
-            {/* Toast & Modals */}
             {toast.visible && (
                 <View style={[
                     styles.toastContainer, 
@@ -523,7 +509,6 @@ const styles = StyleSheet.create({
         gap: 15,
         paddingBottom: 40
     },
-    // --- STATUS TOGGLE ---
     statusToggleContainer: {
         width: '90%',
         alignSelf: 'center',
@@ -554,7 +539,6 @@ const styles = StyleSheet.create({
     statusDot: { width: 8, height: 8, borderRadius: 4 },
     statusLabel: { fontSize: 18, fontWeight: '800' },
     statusSubLabel: { fontSize: 12, color: '#666', marginTop: 2 },
-    // --- STATS ---
     statsGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
@@ -596,7 +580,6 @@ const styles = StyleSheet.create({
         marginTop: 5
     },
 
-    // --- CHECKLIST STYLES ---
     stepCard: {
         backgroundColor: '#fff',
         borderRadius: 16,
@@ -650,12 +633,11 @@ const styles = StyleSheet.create({
     connectorContainer: { paddingLeft: 34, height: 16, justifyContent: 'center' },
     dottedLine: { width: 2, height: '100%', borderStyle: 'dotted', borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 1 },
 
-    // --- PREMIUM DARK BOOKING CARD ---
     emptyState: { alignItems: 'center', justifyContent: 'center', padding: 30, backgroundColor: '#fff', borderRadius: 16, borderStyle: 'dashed', borderWidth: 1, borderColor: '#B0B8C4' },
     emptyStateText: { marginTop: 10, color: '#B0B8C4', fontSize: 14 },
     
     bookingCard: {
-        backgroundColor: '#253347', // Dark Blue Theme
+        backgroundColor: '#253347', 
         borderRadius: 20,
         padding: 20,
         marginBottom: 16,
@@ -719,9 +701,8 @@ const styles = StyleSheet.create({
         fontWeight: '700'
     },
     
-    // Card Body
     cardBody: {
-        backgroundColor: 'rgba(0,0,0,0.2)', // Slightly darker internal box
+        backgroundColor: 'rgba(0,0,0,0.2)',
         borderRadius: 12,
         padding: 12,
         marginBottom: 15
@@ -753,7 +734,6 @@ const styles = StyleSheet.create({
         fontWeight: '700'
     },
 
-    // Action Buttons
     actionRow: {
         flexDirection: 'row',
         gap: 12
@@ -762,7 +742,7 @@ const styles = StyleSheet.create({
         flex: 1,
         height: 44,
         borderRadius: 12,
-        overflow: 'hidden', // for gradient
+        overflow: 'hidden',
     },
     gradientBtnBg: {
         width: '100%',
@@ -783,7 +763,6 @@ const styles = StyleSheet.create({
         fontSize: 14
     },
     acceptBtn: {
-        // gradient handles bg
         shadowColor: '#00E676',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,

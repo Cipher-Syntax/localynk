@@ -4,20 +4,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../api/api'; 
-// import { useAuth } from "../../context/AuthContext"; // Import if needed for user context
 
-// --- FEE CONSTANTS ---
-const BASE_PEOPLE_INCLUDED = 1; // Price confirmed by agency includes this many people
-const ADDITIONAL_PER_PERSON_FEE = 50.00; // Extra mandatory fee per person beyond the base included count
+const BASE_PEOPLE_INCLUDED = 1; 
+const ADDITIONAL_PER_PERSON_FEE = 50.00;
 
 const AgencyPaymentReviewModal = () => {
     const router = useRouter();
     const params = useLocalSearchParams(); 
     
-    // Destructure confirmed booking details passed from the previous screens
     const { bookingId, totalPrice: initialConfirmedPrice, guideName } = params; 
 
-    // --- State and Interactive Data ---
     const [numPeople, setNumPeople] = useState('1'); 
     const [currentTotalPrice, setCurrentTotalPrice] = useState(parseFloat(initialConfirmedPrice || '0'));
 
@@ -35,7 +31,6 @@ const AgencyPaymentReviewModal = () => {
     const [isSuccess, setIsSuccess] = useState(false); 
     const [isLoading, setIsLoading] = useState(false);
 
-    // Initial confirmed price and fee calculation (these remain fixed percentages of the INITIAL price)
     const priceFloat = parseFloat(initialConfirmedPrice || '0');
     const initialBaseTourPrice = priceFloat * 0.95; 
     const initialServiceFee = priceFloat * 0.05; 
@@ -50,7 +45,6 @@ const AgencyPaymentReviewModal = () => {
         setNumPeople(num > 0 ? num.toString() : '1');
     };
 
-    // --- EFFECT: Recalculate price when group size changes ---
     useEffect(() => {
         const peopleCount = parseInt(numPeople);
         const extraPeople = Math.max(0, peopleCount - BASE_PEOPLE_INCLUDED);
@@ -70,7 +64,6 @@ const AgencyPaymentReviewModal = () => {
             return;
         }
 
-        // --- STATIC SIMULATION FOR UI TESTING ---
         try {
             await new Promise(resolve => setTimeout(resolve, 2000)); 
             
@@ -80,7 +73,6 @@ const AgencyPaymentReviewModal = () => {
                 return;
             }
             
-            // **Always simulate success for static testing**
             setIsSuccess(true);
             
             setIsLoading(false);
@@ -101,7 +93,6 @@ const AgencyPaymentReviewModal = () => {
         router.replace(isSuccess ? '/(protected)/home' : '/(protected)/notifications');
     };
 
-    // --- Confirmation Modal Content Setup ---
     const confirmationHeader = isSuccess ? "BOOKING CONFIRMED!" : "PAYMENT FAILED";
     const confirmationIconName = isSuccess ? "checkmark-done-circle" : "close-circle";
     const confirmationIconColor = isSuccess ? '#28A745' : '#FF3B30';
@@ -110,15 +101,12 @@ const AgencyPaymentReviewModal = () => {
         ? `Your booking (ID: ${bookingId}) for ${numPeople} person(s) is now complete! Your guide, **${guideName}**, will be ready for your tour. Enjoy your trip!`
         : "The payment could not be processed. Please check your payment details or try again.";
         
-    // --- Dynamic Fee Display ---
     const extraPeopleCount = Math.max(0, parseInt(numPeople) - BASE_PEOPLE_INCLUDED);
     const addedFeeAmount = extraPeopleCount * ADDITIONAL_PER_PERSON_FEE;
     
-    // Render logic for the main review content
     const renderPaymentContent = () => (
         <View style={styles.contentContainer}>
             
-            {/* Booking Details (Display Only) */}
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Booking Details</Text>
                 <View style={styles.card}>

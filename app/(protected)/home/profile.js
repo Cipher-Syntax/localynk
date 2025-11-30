@@ -1,16 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { 
-    View, 
-    Text, 
-    ActivityIndicator, 
-    ScrollView, 
-    StyleSheet, 
-    StatusBar, 
-    Image, 
-    TouchableOpacity, 
-    RefreshControl,
-    Dimensions
-} from "react-native";
+import { View, Text, ActivityIndicator, ScrollView, StyleSheet, StatusBar, Image, TouchableOpacity, RefreshControl,Dimensions} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, AntDesign, MaterialIcons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
@@ -28,7 +17,6 @@ const Profile = () => {
     const userId = params.userId;
     const [profile, setProfile] = useState(null);
     
-    // Stats State
     const [pendingCount, setPendingCount] = useState(0);
     const [completedCount, setCompletedCount] = useState(0);
     
@@ -53,33 +41,29 @@ const Profile = () => {
         }
     }, [user, userId]);
 
-    // Fetch Booking Stats (Pending & Completed)
     useEffect(() => {
         const fetchBookingStats = async () => {
             if (profile && profile.is_local_guide && profile.id) {
                 try {
-                    // Fetch all bookings
                     const response = await api.get('api/bookings/');
                     
                     let bookingsList = [];
 
                     if (Array.isArray(response.data)) {
                         bookingsList = response.data;
-                    } else if (response.data.results) {
+                    } 
+                    else if (response.data.results) {
                         bookingsList = response.data.results;
                     }
 
-                    // 1. Filter for Pending (Left Stat - "Tours")
                     const pending = bookingsList.filter(booking => booking.status === 'Pending');
                     setPendingCount(pending.length);
 
-                    // 2. Filter for Completed (Right Stat - "Trips")
                     const completed = bookingsList.filter(booking => booking.status === 'Completed');
                     setCompletedCount(completed.length);
 
-                    console.log(`Stats fetched - Pending: ${pending.length}, Completed: ${completed.length}`);
-
-                } catch (error) {
+                } 
+                catch (error) {
                     console.log("Could not fetch booking stats, defaulting to 0");
                     setPendingCount(0);
                     setCompletedCount(0);
@@ -126,15 +110,14 @@ const Profile = () => {
     const isOwnProfile = !userId || (user && profile && user.id === profile.id);
     const isGuide = profile.is_local_guide && profile.guide_approved;
 
-    // Use dynamic data for stats
     const profileData = {
         name: profile.first_name && profile.last_name 
             ? `${profile.first_name} ${profile.last_name}` 
             : profile.username || "User",
         image: profile.profile_picture || null, 
         stats: isGuide ? { 
-            tours: pendingCount, // PENDING COUNT
-            completions: completedCount, // COMPLETED COUNT
+            tours: pendingCount, 
+            completions: completedCount, 
             rating: profile.guide_rating || 0 
         } : null
     };
@@ -239,7 +222,6 @@ const Profile = () => {
                         )}
                     </View>
 
-                    {/* Stats Row with Dynamic Data */}
                     {isGuide && profileData.stats && (
                         <View style={styles.statsRow}>
                             <View style={styles.statItem}>

@@ -1,30 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
-import {
-    View,
-    StyleSheet,
-    StatusBar,
-    Image,
-    Text,
-    TouchableOpacity,
-    ImageBackground,
-    Animated,
-    Easing,
-    TextInput,
-    Dimensions,
-    FlatList,
-    ActivityIndicator
-} from 'react-native';
+import { View, StyleSheet, StatusBar, Image, Text, TouchableOpacity, ImageBackground, Animated, Easing, TextInput, Dimensions, FlatList, ActivityIndicator } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
 import { User } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import api from '../../api/api';
 
-// Dimensions for Bento Grid
 const { width } = Dimensions.get('window');
-const GAP = 10;
+const GAP = 12;
 const PADDING = 16;
-const LARGE_HEIGHT = 220;
+const LARGE_HEIGHT = 280;
 const SMALL_HEIGHT = (LARGE_HEIGHT - GAP) / 2;
 
 const ExplorePlaces = () => {
@@ -119,41 +104,95 @@ const ExplorePlaces = () => {
         return chunks;
     };
 
-    const GuideCard = ({ item, style }) => (
-        <TouchableOpacity
-            style={[styles.bentoCard, styles.guideCardBento, style]}
-            activeOpacity={0.9}
-            onPress={() => router.push({
-                pathname: "/(protected)/touristGuideDetails",
-                params: { guideId: item.id },
-            })}
-        >
-            <View style={styles.guideHeaderBento}>
-                <View style={styles.iconWrapperSmall}><User size={20} color="#8B98A8" /></View>
-                <View style={styles.guideRatingBadge}>
-                    <Ionicons name="star" size={10} color="#fff" />
-                    <Text style={styles.guideRatingText}>{item.guide_rating || 'New'}</Text>
+    const renderAvailability = (guideDays) => {
+        const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+        const shortDays = ["M", "T", "W", "T", "F", "S", "S"];
+        const safeGuideDays = guideDays || [];
+
+        return (
+            <View style={styles.availabilityContainer}>
+                {days.map((day, index) => {
+                    const isAvailable = safeGuideDays.includes(day) || safeGuideDays.includes("All");
+                    return (
+                        <View 
+                            key={index} 
+                            style={[
+                                styles.dayBadge, 
+                                isAvailable ? styles.dayAvailable : styles.dayUnavailable
+                            ]}
+                        >
+                            <Text style={[
+                                styles.dayText, 
+                                isAvailable ? styles.dayTextAvailable : styles.dayTextUnavailable
+                            ]}>
+                                {shortDays[index]}
+                            </Text>
+                        </View>
+                    );
+                })}
+            </View>
+        );
+    };
+
+    const GuideCardStack = ({ item }) => (
+        <View style={styles.guideCardStack}>
+            <View style={styles.cardProfileSection}>
+                <View style={styles.iconWrapper}>
+                    <User size={40} color="#8B98A8" />
+                </View>
+                
+                <View style={styles.profileInfo}>
+                    <View style={styles.nameRow}>
+                        <Text style={styles.guideName}>{item.first_name} {item.last_name}</Text>
+                        {renderAvailability(item.available_days)}
+                    </View>
+                    
+                    <Text style={styles.guideAddress}>{item.location || 'Zamboanga City'}</Text>
+                    <Text style={styles.guideRating}>
+                        {item.guide_rating || 'New'} <Ionicons name="star" size={12} color="#C99700" />
+                    </Text>
+                </View>
+
+                <TouchableOpacity>
+                    <Ionicons name="heart-outline" size={22} color="#FF5A5F" />
+                </TouchableOpacity>
+            </View>
+
+            <View style={styles.detailsGrid}>
+                <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Specialty</Text>
+                    <Text style={styles.detailValue} numberOfLines={1}>{item.specialty || 'General'}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Language</Text>
+                    <Text style={styles.detailValue} numberOfLines={1}>
+                        {Array.isArray(item.languages) ? item.languages[0] : (item.languages || 'N/A')}
+                    </Text>
+                </View>
+                <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Experience</Text>
+                    <Text style={styles.detailValue}>{item.experience_years || 0} years</Text>
+                </View>
+                <View style={styles.detailItem}>
+                    <Text style={styles.detailLabel}>Price</Text>
+                    <Text style={styles.detailValue}>₱{item.price_per_day || 'N/A'}/day</Text>
                 </View>
             </View>
-            <View style={styles.guideInfoBento}>
-                <Text style={styles.guideNameBento} numberOfLines={1}>{item.first_name} {item.last_name}</Text>
-                <Text style={styles.guideSpecialtyBento} numberOfLines={1}>{item.specialty || 'General Guide'}</Text>
-                {style.height > 150 && (
-                    <View style={styles.guideExtraBento}>
-                        {/* <Text style={styles.guidePriceBento}>₱{item.price_per_day}/day</Text> */}
-                        <Text style={styles.guideLocBento} numberOfLines={1}>
-                            <Ionicons name="location-outline" size={10} /> {item.location}
-                        </Text>
-                        <View style={styles.bookButtonSmall}>
-                            <Text style={styles.bookButtonTextSmall}>View Profile</Text>
-                        </View>
-                    </View>
-                )}
-            </View>
-        </TouchableOpacity>
+
+            <TouchableOpacity 
+                style={styles.buttonContainer} 
+                activeOpacity={0.8} 
+                onPress={() => router.push({
+                    pathname: "/(protected)/touristGuideDetails",
+                    params: { guideId: item.id },
+                })}
+            >
+                <Text style={styles.bookButton}>VIEW PROFILE</Text>
+            </TouchableOpacity>
+        </View>
     );
 
-    const PlaceCard = ({ item, style }) => {
+    const PlaceCardBento = ({ item, style }) => {
         const imageSource = item.image || item.first_image || item.thumbnail
             ? { uri: item.image || item.first_image || item.thumbnail }
             : null;
@@ -180,38 +219,42 @@ const ExplorePlaces = () => {
         );
     };
 
-    const renderBentoRow = ({ item: chunk, index }) => {
+    const renderItem = ({ item, index }) => {
+        if (activeTab === 'guides') {
+            return <GuideCardStack item={item} />;
+        }
+
+        const chunk = item;
         if (!chunk || chunk.length === 0) return null;
         const isBigLeft = index % 2 === 0;
-        const CardComponent = activeTab === 'guides' ? GuideCard : PlaceCard;
 
         return (
             <View style={styles.rowContainer}>
                 {chunk.length === 3 ? (
                     isBigLeft ? (
                         <>
-                            <CardComponent item={chunk[0]} style={{ width: '65%', height: LARGE_HEIGHT }} />
+                            <PlaceCardBento item={chunk[0]} style={{ width: '64%', height: LARGE_HEIGHT }} />
                             <View style={styles.columnContainer}>
-                                <CardComponent item={chunk[1]} style={{ width: '100%', height: SMALL_HEIGHT }} />
-                                <CardComponent item={chunk[2]} style={{ width: '100%', height: SMALL_HEIGHT }} />
+                                <PlaceCardBento item={chunk[1]} style={{ width: '100%', height: SMALL_HEIGHT }} />
+                                <PlaceCardBento item={chunk[2]} style={{ width: '100%', height: SMALL_HEIGHT }} />
                             </View>
                         </>
                     ) : (
                         <>
                             <View style={styles.columnContainer}>
-                                <CardComponent item={chunk[0]} style={{ width: '100%', height: SMALL_HEIGHT }} />
-                                <CardComponent item={chunk[1]} style={{ width: '100%', height: SMALL_HEIGHT }} />
+                                <PlaceCardBento item={chunk[0]} style={{ width: '100%', height: SMALL_HEIGHT }} />
+                                <PlaceCardBento item={chunk[1]} style={{ width: '100%', height: SMALL_HEIGHT }} />
                             </View>
-                            <CardComponent item={chunk[2]} style={{ width: '65%', height: LARGE_HEIGHT }} />
+                            <PlaceCardBento item={chunk[2]} style={{ width: '64%', height: LARGE_HEIGHT }} />
                         </>
                     )
                 ) : chunk.length === 2 ? (
                     <>
-                        <CardComponent item={chunk[0]} style={{ width: '48.5%', height: LARGE_HEIGHT }} />
-                        <CardComponent item={chunk[1]} style={{ width: '48.5%', height: LARGE_HEIGHT }} />
+                        <PlaceCardBento item={chunk[0]} style={{ width: '48%', height: LARGE_HEIGHT }} />
+                        <PlaceCardBento item={chunk[1]} style={{ width: '48%', height: LARGE_HEIGHT }} />
                     </>
                 ) : (
-                    <CardComponent item={chunk[0]} style={{ width: '100%', height: LARGE_HEIGHT * 0.8 }} />
+                    <PlaceCardBento item={chunk[0]} style={{ width: '100%', height: LARGE_HEIGHT * 0.8 }} />
                 )}
             </View>
         );
@@ -230,7 +273,7 @@ const ExplorePlaces = () => {
                     <Ionicons name="search" size={18} color="#8B98A8" style={styles.searchIcon} />
                     <TextInput
                         style={styles.searchInput}
-                        placeholder={activeTab === 'guides' ? "Search guides by name, specialty..." : "Search places..."}
+                        placeholder={activeTab === 'guides' ? "Search guides..." : "Search places..."}
                         placeholderTextColor="#8B98A8"
                         value={searchQuery}
                         onChangeText={setSearchQuery}
@@ -270,16 +313,16 @@ const ExplorePlaces = () => {
         return <View style={styles.emptyContainer}><Text style={styles.emptyText}>No results found.</Text></View>;
     };
 
-    const displayData = activeTab === 'guides' ? filteredGuides : filteredPlaces;
-    const bentoChunks = chunkData(displayData, 3);
+
+    const displayData = activeTab === 'guides' ? filteredGuides : chunkData(filteredPlaces, 3);
 
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
             <FlatList
                 key={activeTab}
-                data={bentoChunks}
-                renderItem={renderBentoRow}
+                data={displayData}
+                renderItem={renderItem}
                 keyExtractor={(item, index) => index.toString()}
                 contentContainerStyle={styles.contentContainer}
                 ListHeaderComponent={renderHeader}
@@ -297,10 +340,12 @@ const styles = StyleSheet.create({
     loadingContainer: { alignItems: 'center', marginTop: 50 },
     emptyContainer: { alignItems: 'center', marginTop: 50 },
     emptyText: { color: '#8B98A8', fontSize: 16 },
+    
     header: { position: 'relative', height: 120, justifyContent: 'center', width: '100%' },
     headerImage: { width: '100%', height: '100%', resizeMode: 'cover', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     headerTitle: { position: 'absolute', bottom: 15, left: 20, color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 1 },
+    
     searchFilterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, gap: 10 },
     searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#EBF0F5', borderRadius: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: '#D0DAE3' },
     searchIcon: { marginRight: 8 },
@@ -312,27 +357,56 @@ const styles = StyleSheet.create({
     toggleButtonActive: { backgroundColor: '#00A8FF' },
     toggleButtonText: { fontSize: 14, fontWeight: '600', color: '#00A8FF' },
     toggleButtonTextActive: { color: '#fff' },
+    
     contentContainer: { paddingBottom: 40 },
+
     rowContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: GAP, marginHorizontal: PADDING },
-    columnContainer: { width: '32%', justifyContent: 'space-between', height: LARGE_HEIGHT },
-    bentoCard: { borderRadius: 15, overflow: 'hidden', backgroundColor: '#F5F7FA', borderWidth: 1, borderColor: '#E0E6ED', elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3 },
-    guideCardBento: { padding: 12, justifyContent: 'space-between' },
-    guideHeaderBento: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-    iconWrapperSmall: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#EBF0F5', justifyContent: 'center', alignItems: 'center' },
-    guideRatingBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#C99700', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, gap: 2 },
-    guideRatingText: { color: '#fff', fontSize: 10, fontWeight: '700' },
-    guideInfoBento: { marginTop: 8 },
-    guideNameBento: { fontSize: 14, fontWeight: '700', color: '#1A2332' },
-    guideSpecialtyBento: { fontSize: 11, color: '#8B98A8', marginTop: 2 },
-    guideExtraBento: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#E0E6ED' },
-    guidePriceBento: { fontSize: 12, fontWeight: '600', color: '#00A8FF' },
-    guideLocBento: { fontSize: 10, color: '#8B98A8', marginTop: 2 },
-    bookButtonSmall: { marginTop: 8, backgroundColor: '#00A8FF', paddingVertical: 6, borderRadius: 6, alignItems: 'center' },
-    bookButtonTextSmall: { color: '#fff', fontSize: 10, fontWeight: '700' },
+    columnContainer: { width: '33%', justifyContent: 'space-between', height: LARGE_HEIGHT },
+    bentoCard: { borderRadius: 15, overflow: 'hidden', backgroundColor: '#F5F7FA', borderWidth: 1, borderColor: '#E0E6ED' },
     placeImageBento: { width: '100%', height: '100%', justifyContent: 'flex-end' },
     placeOverlayBento: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 15 },
     placeContentBento: { padding: 10 },
     placeNameBento: { color: '#fff', fontSize: 14, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3, marginBottom: 4 },
     placeLocRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
     placeLocText: { color: '#eee', fontSize: 10, flex: 1 },
+
+    guideCardStack: { 
+        backgroundColor: '#F5F7FA', 
+        borderRadius: 15, 
+        padding: 16, 
+        borderWidth: 1, 
+        borderColor: '#E0E6ED', 
+        marginBottom: 16,
+        marginHorizontal: 16,
+        alignSelf: 'stretch',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+        elevation: 2,
+    },
+    cardProfileSection: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 },
+    iconWrapper: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#EBF0F5', justifyContent: 'center', alignItems: 'center' },
+    profileInfo: { flex: 1, marginLeft: 12 },
+    
+    nameRow: { flexDirection: 'column', alignItems: 'flex-start' },
+    guideName: { fontSize: 16, fontWeight: '700', color: '#1A2332', marginBottom: 4 },
+    guideAddress: { fontSize: 12, color: '#8B98A8' },
+    guideRating: { fontSize: 12, color: '#C99700', marginTop: 2 },
+    
+    availabilityContainer: { flexDirection: 'row', gap: 4, marginTop: 4, marginBottom: 4 },
+    dayBadge: { width: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
+    dayAvailable: { backgroundColor: '#28A745' },
+    dayUnavailable: { backgroundColor: '#E0E0E0' },
+    dayText: { fontSize: 9, fontWeight: '700' },
+    dayTextAvailable: { color: '#fff' },
+    dayTextUnavailable: { color: '#A0A0A0' },
+
+    detailsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+    detailItem: { width: '48%', paddingVertical: 8, paddingHorizontal: 10, backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#eee' },
+    detailLabel: { fontSize: 11, color: '#8B98A8', fontWeight: '600', textTransform: 'uppercase' },
+    detailValue: { fontSize: 13, color: '#1A2332', fontWeight: '600', marginTop: 4 },
+    
+    buttonContainer: { alignItems: 'center' },
+    bookButton: { backgroundColor: '#00C6FF', color: '#fff', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, fontSize: 14, fontWeight: '700', textAlign: 'center', width: '100%', overflow: 'hidden' },
 });

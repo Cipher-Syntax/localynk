@@ -9,7 +9,6 @@ const ApplicationConfirmationModal = ({ isModalOpen, setIsModalOpen }) => {
 
     const handleDismiss = () => {
         setIsModalOpen(false);
-        // Navigate away after submission is complete.
         router.replace('/(protected)/home'); 
     };
 

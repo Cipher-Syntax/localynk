@@ -56,7 +56,6 @@ const PublicHeader = () => {
 
     return (
         <View style={{ flex: 1 }}>
-            {/* Header Bar with Login Button */}
             <View style={[styles.headerBar, { width: width * 1 }]}>
                 <View style={styles.searchBox}>
                     <Feather name='search' size={18} color="#666" />

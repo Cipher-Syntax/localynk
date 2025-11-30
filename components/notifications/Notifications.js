@@ -22,7 +22,6 @@ const Notifications = () => {
         "How was your trip?": <Ionicons name="star-outline" size={28} color="#FF8C00" />,
         "You have a new review!": <Ionicons name="star-half-outline" size={28} color="#007AFF" />,
         
-        // 🔥 UPDATED: Added "Content Warning" to match the Backend
         "Content Warning": <FontAwesome5 name="exclamation-triangle" size={24} color="#FF3B30" />, 
         "Warning from Admin": <FontAwesome5 name="exclamation-triangle" size={24} color="#FFA500" />,
     };
@@ -138,7 +137,6 @@ const Notifications = () => {
             Alert.alert(item.title, item.message);
         }
         else {
-            // Generic Fallback
             Alert.alert(item.title, item.message);
         }
     };

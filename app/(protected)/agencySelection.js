@@ -1,15 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    FlatList,
-    TouchableOpacity,
-    ActivityIndicator,
-    Image,
-    ScrollView,
-    StatusBar,
-} from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, ScrollView, StatusBar, } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -26,15 +16,13 @@ const AgencySelection = () => {
     useEffect(() => {
         const fetchAgencies = async () => {
             try {
-                // 🔥 1. Fetch from the corrected endpoint
                 const response = await api.get('/api/agencies/');
                 const rawData = Array.isArray(response.data) ? response.data : response.data.results || [];
 
-                // 🔥 2. Filter valid agencies (using business_name)
                 const validAgencies = rawData.filter(item => 
                     item.business_name && 
                     item.business_name.trim() !== '' &&
-                    item.is_approved === true // Check for approval status
+                    item.is_approved === true
                 );
 
                 setAgencies(validAgencies);
@@ -60,12 +48,9 @@ const AgencySelection = () => {
     };
 
     const renderAgencyCard = ({ item }) => {
-        // 🔥 3. Use 'business_name' instead of 'first_name'
         if (!item || !item.business_name) return null;
 
-        // Use the profile_picture from serializer or a specific fallback
-        // Also handles relative URLs from Django
-        let imageUri = 'https://via.placeholder.com/400x200?text=Agency';
+        let imageUri = '../../assets/localynk_images/featured1.png';
         if (item.profile_picture) {
             imageUri = item.profile_picture.startsWith('http') 
                 ? item.profile_picture 
@@ -77,14 +62,12 @@ const AgencySelection = () => {
                 <Image 
                     source={{ uri: imageUri }} 
                     style={styles.agencyImage}
-                    // Optional: Add a local fallback if network image fails
                     defaultSource={require('../../assets/localynk_images/featured1.png')} 
                 />
                 <View style={styles.cardContent}>
                     <Text style={styles.agencyName}>{item.business_name}</Text>
                     <Text style={styles.agencyOwner}>Owner: {item.owner_name}</Text>
                     
-                    {/* Display Phone or Email if Bio is missing */}
                     <Text style={styles.agencyDesc} numberOfLines={2}>
                         {item.phone ? `Contact: ${item.phone}` : item.email}
                     </Text>
@@ -118,7 +101,6 @@ const AgencySelection = () => {
             <SafeAreaView edges={['top']} style={{ flex: 1 }}>
                 <ScrollView showsVerticalScrollIndicator={false}>
 
-                    {/* HEADER IMAGE */}
                     <View style={styles.header}>
                         <Image
                             source={require('../../assets/localynk_images/header.png')}
@@ -131,7 +113,6 @@ const AgencySelection = () => {
                         <Text style={styles.headerTitle}>AGENCY LISTING</Text>
                     </View>
 
-                    {/* SECTION HEADER */}
                     <View style={styles.sectionHeaderContainer}>
                         <View style={styles.logoBadge}>
                             <Ionicons name="business" size={20} color="#00A8FF" />
@@ -142,7 +123,6 @@ const AgencySelection = () => {
                         </View>
                     </View>
 
-                    {/* LIST */}
                     <View style={styles.listContainer}>
                         <FlatList
                             data={agencies}

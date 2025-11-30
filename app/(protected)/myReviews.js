@@ -30,7 +30,6 @@ const ReviewCard = ({ review }) => (
 );
 
 const MyReviews = () => {
-    // 1. Get 'refreshUser' from your AuthContext
     const { user, refreshUser } = useAuth();
     const [reviews, setReviews] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -39,18 +38,14 @@ const MyReviews = () => {
     const fetchReviews = async () => {
         if (!user) return;
         try {
-            // 2. Refresh the User Profile to get the latest 'guide_rating'
             if (refreshUser) {
                 await refreshUser();
             }
 
             const response = await api.get('/api/reviews/');
-            // Handle pagination (results) vs no pagination (data)
             const reviewList = response.data.results || response.data || [];
             
-            // Filter only reviews RECEIVED by the current user
             const receivedReviews = reviewList.filter(review => {
-                // Ensure we handle both object ID or integer ID
                 const reviewedUserId = review.reviewed_user?.id || review.reviewed_user;
                 return reviewedUserId === user.id;
             });
@@ -67,7 +62,7 @@ const MyReviews = () => {
 
     useEffect(() => {
         fetchReviews();
-    }, []); // Only run on mount, let onRefresh handle updates
+    }, []);
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
@@ -75,7 +70,6 @@ const MyReviews = () => {
     }, [user]);
 
     const renderHeader = () => {
-        // 3. Use the user object (which is now refreshed)
         const rating = user?.guide_rating ? parseFloat(user.guide_rating).toFixed(1) : '0.0';
         const numericRating = user?.guide_rating ? parseFloat(user.guide_rating) : 0;
 
