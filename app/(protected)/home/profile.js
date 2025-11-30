@@ -27,6 +27,11 @@ const Profile = () => {
     const params = useLocalSearchParams();
     const userId = params.userId;
     const [profile, setProfile] = useState(null);
+    
+    // Stats State
+    const [pendingCount, setPendingCount] = useState(0);
+    const [completedCount, setCompletedCount] = useState(0);
+    
     const router = useRouter();
 
     const fetchProfileData = async () => {
@@ -47,6 +52,43 @@ const Profile = () => {
             setProfile(user);
         }
     }, [user, userId]);
+
+    // Fetch Booking Stats (Pending & Completed)
+    useEffect(() => {
+        const fetchBookingStats = async () => {
+            if (profile && profile.is_local_guide && profile.id) {
+                try {
+                    // Fetch all bookings
+                    const response = await api.get('api/bookings/');
+                    
+                    let bookingsList = [];
+
+                    if (Array.isArray(response.data)) {
+                        bookingsList = response.data;
+                    } else if (response.data.results) {
+                        bookingsList = response.data.results;
+                    }
+
+                    // 1. Filter for Pending (Left Stat - "Tours")
+                    const pending = bookingsList.filter(booking => booking.status === 'Pending');
+                    setPendingCount(pending.length);
+
+                    // 2. Filter for Completed (Right Stat - "Trips")
+                    const completed = bookingsList.filter(booking => booking.status === 'Completed');
+                    setCompletedCount(completed.length);
+
+                    console.log(`Stats fetched - Pending: ${pending.length}, Completed: ${completed.length}`);
+
+                } catch (error) {
+                    console.log("Could not fetch booking stats, defaulting to 0");
+                    setPendingCount(0);
+                    setCompletedCount(0);
+                }
+            }
+        };
+
+        fetchBookingStats();
+    }, [profile]);
 
     useFocusEffect(
         useCallback(() => {
@@ -84,12 +126,17 @@ const Profile = () => {
     const isOwnProfile = !userId || (user && profile && user.id === profile.id);
     const isGuide = profile.is_local_guide && profile.guide_approved;
 
+    // Use dynamic data for stats
     const profileData = {
         name: profile.first_name && profile.last_name 
             ? `${profile.first_name} ${profile.last_name}` 
             : profile.username || "User",
         image: profile.profile_picture || null, 
-        stats: isGuide ? { tours: 12, completions: 50, rating: profile.guide_rating || 0 } : null
+        stats: isGuide ? { 
+            tours: pendingCount, // PENDING COUNT
+            completions: completedCount, // COMPLETED COUNT
+            rating: profile.guide_rating || 0 
+        } : null
     };
 
     const touristSettingsItems = [
@@ -192,11 +239,12 @@ const Profile = () => {
                         )}
                     </View>
 
+                    {/* Stats Row with Dynamic Data */}
                     {isGuide && profileData.stats && (
                         <View style={styles.statsRow}>
                             <View style={styles.statItem}>
                                 <Text style={styles.statValue}>{profileData.stats.tours}</Text>
-                                <Text style={styles.statLabel}>Tours</Text>
+                                <Text style={styles.statLabel}>Tours (Pending)</Text>
                             </View>
                             <View style={styles.verticalDivider} />
                             <View style={styles.statItem}>
@@ -211,7 +259,7 @@ const Profile = () => {
                             <View style={styles.verticalDivider} />
                             <View style={styles.statItem}>
                                 <Text style={styles.statValue}>{profileData.stats.completions}</Text>
-                                <Text style={styles.statLabel}>Trips</Text>
+                                <Text style={styles.statLabel}>Trips (Done)</Text>
                             </View>
                         </View>
                     )}
@@ -234,8 +282,6 @@ const Profile = () => {
                                             <Ionicons name={item.icon} size={20} color={isGuide ? '#0072FF' : '#10B981'} />
                                         </View>
                                         <Text style={styles.menuLabel}>{item.label}</Text>
-                                        
-                                       
                                     </TouchableOpacity>
                                 ))}
                             </View>

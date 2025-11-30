@@ -33,6 +33,10 @@ const ReviewModal = () => {
     const [guideRating, setGuideRating] = useState(0);
     const [guideComment, setGuideComment] = useState('');
 
+    // State for AGENCY review
+    const [agencyRating, setAgencyRating] = useState(0);
+    const [agencyComment, setAgencyComment] = useState('');
+
     // State for destination review
     const [destinationRating, setDestinationRating] = useState(0);
     const [destinationComment, setDestinationComment] = useState('');
@@ -41,9 +45,6 @@ const ReviewModal = () => {
         const fetchBookingDetails = async () => {
             if (!bookingId) return;
             try {
-                // We need to fetch the full destination object, not just the ID.
-                // The booking serializer should ideally be updated to nest this.
-                // For now, we'll make a second fetch if needed.
                 const response = await api.get(`/api/bookings/${bookingId}/`);
                 setBooking(response.data);
             } catch (error) {
@@ -60,8 +61,13 @@ const ReviewModal = () => {
 
     const handleSubmit = async () => {
         const destinationToReview = booking?.destination || booking?.accommodation?.destination;
+        
+        // Validation: Check if at least one rating (Guide OR Agency OR Destination) is provided
+        const hasGuideRating = booking?.guide && guideRating > 0;
+        const hasAgencyRating = booking?.agency && agencyRating > 0;
+        const hasDestRating = destinationToReview && destinationRating > 0;
 
-        if ((!booking?.guide || guideRating === 0) && (!destinationToReview || destinationRating === 0)) {
+        if (!hasGuideRating && !hasAgencyRating && !hasDestRating) {
             Alert.alert('Incomplete', 'Please provide a rating.');
             return;
         }
@@ -70,19 +76,28 @@ const ReviewModal = () => {
         try {
             const promises = [];
 
-            // Submit guide review if applicable
+            // 1. Submit GUIDE review if applicable
             if (booking.guide && guideRating > 0) {
                 promises.push(api.post('/api/reviews/', {
-                    reviewed_user: booking.guide,
+                    reviewed_user: booking.guide, // This is the ID
                     rating: guideRating,
                     comment: guideComment,
                     booking: bookingId,
                 }));
             }
 
-            // Submit destination review if applicable
+            // 2. Submit AGENCY review if applicable
+            if (booking.agency && agencyRating > 0) {
+                promises.push(api.post('/api/reviews/', {
+                    reviewed_user: booking.agency, // This is the ID (Agency is also a User)
+                    rating: agencyRating,
+                    comment: agencyComment,
+                    booking: bookingId,
+                }));
+            }
+
+            // 3. Submit DESTINATION review if applicable
             if (destinationToReview && destinationRating > 0) {
-                // Note: The backend expects the destination ID.
                 const destId = typeof destinationToReview === 'object' ? destinationToReview.id : destinationToReview;
                 promises.push(api.post('/api/destination_reviews/', {
                     destination: destId,
@@ -106,7 +121,6 @@ const ReviewModal = () => {
         }
     };
     
-    // This logic correctly finds the destination from either a guide or accommodation booking
     const destinationForReview = booking?.destination_detail || (booking?.accommodation_detail && booking?.accommodation_detail?.destination_detail);
 
 
@@ -124,7 +138,7 @@ const ReviewModal = () => {
                     </TouchableOpacity>
                 </View>
 
-                {/* Guide Review Section */}
+                {/* --- GUIDE Review Section --- */}
                 {booking?.guide && (
                     <View style={styles.reviewSection}>
                         <Text style={styles.sectionTitle}>Review Your Guide</Text>
@@ -140,7 +154,23 @@ const ReviewModal = () => {
                     </View>
                 )}
 
-                {/* Destination Review Section (Corrected Logic) */}
+                {/* --- AGENCY Review Section --- */}
+                {booking?.agency && (
+                    <View style={styles.reviewSection}>
+                        <Text style={styles.sectionTitle}>Review Agency</Text>
+                        <Text style={styles.sectionSubtitle}>{booking.agency_detail?.username || booking.agency_detail?.full_name || 'Agency'}</Text>
+                        <StarRating rating={agencyRating} onRate={setAgencyRating} />
+                        <TextInput
+                            style={styles.textInput}
+                            placeholder="How was the service provided by the agency?"
+                            multiline
+                            value={agencyComment}
+                            onChangeText={setAgencyComment}
+                        />
+                    </View>
+                )}
+
+                {/* --- DESTINATION Review Section --- */}
                 {destinationForReview && (
                     <View style={styles.reviewSection}>
                         <Text style={styles.sectionTitle}>Review the Destination</Text>

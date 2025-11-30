@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, FlatList } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
@@ -30,7 +30,8 @@ const ReviewCard = ({ review }) => (
 );
 
 const MyReviews = () => {
-    const { user } = useAuth();
+    // 1. Get 'refreshUser' from your AuthContext
+    const { user, refreshUser } = useAuth();
     const [reviews, setReviews] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -38,10 +39,18 @@ const MyReviews = () => {
     const fetchReviews = async () => {
         if (!user) return;
         try {
+            // 2. Refresh the User Profile to get the latest 'guide_rating'
+            if (refreshUser) {
+                await refreshUser();
+            }
+
             const response = await api.get('/api/reviews/');
+            // Handle pagination (results) vs no pagination (data)
             const reviewList = response.data.results || response.data || [];
             
+            // Filter only reviews RECEIVED by the current user
             const receivedReviews = reviewList.filter(review => {
+                // Ensure we handle both object ID or integer ID
                 const reviewedUserId = review.reviewed_user?.id || review.reviewed_user;
                 return reviewedUserId === user.id;
             });
@@ -58,7 +67,7 @@ const MyReviews = () => {
 
     useEffect(() => {
         fetchReviews();
-    }, [user]);
+    }, []); // Only run on mount, let onRefresh handle updates
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
@@ -66,7 +75,8 @@ const MyReviews = () => {
     }, [user]);
 
     const renderHeader = () => {
-        const rating = user?.guide_rating ? parseFloat(user.guide_rating).toFixed(1) : 'N/A';
+        // 3. Use the user object (which is now refreshed)
+        const rating = user?.guide_rating ? parseFloat(user.guide_rating).toFixed(1) : '0.0';
         const numericRating = user?.guide_rating ? parseFloat(user.guide_rating) : 0;
 
         return (
@@ -76,7 +86,7 @@ const MyReviews = () => {
                     <Text style={styles.ratingValue}>{rating}</Text>
                     <StarDisplay rating={numericRating} size={28} />
                 </View>
-                <Text style={styles.reviewCount}>{reviews.length} total reviews</Text>
+                <Text style={styles.reviewCount}>{reviews.length} reviews loaded</Text>
             </View>
         );
     };
@@ -95,7 +105,7 @@ const MyReviews = () => {
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Ionicons name="eye-off-outline" size={50} color="#ccc" />
-                        <Text style={styles.emptyText}>You don't have any reviews yet.</Text>
+                        <Text style={styles.emptyText}>You haven't received any reviews yet.</Text>
                     </View>
                 }
                 refreshControl={

@@ -104,7 +104,11 @@ export default function ProtectedLayout() {
 
     if (!isAuthenticated) return null;
 
-    return <Slot key={user?.id ?? 'signed-in'} />;
+    return (
+        <View style={{ flex: 1 }}>
+            <Slot key={user?.id ?? 'signed-in'} />
+        </View>
+    );
 }
 
 const styles = StyleSheet.create({

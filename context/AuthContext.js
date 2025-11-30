@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../api/api';
 import { ACCESS_TOKEN, REFRESH_TOKEN } from '../constants/constants';
 import { useRouter } from 'expo-router';
+import { setApiToken } from '../api/api';
 
 const AuthContext = createContext();
 
@@ -228,14 +229,14 @@ export function AuthProvider({ children }) {
     // --- LOGOUT
     const logout = async (shouldRedirect = true) => {
         try {
-            // 1. Remove Tokens from Device
             await AsyncStorage.multiRemove([ACCESS_TOKEN, REFRESH_TOKEN]);
             
-            // 2. CRITICAL: Remove Header from Memory
-            // This ensures the next request doesn't accidentally use the old token
-            delete api.defaults.headers.common['Authorization'];
+            setApiToken(null); 
 
-            // 3. Reset State to a FRESH object (not a variable reference)
+            // (The 'delete api.defaults...' line you had is redundant if you use setApiToken(null), 
+            // but keeping it doesn't hurt. setApiToken does the real cleanup.)
+
+            // 3. Reset State
             setState({
                 isAuthenticated: false,
                 user: null,
@@ -252,6 +253,7 @@ export function AuthProvider({ children }) {
         } catch (e) {
             console.error("Logout failed", e);
             // Force reset anyway
+            setApiToken(null); // Ensure cache is cleared even on error
             setState({
                 isAuthenticated: false,
                 user: null,
@@ -262,7 +264,7 @@ export function AuthProvider({ children }) {
             });
             router.replace("/auth/login");
         }
-    };
+    }
 
     // --- Memoized context values
     const value = useMemo(() => {
