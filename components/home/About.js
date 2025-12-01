@@ -24,11 +24,10 @@ const About = () => {
             <View style={styles.headerContainer}>
                 <Text style={styles.overline}>OUR MISSION</Text>
                 <Text style={styles.title}>
-                    Connecting <Text style={styles.highlight}>People</Text>,{'\n'}Creating Memories
+                    Connecting <Text style={styles.highlight}>People</Text>, Creating Memories
                 </Text>
             </View>
 
-            {/* Main Card */}
             <View style={styles.cardContainer}>
                 <LinearGradient
                     colors={['#ffffff', '#F8FAFC']}
@@ -68,7 +67,6 @@ const About = () => {
                 </LinearGradient>
             </View>
 
-            {/* Footer */}
             <View style={styles.footer}>
                 <LinearGradient
                     colors={['#00C6FF', '#0072FF']}
@@ -130,7 +128,7 @@ const styles = StyleSheet.create({
     },
     logo: {
         width: 120,
-        height: 40,
+        height: 150,
     },
     description: {
         fontSize: 14,
