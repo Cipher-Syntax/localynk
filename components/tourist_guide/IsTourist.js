@@ -425,7 +425,7 @@ const IsTourist = () => {
                                 style={styles.modalUpgradeBtn}
                                 onPress={() => {
                                     setModalVisible(false);
-                                    router.push('/(protected)/upgradeMembership');
+                                    router.push({pathname: '/(protected)/upgradeMembership'});
                                 }}
                             >
                                 <LinearGradient
