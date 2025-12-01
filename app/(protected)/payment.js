@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, StatusBar, StyleSheet, Image, TextInput, TouchableOpacity, Pressable, ActivityIndicator, Alert, Modal } from 'react-native';
+import { View, Text, ScrollView, StatusBar, StyleSheet, Image, TextInput, TouchableOpacity, Pressable, ActivityIndicator, Alert, Modal, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { User } from 'lucide-react-native';
@@ -11,6 +11,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { PaymentReviewModal } from '../../components/payment';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api/api';
+
+const { width } = Dimensions.get('window');
 
 const Payment = () => {
     const params = useLocalSearchParams();
@@ -93,7 +95,7 @@ const Payment = () => {
         { key: 'paymaya', name: 'Maya' },
         { key: 'card', name: 'Card' },
         { key: 'grab_pay', name: 'GrabPay' },
-        { key: 'shopeepay', name: 'ShopeePay' },
+        { key: 'shopeepay', name: 'Shopee' },
     ];
 
     useEffect(() => {
@@ -258,6 +260,7 @@ const Payment = () => {
                 </View>
 
                 <View style={styles.contentContainer}>
+                    {/* 1. TOP INFO CARD */}
                     <View style={styles.guideInfoCard}>
                         <View style={styles.guideHeader}>
                             <View style={[styles.guideIcon, isAgency && styles.agencyIconBg]}>
@@ -277,6 +280,7 @@ const Payment = () => {
                         </View>
                     </View>
 
+                    {/* 2. IF NOT CONFIRMED: SELECTION FORM */}
                     {!isConfirmed && (
                         <>
                             <View style={styles.section}>
@@ -303,9 +307,7 @@ const Payment = () => {
                                 <View style={styles.modalContainer}>
                                     <View style={styles.modalContent}>
                                         <View style={styles.modalHeader}>
-                                            <Text style={styles.modalTitle}>
-                                                Select {selectingType === 'start' ? 'Start' : 'End'} Date
-                                            </Text>
+                                            <Text style={styles.modalTitle}>Select Date</Text>
                                             <TouchableOpacity onPress={() => setCalendarVisible(false)}>
                                                 <Ionicons name="close" size={24} color="#333" />
                                             </TouchableOpacity>
@@ -334,17 +336,13 @@ const Payment = () => {
                                         style={[styles.selectionButton, selectedOption === 'solo' && styles.selectionButtonActive]}
                                         onPress={() => { setSelectedOption('solo'); setNumPeople('1'); }}
                                     >
-                                        <Text style={[styles.selectionText, selectedOption === 'solo' && styles.selectionTextActive]}>
-                                            Solo
-                                        </Text>
+                                        <Text style={[styles.selectionText, selectedOption === 'solo' && styles.selectionTextActive]}>Solo</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity
                                         style={[styles.selectionButton, selectedOption === 'group' && styles.selectionButtonActive]}
                                         onPress={() => { setSelectedOption('group'); setNumPeople('2'); }}
                                     >
-                                        <Text style={[styles.selectionText, selectedOption === 'group' && styles.selectionTextActive]}>
-                                            Group
-                                        </Text>
+                                        <Text style={[styles.selectionText, selectedOption === 'group' && styles.selectionTextActive]}>Group</Text>
                                     </TouchableOpacity>
                                 </View>
                                 {selectedOption === 'group' && (
@@ -353,7 +351,6 @@ const Payment = () => {
                                         <TextInput
                                             style={styles.peopleInput}
                                             value={numPeople}
-                                            editable={!isConfirmed}
                                             onChangeText={(text) => { if (text === '' || /^[0-9]+$/.test(text)) setNumPeople(text); }}
                                             onBlur={() => { const val = parseInt(numPeople); if (!val || val < 2) setNumPeople('2'); }}
                                             keyboardType="numeric"
@@ -365,38 +362,14 @@ const Payment = () => {
                             <View style={styles.section}>
                                 <Text style={styles.sectionTitle}>Billing Information</Text>
                                 <View style={styles.billingRow}>
-                                    <TextInput
-                                        style={styles.billingInput}
-                                        placeholder="First Name"
-                                        value={firstName}
-                                        onChangeText={setFirstName}
-                                    />
-                                    <TextInput
-                                        style={styles.billingInput}
-                                        placeholder="Last Name"
-                                        value={lastName}
-                                    />
+                                    <TextInput style={styles.billingInput} placeholder="First Name" value={firstName} onChangeText={setFirstName} />
+                                    <TextInput style={styles.billingInput} placeholder="Last Name" value={lastName} onChangeText={setLastName} />
                                 </View>
                                 <View style={styles.billingRow}>
-                                    <TextInput
-                                        style={styles.billingInput}
-                                        placeholder="Phone Number"
-                                        value={phoneNumber}
-                                        onChangeText={setPhoneNumber}
-                                    />
-                                    <TextInput
-                                        style={styles.billingInput}
-                                        placeholder="Country"
-                                        value={country}
-                                        onChangeText={setCountry}
-                                    />
+                                    <TextInput style={styles.billingInput} placeholder="Phone" value={phoneNumber} onChangeText={setPhoneNumber} />
+                                    <TextInput style={styles.billingInput} placeholder="Country" value={country} onChangeText={setCountry} />
                                 </View>
-                                <TextInput
-                                    style={[styles.billingInput, styles.fullWidthInput]}
-                                    placeholder="Email"
-                                    value={email}
-                                    onChangeText={setEmail}
-                                />
+                                <TextInput style={[styles.billingInput, styles.fullWidthInput]} placeholder="Email" value={email} onChangeText={setEmail} />
                             </View>
 
                             <View style={styles.section}>
@@ -408,14 +381,8 @@ const Payment = () => {
                                         <View style={styles.imagePreviewContainer}>
                                             <Image source={{ uri: validIdImage }} style={styles.previewImage} />
                                             <View style={styles.reuploadOverlay}>
-                                                <Ionicons
-                                                    name={validIdImage.startsWith('http') ? "checkmark-circle" : "camera"}
-                                                    size={20}
-                                                    color="#fff"
-                                                />
-                                                <Text style={styles.reuploadText}>
-                                                    {validIdImage.startsWith('http') ? "KYC Verified" : "Change ID"}
-                                                </Text>
+                                                <Ionicons name={validIdImage.startsWith('http') ? "checkmark-circle" : "camera"} size={20} color="#fff" />
+                                                <Text style={styles.reuploadText}>{validIdImage.startsWith('http') ? "KYC Verified" : "Change ID"}</Text>
                                             </View>
                                         </View>
                                     ) : (
@@ -430,40 +397,127 @@ const Payment = () => {
                         </>
                     )}
 
+                    {/* 3. CONFIRMED ONLY: PAYMENT SECTION */}
+                    {isConfirmed && (
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>Select Payment Method</Text>
+                            <View style={styles.paymentGridContainer}>
+                                {paymentOptions.map((option) => {
+                                    let iconName = 'wallet-outline';
+                                    let iconColor = '#1A2332';
+                                    
+                                    switch (option.key) {
+                                        case 'gcash': iconName = 'phone-portrait-outline'; iconColor = '#007DFE'; break;
+                                        case 'paymaya': iconName = 'card-outline'; iconColor = '#2ECC71'; break;
+                                        case 'card': iconName = 'card'; iconColor = '#F39C12'; break;
+                                        case 'grab_pay': iconName = 'car-sport-outline'; iconColor = '#00B14F'; break;
+                                        case 'shopeepay': iconName = 'bag-handle-outline'; iconColor = '#EE4D2D'; break;
+                                    }
+                                    const isSelected = selectedPaymentMethod === option.key;
+                                    return (
+                                        <TouchableOpacity 
+                                            key={option.key} 
+                                            style={[styles.paymentGridCard, isSelected && styles.paymentGridCardSelected]} 
+                                            onPress={() => setSelectedPaymentMethod(option.key)} 
+                                            activeOpacity={0.9}
+                                        >
+                                            <View style={[styles.gridIconContainer, { backgroundColor: isSelected ? iconColor : '#F5F7FA' }]}>
+                                                <Ionicons name={iconName} size={24} color={isSelected ? '#FFF' : iconColor} />
+                                            </View>
+                                            <Text style={[styles.gridMethodTitle, isSelected && {color: '#007DFE'}]}>{option.name}</Text>
+                                            
+                                            {isSelected && (
+                                                <View style={styles.selectedCheckBadge}>
+                                                    <Ionicons name="checkmark" size={10} color="#fff" />
+                                                </View>
+                                            )}
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+                        </View>
+                    )}
+
+                    {/* 4. PRICE BREAKDOWN (Redesigned) */}
+                    <View style={styles.priceCard}>
+                        <View style={styles.priceRow}>
+                            <Text style={styles.priceLabel}>Base Price</Text>
+                            <Text style={styles.priceValue}>₱ {combinedBasePrice.toLocaleString()}</Text>
+                        </View>
+                        
+                        {extraPersonFee > 0 && selectedOption === 'group' && (
+                            <View style={styles.priceRow}>
+                                <Text style={styles.priceLabel}>
+                                    Extra Fee (₱{extraPersonFee} × {Math.max(0, (parseInt(numPeople) || 1) - 1)} people)
+                                </Text>
+                                <Text style={styles.priceValue}>
+                                    +₱ {(extraPersonFee * Math.max(0, (parseInt(numPeople) || 1) - 1)).toLocaleString()}
+                                </Text>
+                            </View>
+                        )}
+
+                        <View style={styles.priceRow}>
+                            <Text style={styles.priceLabel}>Number of Days</Text>
+                            <Text style={styles.priceValue}>
+                                {Math.max(Math.floor(Math.abs((endDate - startDate) / (24 * 60 * 60 * 1000))) + 1, 1)} day(s)
+                            </Text>
+                        </View>
+
+                        <View style={styles.priceDivider}>
+                            <View style={styles.dashedLine} />
+                        </View>
+
+                        <View style={styles.priceRow}>
+                            <Text style={styles.totalLabel}>Total to Pay</Text>
+                            <View style={styles.totalValueContainer}>
+                                <Text style={styles.currency}>₱</Text>
+                                <Text style={styles.totalValue}>{totalPrice.toLocaleString()}</Text>
+                            </View>
+                        </View>
+                    </View>
+
+                    {/* 5. ASSIGNED GUIDES (Redesigned Row Layout) */}
                     {isAgency && assignedAgencyGuidesList.length > 0 && (
                         <View style={styles.section}>
-                            <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom: 12}}>
-                                <Text style={styles.sectionTitle}>Meet Your Guides</Text>
-                                <Text style={styles.subtitleLink}>{assignedAgencyGuidesList.length} Assigned</Text>
+                            <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom: 12, marginTop: 10}}>
+                                <Text style={styles.sectionTitle}>Assigned Guides</Text>
+                                <Text style={styles.subtitleLink}>{assignedAgencyGuidesList.length} Guide(s)</Text>
                             </View>
                             
                             <View style={styles.assignedGuidesContainer}>
                                 {assignedAgencyGuidesList.map((guide, index) => (
                                     <View key={index} style={styles.assignedGuideCard}>
-                                        <View style={styles.avatarContainer}>
-                                            <Image
-                                                source={{ uri: guide.profile_picture || '' }}
-                                                style={styles.guideAvatarLarge}
-                                            />
-                                            <View style={styles.badgeIcon}>
-                                                <Ionicons name="shield-checkmark" size={12} color="#fff" />
+                                        <View style={styles.guideCardLeft}>
+                                            <View style={styles.avatarContainer}>
+                                                <Image 
+                                                    source={{ uri: guide.profile_picture || '' }} 
+                                                    style={styles.guideAvatarLarge} 
+                                                />
+                                                <View style={styles.badgeIcon}>
+                                                    <Ionicons name="shield-checkmark" size={12} color="#fff" />
+                                                </View>
                                             </View>
                                         </View>
 
-                                        <View style={styles.guideCardDetails}>
-                                            <Text style={styles.guideCardName}>
-                                                {guide.full_name || `${guide.first_name} ${guide.last_name}`}
-                                            </Text>
+                                        <View style={styles.guideCardRight}>
+                                            <View style={styles.guideHeaderRow}>
+                                                <Text style={styles.guideCardName} numberOfLines={1}>
+                                                    {guide.full_name || `${guide.first_name} ${guide.last_name}`}
+                                                </Text>
+                                            </View>
                                             
                                             <View style={styles.roleTag}>
-                                                <Text style={styles.roleTagText}>
-                                                    {guide.specialization || "Official Guide"}
-                                                </Text>
+                                                <Text style={styles.roleTagText}>{guide.specialization || "Official Guide"}</Text>
+                                            </View>
+
+                                            <View style={styles.agencyTagRow}>
+                                                <Ionicons name="business-outline" size={12} color="#64748B" />
+                                                <Text style={styles.agencyTagText} numberOfLines={1}>{bookingEntity.name}</Text>
                                             </View>
 
                                             {guide.contact_number && (
                                                 <View style={styles.guideContactRow}>
-                                                    <Ionicons name="call-outline" size={14} color="#64748B" />
+                                                    <Ionicons name="call-outline" size={12} color="#64748B" />
                                                     <Text style={styles.guideContactText}>{guide.contact_number}</Text>
                                                 </View>
                                             )}
@@ -473,79 +527,6 @@ const Payment = () => {
                             </View>
                         </View>
                     )}
-
-                    {isConfirmed && (
-                        <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>Select Payment Method</Text>
-                            <View style={styles.paymentListContainer}>
-                                {paymentOptions.map((option) => {
-                                    let iconName = 'wallet-outline';
-                                    let iconColor = '#1A2332';
-                                    let subLabel = 'E-Wallet';
-
-                                    switch (option.key) {
-                                        case 'gcash': iconName = 'phone-portrait-outline'; iconColor = '#007DFE'; subLabel = 'Pay via GCash App'; break;
-                                        case 'paymaya': iconName = 'card-outline'; iconColor = '#2ECC71'; subLabel = 'Pay via Maya'; break;
-                                        case 'card': iconName = 'card'; iconColor = '#F39C12'; subLabel = 'Visa / Mastercard'; break;
-                                        case 'grab_pay': iconName = 'car-sport-outline'; iconColor = '#00B14F'; subLabel = 'Pay via Grab'; break;
-                                        case 'shopeepay': iconName = 'bag-handle-outline'; iconColor = '#EE4D2D'; subLabel = 'Pay via Shopee'; break;
-                                    }
-
-                                    const isSelected = selectedPaymentMethod === option.key;
-
-                                    return (
-                                        <TouchableOpacity
-                                            key={option.key}
-                                            style={[styles.paymentMethodCard, isSelected && styles.paymentMethodCardSelected]}
-                                            onPress={() => setSelectedPaymentMethod(option.key)}
-                                            activeOpacity={0.9}
-                                        >
-                                            <View style={styles.paymentMethodLeft}>
-                                                <View style={[styles.iconContainer, { backgroundColor: isSelected ? iconColor : '#F5F7FA' }]}>
-                                                    <Ionicons name={iconName} size={24} color={isSelected ? '#FFF' : iconColor} />
-                                                </View>
-                                                <View>
-                                                    <Text style={styles.methodTitle}>{option.name}</Text>
-                                                    <Text style={styles.methodSubtitle}>{subLabel}</Text>
-                                                </View>
-                                            </View>
-                                            <View style={[styles.radioButton, isSelected && styles.radioButtonSelected]}>
-                                                {isSelected && <View style={styles.radioButtonInner} />}
-                                            </View>
-                                        </TouchableOpacity>
-                                    );
-                                })}
-                            </View>
-                        </View>
-                    )}
-
-                    <View style={styles.priceCard}>
-                        <View style={styles.priceRow}>
-                            <Text style={styles.priceLabel}>Base Price</Text>
-                            <Text style={styles.priceValue}>₱ {combinedBasePrice.toLocaleString()}</Text>
-                        </View>
-                        {extraPersonFee > 0 && selectedOption === 'group' && (
-                            <View style={styles.priceRow}>
-                                <Text style={styles.priceLabel}>
-                                    Extra Fee (₱{extraPersonFee} x {Math.max(0, (parseInt(numPeople) || 1) - 1)} people)
-                                </Text>
-                                <Text style={styles.priceValue}>
-                                    ₱ {(extraPersonFee * Math.max(0, (parseInt(numPeople) || 1) - 1)).toLocaleString()}
-                                </Text>
-                            </View>
-                        )}
-                        <View style={styles.priceRow}>
-                            <Text style={styles.priceLabel}>Number of Days</Text>
-                            <Text style={styles.priceValue}>
-                                {Math.max(Math.floor(Math.abs((endDate - startDate) / (24 * 60 * 60 * 1000))) + 1, 1)} day(s)
-                            </Text>
-                        </View>
-                        <View style={styles.priceDivider} />
-                        <View style={styles.priceRow}>
-                            <Text style={styles.totalLabel}>Total to Pay</Text>
-                            <Text style={styles.totalValue}>₱ {totalPrice.toLocaleString()}</Text>
-                        </View>
-                    </View>
 
                     <TouchableOpacity style={styles.confirmButton} onPress={handleReviewPress}>
                         <Text style={styles.confirmButtonText}>
@@ -582,118 +563,229 @@ const Payment = () => {
 export default Payment;
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#fff' },
+    container: { flex: 1, backgroundColor: '#F9FAFB' },
+    
     header: { position: 'relative', height: 120, justifyContent: 'center' },
     headerImage: { width: '100%', height: '100%', resizeMode: 'cover', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     headerTitle: { position: 'absolute', bottom: 15, left: 20, color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 1 },
+    
     contentContainer: { padding: 16, paddingBottom: 30 },
-    guideInfoCard: { backgroundColor: '#F5F7FA', borderRadius: 15, padding: 16, borderWidth: 1, borderColor: '#E0E6ED', marginBottom: 20 },
+    
+    guideInfoCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E0E6ED', marginBottom: 20, shadowColor: '#000', shadowOpacity: 0.02, shadowRadius: 4, elevation: 2 },
     guideHeader: { flexDirection: 'row', alignItems: 'flex-start' },
-    guideIcon: { width: 60, height: 60, borderRadius: 12, backgroundColor: '#1A2332', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+    guideIcon: { width: 60, height: 60, borderRadius: 16, backgroundColor: '#1A2332', justifyContent: 'center', alignItems: 'center', marginRight: 14 },
     agencyIconBg: { backgroundColor: '#00A8FF' },
-    guideInfo: { flex: 1 },
-    guideName: { fontSize: 16, fontWeight: '700', color: '#1A2332' },
-    guideDetail: { fontSize: 12, color: '#8B98A8', marginTop: 2 },
-    verifiedBadge: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 4 },
-    verifiedText: { fontSize: 11, color: '#00C853', fontWeight: '600' },
-    section: { marginBottom: 20 },
-    sectionTitle: { fontSize: 15, fontWeight: '800', color: '#1A2332', marginBottom: 12 },
+    guideInfo: { flex: 1, justifyContent: 'center' },
+    guideName: { fontSize: 18, fontWeight: '800', color: '#1A2332', marginBottom: 2 },
+    guideDetail: { fontSize: 12, color: '#64748B', marginBottom: 2 },
+    verifiedBadge: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 4, backgroundColor: '#ECFDF5', alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
+    verifiedText: { fontSize: 10, color: '#00C853', fontWeight: '700' },
+
+    section: { marginBottom: 24 },
+    sectionTitle: { fontSize: 16, fontWeight: '800', color: '#1A2332', marginBottom: 12 },
     subtitleLink: { fontSize: 12, color: '#00A8FF', fontWeight: '600' },
+    
     dateRow: { flexDirection: 'row', gap: 12 },
-    dateInput: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#1A2332', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#fff' },
-    dateInputText: { fontSize: 13, color: '#1A2332', fontWeight: '500' },
-    inputLabel: { fontSize: 13, color: '#1A2332', fontWeight: '600', marginBottom: 5 },
-    modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
-    modalContent: { backgroundColor: '#fff', borderRadius: 15, padding: 20, elevation: 5 },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-    modalTitle: { fontSize: 18, fontWeight: '700', color: '#1A2332' },
-    modalSubText: { fontSize: 12, color: '#888', marginBottom: 15 },
+    dateInput: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: '#fff' },
+    dateInputText: { fontSize: 14, color: '#1A2332', fontWeight: '500' },
+    inputLabel: { fontSize: 12, color: '#64748B', fontWeight: '600', marginBottom: 6 },
+    
     selectionButtons: { flexDirection: 'row', gap: 10 },
-    selectionButton: { flex: 1, borderWidth: 1, borderColor: '#E0E6ED', paddingVertical: 10, borderRadius: 8, alignItems: 'center', backgroundColor: '#F5F7FA' },
+    selectionButton: { flex: 1, borderWidth: 1, borderColor: '#E2E8F0', paddingVertical: 12, borderRadius: 12, alignItems: 'center', backgroundColor: '#fff' },
     selectionButtonActive: { backgroundColor: '#00A8FF', borderColor: '#00A8FF' },
-    selectionText: { fontSize: 13, color: '#1A2332', fontWeight: '600' },
+    selectionText: { fontSize: 14, color: '#64748B', fontWeight: '600' },
     selectionTextActive: { color: '#fff' },
-    peopleInputContainer: { marginTop: 12 },
-    peopleInput: { borderWidth: 1, borderColor: '#1A2332', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#fff', fontSize: 13, color: '#1A2332' },
-    priceCard: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#1A2332', borderRadius: 12, padding: 16, marginBottom: 20 },
-    priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-    priceLabel: { fontSize: 13, color: '#1A2332', fontWeight: '500' },
-    priceValue: { fontSize: 13, color: '#1A2332', fontWeight: '600' },
-    priceDivider: { height: 1, backgroundColor: '#1A2332', marginVertical: 10 },
-    totalLabel: { fontSize: 13, fontWeight: '700', color: '#1A2332' },
-    totalValue: { fontSize: 13, fontWeight: '700', color: '#1A2332' },
+    peopleInputContainer: { marginTop: 16 },
+    peopleInput: { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: '#fff', fontSize: 14, color: '#1A2332' },
+
+    priceCard: { 
+        backgroundColor: '#fff', 
+        borderRadius: 16, 
+        padding: 20, 
+        marginBottom: 24,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 3,
+        borderWidth: 1,
+        borderColor: '#E2E8F0'
+    },
+    priceRow: { 
+        flexDirection: 'row', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: 12 
+    },
+    priceLabel: { 
+        fontSize: 14, 
+        color: '#64748B', 
+        fontWeight: '500' 
+    },
+    priceValue: { 
+        fontSize: 14, 
+        color: '#1E293B', 
+        fontWeight: '600' 
+    },
+    priceDivider: { 
+        marginVertical: 16,
+        overflow: 'hidden' 
+    },
+    dashedLine: {
+        height: 1,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        borderStyle: 'dashed',
+        borderRadius: 1
+    },
+    totalLabel: { 
+        fontSize: 16, 
+        fontWeight: '700', 
+        color: '#1E293B' 
+    },
+    totalValueContainer: {
+        flexDirection: 'row',
+        alignItems: 'baseline'
+    },
+    currency: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#00A8FF',
+        marginRight: 2
+    },
+    totalValue: { 
+        fontSize: 20, 
+        fontWeight: '800', 
+        color: '#00A8FF' 
+    },
+
     billingRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
-    billingInput: { flex: 1, borderWidth: 1, borderColor: '#1A2332', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 13, color: '#1A2332', backgroundColor: '#fff' },
+    billingInput: { flex: 1, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: '#1A2332', backgroundColor: '#fff' },
     fullWidthInput: { width: '100%' },
-    helperText: { fontSize: 12, color: '#8B98A8', marginBottom: 12, lineHeight: 18, textAlign: 'center' },
-    uploadContainer: { height: 150, borderWidth: 1, borderColor: '#E0E6ED', borderStyle: 'dashed', borderRadius: 12, backgroundColor: '#F5F7FA', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+
+    helperText: { fontSize: 12, color: '#64748B', marginBottom: 12, lineHeight: 18, textAlign: 'center' },
+    uploadContainer: { height: 160, borderWidth: 1, borderColor: '#CBD5E1', borderStyle: 'dashed', borderRadius: 16, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
     uploadPlaceholder: { alignItems: 'center' },
-    uploadText: { marginTop: 10, fontSize: 13, fontWeight: '600', color: '#00A8FF' },
+    uploadText: { marginTop: 12, fontSize: 14, fontWeight: '600', color: '#00A8FF' },
     imagePreviewContainer: { width: '100%', height: '100%', position: 'relative' },
     previewImage: { width: '100%', height: '100%', resizeMode: 'cover' },
-    reuploadOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.5)', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, gap: 6 },
-    reuploadText: { color: '#fff', fontSize: 12, fontWeight: '600' },
-    confirmButton: { backgroundColor: '#00A8FF', paddingVertical: 12, borderRadius: 8, alignItems: 'center', marginTop: 10 },
-    confirmButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
-    paymentListContainer: { flexDirection: 'column', gap: 12 },
-    paymentMethodCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E0E6ED', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 2 },
-    paymentMethodCardSelected: { borderColor: '#00A8FF', backgroundColor: '#F0F9FF' },
-    paymentMethodLeft: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-    iconContainer: { width: 48, height: 48, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-    methodTitle: { fontSize: 15, fontWeight: '700', color: '#1A2332' },
-    methodSubtitle: { fontSize: 12, color: '#8B98A8', marginTop: 2 },
-    radioButton: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#D1D5DB', justifyContent: 'center', alignItems: 'center' },
-    radioButtonSelected: { borderColor: '#00A8FF' },
-    radioButtonInner: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#00A8FF' },
-    
-    assignedGuidesContainer: { flexDirection: 'column', gap: 12 },
+    reuploadOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.6)', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 10, gap: 8 },
+    reuploadText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+
+    confirmButton: { backgroundColor: '#00A8FF', paddingVertical: 16, borderRadius: 16, alignItems: 'center', marginTop: 10, shadowColor: '#00A8FF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
+    confirmButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+
+    paymentGridContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        gap: 12,
+    },
+    paymentGridCard: {
+        width: '31%', 
+        aspectRatio: 1,
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        padding: 8,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.03,
+        shadowRadius: 4,
+        elevation: 2,
+        position: 'relative'
+    },
+    paymentGridCardSelected: {
+        borderColor: '#007DFE',
+        backgroundColor: '#F0F9FF',
+        borderWidth: 2
+    },
+    gridIconContainer: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    gridMethodTitle: {
+        fontSize: 11,
+        fontWeight: '600',
+        color: '#64748B',
+        textAlign: 'center'
+    },
+    selectedCheckBadge: {
+        position: 'absolute',
+        top: 6,
+        right: 6,
+        backgroundColor: '#007DFE',
+        width: 18,
+        height: 18,
+        borderRadius: 9,
+        justifyContent: 'center',
+        alignItems: 'center'
+    },
+
+    assignedGuidesContainer: { 
+        flexDirection: 'column', 
+        gap: 12 
+    },
     assignedGuideCard: { 
         flexDirection: 'row', 
         alignItems: 'center', 
         backgroundColor: '#fff', 
         borderRadius: 16, 
-        padding: 12, 
+        padding: 14, 
         borderWidth: 1, 
         borderColor: '#E2E8F0',
         shadowColor: '#000', 
-        shadowOffset: { width: 0, height: 3 }, 
+        shadowOffset: { width: 0, height: 2 }, 
         shadowOpacity: 0.05, 
         shadowRadius: 6, 
-        elevation: 3,
-        borderLeftWidth: 4,
-        borderLeftColor: '#00A8FF' 
+        elevation: 2
+    },
+    guideCardLeft: {
+        marginRight: 16,
     },
     avatarContainer: {
         position: 'relative',
-        marginRight: 16
     },
     guideAvatarLarge: { 
-        width: 60, 
-        height: 60, 
-        borderRadius: 30,
-        borderWidth: 2,
+        width: 56, 
+        height: 56, 
+        borderRadius: 28, 
+        borderWidth: 2, 
         borderColor: '#F1F5F9' 
     },
     badgeIcon: {
         position: 'absolute',
-        bottom: 0,
-        right: 0,
+        bottom: -2,
+        right: -2,
         backgroundColor: '#00A8FF',
         borderRadius: 10,
-        padding: 2,
+        padding: 3,
         borderWidth: 2,
         borderColor: '#fff'
     },
-    guideCardDetails: {
+    guideCardRight: {
         flex: 1,
         justifyContent: 'center'
     },
+    guideHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 4
+    },
     guideCardName: {
-        fontSize: 16,
+        fontSize: 15,
         fontWeight: '800',
         color: '#1E293B',
-        marginBottom: 4
+        flex: 1
     },
     roleTag: {
         alignSelf: 'flex-start',
@@ -701,13 +793,24 @@ const styles = StyleSheet.create({
         paddingHorizontal: 8,
         paddingVertical: 2,
         borderRadius: 6,
-        marginBottom: 4
+        marginBottom: 6
     },
     roleTagText: {
-        fontSize: 11,
+        fontSize: 10,
         fontWeight: '700',
         color: '#0284C7',
         textTransform: 'uppercase'
+    },
+    agencyTagRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginBottom: 2
+    },
+    agencyTagText: {
+        fontSize: 11,
+        color: '#64748B',
+        fontWeight: '500'
     },
     guideContactRow: {
         flexDirection: 'row',
@@ -715,8 +818,13 @@ const styles = StyleSheet.create({
         gap: 4
     },
     guideContactText: {
-        fontSize: 12,
+        fontSize: 11,
         color: '#64748B',
         fontWeight: '500'
-    }
+    },
+    modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
+    modalContent: { backgroundColor: '#fff', borderRadius: 15, padding: 20, elevation: 5 },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    modalTitle: { fontSize: 18, fontWeight: '700', color: '#1A2332' },
+    modalSubText: { fontSize: 12, color: '#888', marginBottom: 15 },
 });
