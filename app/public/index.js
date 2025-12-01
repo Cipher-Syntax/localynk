@@ -5,13 +5,22 @@ import { Header, FeaturedPlaces, About, HomePlacesBrowse, DiscoverWhatYouWant } 
 import PublicHeader from "../../components/home/PublicHeader";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../api/api";
+import { useRouter, useFocusEffect } from "expo-router";
 
 const PublicHome = () => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const { isAuthenticated } = useAuth();
+    const router = useRouter();
     
     const [destinations, setDestinations] = useState([]);
+    useFocusEffect(
+        useCallback(() => {
+            if (isAuthenticated) {
+                router.replace('/(protected)/home');
+            }
+        }, [isAuthenticated])
+    );
 
     const fetchPublicData = async () => {
         try {
