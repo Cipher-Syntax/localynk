@@ -170,7 +170,7 @@ const AuthForm = ({ method }) => {
                                                 <Text style={styles.rememberText}>Remember me</Text>
                                             </TouchableOpacity>
                                             
-                                            <TouchableOpacity onPress={() => console.log('Forgot')}>
+                                            <TouchableOpacity onPress={() => router.push('/auth/forgotPassword')}>
                                                 <Text style={styles.forgotText}>Forgot Password?</Text>
                                             </TouchableOpacity>
                                         </View>
