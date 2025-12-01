@@ -2,11 +2,16 @@ import { Tabs } from "expo-router";
 import { User, Map, Home } from "lucide-react-native";
 import { View, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from "../../../context/AuthContext";
 
 const HomeLayout = () => {
+    const { role } = useAuth();
+
+    const guideTabTitle = role === 'guide' ? "Dashboard" : "Apply";
+
     const TABS = [
         { name: "index", title: "Explore", icon: Home },
-        { name: "tourGuide", title: "Dashboard", icon: Map },
+        { name: "tourGuide", title: guideTabTitle, icon: Map },
         { name: "profile", title: "Profile", icon: User },
     ];
 
