@@ -65,6 +65,7 @@ const AddTour = () => {
             setIsFetchingData(false);
         }
     };
+    
 
     const pickImage = async (index) => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();

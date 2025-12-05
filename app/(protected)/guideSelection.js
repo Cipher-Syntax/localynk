@@ -6,22 +6,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../api/api';
-import { useAuth } from '../../context/AuthContext'; // Import Auth
+import { useAuth } from '../../context/AuthContext';
 
 const GuideSelection = () => {
     const { placeId, placeName } = useLocalSearchParams();
     const router = useRouter();
-    const { user } = useAuth(); // Get current user
+    const { user } = useAuth();
     
     const [loading, setLoading] = useState(true);
     const [guides, setGuides] = useState([]);
     
-    // Modal State
     const [errorModalVisible, setErrorModalVisible] = useState(false);
 
     useEffect(() => {
         const fetchGuides = async () => {
-            // SAFETY CHECK: Ensure we have a valid ID before calling API
             if (!placeId || placeId === 'undefined' || placeId === 'null') {
                 console.log("Invalid Place ID, skipping fetch");
                 setLoading(false);
@@ -29,9 +27,7 @@ const GuideSelection = () => {
             }
 
             try {
-                // Fetch guides filtered by destination from backend
                 const response = await api.get(`/api/guide-list/?main_destination=${placeId}`);
-                
                 const guidesData = Array.isArray(response.data) ? response.data : [];
                 setGuides(guidesData);
                 
