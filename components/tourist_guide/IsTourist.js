@@ -15,6 +15,9 @@ const IsTourist = () => {
     const [modalVisible, setModalVisible] = useState(false);
     const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
 
+    // Progress Flags from Backend (defaults to false if not yet loaded)
+    const setupProgress = user?.setup_progress || { has_info: false, has_accommodation: false, has_tour: false };
+
     useEffect(() => {
         if (user) {
             setIsGuideActive(user.is_guide_visible || false);
@@ -35,7 +38,7 @@ const IsTourist = () => {
     useFocusEffect(
         useCallback(() => {
             fetchBookings();
-            refreshUser();
+            refreshUser(); // Critical: Refresh user to get latest setup_progress
         }, [])
     );
 
@@ -90,14 +93,7 @@ const IsTourist = () => {
 
         } catch (error) {
             console.error(`Failed to ${decision} booking:`, error);
-            if (error.response && error.response.status === 403) {
-                const serverMessage = typeof error.response.data === 'object' 
-                    ? JSON.stringify(error.response.data) 
-                    : error.response.data;
-                showToast(`Permission Denied: ${serverMessage}`, 'error');
-            } else {
-                showToast(`Failed to ${decision} booking.`, 'error');
-            }
+            showToast(`Failed to ${decision} booking.`, 'error');
         }
     };
 
@@ -127,6 +123,64 @@ const IsTourist = () => {
         { label: "Completed", value: completedBookings.toString(), icon: "checkmark-done-circle", color: "#FFD700", subtext: "Successful tours" },
         { label: "Rating", value: ratingValue, icon: "star", color: "#FFAB00", subtext: "Average" }
     ];
+
+    // Helper function to render each checklist item dynamically
+    const renderChecklistItem = (stepNumber, title, description, isCompleted, isCurrent, route) => {
+        const isActive = isCurrent && !isCompleted;
+        const isDone = isCompleted;
+
+        return (
+            <TouchableOpacity 
+                style={[styles.stepCard, isActive && styles.stepCardActive, isDone && styles.stepCardDone]}
+                onPress={() => router.push({ pathname: route })}
+                activeOpacity={0.7}
+            >
+                {isActive && (
+                    <View style={styles.startBadge}>
+                        <Text style={styles.startBadgeText}>START HERE</Text>
+                    </View>
+                )}
+                
+                <View style={styles.stepRow}>
+                    {/* Number or Checkmark Icon */}
+                    <View style={[
+                        styles.stepNumberContainer, 
+                        isActive && styles.stepNumberContainerActive,
+                        isDone && styles.stepNumberContainerDone
+                    ]}>
+                        {isDone ? (
+                             <Ionicons name="checkmark" size={18} color="#fff" />
+                        ) : (
+                             <Text style={[styles.stepNumber, isActive && styles.stepNumberActive]}>{stepNumber}</Text>
+                        )}
+                    </View>
+
+                    {/* Text Content */}
+                    <View style={styles.stepContent}>
+                        <Text style={[
+                            styles.stepTitle, 
+                            isActive && styles.stepTitleActive,
+                            isDone && styles.stepTitleDone
+                        ]}>{title}</Text>
+                        <Text style={styles.stepDesc}>{description}</Text>
+                    </View>
+
+                    {/* Navigation Icon */}
+                    <View style={[
+                        styles.chevronContainer, 
+                        isActive && styles.chevronContainerActive,
+                        isDone && styles.chevronContainerDone
+                    ]}>
+                        <Ionicons 
+                            name={isDone ? "create-outline" : "chevron-forward"} 
+                            size={20} 
+                            color={isActive ? "#0072FF" : (isDone ? "#00C853" : "#B0B8C4")} 
+                        />
+                    </View>
+                </View>
+            </TouchableOpacity>
+        );
+    };
 
     return (
         <View style={styles.container} edges={['top']}>
@@ -206,73 +260,49 @@ const IsTourist = () => {
                 <View style={styles.bookingsSection}>
                     <Text style={styles.sectionTitle}>GUIDE SETUP CHECKLIST</Text>
                     
-                    <TouchableOpacity 
-                        style={[styles.stepCard, styles.stepCardActive]}
-                        onPress={() => router.push({pathname: "/(protected)/UpdateGuideInfoForm"})}
-                        activeOpacity={0.7}
-                    >
-                        <View style={styles.startBadge}>
-                            <Text style={styles.startBadgeText}>START HERE</Text>
-                        </View>
-                        <View style={styles.stepRow}>
-                            <View style={styles.stepNumberContainerActive}>
-                                <Text style={styles.stepNumberActive}>1</Text>
-                            </View>
-                            <View style={styles.stepContent}>
-                                <Text style={styles.stepTitleActive}>Update Guide Info</Text>
-                                <Text style={styles.stepDesc}>Set your profile & daily rates</Text>
-                            </View>
-                            <View style={styles.chevronContainerActive}>
-                                <Ionicons name="chevron-forward" size={20} color="#0072FF" />
-                            </View>
-                        </View>
-                    </TouchableOpacity>
+                    {/* STEP 1: Guide Info */}
+                    {renderChecklistItem(
+                        1, 
+                        "Update Guide Info", 
+                        "Set your profile & daily rates", 
+                        setupProgress.has_info, 
+                        !setupProgress.has_info, // Active if not done
+                        "/(protected)/UpdateGuideInfoForm"
+                    )}
 
                     <View style={styles.connectorContainer}>
-                        <View style={styles.dottedLine} />
+                        <View style={[
+                            styles.dottedLine, 
+                            setupProgress.has_info && { borderColor: '#00C853', borderStyle: 'solid' }
+                        ]} />
                     </View>
 
-                    <TouchableOpacity 
-                        style={styles.stepCard}
-                        onPress={() => router.push({pathname: "/(protected)/addAccommodation"})}
-                        activeOpacity={0.7}
-                    >
-                        <View style={styles.stepRow}>
-                            <View style={styles.stepNumberContainer}>
-                                <Text style={styles.stepNumber}>2</Text>
-                            </View>
-                            <View style={styles.stepContent}>
-                                <Text style={styles.stepTitle}>Add Accommodation</Text>
-                                <Text style={styles.stepDesc}>List places for tourists to stay</Text>
-                            </View>
-                            <View style={styles.chevronContainer}>
-                                <Ionicons name="chevron-forward" size={20} color="#B0B8C4" />
-                            </View>
-                        </View>
-                    </TouchableOpacity>
+                    {/* STEP 2: Accommodation */}
+                    {renderChecklistItem(
+                        2, 
+                        "Add Accommodation", 
+                        "List places for tourists to stay", 
+                        setupProgress.has_accommodation, 
+                        setupProgress.has_info && !setupProgress.has_accommodation, // Active if step 1 done & this not
+                        "/(protected)/addAccommodation"
+                    )}
 
                     <View style={styles.connectorContainer}>
-                        <View style={styles.dottedLine} />
+                        <View style={[
+                            styles.dottedLine, 
+                            setupProgress.has_accommodation && { borderColor: '#00C853', borderStyle: 'solid' }
+                        ]} />
                     </View>
 
-                    <TouchableOpacity 
-                        style={styles.stepCard}
-                        onPress={() => router.push({pathname: "/(protected)/addTour"})}
-                        activeOpacity={0.7}
-                    >
-                        <View style={styles.stepRow}>
-                            <View style={styles.stepNumberContainer}>
-                                <Text style={styles.stepNumber}>3</Text>
-                            </View>
-                            <View style={styles.stepContent}>
-                                <Text style={styles.stepTitle}>Add Tour Packages</Text>
-                                <Text style={styles.stepDesc}>Create your unique tour offers</Text>
-                            </View>
-                            <View style={styles.chevronContainer}>
-                                <Ionicons name="chevron-forward" size={20} color="#B0B8C4" />
-                            </View>
-                        </View>
-                    </TouchableOpacity>
+                    {/* STEP 3: Tour Packages */}
+                    {renderChecklistItem(
+                        3, 
+                        "Add Tour Packages", 
+                        "Create your unique tour offers", 
+                        setupProgress.has_tour, 
+                        setupProgress.has_accommodation && !setupProgress.has_tour, // Active if step 2 done & this not
+                        "/(protected)/addTour"
+                    )}
 
                     <Text style={[styles.sectionTitle, { marginTop: 30, marginBottom: 15 }]}>BOOKING REQUESTS</Text>
 
@@ -601,6 +631,11 @@ const styles = StyleSheet.create({
         shadowColor: '#0072FF',
         shadowOpacity: 0.15,
     },
+    stepCardDone: {
+        borderColor: '#00C853',
+        backgroundColor: '#F9FFF9'
+    },
+    
     startBadge: {
         position: 'absolute',
         top: 0,
@@ -612,6 +647,7 @@ const styles = StyleSheet.create({
     },
     startBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
     stepRow: { flexDirection: 'row', alignItems: 'center' },
+    
     stepNumberContainer: {
         width: 32, height: 32, borderRadius: 16, backgroundColor: '#F3F4F6',
         justifyContent: 'center', alignItems: 'center', marginRight: 15, borderWidth: 1, borderColor: '#E5E7EB'
@@ -620,16 +656,29 @@ const styles = StyleSheet.create({
         width: 32, height: 32, borderRadius: 16, backgroundColor: '#0072FF',
         justifyContent: 'center', alignItems: 'center', marginRight: 15, shadowColor: '#0072FF', shadowOpacity: 0.4, shadowRadius: 4, elevation: 4
     },
+    stepNumberContainerDone: {
+        backgroundColor: '#00C853', borderColor: '#00C853'
+    },
+
     stepNumber: { fontSize: 14, fontWeight: '700', color: '#9CA3AF' },
     stepNumberActive: { fontSize: 14, fontWeight: '700', color: '#fff' },
+    
     stepContent: { flex: 1 },
+    
     stepTitle: { fontSize: 16, fontWeight: '600', color: '#4B5563', marginBottom: 2 },
     stepTitleActive: { fontSize: 16, fontWeight: '800', color: '#0072FF', marginBottom: 2 },
+    stepTitleDone: { color: '#2E7D32', textDecorationLine: 'line-through' },
+    
     stepDesc: { fontSize: 12, color: '#6B7280' },
+    
     chevronContainer: { paddingLeft: 10, justifyContent: 'center' },
     chevronContainerActive: {
         paddingLeft: 10, justifyContent: 'center', backgroundColor: '#F0F9FF', width: 36, height: 36, borderRadius: 18, alignItems: 'center'
     },
+    chevronContainerDone: {
+        backgroundColor: '#E8F5E9', width: 36, height: 36, borderRadius: 18, alignItems: 'center'
+    },
+
     connectorContainer: { paddingLeft: 34, height: 16, justifyContent: 'center' },
     dottedLine: { width: 2, height: '100%', borderStyle: 'dotted', borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 1 },
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TextInput, Alert, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator,KeyboardAvoidingView,Platform,Keyboard} from 'react-native';
+import { View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
 import api from '../../api/api'; 
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,6 +26,8 @@ const UpdateGuideInfoForm = () => {
     const { user, isLoading: authLoading } = useAuth();
     const insets = useSafeAreaInsets(); 
     const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    // Form States
     const [languages, setLanguages] = useState([]);
     const [selectedSpecialty, setSelectedSpecialty] = useState(SPECIALTY_OPTIONS[0]);
     const [customSpecialty, setCustomSpecialty] = useState('');
@@ -33,6 +35,10 @@ const UpdateGuideInfoForm = () => {
     const [price, setPrice] = useState('');
     const [availableDays, setAvailableDays] = useState([]);
     const [markedDates, setMarkedDates] = useState({});
+    
+    // Toast State
+    const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
+
     const daysOptions = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const dayMapping = { 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6, 'Sun': 0 };
 
@@ -41,6 +47,13 @@ const UpdateGuideInfoForm = () => {
             populateForm(user);
         }
     }, [user]);
+
+    const showToast = (message, type = 'success') => {
+        setToast({ visible: true, message, type });
+        setTimeout(() => {
+            setToast(prev => ({ ...prev, visible: false }));
+        }, 3000);
+    };
 
     const populateForm = (data) => {
         if (Array.isArray(data.languages)) {
@@ -131,7 +144,7 @@ const UpdateGuideInfoForm = () => {
         const finalSpecialty = selectedSpecialty === 'Other' ? customSpecialty : selectedSpecialty;
         
         if (selectedSpecialty === 'Other' && !customSpecialty.trim()) {
-            Alert.alert("Missing Info", "Please type your specific specialty.");
+            showToast("Please type your specific specialty.", "error");
             setIsSubmitting(false);
             return;
         }
@@ -147,13 +160,18 @@ const UpdateGuideInfoForm = () => {
                 available_days: availableDays,
                 specific_available_dates: specific_dates
             });
-            Alert.alert('Success', 'Guide info updated successfully!', [
-                { text: "OK", onPress: () => router.back() }
-            ]);
+            
+            showToast("Info updated! Going to next step...", "success");
+            
+            // Navigate to next step after short delay for toast to be readable
+            setTimeout(() => {
+                router.push('/(protected)/addAccommodation');
+            }, 1500);
+
         } catch (error) {
             const errorData = error.response?.data || error.message;
             console.log("Update Error:", errorData);
-            Alert.alert('Error', 'Failed to update guide info.');
+            showToast("Failed to update guide info.", "error");
         } finally {
             setIsSubmitting(false);
         }
@@ -315,7 +333,6 @@ const UpdateGuideInfoForm = () => {
                 </ScrollView>
             </KeyboardAvoidingView>
 
-
             <View style={[styles.footer, { paddingBottom: insets.bottom > 0 ? insets.bottom : 20 }]}>
                 <TouchableOpacity 
                     style={styles.cancelButton} 
@@ -337,6 +354,19 @@ const UpdateGuideInfoForm = () => {
                     )}
                 </TouchableOpacity>
             </View>
+
+            {toast.visible && (
+                <View style={[
+                    styles.toastContainer, 
+                    toast.type === 'error' ? styles.toastError : styles.toastSuccess
+                ]}>
+                    <Ionicons 
+                        name={toast.type === 'error' ? "alert-circle" : "checkmark-circle"} 
+                        size={24} color="#fff" 
+                    />
+                    <Text style={styles.toastText}>{toast.message}</Text>
+                </View>
+            )}
         </SafeAreaView>
     );
 };
@@ -556,6 +586,25 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#fff',
     },
+    toastContainer: { 
+        position: 'absolute', 
+        bottom: 80, 
+        left: 20, 
+        right: 20, 
+        borderRadius: 12, 
+        padding: 16, 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        shadowColor: '#000', 
+        shadowOffset: { width: 0, height: 4 }, 
+        shadowOpacity: 0.3, 
+        shadowRadius: 8, 
+        elevation: 10, 
+        zIndex: 1000 
+    },
+    toastSuccess: { backgroundColor: '#00c853' },
+    toastError: { backgroundColor: '#ff5252' },
+    toastText: { color: '#fff', fontSize: 14, fontWeight: '600', marginLeft: 12 },
 });
 
 export default UpdateGuideInfoForm;

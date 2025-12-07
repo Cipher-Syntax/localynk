@@ -6,6 +6,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Picker } from '@react-native-picker/picker'; 
+import DateTimePicker from '@react-native-community/datetimepicker';
 import api from '../../api/api';
 
 const { width } = Dimensions.get('window');
@@ -17,6 +18,7 @@ const AddTour = () => {
     
     const [isLoading, setIsLoading] = useState(false);
     const [currentStep, setCurrentStep] = useState(1);
+    const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
 
     const [destinations, setDestinations] = useState([]);
     const [accommodations, setAccommodations] = useState([]); 
@@ -34,6 +36,12 @@ const AddTour = () => {
         endTime: '',
         selectedActivityIndex: '',
     });
+
+    // Time Picker State
+    const [pickerStart, setPickerStart] = useState(new Date());
+    const [pickerEnd, setPickerEnd] = useState(new Date());
+    const [showStartPicker, setShowStartPicker] = useState(false);
+    const [showEndPicker, setShowEndPicker] = useState(false);
 
     const [formData, setFormData] = useState({
         name: '',
@@ -60,16 +68,22 @@ const AddTour = () => {
             setAccommodations(accomRes.data);
         } catch (error) {
             console.error("Failed to fetch data", error);
-            Alert.alert("Connection Error", "Could not load data.");
+            showToast("Could not load data. Check internet.", "error");
         } finally {
             setIsFetchingData(false);
         }
     };
-    
+
+    const showToast = (message, type = 'success') => {
+        setToast({ visible: true, message, type });
+        setTimeout(() => {
+            setToast(prev => ({ ...prev, visible: false }));
+        }, 3000);
+    };
 
     const pickImage = async (index) => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== 'granted') return Alert.alert('Permission required');
+        if (status !== 'granted') return showToast('Permission required', 'error');
         
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -105,10 +119,37 @@ const AddTour = () => {
         setPlaceNames(newNames);
     };
 
+    // Helper to format time for display/storage
+    const formatTime = (date) => {
+        let hours = date.getHours();
+        const minutes = date.getMinutes();
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours ? hours : 12; 
+        const strMinutes = minutes < 10 ? '0' + minutes : minutes;
+        return `${hours}:${strMinutes} ${ampm}`;
+    };
+
+    const onStartTimeChange = (event, selectedDate) => {
+        if (Platform.OS === 'android') setShowStartPicker(false);
+        if (selectedDate) {
+            setPickerStart(selectedDate);
+            setTempTimelineRow(prev => ({ ...prev, startTime: formatTime(selectedDate) }));
+        }
+    };
+
+    const onEndTimeChange = (event, selectedDate) => {
+        if (Platform.OS === 'android') setShowEndPicker(false);
+        if (selectedDate) {
+            setPickerEnd(selectedDate);
+            setTempTimelineRow(prev => ({ ...prev, endTime: formatTime(selectedDate) }));
+        }
+    };
+
     const addToTimeline = () => {
         const { startTime, endTime, selectedActivityIndex } = tempTimelineRow;
         if (!startTime || !endTime || !selectedActivityIndex) {
-            Alert.alert("Incomplete", "Please fill Start Time, End Time, and Activity.");
+            showToast("Please fill Start Time, End Time, and Activity.", "error");
             return;
         }
 
@@ -126,7 +167,8 @@ const AddTour = () => {
 
         const newRow = { startTime, endTime, activityName, type, refId: activityId };
         setTimeline([...timeline, newRow]);
-        setTempTimelineRow({ ...tempTimelineRow, selectedActivityIndex: '' }); 
+        // Reset picker selections but keep times for convenience if needed, or reset them too
+        setTempTimelineRow(prev => ({ ...prev, selectedActivityIndex: '' })); 
     };
 
     const removeTimelineRow = (index) => {
@@ -138,13 +180,13 @@ const AddTour = () => {
     const validateStep = (step) => {
         if (step === 1) {
             if (!selectedDest || !formData.name || !formData.description) {
-                Alert.alert("Missing Info", "Please select a destination and fill in tour details.");
+                showToast("Please select a destination and fill in tour details.", "error");
                 return false;
             }
         }
         if (step === 3) {
             if (!formData.pricePerDay || timeline.length === 0) {
-                Alert.alert("Missing Info", "Please set a price and add at least one schedule item.");
+                showToast("Please set a price and add at least one schedule item.", "error");
                 return false;
             }
         }
@@ -200,12 +242,16 @@ const AddTour = () => {
             });
 
             if (response.status === 201) {
-                Alert.alert("Success", "Tour Created Successfully!", [{ text: "OK", onPress: () => router.back() }]);
+                showToast("Tour Created Successfully! Finishing setup...", "success");
+                setTimeout(() => {
+                    // Redirects to Dashboard (Tour Guide Tab)
+                    router.replace('/(protected)/home/tourGuide');
+                }, 1500);
             }
         } 
         catch (error) {
             console.error("Submit Error:", error);
-            Alert.alert("Error", "Failed to create tour.");
+            showToast("Failed to create tour. Please try again.", "error");
         } 
         finally {
             setIsLoading(false);
@@ -371,25 +417,58 @@ const AddTour = () => {
             <View style={styles.builderContainer}>
                 
                 <View style={styles.row}>
-                    <TextInput 
-                        style={[styles.inputSmall, {flex: 1, marginRight: 5}]} 
-                        placeholder="Start (8:00 AM)" 
-                        value={tempTimelineRow.startTime}
-                        onChangeText={t => setTempTimelineRow({...tempTimelineRow, startTime: t})}
-                    />
-                    <TextInput 
-                        style={[styles.inputSmall, {flex: 1, marginLeft: 5}]} 
-                        placeholder="End (9:00 AM)" 
-                        value={tempTimelineRow.endTime}
-                        onChangeText={t => setTempTimelineRow({...tempTimelineRow, endTime: t})}
-                    />
+                    {/* Start Time Picker */}
+                    <View style={{flex: 1, marginRight: 5}}>
+                        <Text style={{fontSize:12, color:'#666', marginBottom:4}}>Start Time</Text>
+                        <TouchableOpacity 
+                            style={styles.timePickerButton} 
+                            onPress={() => setShowStartPicker(true)}
+                        >
+                            <Text style={styles.timePickerText}>
+                                {tempTimelineRow.startTime || "Select"}
+                            </Text>
+                            <Ionicons name="time-outline" size={18} color="#666" />
+                        </TouchableOpacity>
+                        
+                        {showStartPicker && (
+                            <DateTimePicker
+                                value={pickerStart}
+                                mode="time"
+                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                onChange={onStartTimeChange}
+                            />
+                        )}
+                    </View>
+
+                    {/* End Time Picker */}
+                    <View style={{flex: 1, marginLeft: 5}}>
+                        <Text style={{fontSize:12, color:'#666', marginBottom:4}}>End Time</Text>
+                        <TouchableOpacity 
+                            style={styles.timePickerButton} 
+                            onPress={() => setShowEndPicker(true)}
+                        >
+                            <Text style={styles.timePickerText}>
+                                {tempTimelineRow.endTime || "Select"}
+                            </Text>
+                            <Ionicons name="time-outline" size={18} color="#666" />
+                        </TouchableOpacity>
+
+                        {showEndPicker && (
+                            <DateTimePicker
+                                value={pickerEnd}
+                                mode="time"
+                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                onChange={onEndTimeChange}
+                            />
+                        )}
+                    </View>
                 </View>
 
                 <View style={styles.pickerWrapper}>
                     <Picker
                         selectedValue={tempTimelineRow.selectedActivityIndex}
                         onValueChange={(itemValue) => setTempTimelineRow({...tempTimelineRow, selectedActivityIndex: itemValue})}
-                        style={{ height: 50, width: '100%' }} // Fix for Android width
+                        style={{ height: 50, width: '100%' }}
                     >
                         <Picker.Item label="Select Activity..." value="" color="#999" />
                         <Picker.Item label="--- YOUR STOPS ---" value="" enabled={false} />
@@ -485,6 +564,19 @@ const AddTour = () => {
                         </LinearGradient>
                     </TouchableOpacity>
                 </View>
+
+                {toast.visible && (
+                    <View style={[
+                        styles.toastContainer, 
+                        toast.type === 'error' ? styles.toastError : styles.toastSuccess
+                    ]}>
+                        <Ionicons 
+                            name={toast.type === 'error' ? "alert-circle" : "checkmark-circle"} 
+                            size={24} color="#fff" 
+                        />
+                        <Text style={styles.toastText}>{toast.message}</Text>
+                    </View>
+                )}
 
             </SafeAreaView>
 
@@ -595,5 +687,41 @@ const styles = StyleSheet.create({
     modalItemText: { fontSize: 16, fontWeight: '600', color: '#1F2937' },
     modalItemSub: { fontSize: 12, color: '#6B7280' },
     modalClose: { marginTop: 15, alignItems: 'center', padding: 10 },
-    modalCloseText: { color: '#FF3B30', fontSize: 16, fontWeight: '600' }
+    modalCloseText: { color: '#FF3B30', fontSize: 16, fontWeight: '600' },
+    
+    // NEW STYLES FOR TIME PICKER
+    timePickerButton: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 12,
+    },
+    timePickerText: {
+        fontSize: 14,
+        color: '#1F2937',
+    },
+    toastContainer: { 
+        position: 'absolute', 
+        bottom: 80, 
+        left: 20, 
+        right: 20, 
+        borderRadius: 12, 
+        padding: 16, 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        shadowColor: '#000', 
+        shadowOffset: { width: 0, height: 4 }, 
+        shadowOpacity: 0.3, 
+        shadowRadius: 8, 
+        elevation: 10, 
+        zIndex: 1000 
+    },
+    toastSuccess: { backgroundColor: '#00c853' },
+    toastError: { backgroundColor: '#ff5252' },
+    toastText: { color: '#fff', fontSize: 14, fontWeight: '600', marginLeft: 12 },
 });

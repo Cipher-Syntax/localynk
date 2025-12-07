@@ -15,6 +15,7 @@ const AddAccommodation = () => {
     const [loading, setLoading] = useState(false);
     const [currentStep, setCurrentStep] = useState(1);
     const scrollViewRef = useRef(null);
+    const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
 
     const initialFormState = {
         name: '',
@@ -45,10 +46,17 @@ const AddAccommodation = () => {
     const accommodationTypes = ['Room', 'Hostel', 'Hotel', 'Apartment'];
     const roomTypes = ['Single', 'Double', 'Suite', 'Family'];
 
+    const showToast = (message, type = 'success') => {
+        setToast({ visible: true, message, type });
+        setTimeout(() => {
+            setToast(prev => ({ ...prev, visible: false }));
+        }, 3000);
+    };
+
     const pickImage = async (type) => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-            Alert.alert('Permission required', 'We need access to your photos.');
+            showToast('Permission required: Need access to your photos.', 'error');
             return;
         }
 
@@ -74,7 +82,7 @@ const AddAccommodation = () => {
     const validateStep = (step) => {
         if (step === 1) {
             if (!formData.name || !formData.address || !formData.pricePerNight) {
-                Alert.alert("Missing Info", "Please fill in Name, Address, and Price.");
+                showToast("Please fill in Name, Address, and Price.", "error");
                 return false;
             }
         }
@@ -133,14 +141,15 @@ const AddAccommodation = () => {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
 
-            Alert.alert('Success', 'Accommodation listed successfully!', [
-                { text: 'Great', onPress: () => router.back() }
-            ]);
+            showToast("Accommodation listed! Moving to final step...", "success");
+            setTimeout(() => {
+                router.push('/(protected)/addTour');
+            }, 1500);
             
         } 
         catch (error) {
             console.error("Submit Error:", error);
-            Alert.alert('Error', "Failed to upload listing. Please try again.");
+            showToast("Failed to upload listing. Please try again.", "error");
         } 
         finally {
             setLoading(false);
@@ -407,6 +416,19 @@ const AddAccommodation = () => {
                         </LinearGradient>
                     </TouchableOpacity>
                 </View>
+
+                {toast.visible && (
+                    <View style={[
+                        styles.toastContainer, 
+                        toast.type === 'error' ? styles.toastError : styles.toastSuccess
+                    ]}>
+                        <Ionicons 
+                            name={toast.type === 'error' ? "alert-circle" : "checkmark-circle"} 
+                            size={24} color="#fff" 
+                        />
+                        <Text style={styles.toastText}>{toast.message}</Text>
+                    </View>
+                )}
 
             </SafeAreaView>
         </View>
@@ -715,5 +737,24 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '700',
         color: '#fff'
-    }
+    },
+    toastContainer: { 
+        position: 'absolute', 
+        bottom: 80, 
+        left: 20, 
+        right: 20, 
+        borderRadius: 12, 
+        padding: 16, 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        shadowColor: '#000', 
+        shadowOffset: { width: 0, height: 4 }, 
+        shadowOpacity: 0.3, 
+        shadowRadius: 8, 
+        elevation: 10, 
+        zIndex: 1000 
+    },
+    toastSuccess: { backgroundColor: '#00c853' },
+    toastError: { backgroundColor: '#ff5252' },
+    toastText: { color: '#fff', fontSize: 14, fontWeight: '600', marginLeft: 12 },
 });
