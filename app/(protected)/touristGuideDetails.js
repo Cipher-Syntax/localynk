@@ -16,8 +16,8 @@ const TouristGuideDetails = () => {
     const [tourPackages, setTourPackages] = useState([]); 
     const [accommodations, setAccommodations] = useState([]); 
     const [loading, setLoading] = useState(true);
+    
     const router = useRouter();
-
     const params = useLocalSearchParams();
     const { guideId, placeId } = params;
 
@@ -30,14 +30,42 @@ const TouristGuideDetails = () => {
                     api.get(`/api/guides/${guideId}/`),
                     api.get(`/api/destinations/${placeId}/`),
                     api.get(`/api/destinations/${placeId}/tours/`),
-                    api.get('/api/accommodations/list/')
+                    api.get(`/api/accommodations/`, { params: { host_id: guideId } })
                 ]);
 
                 setGuide(guideRes.data);
                 setDestination(destRes.data);
-                setAccommodations(accomRes.data); 
                 
+                const allAccoms = Array.isArray(accomRes.data) ? accomRes.data : (accomRes.data.results || []);
                 const guidesTours = toursRes.data.filter(tour => tour.guide === parseInt(guideId));
+                
+                // --- Filter Accommodations based on Itinerary ---
+                const itineraryAccomIds = new Set();
+                
+                guidesTours.forEach(tour => {
+                    let timeline = [];
+                    try {
+                        timeline = typeof tour.itinerary_timeline === 'string' 
+                            ? JSON.parse(tour.itinerary_timeline) 
+                            : tour.itinerary_timeline;
+                    } catch(e) {
+                        console.log("Error parsing timeline:", e);
+                    }
+
+                    if (Array.isArray(timeline)) {
+                        timeline.forEach(item => {
+                            // Collect IDs where type is accommodation
+                            if (item.type === 'accom' && item.refId) {
+                                itineraryAccomIds.add(parseInt(item.refId));
+                            }
+                        });
+                    }
+                });
+
+                // Only keep accommodations that are part of the tour itinerary
+                const relevantAccoms = allAccoms.filter(acc => itineraryAccomIds.has(acc.id));
+                
+                setAccommodations(relevantAccoms);
                 setTourPackages(guidesTours);
 
             } catch (error) {
@@ -75,6 +103,9 @@ const TouristGuideDetails = () => {
                     if (item.type === 'stop' && tourContext?.stops) {
                         const stopData = tourContext.stops.find(s => s.name === item.activityName || s.id === item.refId);
                         if (stopData) imageUrl = getImageUrl(stopData.image);
+                    } else if (item.type === 'accom') {
+                         const acc = accommodations.find(a => a.id === parseInt(item.refId));
+                         if (acc) imageUrl = getImageUrl(acc.photo);
                     }
 
                     return (
@@ -260,7 +291,7 @@ const TouristGuideDetails = () => {
                                                         </Text>
                                                     </View>
                                                     <View style={styles.packageDetailItem}>
-                                                        <Text style={styles.priceLabel}>Extra Fee:</Text>
+                                                        <Text style={styles.priceLabel}>Additional Guest Fee:</Text>
                                                         <Text style={[styles.packageDetailText, {color: '#1A2332', fontWeight: '600'}]}>
                                                             +₱ {tour.additional_fee_per_head || 0}<Text style={{fontSize: 10, fontWeight: '400', color:'#888'}}>/pax</Text>
                                                         </Text>
@@ -314,25 +345,40 @@ const TouristGuideDetails = () => {
                             <View style={styles.detailsSection}>
                                 <View style={styles.sectionHeader}>
                                     <Bed size={18} color="#1A2332" />
-                                    <Text style={styles.detailsHeader}>Available Accommodations</Text>
+                                    <Text style={styles.detailsHeader}>Included Accommodation</Text>
                                 </View>
+                                <Text style={styles.selectionHintText}>Part of your tour package (Non-removable)</Text>
                                 
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.accSwiperContainer}>
                                     {accommodations.map((acc) => (
-                                        <TouchableOpacity key={acc.id} style={styles.accCard} activeOpacity={0.9}>
-                                            <Image source={{ uri: getImageUrl(acc.photo) }} style={styles.accImage} />
+                                        <View 
+                                            key={acc.id} 
+                                            style={[styles.accCard, styles.accCardIncluded]} 
+                                        >
+                                            <Image 
+                                                source={{ uri: getImageUrl(acc.photo) }}
+                                                style={styles.accImage} 
+                                            />
                                             <View style={styles.accBadge}>
                                                 <Text style={styles.accBadgeText}>{acc.accommodation_type || "Stay"}</Text>
                                             </View>
+
+                                            <View style={styles.selectedOverlay}>
+                                                <Ionicons name="checkmark-circle" size={32} color="#00C853" />
+                                            </View>
+
                                             <View style={styles.accContent}>
                                                 <Text style={styles.accTitle} numberOfLines={1}>{acc.title}</Text>
                                                 <View style={styles.accLocationRow}>
                                                     <MapPin size={12} color="#888" />
                                                     <Text style={styles.accLocation} numberOfLines={1}>{acc.location}</Text>
                                                 </View>
+                                                
                                                 <View style={styles.accDivider} />
+
                                                 <View style={styles.accFooter}>
-                                                    <Text style={styles.accPrice}>₱{acc.price} <Text style={styles.accPerNight}>/ night</Text></Text>
+                                                    <Text style={styles.accPrice}>Included</Text>
+                                                    
                                                     <View style={styles.accAmenities}>
                                                         {acc.amenities?.wifi && <Wifi size={14} color="#666" style={{marginLeft:6}} />}
                                                         {acc.amenities?.parking && <Car size={14} color="#666" style={{marginLeft:6}} />}
@@ -340,7 +386,7 @@ const TouristGuideDetails = () => {
                                                     </View>
                                                 </View>
                                             </View>
-                                        </TouchableOpacity>
+                                        </View>
                                     ))}
                                 </ScrollView>
                             </View>
@@ -397,11 +443,22 @@ const TouristGuideDetails = () => {
                             style={styles.bookButton} 
                             activeOpacity={0.8} 
                             onPress={() => {
-                                const totalAccomPrice = accommodations.reduce((sum, acc) => sum + parseFloat(acc.price || 0), 0);
+                                // AUTO-SELECT ACCOMMODATION DATA (if any exists in itinerary)
+                                let finalAccomPrice = 0;
+                                let accomName = null;
+                                let accomId = null;
+
+                                if (accommodations.length > 0) {
+                                    const acc = accommodations[0]; // Take the first valid accom found in itinerary
+                                    finalAccomPrice = parseFloat(acc.price || 0);
+                                    accomName = acc.title;
+                                    accomId = acc.id;
+                                }
                                 
                                 const selectedTour = tourPackages.length > 0 ? tourPackages[0] : null;
                                 const tourPrice = selectedTour ? parseFloat(selectedTour.price_per_day || 0) : parseFloat(guide.price_per_day || 0);
-                                const extraFee = selectedTour ? parseFloat(selectedTour.additional_fee_per_head || 0) : 0;
+                                const soloPrice = selectedTour ? parseFloat(selectedTour.solo_price || 0) : parseFloat(guide.solo_price_per_day || 0);
+                                const extraFee = selectedTour ? parseFloat(selectedTour.additional_fee_per_head || 0) : parseFloat(guide.multiple_additional_fee_per_head || 0);
 
                                 router.push({ 
                                     pathname: "/(protected)/payment",
@@ -409,7 +466,13 @@ const TouristGuideDetails = () => {
                                         guideId: guide.id,
                                         guideName: `${guide.first_name} ${guide.last_name}`,
                                         basePrice: tourPrice, 
-                                        accommodationPrice: totalAccomPrice,
+                                        soloPrice: soloPrice,
+                                        
+                                        // PASSING ACCOMMODATION DATA AUTOMATICALLY
+                                        accommodationPrice: finalAccomPrice, 
+                                        accommodationId: accomId, 
+                                        accommodationName: accomName,
+
                                         additionalFee: extraFee,
                                         tourPackageId: selectedTour ? selectedTour.id : null,
                                         placeId: placeId,
@@ -456,7 +519,7 @@ const styles = StyleSheet.create({
     actionButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
     destinationImageContainer: { width: '100%', height: 200, borderRadius: 12, overflow: 'hidden', marginBottom: 20 },
     destinationImage: { width: '100%', height: '100%' },
-    imageOverlay: { ...StyleSheet.absoluteFillObject },
+    imageOverlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     destinationName: { position: 'absolute', bottom: 10, left: 10, color: '#fff', fontSize: 20, fontWeight: 'bold' },
     detailsSection: { marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: '#E0E6ED' },
     sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
@@ -490,8 +553,38 @@ const styles = StyleSheet.create({
     activityDuration: { fontSize: 11, color: '#888', marginBottom: 4 },
     typeBadge: { alignSelf: 'flex-start', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
     typeText: { fontSize: 9, fontWeight: '700' },
+    
+    // Accommodation Styles
     accSwiperContainer: { paddingRight: 20, paddingVertical: 10 },
-    accCard: { width: 240, marginRight: 15, backgroundColor: '#fff', borderRadius: 12, shadowColor: "#000", shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3, borderWidth: 1, borderColor: '#f0f0f0', overflow: 'hidden' },
+    accCard: { 
+        width: 240, 
+        marginRight: 15, 
+        backgroundColor: '#fff', 
+        borderRadius: 12, 
+        shadowColor: "#000", 
+        shadowOffset: {width: 0, height: 2}, 
+        shadowOpacity: 0.1, 
+        shadowRadius: 4, 
+        elevation: 3, 
+        borderWidth: 2, 
+        borderColor: '#f0f0f0', // Default border
+        overflow: 'hidden' 
+    },
+    // INCLUDED State Styles
+    accCardIncluded: {
+        borderColor: '#00C853',
+        borderWidth: 2,
+        backgroundColor: '#F9FFF9',
+    },
+    selectedOverlay: {
+        position: 'absolute',
+        top: '35%',
+        alignSelf: 'center',
+        zIndex: 10,
+        backgroundColor: 'rgba(255,255,255,0.8)',
+        borderRadius: 30,
+        padding: 5
+    },
     accImage: { width: '100%', height: 130 },
     accBadge: { position: 'absolute', top: 10, left: 10, backgroundColor: 'rgba(0, 168, 255, 0.9)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
     accBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
@@ -501,9 +594,11 @@ const styles = StyleSheet.create({
     accLocation: { fontSize: 12, color: '#888', marginLeft: 4 },
     accDivider: { height: 1, backgroundColor: '#f0f0f0', marginVertical: 8 },
     accFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    accPrice: { fontSize: 14, fontWeight: '700', color: '#00A8FF' },
+    accPrice: { fontSize: 14, fontWeight: '700', color: '#00C853' }, // Green for "Included"
     accPerNight: { fontSize: 11, color: '#999', fontWeight: '400' },
     accAmenities: { flexDirection: 'row' },
+    selectionHintText: { fontSize: 12, color: '#666', fontStyle: 'italic', marginBottom: 8, marginLeft: 2 },
+
     calendarContainer: { backgroundColor: '#fff', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#eee' },
     calendarStyle: { borderRadius: 8, overflow: 'hidden' },
     legendContainer: { flexDirection: 'row', justifyContent: 'center', gap: 20, marginTop: 15, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#f0f0f0' },

@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, StatusBar, StyleSheet, Image, TextInput, TouchableOpacity, Pressable, ActivityIndicator, Alert, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { User } from 'lucide-react-native';
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker'; 
@@ -45,8 +44,9 @@ const AgencyBookingDetails = () => {
     const [email, setEmail] = useState('');
     
     const [validIdImage, setValidIdImage] = useState(null);
-    const [totalPrice, setTotalPrice] = useState(agency.basePrice + agency.serviceFee);
+    const [userSelfieImage, setUserSelfieImage] = useState(null);
 
+    const [totalPrice, setTotalPrice] = useState(agency.basePrice + agency.serviceFee);
 
     const formatDateForCalendar = (date) => date.toISOString().split('T')[0];
 
@@ -54,7 +54,6 @@ const AgencyBookingDetails = () => {
         if (!imgPath || imgPath.startsWith('http') || imgPath.startsWith('file://')) return imgPath;
         return imgPath; 
     };
-
 
     useEffect(() => {
         if (user) {
@@ -80,16 +79,12 @@ const AgencyBookingDetails = () => {
         setTotalPrice(baseCost);
     }, [startDate, endDate, selectedOption, numPeople]);
 
-
     const getMarkedDates = useMemo(() => {
         const marked = {};
         const startStr = formatDateForCalendar(startDate);
         const endStr = formatDateForCalendar(endDate);
-        
         marked[startStr] = { selected: true, startingDay: true, color: '#00A8FF', textColor: '#fff' };
         marked[endStr] = { selected: true, endingDay: true, color: '#00A8FF', textColor: '#fff' };
-        
-        
         return marked;
     }, [startDate, endDate]);
 
@@ -128,9 +123,33 @@ const AgencyBookingDetails = () => {
         setIsLoadingImage(false);
     };
 
+    const takeSelfie = async () => {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert("Permission Denied", "Camera permission is required.");
+            return;
+        }
+
+        let result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.8,
+            cameraType: ImagePicker.CameraType.front,
+        });
+
+        if (!result.canceled) {
+            setUserSelfieImage(result.assets[0].uri);
+        }
+    };
+
     const handleReviewPress = () => {
         if (!validIdImage) {
             Alert.alert("Valid ID Required", "Please upload a valid government ID for verification purposes before proceeding.");
+            return;
+        }
+        if (!userSelfieImage) {
+            Alert.alert("Selfie Required", "Please take a selfie for identity verification.");
             return;
         }
         setIsModalOpen(true);
@@ -142,14 +161,8 @@ const AgencyBookingDetails = () => {
                 <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
                 <View style={styles.header}>
-                    <Image
-                        source={require('../../assets/localynk_images/header.png')}
-                        style={styles.headerImage}
-                    />
-                    <LinearGradient
-                        colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
-                        style={styles.overlay}
-                    />
+                    <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} />
+                    <LinearGradient colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']} style={styles.overlay} />
                     <Text style={styles.headerTitle}>REQUEST TO BOOK</Text>
                 </View>
 
@@ -205,18 +218,12 @@ const AgencyBookingDetails = () => {
                                         <Ionicons name="close" size={24} color="#333" />
                                     </TouchableOpacity>
                                 </View>
-                                <Text style={styles.modalSubText}>Select your travel dates.</Text>
                                 <Calendar
                                     current={new Date().toISOString().split('T')[0]}
                                     minDate={new Date().toISOString().split('T')[0]}
                                     markedDates={getMarkedDates}
                                     onDayPress={onDayPress}
-                                    theme={{
-                                        todayTextColor: '#00A8FF',
-                                        arrowColor: '#00A8FF',
-                                        textMonthFontWeight: 'bold',
-                                        textDayHeaderFontWeight: '600'
-                                    }}
+                                    theme={{ todayTextColor: '#00A8FF', arrowColor: '#00A8FF', textMonthFontWeight: 'bold', textDayHeaderFontWeight: '600' }}
                                 />
                             </View>
                         </View>
@@ -249,32 +256,25 @@ const AgencyBookingDetails = () => {
                                     style={styles.peopleInput}
                                     value={numPeople}
                                     onChangeText={(text) => { if (text === '' || /^[0-9]+$/.test(text)) setNumPeople(text); }}
-                                    onBlur={() => { const val = parseInt(numPeople); if (!val || val < 2) setNumPeople('2'); }}
                                     keyboardType="numeric"
                                 />
                             </View>
                         )}
                     </View>
 
-                    {/* Price Breakdown */}
+                    {/* UPDATED Price Breakdown */}
                     <View style={styles.priceCard}>
                         <View style={styles.priceRow}>
-                            <Text style={styles.priceLabel}>Base Price (per day)</Text>
+                            <Text style={styles.priceLabel}>Agency Daily Rate</Text>
                             <Text style={styles.priceValue}>₱ {agency.basePrice.toLocaleString()}</Text>
                         </View>
                         <View style={styles.priceRow}>
-                            <Text style={styles.priceLabel}>Service Fee</Text>
+                            <Text style={styles.priceLabel}>Platform Service Fee</Text>
                             <Text style={styles.priceValue}>₱ {agency.serviceFee.toLocaleString()}</Text>
                         </View>
-                        {selectedOption === 'group' && (
-                            <View style={styles.priceRow}>
-                                <Text style={styles.priceLabel}>Group Size</Text>
-                                <Text style={styles.priceValue}>{(parseInt(numPeople) < 2 ? 2 : parseInt(numPeople)) || 2} person(s)</Text>
-                            </View>
-                        )}
                         <View style={styles.priceDivider} />
                         <View style={styles.priceRow}>
-                            <Text style={styles.totalLabel}>Total Estimated</Text>
+                            <Text style={styles.totalLabel}>Estimated Total Cost</Text>
                             <Text style={styles.totalValue}>₱ {totalPrice.toLocaleString()}</Text>
                         </View>
                     </View>
@@ -283,44 +283,58 @@ const AgencyBookingDetails = () => {
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Billing Information</Text>
                         <View style={styles.billingRow}>
-                            <TextInput style={styles.billingInput} placeholder="First Name" placeholderTextColor="#8B98A8" value={firstName} onChangeText={setFirstName} />
-                            <TextInput style={styles.billingInput} placeholder="Last Name" placeholderTextColor="#8B98A8" value={lastName} onChangeText={setLastName} />
+                            <TextInput style={styles.billingInput} placeholder="First Name" value={firstName} onChangeText={setFirstName} />
+                            <TextInput style={styles.billingInput} placeholder="Last Name" value={lastName} onChangeText={setLastName} />
                         </View>
                         <View style={styles.billingRow}>
-                            <TextInput style={styles.billingInput} placeholder="Phone Number" placeholderTextColor="#8B98A8" value={phoneNumber} onChangeText={setPhoneNumber} />
-                            <TextInput style={styles.billingInput} placeholder="Country" placeholderTextColor="#8B98A8" value={country} onChangeText={setCountry} />
+                            <TextInput style={styles.billingInput} placeholder="Phone Number" value={phoneNumber} onChangeText={setPhoneNumber} />
+                            <TextInput style={styles.billingInput} placeholder="Country" value={country} onChangeText={setCountry} />
                         </View>
-                        <TextInput style={[styles.billingInput, styles.fullWidthInput]} placeholder="Email" placeholderTextColor="#8B98A8" value={email} onChangeText={setEmail} />
+                        <TextInput style={[styles.billingInput, styles.fullWidthInput]} placeholder="Email" value={email} onChangeText={setEmail} />
                     </View>
 
                     {/* KYC Section */}
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Identity Verification (KYC)</Text>
-                        <TouchableOpacity style={styles.uploadContainer} onPress={pickImage}>
-                            {isLoadingImage ? (
-                                <ActivityIndicator size="large" color="#00A8FF" />
-                            ) : validIdImage ? (
-                                <View style={styles.imagePreviewContainer}>
+                        <Text style={styles.helperText}>For safety, please provide a valid ID and a realtime selfie.</Text>
+                        
+                        <View style={{flexDirection: 'row', gap: 10}}>
+                             {/* Valid ID */}
+                             <TouchableOpacity style={[styles.uploadContainer, {flex: 1}]} onPress={pickImage}>
+                                {isLoadingImage ? (
+                                    <ActivityIndicator size="large" color="#00A8FF" />
+                                ) : validIdImage ? (
                                     <Image source={{ uri: validIdImage }} style={styles.previewImage} />
-                                    <View style={styles.reuploadOverlay}>
-                                        <Ionicons 
-                                            name={validIdImage.startsWith('http') ? "checkmark-circle" : "camera"} 
-                                            size={20} 
-                                            color="#fff" 
-                                        />
-                                        <Text style={styles.reuploadText}>
-                                            {validIdImage.startsWith('http') ? "KYC Verified" : "Change ID"}
-                                        </Text>
+                                ) : (
+                                    <View style={styles.uploadPlaceholder}>
+                                        <Ionicons name="id-card-outline" size={32} color="#00A8FF" />
+                                        <Text style={styles.uploadText}>Upload ID</Text>
                                     </View>
-                                </View>
-                            ) : (
-                                <View style={styles.uploadPlaceholder}>
-                                    <Ionicons name="cloud-upload-outline" size={40} color="#8B98A8" />
-                                    <Text style={styles.uploadText}>Upload Valid ID</Text>
-                                    <Text style={styles.helperText}>This will be saved to your profile.</Text>
-                                </View>
-                            )}
-                        </TouchableOpacity>
+                                )}
+                                {validIdImage && (
+                                     <View style={styles.checkBadge}>
+                                        <Ionicons name="checkmark-circle" size={20} color="#00C853" />
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+
+                            {/* Selfie Camera */}
+                            <TouchableOpacity style={[styles.uploadContainer, {flex: 1}]} onPress={takeSelfie}>
+                                {userSelfieImage ? (
+                                    <Image source={{ uri: userSelfieImage }} style={styles.previewImage} />
+                                ) : (
+                                    <View style={styles.uploadPlaceholder}>
+                                        <Ionicons name="camera-outline" size={32} color="#00A8FF" />
+                                        <Text style={styles.uploadText}>Take Selfie</Text>
+                                    </View>
+                                )}
+                                {userSelfieImage && (
+                                     <View style={styles.checkBadge}>
+                                        <Ionicons name="checkmark-circle" size={20} color="#00C853" />
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                        </View>
                     </View>
 
                     <TouchableOpacity style={styles.confirmButton} onPress={handleReviewPress}>
@@ -350,6 +364,7 @@ const AgencyBookingDetails = () => {
                             groupType: selectedOption,
                             numberOfPeople: selectedOption === 'group' ? (parseInt(numPeople) < 2 ? 2 : parseInt(numPeople)) : 1,
                             validIdImage: validIdImage,
+                            userSelfieImage: userSelfieImage, 
                             isNewKycImage: validIdImage && validIdImage.startsWith('file://')
                         }}
                     />
@@ -363,34 +378,26 @@ export default AgencyBookingDetails;
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#fff' },
-    
     header: { position: 'relative', height: 120, justifyContent: 'center' },
     headerImage: { width: '100%', height: '100%', resizeMode: 'cover', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     headerTitle: { position: 'absolute', bottom: 15, left: 20, color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 1 },
-    
     contentContainer: { padding: 16, paddingBottom: 30 },
-    
     guideInfoCard: { backgroundColor: '#F5F7FA', borderRadius: 15, padding: 16, borderWidth: 1, borderColor: '#E0E6ED', marginBottom: 20 },
     guideHeader: { flexDirection: 'row', alignItems: 'flex-start' },
     guideIcon: { width: 60, height: 60, borderRadius: 12, backgroundColor: '#1A2332', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-    agencyIconBg: { backgroundColor: '#00A8FF' }, // Agency blue
+    agencyIconBg: { backgroundColor: '#00A8FF' }, 
     guideInfo: { flex: 1 },
     guideName: { fontSize: 16, fontWeight: '700', color: '#1A2332' },
     guideDetail: { fontSize: 12, color: '#8B98A8', marginTop: 2 },
     verifiedBadge: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 4 },
     verifiedText: { fontSize: 11, color: '#00C853', fontWeight: '600' },
-
     section: { marginBottom: 20 },
     sectionTitle: { fontSize: 15, fontWeight: '800', color: '#1A2332', marginBottom: 12 },
-    
-    // Date Row Styling
     dateRow: { flexDirection: 'row', gap: 12 },
     dateInput: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#1A2332', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#fff' },
     dateInputText: { fontSize: 13, color: '#1A2332', fontWeight: '500' },
     inputLabel: { fontSize: 13, color: '#1A2332', fontWeight: '600', marginBottom: 5 },
-
-    // Selection Buttons
     selectionButtons: { flexDirection: 'row', gap: 10 },
     selectionButton: { flex: 1, borderWidth: 1, borderColor: '#E0E6ED', paddingVertical: 10, borderRadius: 8, alignItems: 'center', backgroundColor: '#F5F7FA' },
     selectionButtonActive: { backgroundColor: '#00A8FF', borderColor: '#00A8FF' },
@@ -398,7 +405,6 @@ const styles = StyleSheet.create({
     selectionTextActive: { color: '#fff' },
     peopleInputContainer: { marginTop: 12 },
     peopleInput: { borderWidth: 1, borderColor: '#1A2332', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#fff', fontSize: 13, color: '#1A2332' },
-
     priceCard: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#1A2332', borderRadius: 12, padding: 16, marginBottom: 20 },
     priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
     priceLabel: { fontSize: 13, color: '#1A2332', fontWeight: '500' },
@@ -406,25 +412,22 @@ const styles = StyleSheet.create({
     priceDivider: { height: 1, backgroundColor: '#1A2332', marginVertical: 10 },
     totalLabel: { fontSize: 13, fontWeight: '700', color: '#1A2332' },
     totalValue: { fontSize: 13, fontWeight: '700', color: '#1A2332' },
-
     billingRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
     billingInput: { flex: 1, borderWidth: 1, borderColor: '#1A2332', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 13, color: '#1A2332', backgroundColor: '#fff' },
     fullWidthInput: { width: '100%' },
-
     confirmButton: { backgroundColor: '#00A8FF', paddingVertical: 12, borderRadius: 8, alignItems: 'center', marginTop: 10 },
     confirmButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
-
-    // KYC Styling (From Reference)
-    helperText: { fontSize: 12, color: '#8B98A8', marginBottom: 12, lineHeight: 18, textAlign: 'left' },
-    uploadContainer: { height: 150, borderWidth: 1, borderColor: '#E0E6ED', borderStyle: 'dashed', borderRadius: 12, backgroundColor: '#F5F7FA', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+    
+    // Updated Upload Container for side-by-side
+    uploadContainer: { height: 130, borderWidth: 1, borderColor: '#E0E6ED', borderStyle: 'dashed', borderRadius: 12, backgroundColor: '#F5F7FA', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', position: 'relative' },
     uploadPlaceholder: { alignItems: 'center' },
     uploadText: { marginTop: 10, fontSize: 13, fontWeight: '600', color: '#00A8FF' },
-    imagePreviewContainer: { width: '100%', height: '100%', position: 'relative' },
     previewImage: { width: '100%', height: '100%', resizeMode: 'cover' },
     reuploadOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.5)', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, gap: 6 },
     reuploadText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+    checkBadge: { position: 'absolute', top: 5, right: 5, backgroundColor: '#fff', borderRadius: 10 },
+    helperText: { fontSize: 12, color: '#8B98A8', marginBottom: 12 },
 
-    // Modal Styles
     modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
     modalContent: { backgroundColor: '#fff', borderRadius: 15, padding: 20, elevation: 5 },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },

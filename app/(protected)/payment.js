@@ -29,8 +29,13 @@ const Payment = () => {
         bookingType,
         assignedGuides, 
         basePrice,
+        soloPrice,
         accommodationPrice,
-        additionalFee
+        accommodationId,
+        accommodationName,
+        additionalFee,
+        placeId,
+        tourPackageId // <--- 1. ADDED THIS
     } = params;
 
     const isConfirmed = !!bookingId;
@@ -55,19 +60,27 @@ const Payment = () => {
     const [selectingType, setSelectingType] = useState('start');
     const [isLoadingImage, setIsLoadingImage] = useState(false);
 
-    const tourCost = basePrice ? parseFloat(basePrice) : 500;
+    // --- PRICE COMPONENTS ---
+    const tourCostGroup = basePrice ? parseFloat(basePrice) : 500;
+    const tourCostSolo = soloPrice ? parseFloat(soloPrice) : tourCostGroup; // Fallback to group if no solo price
+    
     const accomCost = accommodationPrice ? parseFloat(accommodationPrice) : 0;
-    const combinedBasePrice = tourCost + accomCost;
     const extraPersonFee = additionalFee ? parseFloat(additionalFee) : 0;
-
+    
+    // --- UPDATED BOOKING ENTITY FOR DISPLAY ---
     const bookingEntity = {
         id: resolvedId,
         name: resolvedName,
         purpose: placeName ? `Tour at ${placeName}` : "Private Tour",
         address: isAgency ? "Verified Agency" : "Local Guide",
-        basePrice: combinedBasePrice,
+        basePrice: tourCostGroup, 
         serviceFee: 50,
     };
+    
+    const accomEntity = accommodationId ? {
+        name: accommodationName || "Selected Accommodation",
+        price: accomCost
+    } : null;
 
     const formatDateForCalendar = (date) => date.toISOString().split('T')[0];
 
@@ -86,8 +99,12 @@ const Payment = () => {
     const [phoneNumber, setPhoneNumber] = useState('');
     const [country, setCountry] = useState('');
     const [email, setEmail] = useState('');
+    
     const [validIdImage, setValidIdImage] = useState(null);
+    const [userSelfieImage, setUserSelfieImage] = useState(null);
+
     const [totalPrice, setTotalPrice] = useState(0);
+    const [currentGuideFee, setCurrentGuideFee] = useState(0);
 
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('gcash');
     const paymentOptions = [
@@ -222,26 +239,83 @@ const Payment = () => {
         setIsLoadingImage(false);
     };
 
-    const handleReviewPress = () => {
-        if (!isConfirmed && !validIdImage) {
-            Alert.alert("KYC Required", "Please upload a valid government ID to proceed.");
+    const takeSelfie = async () => {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert("Permission Denied", "Camera permission is required to take a selfie.");
             return;
+        }
+
+        let result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.8,
+            cameraType: ImagePicker.CameraType.front,
+        });
+
+        if (!result.canceled) {
+            setUserSelfieImage(result.assets[0].uri);
+        }
+    };
+
+    const handleReviewPress = () => {
+        // --- 🟢 DEBUGGING ---
+        console.log("\n--- 🛠️ DEBUG: Payment.js - Review Pressed ---");
+        console.log("3. Financials:", { 
+            totalPrice, 
+            currentGuideFee, 
+            extraPersonFee, 
+            accomCost 
+        });
+        console.log("4. Accommodation:", { 
+            id: accommodationId, 
+            name: accommodationName 
+        });
+        console.log("5. Tour Package:", {
+            id: tourPackageId
+        });
+        // --- 🟢 DEBUGGING END ---
+
+        if (!isConfirmed) {
+            if (!validIdImage) {
+                Alert.alert("KYC Required", "Please upload a valid government ID to proceed.");
+                return;
+            }
+            if (!userSelfieImage) {
+                Alert.alert("KYC Required", "Please take a selfie for identity verification.");
+                return;
+            }
         }
         setIsModalOpen(true);
     };
 
+    // --- REVISED CALCULATION LOGIC ---
     useEffect(() => {
         const oneDay = 24 * 60 * 60 * 1000;
-        const numDays = Math.max(Math.round(Math.abs((endDate - startDate) / oneDay)) + 1, 1);
+        const numDays = Math.max(Math.round(Math.abs((endDate - startDate) / oneDay)), 1);
         let groupSize = parseInt(numPeople) || 1;
-        if (selectedOption === 'solo') groupSize = 1;
-        else if (groupSize < 2) groupSize = 2;
-        const extraPeople = Math.max(0, groupSize - 1);
-        const totalExtraFee = extraPeople * extraPersonFee;
-        const dailyTotal = combinedBasePrice + totalExtraFee;
+        
+        let guideFee = 0;
+        let extraFees = 0;
+
+        if (selectedOption === 'solo') {
+            groupSize = 1;
+            guideFee = tourCostSolo;
+            extraFees = 0;
+        } else {
+            if (groupSize < 2) groupSize = 2;
+            guideFee = tourCostSolo;
+            const extraPeople = Math.max(0, groupSize - 1);
+            extraFees = extraPeople * extraPersonFee;
+        }
+
+        setCurrentGuideFee(guideFee);
+        
+        const dailyTotal = guideFee + extraFees + accomCost;
         const grandTotal = dailyTotal * numDays;
         setTotalPrice(grandTotal);
-    }, [startDate, endDate, selectedOption, numPeople, combinedBasePrice, extraPersonFee]);
+    }, [startDate, endDate, selectedOption, numPeople, tourCostGroup, tourCostSolo, accomCost, extraPersonFee]);
 
     return (
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -260,7 +334,6 @@ const Payment = () => {
                 </View>
 
                 <View style={styles.contentContainer}>
-                    {/* 1. TOP INFO CARD */}
                     <View style={styles.guideInfoCard}>
                         <View style={styles.guideHeader}>
                             <View style={[styles.guideIcon, isAgency && styles.agencyIconBg]}>
@@ -280,7 +353,6 @@ const Payment = () => {
                         </View>
                     </View>
 
-                    {/* 2. IF NOT CONFIRMED: SELECTION FORM */}
                     {!isConfirmed && (
                         <>
                             <View style={styles.section}>
@@ -312,18 +384,12 @@ const Payment = () => {
                                                 <Ionicons name="close" size={24} color="#333" />
                                             </TouchableOpacity>
                                         </View>
-                                        <Text style={styles.modalSubText}>Gray dates are unavailable.</Text>
                                         <Calendar
                                             current={new Date().toISOString().split('T')[0]}
                                             minDate={new Date().toISOString().split('T')[0]}
                                             markedDates={getMarkedDates}
                                             onDayPress={onDayPress}
-                                            theme={{
-                                                todayTextColor: '#00A8FF',
-                                                arrowColor: '#00A8FF',
-                                                textMonthFontWeight: 'bold',
-                                                textDayHeaderFontWeight: '600'
-                                            }}
+                                            theme={{ todayTextColor: '#00A8FF', arrowColor: '#00A8FF', textMonthFontWeight: 'bold', textDayHeaderFontWeight: '600' }}
                                         />
                                     </View>
                                 </View>
@@ -352,7 +418,6 @@ const Payment = () => {
                                             style={styles.peopleInput}
                                             value={numPeople}
                                             onChangeText={(text) => { if (text === '' || /^[0-9]+$/.test(text)) setNumPeople(text); }}
-                                            onBlur={() => { const val = parseInt(numPeople); if (!val || val < 2) setNumPeople('2'); }}
                                             keyboardType="numeric"
                                         />
                                     </View>
@@ -365,90 +430,65 @@ const Payment = () => {
                                     <TextInput style={styles.billingInput} placeholder="First Name" value={firstName} onChangeText={setFirstName} />
                                     <TextInput style={styles.billingInput} placeholder="Last Name" value={lastName} onChangeText={setLastName} />
                                 </View>
-                                <View style={styles.billingRow}>
-                                    <TextInput style={styles.billingInput} placeholder="Phone" value={phoneNumber} onChangeText={setPhoneNumber} />
-                                    <TextInput style={styles.billingInput} placeholder="Country" value={country} onChangeText={setCountry} />
-                                </View>
-                                <TextInput style={[styles.billingInput, styles.fullWidthInput]} placeholder="Email" value={email} onChangeText={setEmail} />
+                                <TextInput style={[styles.billingInput, styles.fullWidthInput]} placeholder="Phone" value={phoneNumber} onChangeText={setPhoneNumber} />
                             </View>
 
                             <View style={styles.section}>
                                 <Text style={styles.sectionTitle}>Identity Verification (KYC)</Text>
-                                <TouchableOpacity style={styles.uploadContainer} onPress={pickImage}>
-                                    {isLoadingImage ? (
-                                        <ActivityIndicator size="large" color="#00A8FF" />
-                                    ) : validIdImage ? (
-                                        <View style={styles.imagePreviewContainer}>
-                                            <Image source={{ uri: validIdImage }} style={styles.previewImage} />
-                                            <View style={styles.reuploadOverlay}>
-                                                <Ionicons name={validIdImage.startsWith('http') ? "checkmark-circle" : "camera"} size={20} color="#fff" />
-                                                <Text style={styles.reuploadText}>{validIdImage.startsWith('http') ? "KYC Verified" : "Change ID"}</Text>
-                                            </View>
-                                        </View>
-                                    ) : (
-                                        <View style={styles.uploadPlaceholder}>
-                                            <Ionicons name="cloud-upload-outline" size={40} color="#8B98A8" />
-                                            <Text style={styles.uploadText}>Upload Valid ID</Text>
-                                            <Text style={styles.helperText}>This will be saved to your profile.</Text>
-                                        </View>
-                                    )}
-                                </TouchableOpacity>
+                                <Text style={styles.helperText}>For safety, please provide a valid ID and a realtime selfie.</Text>
+                                <View style={{flexDirection: 'row', gap: 10}}>
+                                    <TouchableOpacity style={[styles.uploadContainer, {flex: 1}]} onPress={pickImage}>
+                                        {validIdImage ? <Image source={{ uri: validIdImage }} style={styles.previewImage} /> : <View style={styles.uploadPlaceholder}><Ionicons name="id-card-outline" size={32} color="#00A8FF" /><Text style={styles.uploadText}>Upload ID</Text></View>}
+                                        {validIdImage && <View style={styles.checkBadge}><Ionicons name="checkmark-circle" size={20} color="#00C853" /></View>}
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={[styles.uploadContainer, {flex: 1}]} onPress={takeSelfie}>
+                                        {userSelfieImage ? <Image source={{ uri: userSelfieImage }} style={styles.previewImage} /> : <View style={styles.uploadPlaceholder}><Ionicons name="camera-outline" size={32} color="#00A8FF" /><Text style={styles.uploadText}>Take Selfie</Text></View>}
+                                        {userSelfieImage && <View style={styles.checkBadge}><Ionicons name="checkmark-circle" size={20} color="#00C853" /></View>}
+                                    </TouchableOpacity>
+                                </View>
                             </View>
                         </>
                     )}
 
-                    {/* 3. CONFIRMED ONLY: PAYMENT SECTION */}
+                    {/* CONFIRMED ONLY: PAYMENT SECTION */}
                     {isConfirmed && (
-                        <View style={styles.section}>
+                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>Select Payment Method</Text>
                             <View style={styles.paymentGridContainer}>
-                                {paymentOptions.map((option) => {
-                                    let iconName = 'wallet-outline';
-                                    let iconColor = '#1A2332';
-                                    
-                                    switch (option.key) {
-                                        case 'gcash': iconName = 'phone-portrait-outline'; iconColor = '#007DFE'; break;
-                                        case 'paymaya': iconName = 'card-outline'; iconColor = '#2ECC71'; break;
-                                        case 'card': iconName = 'card'; iconColor = '#F39C12'; break;
-                                        case 'grab_pay': iconName = 'car-sport-outline'; iconColor = '#00B14F'; break;
-                                        case 'shopeepay': iconName = 'bag-handle-outline'; iconColor = '#EE4D2D'; break;
-                                    }
-                                    const isSelected = selectedPaymentMethod === option.key;
-                                    return (
-                                        <TouchableOpacity 
-                                            key={option.key} 
-                                            style={[styles.paymentGridCard, isSelected && styles.paymentGridCardSelected]} 
-                                            onPress={() => setSelectedPaymentMethod(option.key)} 
-                                            activeOpacity={0.9}
-                                        >
-                                            <View style={[styles.gridIconContainer, { backgroundColor: isSelected ? iconColor : '#F5F7FA' }]}>
-                                                <Ionicons name={iconName} size={24} color={isSelected ? '#FFF' : iconColor} />
-                                            </View>
-                                            <Text style={[styles.gridMethodTitle, isSelected && {color: '#007DFE'}]}>{option.name}</Text>
-                                            
-                                            {isSelected && (
-                                                <View style={styles.selectedCheckBadge}>
-                                                    <Ionicons name="checkmark" size={10} color="#fff" />
-                                                </View>
-                                            )}
-                                        </TouchableOpacity>
-                                    );
-                                })}
+                                {paymentOptions.map((option) => (
+                                    <TouchableOpacity 
+                                        key={option.key} 
+                                        style={[styles.paymentGridCard, selectedPaymentMethod === option.key && styles.paymentGridCardSelected]} 
+                                        onPress={() => setSelectedPaymentMethod(option.key)} 
+                                    >
+                                        <Ionicons name="wallet-outline" size={24} color={selectedPaymentMethod === option.key ? '#007DFE' : '#1A2332'} />
+                                        <Text style={styles.gridMethodTitle}>{option.name}</Text>
+                                    </TouchableOpacity>
+                                ))}
                             </View>
                         </View>
                     )}
 
-                    {/* 4. PRICE BREAKDOWN (Redesigned) */}
                     <View style={styles.priceCard}>
+                        
                         <View style={styles.priceRow}>
-                            <Text style={styles.priceLabel}>Base Price</Text>
-                            <Text style={styles.priceValue}>₱ {combinedBasePrice.toLocaleString()}</Text>
+                            <Text style={styles.priceLabel}>
+                                {selectedOption === 'solo' ? 'Guide Fee (Solo Rate)' : 'Guide Base Fee (Group)'}
+                            </Text>
+                            <Text style={styles.priceValue}>₱ {currentGuideFee.toLocaleString()}</Text>
                         </View>
+                        
+                        {accomCost > 0 && (
+                            <View style={styles.priceRow}>
+                                <Text style={styles.priceLabel}>Accommodation Fee</Text>
+                                <Text style={styles.priceValue}>₱ {accomCost.toLocaleString()}</Text>
+                            </View>
+                        )}
                         
                         {extraPersonFee > 0 && selectedOption === 'group' && (
                             <View style={styles.priceRow}>
                                 <Text style={styles.priceLabel}>
-                                    Extra Fee (₱{extraPersonFee} × {Math.max(0, (parseInt(numPeople) || 1) - 1)} people)
+                                    Additional Guest Fee (x{Math.max(0, (parseInt(numPeople) || 1) - 1)})
                                 </Text>
                                 <Text style={styles.priceValue}>
                                     +₱ {(extraPersonFee * Math.max(0, (parseInt(numPeople) || 1) - 1)).toLocaleString()}
@@ -457,9 +497,9 @@ const Payment = () => {
                         )}
 
                         <View style={styles.priceRow}>
-                            <Text style={styles.priceLabel}>Number of Days</Text>
+                            <Text style={styles.priceLabel}>Duration</Text>
                             <Text style={styles.priceValue}>
-                                {Math.max(Math.floor(Math.abs((endDate - startDate) / (24 * 60 * 60 * 1000))) + 1, 1)} day(s)
+                                {Math.max(Math.floor(Math.abs((endDate - startDate) / (24 * 60 * 60 * 1000))), 1)} day(s)
                             </Text>
                         </View>
 
@@ -468,7 +508,7 @@ const Payment = () => {
                         </View>
 
                         <View style={styles.priceRow}>
-                            <Text style={styles.totalLabel}>Total to Pay</Text>
+                            <Text style={styles.totalLabel}>Total Amount Due</Text>
                             <View style={styles.totalValueContainer}>
                                 <Text style={styles.currency}>₱</Text>
                                 <Text style={styles.totalValue}>{totalPrice.toLocaleString()}</Text>
@@ -476,51 +516,22 @@ const Payment = () => {
                         </View>
                     </View>
 
-                    {/* 5. ASSIGNED GUIDES (Redesigned Row Layout) */}
+                    {/* 5. ASSIGNED GUIDES */}
                     {isAgency && assignedAgencyGuidesList.length > 0 && (
                         <View style={styles.section}>
                             <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom: 12, marginTop: 10}}>
                                 <Text style={styles.sectionTitle}>Assigned Guides</Text>
                                 <Text style={styles.subtitleLink}>{assignedAgencyGuidesList.length} Guide(s)</Text>
                             </View>
-                            
                             <View style={styles.assignedGuidesContainer}>
                                 {assignedAgencyGuidesList.map((guide, index) => (
                                     <View key={index} style={styles.assignedGuideCard}>
                                         <View style={styles.guideCardLeft}>
-                                            <View style={styles.avatarContainer}>
-                                                <Image 
-                                                    source={{ uri: guide.profile_picture || '' }} 
-                                                    style={styles.guideAvatarLarge} 
-                                                />
-                                                <View style={styles.badgeIcon}>
-                                                    <Ionicons name="shield-checkmark" size={12} color="#fff" />
-                                                </View>
-                                            </View>
+                                            <Image source={{ uri: guide.profile_picture || '' }} style={styles.guideAvatarLarge} />
                                         </View>
-
                                         <View style={styles.guideCardRight}>
-                                            <View style={styles.guideHeaderRow}>
-                                                <Text style={styles.guideCardName} numberOfLines={1}>
-                                                    {guide.full_name || `${guide.first_name} ${guide.last_name}`}
-                                                </Text>
-                                            </View>
-                                            
-                                            <View style={styles.roleTag}>
-                                                <Text style={styles.roleTagText}>{guide.specialization || "Official Guide"}</Text>
-                                            </View>
-
-                                            <View style={styles.agencyTagRow}>
-                                                <Ionicons name="business-outline" size={12} color="#64748B" />
-                                                <Text style={styles.agencyTagText} numberOfLines={1}>{bookingEntity.name}</Text>
-                                            </View>
-
-                                            {guide.contact_number && (
-                                                <View style={styles.guideContactRow}>
-                                                    <Ionicons name="call-outline" size={12} color="#64748B" />
-                                                    <Text style={styles.guideContactText}>{guide.contact_number}</Text>
-                                                </View>
-                                            )}
+                                            <Text style={styles.guideCardName}>{guide.full_name}</Text>
+                                            <Text style={styles.roleTagText}>Agency Guide</Text>
                                         </View>
                                     </View>
                                 ))}
@@ -541,6 +552,13 @@ const Payment = () => {
                         setIsModalOpen={setIsModalOpen}
                         paymentData={{
                             [isAgency ? 'agency' : 'guide']: bookingEntity,
+                            // Pass Accommodation Info to Modal
+                            accommodation: accomEntity,
+                            accommodationId: accommodationId,
+                            
+                            // 2. PASS TOUR PACKAGE ID
+                            tourPackageId: tourPackageId,
+
                             startDate, endDate, firstName, lastName, phoneNumber, country, email,
                             basePrice: bookingEntity.basePrice,
                             serviceFee: bookingEntity.serviceFee,
@@ -551,7 +569,12 @@ const Payment = () => {
                             groupType: selectedOption,
                             numberOfPeople: selectedOption === 'group' ? (parseInt(numPeople) < 2 ? 2 : parseInt(numPeople)) : 1,
                             validIdImage,
-                            isNewKycImage: validIdImage && validIdImage.startsWith('file://')
+                            userSelfieImage,
+                            isNewKycImage: validIdImage && validIdImage.startsWith('file://'),
+                            
+                            tourCost: currentGuideFee,
+                            accomCost,
+                            extraPersonFee
                         }}
                     />
                 )}
@@ -665,11 +688,13 @@ const styles = StyleSheet.create({
     fullWidthInput: { width: '100%' },
 
     helperText: { fontSize: 12, color: '#64748B', marginBottom: 12, lineHeight: 18, textAlign: 'center' },
-    uploadContainer: { height: 160, borderWidth: 1, borderColor: '#CBD5E1', borderStyle: 'dashed', borderRadius: 16, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+    
+    // Updated Upload Container for side-by-side
+    uploadContainer: { height: 130, borderWidth: 1, borderColor: '#CBD5E1', borderStyle: 'dashed', borderRadius: 16, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', position: 'relative' },
     uploadPlaceholder: { alignItems: 'center' },
-    uploadText: { marginTop: 12, fontSize: 14, fontWeight: '600', color: '#00A8FF' },
-    imagePreviewContainer: { width: '100%', height: '100%', position: 'relative' },
+    uploadText: { marginTop: 8, fontSize: 13, fontWeight: '600', color: '#00A8FF' },
     previewImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+    checkBadge: { position: 'absolute', top: 5, right: 5, backgroundColor: '#fff', borderRadius: 10 },
     reuploadOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.6)', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 10, gap: 8 },
     reuploadText: { color: '#fff', fontSize: 13, fontWeight: '600' },
 

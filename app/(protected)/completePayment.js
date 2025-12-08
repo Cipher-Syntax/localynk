@@ -72,7 +72,14 @@ const CompletePayment = () => {
         <View style={styles.billingRow}>{children}</View>
     );
 
-    const days = Math.max(Math.round(Math.abs((bookingData.endDate - bookingData.startDate) / (24 * 60 * 60 * 1000))) + 1, 1);
+    const calculateDays = () => {
+        if (!bookingData.startDate || !bookingData.endDate) return 1;
+        const oneDay = 24 * 60 * 60 * 1000;
+        return Math.max(Math.round((bookingData.endDate - bookingData.startDate) / oneDay), 1);
+    };
+
+    // const days = Math.max(Math.round(Math.abs((bookingData.endDate - bookingData.startDate) / (24 * 60 * 60 * 1000))), 1);
+    const days = calculateDays()
     const guideEarnings = bookingData.totalPrice - bookingData.guide.serviceFee;
 
     return (
@@ -128,9 +135,10 @@ const CompletePayment = () => {
                         )}
                     </View>
                     
+                    {/* UPDATED Price Breakdown */}
                     <View style={styles.priceCard}>
                         <View style={styles.priceRow}>
-                            <Text style={styles.priceLabel}>Base Price</Text>
+                            <Text style={styles.priceLabel}>Agreed Base Rate</Text>
                             <Text style={styles.priceValue}>₱ {bookingData.guide.basePrice.toLocaleString()}</Text>
                         </View>
                         {bookingData.selectedOption === 'group' && (
@@ -149,7 +157,7 @@ const CompletePayment = () => {
                             <Text style={styles.priceValue}>₱ {guideEarnings.toLocaleString()}</Text>
                         </View>
                         <View style={styles.priceRow}>
-                            <Text style={styles.priceLabel}>App Service Fee</Text>
+                            <Text style={styles.priceLabel}>Platform Service Fee</Text>
                             <Text style={styles.priceValue}>₱ {bookingData.guide.serviceFee.toLocaleString()}</Text>
                         </View>
                         <View style={styles.priceDivider} />

@@ -244,7 +244,6 @@ const AddTour = () => {
             if (response.status === 201) {
                 showToast("Tour Created Successfully! Finishing setup...", "success");
                 setTimeout(() => {
-                    // Redirects to Dashboard (Tour Guide Tab)
                     router.replace('/(protected)/home/tourGuide');
                 }, 1500);
             }

@@ -126,15 +126,16 @@ const FeePaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => 
                     </View>
 
                     <View style={styles.contentContainer}>
+                        {/* UPDATED LABELS HERE */}
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>Fee Breakdown</Text>
                             <View style={styles.priceCard}>
                                 <View style={styles.priceRow}>
-                                    <Text style={styles.priceLabel}>Base Registration Fee</Text>
+                                    <Text style={styles.priceLabel}>Guide Registration Fee</Text>
                                     <Text style={styles.priceValue}>₱ {baseFee?.toFixed(2).toLocaleString() || '0.00'}</Text>
                                 </View>
                                 <View style={styles.priceRow}>
-                                    <Text style={styles.priceLabel}>App Service Fee</Text>
+                                    <Text style={styles.priceLabel}>Platform Processing Fee</Text>
                                     <Text style={styles.priceValue}>₱ {serviceFee?.toFixed(2).toLocaleString() || '0.00'}</Text>
                                 </View>
                                 <View style={styles.priceDivider} />

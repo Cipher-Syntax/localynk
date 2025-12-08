@@ -23,43 +23,56 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
     const appState = useRef(AppState.currentState);
 
     const { 
-        guide, agency, accommodation, startDate, endDate, 
+        guide, agency, accommodation,
+        accommodationId,
+        tourPackageId, // <--- 1. EXTRACT THIS
+        startDate, endDate, 
         firstName, lastName, phoneNumber, country, email, 
         basePrice, totalPrice, paymentMethod, 
         groupType, numberOfPeople, validIdImage, bookingId,
-        placeId, isNewKycImage 
+        placeId, isNewKycImage,
+        userSelfieImage,
+        tourCost, accomCost, extraPersonFee
     } = paymentData || {};
 
     const calculateDays = () => {
         if (!startDate || !endDate) return 1;
         const oneDay = 24 * 60 * 60 * 1000;
-        return Math.max(Math.round((endDate - startDate) / oneDay) + 1, 1);
+        return Math.max(Math.round((endDate - startDate) / oneDay), 1);
     };
     const days = calculateDays();
 
+    // --- 🟢 DEBUGGING: DATA RECEPTION ---
+    useEffect(() => {
+        if (isModalOpen) {
+            console.log("\n--- 🛠️ DEBUG: PaymentReviewModal Received Data ---");
+            console.log("Payable:", totalPrice);
+            console.log("Payer:", `${firstName} ${lastName} (${email})`);
+            console.log("Method:", paymentMethod || "Booking Request (No Payment Yet)");
+            console.log("Accommodation ID:", accommodationId);
+            console.log("Tour Package ID:", tourPackageId);
+        }
+    }, [isModalOpen, paymentData]);
+
+    // ... (Polling logic - same as before) ...
     const checkPaymentStatus = useCallback(async (id) => {
         if (!id) return;
-        
         try {
-            console.log(`Checking status for Payment ID: ${id}`);
             const statusResp = await api.get(`/api/payments/status/${id}/`);
             const status = statusResp.data.status;
-            console.log(`Current status: ${status}`);
+            console.log(`📡 [Payment Polling] Status for ${id}:`, status);
 
             if (status === "succeeded" || status === "paid") {
                 if (pollingRef.current) clearInterval(pollingRef.current);
                 setPaymentId(null);
                 setShowPaymentLink(false);
-
                 if (refreshUser) refreshUser();
-
                 setIsPayment(true);
                 setShowConfirmationScreen(true);
             } else if (status === "failed") {
                 if (pollingRef.current) clearInterval(pollingRef.current);
                 setPaymentId(null);
                 setShowPaymentLink(false);
-
                 Alert.alert("Payment Failed", "The payment process failed. Please try again.");
             }
         } catch (err) {
@@ -69,13 +82,8 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 
     const startPolling = useCallback((id) => {
         if (!id) return;
-        
         if (pollingRef.current) clearInterval(pollingRef.current);
-
-        console.log(`Starting polling for Payment ID: ${id}`);
-
         checkPaymentStatus(id);
-
         pollingRef.current = setInterval(() => {
             checkPaymentStatus(id);
         }, 3000); 
@@ -83,52 +91,44 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 
     useEffect(() => {
         const subscription = AppState.addEventListener('change', nextAppState => {
-            if (
-                appState.current.match(/inactive|background/) &&
-                nextAppState === 'active' &&
-                paymentId && 
-                showPaymentLink
-            ) {
-                console.log('App has come to the foreground! Resurrecting polling...');
+            if (appState.current.match(/inactive|background/) && nextAppState === 'active' && paymentId && showPaymentLink) {
                 startPolling(paymentId);
             }
-
             appState.current = nextAppState;
         });
-
-        return () => {
-            subscription.remove();
-        };
+        return () => subscription.remove();
     }, [paymentId, showPaymentLink, startPolling]);
 
     useEffect(() => {
-        return () => {
-            if (pollingRef.current) clearInterval(pollingRef.current);
-        };
+        return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
     }, []);
 
     const handleConfirm = async () => {
         setIsLoading(true);
 
+        // --- 🟢 DEBUGGING: SUBMISSION START ---
+        console.log("\n--- 🚀 DEBUG: Submitting Transaction ---");
+
         try {
             if (paymentMethod) {
-                console.log("Initiating payment for Booking ID:", bookingId);
-
-                const response = await api.post('/api/payments/initiate/', {
+                // CASE 1: IMMEDIATE PAYMENT
+                const payload = {
                     booking_id: bookingId,
                     payment_method: paymentMethod 
-                }, {
-                    timeout: 15000 
-                });
+                };
+                
+                console.log("💰 Mode: Immediate Payment");
+                console.log("📤 Payload:", JSON.stringify(payload, null, 2));
+
+                const response = await api.post('/api/payments/initiate/', payload, { timeout: 15000 });
+                
+                console.log("✅ Response:", response.data);
 
                 const { checkout_url, payment_id } = response.data;
-                console.log("Payment Initiated:", response.data);
-
                 if (checkout_url) {
                     setCheckoutUrl(checkout_url);
                     setPaymentId(payment_id);
                     setShowPaymentLink(true);
-                    
                     await Linking.openURL(checkout_url);
                     startPolling(payment_id);
                 } else {
@@ -136,7 +136,8 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                 }
 
             } else {
-                console.log("Preparing Booking Request Data...", paymentData);
+                // CASE 2: BOOKING REQUEST (Multipart Form Data)
+                console.log("📝 Mode: Booking Request (FormData)");
 
                 const formatLocalDate = (date) => {
                     const year = date.getFullYear();
@@ -155,15 +156,21 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                 formData.append('country', country);
                 formData.append('email', email);
 
-                if (guide && guide.id) {
-                    formData.append('guide', String(guide.id));
-                } else if (agency && agency.id) {
-                    formData.append('agency', String(agency.id));
+                if (guide && guide.id) formData.append('guide', String(guide.id));
+                else if (agency && agency.id) formData.append('agency', String(agency.id));
+                
+                if (accommodationId) {
+                     formData.append('accommodation', String(accommodationId));
+                     console.log("🏠 Attaching Accommodation ID:", accommodationId);
                 }
 
-                if (placeId) {
-                    formData.append('destination', placeId);
+                // 2. APPEND THE TOUR PACKAGE ID
+                if (tourPackageId) {
+                    formData.append('tour_package_id', String(tourPackageId));
+                    console.log("📦 Attaching Tour Package ID:", tourPackageId);
                 }
+
+                if (placeId) formData.append('destination', placeId);
                 
                 if (validIdImage && isNewKycImage) {
                     const uri = validIdImage;
@@ -171,36 +178,48 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                     const match = /\.(\w+)$/.exec(filename);
                     const type = match ? `image/${match[1]}` : `image/jpeg`;
                     formData.append('tourist_valid_id_image', { uri, name: filename, type });
+                    console.log("📸 Attaching ID Image:", filename);
                 }
 
+                if (userSelfieImage) {
+                    const uri = userSelfieImage;
+                    const filename = uri.split('/').pop();
+                    const match = /\.(\w+)$/.exec(filename);
+                    const type = match ? `image/${match[1]}` : `image/jpeg`;
+                    formData.append('tourist_selfie_image', { uri, name: filename, type });
+                    console.log("📸 Attaching Selfie Image:", filename);
+                }
+
+                // Log what we are sending for clarity
+                 console.log("📤 Text Data:", {
+                    check_in: formatLocalDate(startDate),
+                    check_out: formatLocalDate(endDate),
+                    num_guests: numberOfPeople,
+                    guideId: guide?.id,
+                    agencyId: agency?.id,
+                    accommodationId: accommodationId,
+                    tourPackageId: tourPackageId
+                });
+
                 const response = await api.post('/api/bookings/', formData, {
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'multipart/form-data', 
-                    },
+                    headers: { 'Accept': 'application/json', 'Content-Type': 'multipart/form-data' },
                     timeout: 15000
                 });
 
-                console.log("Booking Request Created:", response.data);
+                console.log("✅ Booking Created:", response.data);
+
                 setIsPayment(false); 
                 setShowConfirmationScreen(true);
             }
 
         } catch (error) {
-            console.error("Action failed:", error);
-
-            if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-                Alert.alert(
-                    "Request Timeout", 
-                    "The server took too long to respond. Please check your internet connection and try again."
-                );
-            } 
-            else if (error.response) {
-                console.log("Backend Error Details:", error.response.data);
-                const msg = typeof error.response.data === 'object' 
-                    ? JSON.stringify(error.response.data) 
-                    : error.response.data;
-                Alert.alert("Request Failed", msg);
+            console.error("❌ Action failed:", error);
+            if (error.response) {
+                 console.log("❌ Server Error Data:", error.response.data);
+                 const msg = typeof error.response.data === 'object' ? JSON.stringify(error.response.data) : error.response.data;
+                 Alert.alert("Request Failed", msg);
+            } else if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+                Alert.alert("Request Timeout", "The server took too long to respond. Please check your internet connection and try again.");
             } else {
                 Alert.alert("Failed", "Network error or server not reachable.");
             }
@@ -214,7 +233,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
             try {
                 await Linking.openURL(checkoutUrl);
                 Alert.alert("Redirecting", "Opening payment gateway...");
-                // Also restart polling if user manually clicks the link again
                 if (paymentId) startPolling(paymentId);
             } catch (error) {
                 Alert.alert("Error", "Could not open link.");
@@ -243,30 +261,26 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 
                     <View style={styles.contentContainer}>
 
+                        {/* Booking Details Section */}
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>Booking Details</Text>
-
-                            {accommodation && (
+                            
+                            {(accommodation || accommodationId) && (
                                 <View style={styles.detailCard}>
                                     <View style={styles.detailHeader}>
-                                        <View style={styles.detailIcon}>
-                                            <Ionicons name="home" size={20} color="#fff" />
-                                        </View>
+                                        <View style={styles.detailIcon}><Ionicons name="home" size={20} color="#fff" /></View>
                                         <View style={styles.detailInfo}>
                                             <Text style={styles.detailLabel}>Accommodation</Text>
-                                            <Text style={styles.detailName}>{accommodation.name}</Text>
-                                            <Text style={styles.detailText}>{accommodation.location}</Text>
+                                            <Text style={styles.detailName}>{accommodation?.name || "Selected Stay"}</Text>
+                                            <Text style={styles.detailText}>{accommodation?.price ? `₱${accommodation.price} / night` : "Included"}</Text>
                                         </View>
                                     </View>
                                 </View>
                             )}
-
                             {guide && (
                                 <View style={styles.detailCard}>
                                     <View style={styles.detailHeader}>
-                                        <View style={styles.detailIcon}>
-                                            <User size={20} color="#fff" />
-                                        </View>
+                                        <View style={styles.detailIcon}><User size={20} color="#fff" /></View>
                                         <View style={styles.detailInfo}>
                                             <Text style={styles.detailLabel}>Tourist Guide</Text>
                                             <Text style={styles.detailName}>{guide.name}</Text>
@@ -275,13 +289,10 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                                     </View>
                                 </View>
                             )}
-
                             {agency && (
                                 <View style={styles.detailCard}>
                                     <View style={styles.detailHeader}>
-                                        <View style={styles.detailIcon}>
-                                            <Ionicons name="business" size={20} color="#fff" />
-                                        </View>
+                                        <View style={styles.detailIcon}><Ionicons name="business" size={20} color="#fff" /></View>
                                         <View style={styles.detailInfo}>
                                             <Text style={styles.detailLabel}>Agency</Text>
                                             <Text style={styles.detailName}>{agency.name}</Text>
@@ -292,6 +303,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                             )}
                         </View>
 
+                        {/* Booking Dates Section */}
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>Booking Dates</Text>
                             <View style={styles.dateCard}>
@@ -300,46 +312,57 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                                     <Text style={styles.dateValue}>{startDate?.toLocaleDateString()}</Text>
                                 </View>
                                 <View style={styles.dateDivider} />
-
                                 <View style={styles.dateItem}>
                                     <Text style={styles.dateLabel}>Check-out</Text>
                                     <Text style={styles.dateValue}>{endDate?.toLocaleDateString()}</Text>
                                 </View>
                                 <View style={styles.dateDivider} />
-
                                 <View style={styles.dateItem}>
                                     <Text style={styles.dateLabel}>Duration</Text>
-                                    <Text style={styles.dateValue}>{days} day(s)</Text>
+                                    <Text style={styles.dateValue}>{days} night(s)</Text>
                                 </View>
                             </View>
                         </View>
 
+                        {/* Price Breakdown Section */}
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>Price Breakdown</Text>
                             <View style={styles.priceCard}>
-                                <View style={styles.priceRow}>
-                                    <Text style={styles.priceLabel}>Base Price</Text>
-                                    <Text style={styles.priceValue}>
-                                        ₱ {basePrice?.toLocaleString() || "0"}
-                                    </Text>
-                                </View>
-
-                                {groupType === "group" && (
+                                {tourCost !== undefined ? (
+                                    <>
+                                        <View style={styles.priceRow}>
+                                            <Text style={styles.priceLabel}>Tour Guide Fee {accomCost > 0 ? '(Base)' : ''}</Text>
+                                            <Text style={styles.priceValue}>₱ {tourCost.toLocaleString()}</Text>
+                                        </View>
+                                        {accomCost > 0 && (
+                                            <View style={styles.priceRow}>
+                                                <Text style={styles.priceLabel}>Accommodation Fee</Text>
+                                                <Text style={styles.priceValue}>₱ {accomCost.toLocaleString()}</Text>
+                                            </View>
+                                        )}
+                                    </>
+                                ) : (
                                     <View style={styles.priceRow}>
-                                        <Text style={styles.priceLabel}>Group Size</Text>
-                                        <Text style={styles.priceValue}>{numberOfPeople}</Text>
+                                        <Text style={styles.priceLabel}>Base Package Price</Text>
+                                        <Text style={styles.priceValue}>₱ {basePrice?.toLocaleString() || "0"}</Text>
                                     </View>
                                 )}
 
-                                <View style={styles.priceRow}>
-                                    <Text style={styles.priceLabel}>Days</Text>
-                                    <Text style={styles.priceValue}>{days}</Text>
-                                </View>
+                                {groupType === "group" && extraPersonFee > 0 && (
+                                    <View style={styles.priceRow}>
+                                        <Text style={styles.priceLabel}>
+                                            Additional Guest Fee (x{Math.max(0, (numberOfPeople || 1) - 1)})
+                                        </Text>
+                                        <Text style={styles.priceValue}>
+                                            + ₱ {(extraPersonFee * Math.max(0, (numberOfPeople || 1) - 1)).toLocaleString()}
+                                        </Text>
+                                    </View>
+                                )}
 
                                 <View style={styles.priceDivider} />
 
                                 <View style={styles.priceRow}>
-                                    <Text style={styles.totalLabel}>Total to Pay</Text>
+                                    <Text style={styles.totalLabel}>Total Amount Due</Text>
                                     <Text style={styles.totalValue}>
                                         ₱ {totalPrice?.toLocaleString() || "0"}
                                     </Text>
@@ -347,18 +370,22 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                             </View>
                         </View>
 
-                        {validIdImage && (
+                        {(validIdImage || userSelfieImage) && (
                             <View style={styles.section}>
                                 <Text style={styles.sectionTitle}>Identity Verification</Text>
-                                <View style={styles.idCard}>
-                                    <Image 
-                                        source={{ uri: validIdImage }}
-                                        style={styles.idImage}
-                                    />
-                                    <View style={styles.idOverlay}>
-                                        <Ionicons name="checkmark-circle" size={16} color="#fff" />
-                                        <Text style={styles.idText}>ID Attached</Text>
-                                    </View>
+                                <View style={styles.kycRow}>
+                                    {validIdImage && (
+                                        <View style={styles.kycItem}>
+                                            <Image source={{ uri: validIdImage }} style={styles.kycImage} />
+                                            <Text style={styles.kycLabel}>Valid ID</Text>
+                                        </View>
+                                    )}
+                                    {userSelfieImage && (
+                                        <View style={styles.kycItem}>
+                                            <Image source={{ uri: userSelfieImage }} style={styles.kycImage} />
+                                            <Text style={styles.kycLabel}>Selfie</Text>
+                                        </View>
+                                    )}
                                 </View>
                             </View>
                         )}
@@ -442,24 +469,20 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                         <Text style={styles.confirmationHeader}>
                             {isPayment ? "CONFIRMATION" : "REQUEST SENT"}
                         </Text>
-
                         <Ionicons 
                             name={isPayment ? "checkmark-circle" : "hourglass-outline"} 
                             size={100}
                             style={{ color: isPayment ? "#00A8FF" : "#F5A623", marginBottom: 20 }}
                         />
-
                         <Text style={styles.confirmationTitle}>
                             {isPayment ? "Successful!" : "Request Sent!"}
                         </Text>
-
                         <Text style={styles.confirmationMessage}>
                             {isPayment
                                 ? "Your booking is confirmed. Thank you!"
-                                : "Please wait for the guide to approve your request."
+                                : "Please wait for the guide/agency to approve your request."
                             }
                         </Text>
-
                         <TouchableOpacity 
                             style={styles.confirmationButton}
                             onPress={handleConfirmationDismiss}
@@ -477,7 +500,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 
 export default PaymentReviewModal;
 
-
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: {
@@ -490,169 +512,53 @@ const styles = StyleSheet.create({
         borderBottomColor: "#E0E6ED",
         borderBottomWidth: 1
     },
-    headerTitle: {
-        fontSize: 16,
-        fontWeight: "700",
-        color: "#1A2332"
-    },
-    contentContainer: {
-        padding: 16
-    },
-
+    headerTitle: { fontSize: 16, fontWeight: "700", color: "#1A2332" },
+    contentContainer: { padding: 16 },
     section: { marginBottom: 20 },
-    sectionTitle: {
-        fontSize: 14,
-        fontWeight: "700",
-        marginBottom: 12,
-        color: "#1A2332"
-    },
-
-    detailCard: {
-        backgroundColor: "#F5F7FA",
-        borderRadius: 12,
-        padding: 12,
-        borderWidth: 1,
-        borderColor: "#E0E6ED",
-        marginBottom: 10
-    },
+    sectionTitle: { fontSize: 14, fontWeight: "700", marginBottom: 12, color: "#1A2332" },
+    detailCard: { backgroundColor: "#F5F7FA", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "#E0E6ED", marginBottom: 10 },
     detailHeader: { flexDirection: "row", alignItems: "center" },
-    detailIcon: {
-        width: 45,
-        height: 45,
-        backgroundColor: "#1A2332",
-        borderRadius: 8,
-        justifyContent: "center",
-        alignItems: "center",
-        marginRight: 12
-    },
+    detailIcon: { width: 45, height: 45, backgroundColor: "#1A2332", borderRadius: 8, justifyContent: "center", alignItems: "center", marginRight: 12 },
     detailInfo: { flex: 1 },
     detailLabel: { fontSize: 10, color: "#8B98A8", fontWeight: "600" },
     detailName: { fontSize: 13, fontWeight: "700", marginTop: 2, color: "#1A2332" },
     detailText: { fontSize: 11, color: "#8B98A8", marginTop: 1 },
-
-    dateCard: {
-        backgroundColor: "#fff",
-        padding: 16,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: "#E0E6ED"
-    },
+    dateCard: { backgroundColor: "#fff", padding: 16, borderRadius: 12, borderWidth: 1, borderColor: "#E0E6ED" },
     dateItem: { paddingVertical: 6 },
     dateLabel: { fontSize: 11, color: "#8B98A8", fontWeight: "600" },
     dateValue: { fontSize: 13, fontWeight: "700", marginTop: 3 },
-
     dateDivider: { height: 1, backgroundColor: "#E0E6ED", marginVertical: 8 },
-
-    priceCard: {
-        backgroundColor: "#fff",
-        padding: 16,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: "#E0E6ED"
-    },
-    priceRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        marginBottom: 10
-    },
+    priceCard: { backgroundColor: "#fff", padding: 16, borderRadius: 12, borderWidth: 1, borderColor: "#E0E6ED" },
+    priceRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 10 },
     priceLabel: { fontSize: 12, color: "#1A2332", fontWeight: "500" },
     priceValue: { fontSize: 12, fontWeight: "600" },
-
     priceDivider: { height: 1, backgroundColor: "#E0E6ED", marginVertical: 10 },
-
     totalLabel: { fontSize: 13, fontWeight: "700" },
     totalValue: { fontSize: 13, fontWeight: "700", color: "#00A8FF" },
+    
+    // New KYC Styles
+    kycRow: { flexDirection: 'row', gap: 10 },
+    kycItem: { flex: 1, backgroundColor: "#F5F7FA", borderRadius: 12, padding: 8, borderWidth: 1, borderColor: "#E0E6ED", alignItems: 'center' },
+    kycImage: { width: '100%', height: 100, borderRadius: 8, marginBottom: 5, resizeMode: 'cover' },
+    kycLabel: { fontSize: 12, fontWeight: '600', color: '#1A2332' },
 
-    idCard: {
-        height: 150,
-        borderRadius: 12,
-        overflow: "hidden",
-        borderWidth: 1,
-        borderColor: "#E0E6ED",
-        backgroundColor: "#F5F7FA"
-    },
-    idImage: { width: "100%", height: "100%" },
-    idOverlay: {
-        position: "absolute",
-        bottom: 10,
-        right: 10,
-        backgroundColor: "rgba(0, 168, 255, 0.9)",
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 20,
-        flexDirection: "row",
-        alignItems: "center"
-    },
-    idText: { color: "#fff", fontSize: 11, fontWeight: "700" },
-
-    paymentCard: {
-        backgroundColor: "#F5F7FA",
-        padding: 14,
-        borderRadius: 12,
-        alignItems: "center",
-        borderWidth: 1,
-        borderColor: "#E0E6ED"
-    },
+    paymentCard: { backgroundColor: "#F5F7FA", padding: 14, borderRadius: 12, alignItems: "center", borderWidth: 1, borderColor: "#E0E6ED" },
     paymentMethod: { fontSize: 13, fontWeight: "700" },
-
-    billingCard: {
-        backgroundColor: "#F5F7FA",
-        padding: 12,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: "#E0E6ED"
-    },
-    billingRow: {
-        flexDirection: "row",
-        gap: 12,
-        marginBottom: 12
-    },
+    billingCard: { backgroundColor: "#F5F7FA", padding: 12, borderRadius: 12, borderWidth: 1, borderColor: "#E0E6ED" },
+    billingRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
     billingFullRow: { marginTop: 6 },
     billingItem: { flex: 1 },
     billingLabel: { fontSize: 10, color: "#8B98A8", fontWeight: "600" },
     billingValue: { fontSize: 12, fontWeight: "600", color: "#1A2332", marginTop: 2 },
-
-    confirmButton: {
-        backgroundColor: "#00A8FF",
-        paddingVertical: 14,
-        borderRadius: 12,
-        alignItems: "center",
-        marginTop: 10
-    },
+    confirmButton: { backgroundColor: "#00A8FF", paddingVertical: 14, borderRadius: 12, alignItems: "center", marginTop: 10 },
     confirmButtonText: { color: "#fff", fontWeight: "700", fontSize: 14 },
-
-    cancelButton: {
-        backgroundColor: "#E0E6ED",
-        paddingVertical: 14,
-        borderRadius: 12,
-        alignItems: "center",
-        marginTop: 10,
-        marginBottom: 30
-    },
+    cancelButton: { backgroundColor: "#E0E6ED", paddingVertical: 14, borderRadius: 12, alignItems: "center", marginTop: 10, marginBottom: 30 },
     cancelButtonText: { color: "#1A2332", fontWeight: "700", fontSize: 14 },
-
-    confirmationContainer: {
-        flex: 1,
-        justifyContent: "center",
-        paddingHorizontal: 30
-    },
+    confirmationContainer: { flex: 1, justifyContent: "center", paddingHorizontal: 30 },
     confirmationContent: { alignItems: "center" },
-
     confirmationHeader: { fontSize: 16, fontWeight: "700", marginBottom: 15 },
-
     confirmationTitle: { fontSize: 20, fontWeight: "700", marginBottom: 10 },
-    confirmationMessage: {
-        fontSize: 13,
-        color: "#555",
-        textAlign: "center",
-        marginBottom: 20
-    },
-
-    confirmationButton: {
-        backgroundColor: "#00A8FF",
-        paddingVertical: 12,
-        paddingHorizontal: 40,
-        borderRadius: 12
-    },
+    confirmationMessage: { fontSize: 13, color: "#555", textAlign: "center", marginBottom: 20 },
+    confirmationButton: { backgroundColor: "#00A8FF", paddingVertical: 12, paddingHorizontal: 40, borderRadius: 12 },
     confirmationButtonText: { color: "#fff", fontWeight: "700", fontSize: 14 }
 });
