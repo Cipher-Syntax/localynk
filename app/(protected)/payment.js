@@ -35,15 +35,16 @@ const Payment = () => {
         accommodationName,
         additionalFee,
         placeId,
-        tourPackageId // <--- 1. ADDED THIS
+        tourPackageId
     } = params;
 
-    const isConfirmed = !!bookingId;
+    const isConfirmed = !!bookingId; // Note: In new flow, we land here to pay down payment
     const isAgency = bookingType === 'agency';
     const resolvedName = entityName || guideName || (isAgency ? "Selected Agency" : "Selected Guide");
     const resolvedId = entityId || guideId;
 
     const [guideAvailability, setGuideAvailability] = useState(null);
+    const [blockedDates, setBlockedDates] = useState([]); // NEW: Dates already booked by others
     
     const [assignedGuidesList, setAssignedGuidesList] = useState(() => {
         try {
@@ -62,12 +63,10 @@ const Payment = () => {
 
     // --- PRICE COMPONENTS ---
     const tourCostGroup = basePrice ? parseFloat(basePrice) : 500;
-    const tourCostSolo = soloPrice ? parseFloat(soloPrice) : tourCostGroup; // Fallback to group if no solo price
-    
+    const tourCostSolo = soloPrice ? parseFloat(soloPrice) : tourCostGroup;
     const accomCost = accommodationPrice ? parseFloat(accommodationPrice) : 0;
     const extraPersonFee = additionalFee ? parseFloat(additionalFee) : 0;
     
-    // --- UPDATED BOOKING ENTITY FOR DISPLAY ---
     const bookingEntity = {
         id: resolvedId,
         name: resolvedName,
@@ -105,6 +104,8 @@ const Payment = () => {
 
     const [totalPrice, setTotalPrice] = useState(0);
     const [currentGuideFee, setCurrentGuideFee] = useState(0);
+    const [downPayment, setDownPayment] = useState(0); // NEW
+    const [balanceDue, setBalanceDue] = useState(0); // NEW
 
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('gcash');
     const paymentOptions = [
@@ -128,18 +129,23 @@ const Payment = () => {
         }
     }, [user]);
 
+    // 1. FETCH BLOCKED DATES & AVAILABILITY
     useEffect(() => {
-        const fetchGuideAvailability = async () => {
+        const fetchAvailabilityData = async () => {
             if (!isAgency && resolvedId) {
                 try {
-                    const response = await api.get(`/api/guides/${resolvedId}/`);
-                    setGuideAvailability(response.data);
+                    const [availRes, blockedRes] = await Promise.all([
+                        api.get(`/api/guides/${resolvedId}/`),
+                        api.get(`/api/bookings/guide_blocked_dates/`, { params: { guide_id: resolvedId } })
+                    ]);
+                    setGuideAvailability(availRes.data);
+                    setBlockedDates(blockedRes.data || []);
                 } catch (error) {
-                    console.error("Failed to fetch guide availability:", error);
+                    console.error("Failed to fetch guide data:", error);
                 }
             }
         };
-        fetchGuideAvailability();
+        fetchAvailabilityData();
     }, [resolvedId, isAgency]);
 
     useEffect(() => {
@@ -155,11 +161,9 @@ const Payment = () => {
                         setNumPeople(String(bookingDetails.num_guests));
                         setSelectedOption(bookingDetails.num_guests > 1 ? 'group' : 'solo');
                     }
-                    
                     if (bookingDetails.assigned_guides_detail) {
                         setAssignedGuidesList(bookingDetails.assigned_guides_detail);
                     }
-                    
                     if (isAgency && bookingDetails.assigned_agency_guides_detail) {
                         setAssignedAgencyGuidesList(bookingDetails.assigned_agency_guides_detail);
                     }
@@ -172,6 +176,7 @@ const Payment = () => {
         fetchBookingDetails();
     }, [isConfirmed, bookingId, isAgency]);
 
+    // 2. CALENDAR LOGIC (RED FOR BLOCKED)
     const getMarkedDates = useMemo(() => {
         const marked = {};
         const startCalc = new Date();
@@ -183,16 +188,34 @@ const Payment = () => {
 
         for (let d = new Date(startCalc); d <= endCalc; d.setDate(d.getDate() + 1)) {
             const dateStr = d.toISOString().split('T')[0];
+            
+            // A. Past Dates
             if (dateStr < new Date().toISOString().split('T')[0]) {
                 marked[dateStr] = { disabled: true, disableTouchEvent: true, textColor: '#d9d9d9' };
                 continue;
             }
+
+            // B. Blocked Dates (Already Booked) -> RED
+            if (blockedDates.includes(dateStr)) {
+                marked[dateStr] = { 
+                    disabled: true, 
+                    disableTouchEvent: true, 
+                    color: '#FFEBEE', // Light Red Background
+                    textColor: '#D32F2F', // Red Text
+                    marked: true,
+                    dotColor: '#D32F2F'
+                };
+                continue;
+            }
+
+            // C. Guide Availability
             if (isAgency) {
                 marked[dateStr] = { disabled: false, textColor: '#1A2332' };
             } else {
                 const dayName = dayNames[d.getDay()];
                 const isSpecific = specificDates.includes(dateStr);
                 const isRecurring = recurringDays.includes("All") || recurringDays.includes(dayName);
+                
                 if (isSpecific || isRecurring) {
                     marked[dateStr] = { disabled: false, textColor: '#1A2332' };
                 } else {
@@ -200,12 +223,31 @@ const Payment = () => {
                 }
             }
         }
+
+        // D. Selection Highlighting
         const startStr = formatDateForCalendar(startDate);
         const endStr = formatDateForCalendar(endDate);
-        if (marked[startStr]) marked[startStr] = { ...marked[startStr], selected: true, selectedColor: '#00A8FF', textColor: '#fff' };
-        if (marked[endStr]) marked[endStr] = { ...marked[endStr], selected: true, selectedColor: '#00A8FF', textColor: '#fff' };
+        
+        if (marked[startStr] && !marked[startStr].disabled) {
+            marked[startStr] = { ...marked[startStr], selected: true, selectedColor: '#00A8FF', textColor: '#fff' };
+        }
+        if (marked[endStr] && !marked[endStr].disabled) {
+            marked[endStr] = { ...marked[endStr], selected: true, selectedColor: '#00A8FF', textColor: '#fff' };
+        }
+        
+        // Highlight range
+        let curr = new Date(startDate);
+        curr.setDate(curr.getDate() + 1);
+        while (curr < endDate) {
+             const str = curr.toISOString().split('T')[0];
+             if (marked[str] && !marked[str].disabled) {
+                 marked[str] = { ...marked[str], selected: true, selectedColor: '#E0F2FE', textColor: '#00A8FF' };
+             }
+             curr.setDate(curr.getDate() + 1);
+        }
+
         return marked;
-    }, [guideAvailability, startDate, endDate, isAgency]);
+    }, [guideAvailability, startDate, endDate, isAgency, blockedDates]);
 
     const openCalendar = (type) => {
         setSelectingType(type);
@@ -214,6 +256,13 @@ const Payment = () => {
 
     const onDayPress = (day) => {
         const selectedDate = new Date(day.dateString);
+        
+        // Prevent selecting blocked dates
+        if (blockedDates.includes(day.dateString)) {
+            Alert.alert("Date Unavailable", "This date has already been booked by another traveler.");
+            return;
+        }
+
         if (selectingType === 'start') {
             setStartDate(selectedDate);
             if (selectedDate > endDate) setEndDate(selectedDate);
@@ -222,6 +271,21 @@ const Payment = () => {
                 Alert.alert("Invalid Date", "End date cannot be before start date.");
                 return;
             }
+            // Check for blocked dates in between
+            let curr = new Date(startDate);
+            let hasBlock = false;
+            while(curr <= selectedDate) {
+                if(blockedDates.includes(curr.toISOString().split('T')[0])) {
+                    hasBlock = true;
+                    break;
+                }
+                curr.setDate(curr.getDate() + 1);
+            }
+            if(hasBlock) {
+                 Alert.alert("Unavailable Range", "Your selected range includes dates that are already booked.");
+                 return;
+            }
+
             setEndDate(selectedDate);
         }
         setCalendarVisible(false);
@@ -260,37 +324,18 @@ const Payment = () => {
     };
 
     const handleReviewPress = () => {
-        // --- 🟢 DEBUGGING ---
-        console.log("\n--- 🛠️ DEBUG: Payment.js - Review Pressed ---");
-        console.log("3. Financials:", { 
-            totalPrice, 
-            currentGuideFee, 
-            extraPersonFee, 
-            accomCost 
-        });
-        console.log("4. Accommodation:", { 
-            id: accommodationId, 
-            name: accommodationName 
-        });
-        console.log("5. Tour Package:", {
-            id: tourPackageId
-        });
-        // --- 🟢 DEBUGGING END ---
-
-        if (!isConfirmed) {
-            if (!validIdImage) {
-                Alert.alert("KYC Required", "Please upload a valid government ID to proceed.");
-                return;
-            }
-            if (!userSelfieImage) {
-                Alert.alert("KYC Required", "Please take a selfie for identity verification.");
-                return;
-            }
+        if (!validIdImage) {
+            Alert.alert("KYC Required", "Please upload a valid government ID to proceed.");
+            return;
+        }
+        if (!userSelfieImage) {
+            Alert.alert("KYC Required", "Please take a selfie for identity verification.");
+            return;
         }
         setIsModalOpen(true);
     };
 
-    // --- REVISED CALCULATION LOGIC ---
+    // 3. FINANCIAL CALCULATION (30% DOWN PAYMENT)
     useEffect(() => {
         const oneDay = 24 * 60 * 60 * 1000;
         const numDays = Math.max(Math.round(Math.abs((endDate - startDate) / oneDay)), 1);
@@ -314,7 +359,15 @@ const Payment = () => {
         
         const dailyTotal = guideFee + extraFees + accomCost;
         const grandTotal = dailyTotal * numDays;
+        
+        // --- NEW LOGIC ---
+        const calculatedDownPayment = grandTotal * 0.30; // 30%
+        const calculatedBalance = grandTotal - calculatedDownPayment;
+
         setTotalPrice(grandTotal);
+        setDownPayment(calculatedDownPayment);
+        setBalanceDue(calculatedBalance);
+
     }, [startDate, endDate, selectedOption, numPeople, tourCostGroup, tourCostSolo, accomCost, extraPersonFee]);
 
     return (
@@ -329,7 +382,7 @@ const Payment = () => {
                         style={styles.overlay}
                     />
                     <Text style={styles.headerTitle}>
-                        {isConfirmed ? "COMPLETE PAYMENT" : "REQUEST TO BOOK"}
+                        {isConfirmed ? "BOOKING CONFIRMED" : "SECURE YOUR DATE"}
                     </Text>
                 </View>
 
@@ -353,6 +406,7 @@ const Payment = () => {
                         </View>
                     </View>
 
+                    {/* DATES & TYPE SECTION (Only if not confirmed) */}
                     {!isConfirmed && (
                         <>
                             <View style={styles.section}>
@@ -391,6 +445,10 @@ const Payment = () => {
                                             onDayPress={onDayPress}
                                             theme={{ todayTextColor: '#00A8FF', arrowColor: '#00A8FF', textMonthFontWeight: 'bold', textDayHeaderFontWeight: '600' }}
                                         />
+                                        <View style={{flexDirection:'row', alignItems:'center', marginTop:10, gap:5}}>
+                                            <View style={{width:10, height:10, backgroundColor:'#FFEBEE', borderWidth:1, borderColor:'#D32F2F'}}/>
+                                            <Text style={{fontSize:12, color:'#666'}}>Red dates are already booked.</Text>
+                                        </View>
                                     </View>
                                 </View>
                             </Modal>
@@ -435,7 +493,7 @@ const Payment = () => {
 
                             <View style={styles.section}>
                                 <Text style={styles.sectionTitle}>Identity Verification (KYC)</Text>
-                                <Text style={styles.helperText}>For safety, please provide a valid ID and a realtime selfie.</Text>
+                                <Text style={styles.helperText}>Required before booking. Your ID ensures safety.</Text>
                                 <View style={{flexDirection: 'row', gap: 10}}>
                                     <TouchableOpacity style={[styles.uploadContainer, {flex: 1}]} onPress={pickImage}>
                                         {validIdImage ? <Image source={{ uri: validIdImage }} style={styles.previewImage} /> : <View style={styles.uploadPlaceholder}><Ionicons name="id-card-outline" size={32} color="#00A8FF" /><Text style={styles.uploadText}>Upload ID</Text></View>}
@@ -450,73 +508,53 @@ const Payment = () => {
                         </>
                     )}
 
-                    {/* CONFIRMED ONLY: PAYMENT SECTION */}
-                    {isConfirmed && (
-                         <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>Select Payment Method</Text>
-                            <View style={styles.paymentGridContainer}>
-                                {paymentOptions.map((option) => (
-                                    <TouchableOpacity 
-                                        key={option.key} 
-                                        style={[styles.paymentGridCard, selectedPaymentMethod === option.key && styles.paymentGridCardSelected]} 
-                                        onPress={() => setSelectedPaymentMethod(option.key)} 
-                                    >
-                                        <Ionicons name="wallet-outline" size={24} color={selectedPaymentMethod === option.key ? '#007DFE' : '#1A2332'} />
-                                        <Text style={styles.gridMethodTitle}>{option.name}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Payment Method (Down Payment)</Text>
+                        <View style={styles.paymentGridContainer}>
+                            {paymentOptions.map((option) => (
+                                <TouchableOpacity 
+                                    key={option.key} 
+                                    style={[styles.paymentGridCard, selectedPaymentMethod === option.key && styles.paymentGridCardSelected]} 
+                                    onPress={() => setSelectedPaymentMethod(option.key)} 
+                                >
+                                    <Ionicons name="wallet-outline" size={24} color={selectedPaymentMethod === option.key ? '#007DFE' : '#1A2332'} />
+                                    <Text style={styles.gridMethodTitle}>{option.name}</Text>
+                                    {selectedPaymentMethod === option.key && (
+                                        <View style={styles.selectedCheckBadge}>
+                                            <Ionicons name="checkmark" size={12} color="#fff" />
+                                        </View>
+                                    )}
+                                </TouchableOpacity>
+                            ))}
                         </View>
-                    )}
+                    </View>
 
+                    {/* UPDATED PRICE CARD */}
                     <View style={styles.priceCard}>
-                        
                         <View style={styles.priceRow}>
-                            <Text style={styles.priceLabel}>
-                                {selectedOption === 'solo' ? 'Guide Fee (Solo Rate)' : 'Guide Base Fee (Group)'}
-                            </Text>
-                            <Text style={styles.priceValue}>₱ {currentGuideFee.toLocaleString()}</Text>
+                            <Text style={styles.priceLabel}>Total Trip Cost</Text>
+                            <Text style={styles.priceValue}>₱ {totalPrice.toLocaleString()}</Text>
                         </View>
                         
-                        {accomCost > 0 && (
-                            <View style={styles.priceRow}>
-                                <Text style={styles.priceLabel}>Accommodation Fee</Text>
-                                <Text style={styles.priceValue}>₱ {accomCost.toLocaleString()}</Text>
-                            </View>
-                        )}
-                        
-                        {extraPersonFee > 0 && selectedOption === 'group' && (
-                            <View style={styles.priceRow}>
-                                <Text style={styles.priceLabel}>
-                                    Additional Guest Fee (x{Math.max(0, (parseInt(numPeople) || 1) - 1)})
-                                </Text>
-                                <Text style={styles.priceValue}>
-                                    +₱ {(extraPersonFee * Math.max(0, (parseInt(numPeople) || 1) - 1)).toLocaleString()}
-                                </Text>
-                            </View>
-                        )}
-
-                        <View style={styles.priceRow}>
-                            <Text style={styles.priceLabel}>Duration</Text>
-                            <Text style={styles.priceValue}>
-                                {Math.max(Math.floor(Math.abs((endDate - startDate) / (24 * 60 * 60 * 1000))), 1)} day(s)
-                            </Text>
-                        </View>
-
                         <View style={styles.priceDivider}>
                             <View style={styles.dashedLine} />
                         </View>
 
                         <View style={styles.priceRow}>
-                            <Text style={styles.totalLabel}>Total Amount Due</Text>
+                            <Text style={[styles.totalLabel, {color:'#1A2332'}]}>Down Payment (30%)</Text>
                             <View style={styles.totalValueContainer}>
                                 <Text style={styles.currency}>₱</Text>
-                                <Text style={styles.totalValue}>{totalPrice.toLocaleString()}</Text>
+                                <Text style={styles.totalValue}>{downPayment.toLocaleString()}</Text>
                             </View>
+                        </View>
+                        <Text style={styles.helperTextRight}>Due Now to Confirm Booking</Text>
+                        
+                        <View style={[styles.priceRow, {marginTop:10}]}>
+                            <Text style={styles.priceLabel}>Balance Pay Later</Text>
+                            <Text style={styles.priceValue}>₱ {balanceDue.toLocaleString()}</Text>
                         </View>
                     </View>
 
-                    {/* 5. ASSIGNED GUIDES */}
                     {isAgency && assignedAgencyGuidesList.length > 0 && (
                         <View style={styles.section}>
                             <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom: 12, marginTop: 10}}>
@@ -539,11 +577,28 @@ const Payment = () => {
                         </View>
                     )}
 
-                    <TouchableOpacity style={styles.confirmButton} onPress={handleReviewPress}>
-                        <Text style={styles.confirmButtonText}>
-                            {isConfirmed ? "Proceed to Secure Payment" : "Review Booking Request"}
-                        </Text>
-                    </TouchableOpacity>
+                    {!isConfirmed ? (
+                        <TouchableOpacity style={styles.confirmButton} onPress={handleReviewPress}>
+                            <LinearGradient
+                                colors={['#0072FF', '#00C6FF']}
+                                style={styles.gradientBtn}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                            >
+                                <Text style={styles.confirmButtonText}>Pay ₱{downPayment.toLocaleString()} & Book</Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    ) : (
+                         <View style={styles.confirmedBox}>
+                            <Ionicons name="checkmark-circle" size={40} color="#00C853" />
+                            <Text style={styles.confirmedTitle}>Booking Confirmed!</Text>
+                            <Text style={styles.confirmedDesc}>Your guide has been notified. See you on {new Date(startDate).toDateString()}!</Text>
+                            <TouchableOpacity style={styles.homeBtn} onPress={() => router.push('/(protected)/home')}>
+                                <Text style={styles.homeBtnText}>Back to Home</Text>
+                            </TouchableOpacity>
+                         </View>
+                    )}
+
                 </View>
 
                 {isModalOpen && (
@@ -552,20 +607,22 @@ const Payment = () => {
                         setIsModalOpen={setIsModalOpen}
                         paymentData={{
                             [isAgency ? 'agency' : 'guide']: bookingEntity,
-                            // Pass Accommodation Info to Modal
                             accommodation: accomEntity,
                             accommodationId: accommodationId,
-                            
-                            // 2. PASS TOUR PACKAGE ID
                             tourPackageId: tourPackageId,
 
                             startDate, endDate, firstName, lastName, phoneNumber, country, email,
                             basePrice: bookingEntity.basePrice,
                             serviceFee: bookingEntity.serviceFee,
+                            
+                            // PASS FINANCIALS
                             totalPrice,
+                            downPayment,
+                            balanceDue,
+
                             bookingId: params.bookingId,
                             placeId: params.placeId,
-                            paymentMethod: isConfirmed ? selectedPaymentMethod : null,
+                            paymentMethod: selectedPaymentMethod,
                             groupType: selectedOption,
                             numberOfPeople: selectedOption === 'group' ? (parseInt(numPeople) < 2 ? 2 : parseInt(numPeople)) : 1,
                             validIdImage,
@@ -587,12 +644,10 @@ export default Payment;
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F9FAFB' },
-    
     header: { position: 'relative', height: 120, justifyContent: 'center' },
     headerImage: { width: '100%', height: '100%', resizeMode: 'cover', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     headerTitle: { position: 'absolute', bottom: 15, left: 20, color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 1 },
-    
     contentContainer: { padding: 16, paddingBottom: 30 },
     
     guideInfoCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E0E6ED', marginBottom: 20, shadowColor: '#000', shadowOpacity: 0.02, shadowRadius: 4, elevation: 2 },
@@ -639,7 +694,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row', 
         justifyContent: 'space-between', 
         alignItems: 'center', 
-        marginBottom: 12 
+        marginBottom: 8 
     },
     priceLabel: { 
         fontSize: 14, 
@@ -682,174 +737,52 @@ const styles = StyleSheet.create({
         fontWeight: '800', 
         color: '#00A8FF' 
     },
+    helperTextRight: {
+        fontSize: 11,
+        color: '#00A8FF',
+        textAlign: 'right',
+        marginTop: 2,
+        fontStyle: 'italic'
+    },
 
     billingRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
     billingInput: { flex: 1, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: '#1A2332', backgroundColor: '#fff' },
     fullWidthInput: { width: '100%' },
 
-    helperText: { fontSize: 12, color: '#64748B', marginBottom: 12, lineHeight: 18, textAlign: 'center' },
+    helperText: { fontSize: 12, color: '#64748B', marginBottom: 12, lineHeight: 18 },
     
-    // Updated Upload Container for side-by-side
     uploadContainer: { height: 130, borderWidth: 1, borderColor: '#CBD5E1', borderStyle: 'dashed', borderRadius: 16, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', position: 'relative' },
     uploadPlaceholder: { alignItems: 'center' },
     uploadText: { marginTop: 8, fontSize: 13, fontWeight: '600', color: '#00A8FF' },
     previewImage: { width: '100%', height: '100%', resizeMode: 'cover' },
     checkBadge: { position: 'absolute', top: 5, right: 5, backgroundColor: '#fff', borderRadius: 10 },
-    reuploadOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.6)', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 10, gap: 8 },
-    reuploadText: { color: '#fff', fontSize: 13, fontWeight: '600' },
 
-    confirmButton: { backgroundColor: '#00A8FF', paddingVertical: 16, borderRadius: 16, alignItems: 'center', marginTop: 10, shadowColor: '#00A8FF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
+    confirmButton: { borderRadius: 16, overflow: 'hidden', shadowColor: '#00A8FF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5, marginTop: 10 },
+    gradientBtn: { paddingVertical: 16, alignItems: 'center', justifyContent: 'center' },
     confirmButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 
-    paymentGridContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'space-between',
-        gap: 12,
-    },
-    paymentGridCard: {
-        width: '31%', 
-        aspectRatio: 1,
-        backgroundColor: '#fff',
-        borderRadius: 16,
-        padding: 8,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.03,
-        shadowRadius: 4,
-        elevation: 2,
-        position: 'relative'
-    },
-    paymentGridCardSelected: {
-        borderColor: '#007DFE',
-        backgroundColor: '#F0F9FF',
-        borderWidth: 2
-    },
-    gridIconContainer: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 8,
-    },
-    gridMethodTitle: {
-        fontSize: 11,
-        fontWeight: '600',
-        color: '#64748B',
-        textAlign: 'center'
-    },
-    selectedCheckBadge: {
-        position: 'absolute',
-        top: 6,
-        right: 6,
-        backgroundColor: '#007DFE',
-        width: 18,
-        height: 18,
-        borderRadius: 9,
-        justifyContent: 'center',
-        alignItems: 'center'
-    },
+    paymentGridContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12 },
+    paymentGridCard: { width: '31%', aspectRatio: 1, backgroundColor: '#fff', borderRadius: 16, padding: 8, borderWidth: 1, borderColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 2, position: 'relative' },
+    paymentGridCardSelected: { borderColor: '#007DFE', backgroundColor: '#F0F9FF', borderWidth: 2 },
+    gridMethodTitle: { fontSize: 11, fontWeight: '600', color: '#64748B', textAlign: 'center', marginTop: 8 },
+    selectedCheckBadge: { position: 'absolute', top: 6, right: 6, backgroundColor: '#007DFE', width: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
 
-    assignedGuidesContainer: { 
-        flexDirection: 'column', 
-        gap: 12 
-    },
-    assignedGuideCard: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        backgroundColor: '#fff', 
-        borderRadius: 16, 
-        padding: 14, 
-        borderWidth: 1, 
-        borderColor: '#E2E8F0',
-        shadowColor: '#000', 
-        shadowOffset: { width: 0, height: 2 }, 
-        shadowOpacity: 0.05, 
-        shadowRadius: 6, 
-        elevation: 2
-    },
-    guideCardLeft: {
-        marginRight: 16,
-    },
-    avatarContainer: {
-        position: 'relative',
-    },
-    guideAvatarLarge: { 
-        width: 56, 
-        height: 56, 
-        borderRadius: 28, 
-        borderWidth: 2, 
-        borderColor: '#F1F5F9' 
-    },
-    badgeIcon: {
-        position: 'absolute',
-        bottom: -2,
-        right: -2,
-        backgroundColor: '#00A8FF',
-        borderRadius: 10,
-        padding: 3,
-        borderWidth: 2,
-        borderColor: '#fff'
-    },
-    guideCardRight: {
-        flex: 1,
-        justifyContent: 'center'
-    },
-    guideHeaderRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 4
-    },
-    guideCardName: {
-        fontSize: 15,
-        fontWeight: '800',
-        color: '#1E293B',
-        flex: 1
-    },
-    roleTag: {
-        alignSelf: 'flex-start',
-        backgroundColor: '#E0F2FE',
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 6,
-        marginBottom: 6
-    },
-    roleTagText: {
-        fontSize: 10,
-        fontWeight: '700',
-        color: '#0284C7',
-        textTransform: 'uppercase'
-    },
-    agencyTagRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        marginBottom: 2
-    },
-    agencyTagText: {
-        fontSize: 11,
-        color: '#64748B',
-        fontWeight: '500'
-    },
-    guideContactRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4
-    },
-    guideContactText: {
-        fontSize: 11,
-        color: '#64748B',
-        fontWeight: '500'
-    },
     modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
     modalContent: { backgroundColor: '#fff', borderRadius: 15, padding: 20, elevation: 5 },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
     modalTitle: { fontSize: 18, fontWeight: '700', color: '#1A2332' },
-    modalSubText: { fontSize: 12, color: '#888', marginBottom: 15 },
+
+    assignedGuidesContainer: { flexDirection: 'column', gap: 12 },
+    assignedGuideCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
+    guideCardLeft: { marginRight: 16 },
+    guideAvatarLarge: { width: 56, height: 56, borderRadius: 28, borderWidth: 2, borderColor: '#F1F5F9' },
+    guideCardRight: { flex: 1, justifyContent: 'center' },
+    guideCardName: { fontSize: 15, fontWeight: '800', color: '#1E293B', flex: 1 },
+    roleTagText: { fontSize: 10, fontWeight: '700', color: '#0284C7', textTransform: 'uppercase' },
+    
+    confirmedBox: { alignItems:'center', justifyContent:'center', padding: 20, backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#E0E6ED' },
+    confirmedTitle: { fontSize: 20, fontWeight: '800', color: '#1A2332', marginTop: 10 },
+    confirmedDesc: { fontSize: 14, color: '#64748B', textAlign: 'center', marginVertical: 10 },
+    homeBtn: { backgroundColor: '#F3F4F6', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+    homeBtnText: { color: '#1A2332', fontWeight: '600' }
 });

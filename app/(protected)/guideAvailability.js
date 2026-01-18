@@ -16,17 +16,23 @@ const GuideAvailability = () => {
 
     const [guide, setGuide] = useState(null);
     const [tourPackage, setTourPackage] = useState(null);
+    const [blockedDates, setBlockedDates] = useState([]); // <--- NEW STATE
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchData = async () => {
             if (!guideId || !placeId) return;
             try {
-                const [guideRes, toursRes] = await Promise.all([
+                // <--- UPDATED API CALLS to include blocked dates
+                const [guideRes, toursRes, blockedRes] = await Promise.all([
                     api.get(`/api/guides/${guideId}/`),
-                    api.get(`/api/destinations/${placeId}/tours/`)
+                    api.get(`/api/destinations/${placeId}/tours/`),
+                    api.get(`/api/bookings/guide_blocked_dates/`, { params: { guide_id: guideId } })
                 ]);
+
                 setGuide(guideRes.data);
+                setBlockedDates(blockedRes.data || []); // <--- SAVE BLOCKED DATES
+                
                 const specificTour = toursRes.data.find(tour => tour.guide === parseInt(guideId));
                 setTourPackage(specificTour);
             } catch (error) {
@@ -60,21 +66,40 @@ const GuideAvailability = () => {
         return [];
     }, [tourPackage, params.accommodations]);
 
+    // <--- UPDATED MARKED DATES LOGIC
     const markedDates = useMemo(() => {
-        if (!guide || !guide.specific_available_dates) return {};
+        if (!guide) return {};
 
         const marked = {};
-        guide.specific_available_dates.forEach(date => {
+
+        // 1. Mark available dates (Blue)
+        if (guide.specific_available_dates) {
+            guide.specific_available_dates.forEach(date => {
+                marked[date] = { 
+                    selected: true, 
+                    marked: true, 
+                    selectedColor: '#00A8FF',
+                    disabled: true, 
+                    disableTouchEvent: true 
+                };
+            });
+        }
+
+        // 2. Mark BLOCKED dates (Red) - Overwrites Blue if conflict
+        blockedDates.forEach(date => {
             marked[date] = { 
                 selected: true, 
+                selectedColor: '#FFEBEE', // Light Red Background
                 marked: true, 
-                selectedColor: '#00A8FF',
+                dotColor: '#D32F2F',      // Red Dot
+                textColor: '#D32F2F',     // Red Text
                 disabled: true, 
                 disableTouchEvent: true 
             };
         });
+
         return marked;
-    }, [guide]);
+    }, [guide, blockedDates]);
 
     const timelineData = useMemo(() => {
         if (!tourPackage || !tourPackage.itinerary_timeline) return [];
@@ -95,7 +120,6 @@ const GuideAvailability = () => {
             <View style={styles.timelineContainer}>
                 {timelineData.map((item, index) => (
                     <View key={index} style={styles.timelineItem}>
-                        {/* Time Column */}
                         <View style={styles.timeColumn}>
                             <Text style={styles.timeText}>{item.startTime}</Text>
                             <View style={styles.timeConnector} />
@@ -177,10 +201,16 @@ const GuideAvailability = () => {
                         }}
                         style={styles.calendarStyle}
                     />
+                    
+                    {/* UPDATED LEGEND */}
                     <View style={styles.legendContainer}>
                         <View style={styles.legendItem}>
                             <View style={[styles.dot, { backgroundColor: '#00A8FF' }]} />
                             <Text style={styles.legendText}>Available</Text>
+                        </View>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.dot, { backgroundColor: '#FFEBEE', borderWidth: 1, borderColor: '#D32F2F' }]} />
+                            <Text style={styles.legendText}>Booked</Text>
                         </View>
                         <View style={styles.legendItem}>
                             <View style={[styles.dot, { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ccc' }]} />

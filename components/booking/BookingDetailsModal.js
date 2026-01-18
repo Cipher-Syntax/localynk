@@ -1,64 +1,50 @@
 import React from 'react';
-import { 
-    Modal, 
-    View, 
-    Text, 
-    StyleSheet, 
-    TouchableOpacity, 
-    ScrollView, 
-    Image,
-    Dimensions 
-} from 'react-native';
+import { Modal, View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 const BookingDetailsModal = ({ booking, visible, onClose }) => {
     if (!booking) return null;
 
     const isAccommodation = !!booking.accommodation_detail;
-    
     const title = isAccommodation 
         ? booking.accommodation_detail.title 
         : (booking.destination_detail?.name ? `${booking.destination_detail.name} Tour` : 'Custom Tour');
-    
-    const typeLabel = isAccommodation ? 'Accommodation Stay' : 'Guided Tour';
 
+    // Hero Image Logic
     const heroImage = isAccommodation 
-    ? { uri: booking.accommodation_detail.photo } 
-    : (booking.destination_detail?.image 
-        ? { uri: booking.destination_detail.image } 
-        : (booking.guide_detail?.profile_picture 
-            ? { uri: booking.guide_detail.profile_picture } 
-            : null
-        )
-    );
-    
+        ? { uri: booking.accommodation_detail.photo } 
+        : (booking.destination_detail?.image 
+            ? { uri: booking.destination_detail.image } 
+            : (booking.guide_detail?.profile_picture ? { uri: booking.guide_detail.profile_picture } : null)
+        );
 
+    // Provider Info
     const providerName = isAccommodation 
         ? booking.accommodation_detail.host_full_name 
         : (booking.guide_detail ? `${booking.guide_detail.first_name} ${booking.guide_detail.last_name}` : booking.agency_detail?.username);
+    const providerRole = isAccommodation ? 'Host' : 'Local Guide';
 
-    const providerRole = isAccommodation ? 'Host' : (booking.guide_detail ? 'Local Guide' : 'Agency');
-
+    // Status Colors
     const getStatusColor = (status) => {
         switch(status?.toLowerCase()) {
-            case 'accepted': return '#28a745';
-            case 'pending': return '#ffc107';
-            case 'declined': 
-            case 'cancelled': return '#dc3545';
-            default: return '#6c757d';
+            case 'confirmed': return '#22C55E';
+            case 'pending_payment': return '#F59E0B';
+            case 'cancelled': return '#EF4444';
+            default: return '#6B7280';
         }
     };
 
+    // --- Financials ---
+    const total = Number(booking.total_price || 0);
+    const downPayment = Number(booking.down_payment || 0);
+    const balance = Number(booking.balance_due || 0);
+
     return (
-        <Modal
-            animationType="slide"
-            transparent={true}
-            visible={visible}
-            onRequestClose={onClose}
-        >
+        <Modal animationType="slide" transparent={true} visible={visible} onRequestClose={onClose}>
             <View style={styles.centeredView}>
                 <View style={styles.modalView}>
                     
+                    {/* Header Image */}
                     <View style={styles.imageContainer}>
                         {heroImage ? (
                             <Image source={heroImage} style={styles.heroImage} resizeMode="cover" />
@@ -67,118 +53,80 @@ const BookingDetailsModal = ({ booking, visible, onClose }) => {
                                 <Ionicons name="images-outline" size={50} color="#fff" />
                             </View>
                         )}
-                        
                         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(booking.status) }]}>
                             <Text style={styles.statusText}>{booking.status}</Text>
                         </View>
-
                         <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                            <View style={styles.closeButtonBlur}>
-                                <Ionicons name="close" size={22} color="#000" />
-                            </View>
+                            <View style={styles.closeButtonBlur}><Ionicons name="close" size={22} color="#000" /></View>
                         </TouchableOpacity>
                     </View>
 
                     <ScrollView contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
-                        
                         <Text style={styles.title}>{title}</Text>
-                        <View style={styles.locationRow}>
-                            <Ionicons name="location-sharp" size={16} color="#00A8FF" />
-                            <Text style={styles.locationText}>
-                                {booking.destination_detail?.name || booking.accommodation_detail?.location || 'Unknown Location'}
-                            </Text>
-                        </View>
+                        <Text style={styles.bookingId}>Booking ID: #{booking.id}</Text>
 
                         <View style={styles.divider} />
 
+                        {/* Provider Section */}
                         <View style={styles.section}>
                             <Text style={styles.sectionHeader}>Service Provider</Text>
                             <View style={styles.providerRow}>
-                                <View style={styles.avatarPlaceholder}>
-                                    <Text style={styles.avatarText}>{providerName?.charAt(0) || '?'}</Text>
-                                </View>
+                                <View style={styles.avatarPlaceholder}><Text style={styles.avatarText}>{providerName?.charAt(0)}</Text></View>
                                 <View>
-                                    <Text style={styles.providerName}>{providerName || 'Unknown'}</Text>
+                                    <Text style={styles.providerName}>{providerName}</Text>
                                     <Text style={styles.providerRole}>{providerRole}</Text>
                                 </View>
                             </View>
                         </View>
 
-                        <View style={styles.divider} />
-
+                        {/* Dates & Guests */}
                         <View style={styles.section}>
-                            <Text style={styles.sectionHeader}>Booking Details</Text>
-                            
-                            <View style={styles.detailRow}>
-                                <View style={styles.detailItem}>
-                                    <Text style={styles.label}>Check-in / Date</Text>
-                                    <Text style={styles.value}>
-                                        <Ionicons name="calendar-outline" size={14} /> {booking.check_in || 'N/A'}
-                                    </Text>
+                            <Text style={styles.sectionHeader}>Trip Details</Text>
+                            <View style={styles.gridRow}>
+                                <View style={styles.gridItem}>
+                                    <Text style={styles.label}>Check In</Text>
+                                    <Text style={styles.value}>{booking.check_in}</Text>
                                 </View>
-                                <View style={styles.detailItem}>
+                                <View style={styles.gridItem}>
+                                    <Text style={styles.label}>Check Out</Text>
+                                    <Text style={styles.value}>{booking.check_out}</Text>
+                                </View>
+                                <View style={styles.gridItem}>
                                     <Text style={styles.label}>Guests</Text>
-                                    <Text style={styles.value}>
-                                        <Ionicons name="people-outline" size={14} /> {booking.num_guests || 1} Person(s)
-                                    </Text>
+                                    <Text style={styles.value}>{booking.num_guests}</Text>
                                 </View>
                             </View>
-
-                            {booking.check_out && (
-                                <View style={[styles.detailRow, { marginTop: 15 }]}>
-                                    <View style={styles.detailItem}>
-                                        <Text style={styles.label}>Check-out</Text>
-                                        <Text style={styles.value}>
-                                            <Ionicons name="calendar-outline" size={14} /> {booking.check_out}
-                                        </Text>
-                                    </View>
-                                    <View style={styles.detailItem}>
-                                        <Text style={styles.label}>Booking Type</Text>
-                                        <Text style={styles.value}>{typeLabel}</Text>
-                                    </View>
-                                </View>
-                            )}
                         </View>
 
-                        {isAccommodation && booking.accommodation_detail?.amenities && (
-                            <View style={styles.section}>
-                                <Text style={styles.sectionHeader}>Amenities Included</Text>
-                                <View style={styles.amenitiesContainer}>
-                                    {Object.keys(booking.accommodation_detail.amenities).length > 0 ? (
-                                        Object.keys(booking.accommodation_detail.amenities).map((key, index) => (
-                                            booking.accommodation_detail.amenities[key] && (
-                                                <View key={index} style={styles.amenityChip}>
-                                                    <Text style={styles.amenityText}>{key.replace(/_/g, ' ')}</Text>
-                                                </View>
-                                            )
-                                        ))
-                                    ) : (
-                                        <Text style={styles.noInfoText}>No amenities listed.</Text>
-                                    )}
-                                </View>
-                            </View>
-                        )}
-
                         <View style={styles.divider} />
 
+                        {/* --- FINANCIAL BREAKDOWN SECTION --- */}
                         <View style={styles.priceSection}>
+                            <Text style={styles.sectionHeader}>Payment Breakdown</Text>
+                            
                             <View style={styles.priceRow}>
                                 <Text style={styles.priceLabel}>Total Price</Text>
-                                <Text style={styles.priceValue}>₱ {Number(booking.total_price).toLocaleString()}</Text>
+                                <Text style={styles.priceValue}>₱ {total.toLocaleString()}</Text>
                             </View>
-                            <Text style={styles.priceSubtext}>
-                                {isAccommodation ? 'Includes accommodation fees' : 'Includes guide fees'}
-                            </Text>
+
+                            <View style={styles.priceRow}>
+                                <Text style={[styles.priceLabel, {color: '#22C55E'}]}>Down Payment Paid (30%)</Text>
+                                <Text style={[styles.priceValue, {color: '#22C55E'}]}>- ₱ {downPayment.toLocaleString()}</Text>
+                            </View>
+
+                            <View style={styles.balanceContainer}>
+                                <View style={styles.balanceRow}>
+                                    <Text style={styles.balanceLabel}>Balance Due</Text>
+                                    <Text style={styles.balanceValue}>₱ {balance.toLocaleString()}</Text>
+                                </View>
+                                <Text style={styles.balanceNote}>
+                                    * Payable directly to the {providerRole} upon arrival.
+                                </Text>
+                            </View>
                         </View>
 
-                        <View style={{height: 20}} /> 
+                        <View style={{height: 30}} />
                     </ScrollView>
-
-                    <View style={styles.footer}>
-                         <TouchableOpacity style={styles.fullCloseButton} onPress={onClose}>
-                            <Text style={styles.fullCloseButtonText}>Close Details</Text>
-                        </TouchableOpacity>
-                    </View>
                 </View>
             </View>
         </Modal>
@@ -186,211 +134,45 @@ const BookingDetailsModal = ({ booking, visible, onClose }) => {
 };
 
 const styles = StyleSheet.create({
-    centeredView: {
-        flex: 1,
-        justifyContent: 'flex-end',
-        backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    },
-    modalView: {
-        backgroundColor: 'white',
-        borderTopLeftRadius: 25,
-        borderTopRightRadius: 25,
-        height: '90%',
-        width: '100%',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
-        elevation: 5,
-        overflow: 'hidden',
-    },
-    imageContainer: {
-        height: 220,
-        width: '100%',
-        position: 'relative',
-    },
-    heroImage: {
-        width: '100%',
-        height: '100%',
-    },
-    placeholderImage: {
-        backgroundColor: '#ccc',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    closeButton: {
-        position: 'absolute',
-        top: 15,
-        right: 15,
-        zIndex: 10,
-    },
-    closeButtonBlur: {
-        backgroundColor: 'rgba(255,255,255,0.8)',
-        borderRadius: 20,
-        padding: 8,
-    },
-    statusBadge: {
-        position: 'absolute',
-        bottom: 15,
-        left: 20,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 8,
-    },
-    statusText: {
-        color: 'white',
-        fontWeight: 'bold',
-        fontSize: 12,
-        textTransform: 'uppercase',
-    },
-    contentContainer: {
-        padding: 20,
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#222',
-        marginBottom: 5,
-    },
-    locationRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 10,
-    },
-    locationText: {
-        marginLeft: 5,
-        color: '#666',
-        fontSize: 15,
-    },
-    divider: {
-        height: 1,
-        backgroundColor: '#f0f0f0',
-        marginVertical: 15,
-    },
-    section: {
-        marginBottom: 10,
-    },
-    sectionHeader: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#333',
-        marginBottom: 12,
-    },
-    providerRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    avatarPlaceholder: {
-        width: 45,
-        height: 45,
-        borderRadius: 25,
-        backgroundColor: '#00A8FF',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 12,
-    },
-    avatarText: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: 'bold',
-    },
-    providerName: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#333',
-    },
-    providerRole: {
-        fontSize: 13,
-        color: '#888',
-    },
-    detailRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-    },
-    detailItem: {
-        width: '48%',
-        backgroundColor: '#f9f9f9',
-        padding: 12,
-        borderRadius: 10,
-    },
-    label: {
-        fontSize: 12,
-        color: '#888',
-        marginBottom: 4,
-        textTransform: 'uppercase',
-        fontWeight: '600',
-    },
-    value: {
-        fontSize: 15,
-        color: '#333',
-        fontWeight: '500',
-    },
-    amenitiesContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-    },
-    amenityChip: {
-        backgroundColor: '#eff6ff',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: '#dbeafe',
-    },
-    amenityText: {
-        color: '#1e40af',
-        fontSize: 12,
-        textTransform: 'capitalize',
-    },
-    noInfoText: {
-        color: '#999',
-        fontStyle: 'italic',
-    },
-    priceSection: {
-        backgroundColor: '#f8f9fa',
-        padding: 15,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#e9ecef',
-    },
-    priceRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    priceLabel: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#333',
-    },
-    priceValue: {
-        fontSize: 20,
-        fontWeight: '800',
-        color: '#00A8FF',
-    },
-    priceSubtext: {
-        fontSize: 12,
-        color: '#888',
-        marginTop: 4,
-    },
-    footer: {
-        padding: 20,
-        borderTopWidth: 1,
-        borderTopColor: '#eee',
-        backgroundColor: '#fff',
-    },
-    fullCloseButton: {
-        backgroundColor: '#f1f3f5',
-        paddingVertical: 15,
-        borderRadius: 12,
-        alignItems: 'center',
-    },
-    fullCloseButtonText: {
-        color: '#333',
-        fontWeight: 'bold',
-        fontSize: 16,
-    },
+    centeredView: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0, 0, 0, 0.6)' },
+    modalView: { backgroundColor: 'white', borderTopLeftRadius: 25, borderTopRightRadius: 25, height: '90%', width: '100%', overflow: 'hidden' },
+    imageContainer: { height: 200, width: '100%', position: 'relative' },
+    heroImage: { width: '100%', height: '100%' },
+    placeholderImage: { backgroundColor: '#ccc', justifyContent: 'center', alignItems: 'center' },
+    closeButton: { position: 'absolute', top: 15, right: 15, zIndex: 10 },
+    closeButtonBlur: { backgroundColor: 'rgba(255,255,255,0.8)', borderRadius: 20, padding: 8 },
+    statusBadge: { position: 'absolute', bottom: 15, left: 20, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+    statusText: { color: 'white', fontWeight: 'bold', fontSize: 12, textTransform: 'uppercase' },
+    
+    contentContainer: { padding: 20 },
+    title: { fontSize: 22, fontWeight: '800', color: '#1F2937', marginBottom: 2 },
+    bookingId: { fontSize: 12, color: '#9CA3AF', marginBottom: 10 },
+    divider: { height: 1, backgroundColor: '#F3F4F6', marginVertical: 20 },
+    
+    section: { marginBottom: 15 },
+    sectionHeader: { fontSize: 14, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', marginBottom: 10, letterSpacing: 0.5 },
+    
+    providerRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9FAFB', padding: 12, borderRadius: 12 },
+    avatarPlaceholder: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#00A8FF', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+    avatarText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+    providerName: { fontSize: 16, fontWeight: '600', color: '#1F2937' },
+    providerRole: { fontSize: 12, color: '#6B7280' },
+
+    gridRow: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#F9FAFB', padding: 15, borderRadius: 12 },
+    gridItem: { alignItems: 'flex-start' },
+    label: { fontSize: 11, color: '#9CA3AF', marginBottom: 4, fontWeight: '600' },
+    value: { fontSize: 14, color: '#1F2937', fontWeight: '600' },
+
+    priceSection: { marginTop: 0 },
+    priceRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
+    priceLabel: { fontSize: 14, color: '#4B5563' },
+    priceValue: { fontSize: 14, fontWeight: '600', color: '#1F2937' },
+    
+    balanceContainer: { marginTop: 10, padding: 15, backgroundColor: '#FEF3C7', borderRadius: 12, borderLeftWidth: 4, borderLeftColor: '#F59E0B' },
+    balanceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    balanceLabel: { fontSize: 16, fontWeight: '800', color: '#92400E' },
+    balanceValue: { fontSize: 18, fontWeight: '800', color: '#92400E' },
+    balanceNote: { fontSize: 11, color: '#B45309', marginTop: 6, fontStyle: 'italic' }
 });
 
 export default BookingDetailsModal;
