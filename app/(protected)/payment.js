@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, StatusBar, StyleSheet, Image, TextInput, TouchableOpacity, Pressable, ActivityIndicator, Alert, Modal, Dimensions } from 'react-native';
+import { View, Text, ScrollView, StatusBar, StyleSheet, Image, TextInput, TouchableOpacity, Pressable, ActivityIndicator, Alert, Modal, Dimensions, Platform, KeyboardAvoidingView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { User } from 'lucide-react-native';
+import { User, AlertCircle, CheckCircle2, UploadCloud, Calendar as CalendarIcon, Wallet, ShieldCheck } from 'lucide-react-native'; 
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -13,6 +13,11 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../api/api';
 
 const { width } = Dimensions.get('window');
+const PRIMARY_COLOR = '#0072FF';
+const SURFACE_COLOR = '#FFFFFF';
+const BACKGROUND_COLOR = '#F8F9FC';
+const TEXT_PRIMARY = '#1E293B';
+const TEXT_SECONDARY = '#64748B';
 
 const Payment = () => {
     const params = useLocalSearchParams();
@@ -20,46 +25,32 @@ const Payment = () => {
     const { user } = useAuth();
 
     const {
-        entityName,
-        guideName,
-        placeName,
-        bookingId,
-        entityId,
-        guideId,
-        bookingType,
-        assignedGuides, 
-        basePrice,
-        soloPrice,
-        accommodationPrice,
-        accommodationId,
-        accommodationName,
-        additionalFee,
-        placeId,
-        tourPackageId
+        entityName, guideName, placeName, bookingId, entityId, guideId, bookingType,
+        assignedGuides, basePrice, soloPrice, accommodationPrice, accommodationId,
+        accommodationName, additionalFee, placeId, tourPackageId
     } = params;
 
-    const isConfirmed = !!bookingId; // Note: In new flow, we land here to pay down payment
+    const isConfirmed = !!bookingId; 
     const isAgency = bookingType === 'agency';
     const resolvedName = entityName || guideName || (isAgency ? "Selected Agency" : "Selected Guide");
     const resolvedId = entityId || guideId;
 
     const [guideAvailability, setGuideAvailability] = useState(null);
-    const [blockedDates, setBlockedDates] = useState([]); // NEW: Dates already booked by others
+    const [blockedDates, setBlockedDates] = useState([]); 
     
     const [assignedGuidesList, setAssignedGuidesList] = useState(() => {
-        try {
-            return assignedGuides && typeof assignedGuides === 'string' ? JSON.parse(assignedGuides) : [];
-        } catch (e) {
-            return [];
-        }
+        try { return assignedGuides && typeof assignedGuides === 'string' ? JSON.parse(assignedGuides) : []; } catch (e) { return []; }
     });
 
     const [assignedAgencyGuidesList, setAssignedAgencyGuidesList] = useState([]);
-
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isCalendarVisible, setCalendarVisible] = useState(false);
     const [selectingType, setSelectingType] = useState('start');
     const [isLoadingImage, setIsLoadingImage] = useState(false);
+    
+    // Custom Error Modal State
+    const [errorModalVisible, setErrorModalVisible] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
 
     // --- PRICE COMPONENTS ---
     const tourCostGroup = basePrice ? parseFloat(basePrice) : 500;
@@ -76,13 +67,9 @@ const Payment = () => {
         serviceFee: 50,
     };
     
-    const accomEntity = accommodationId ? {
-        name: accommodationName || "Selected Accommodation",
-        price: accomCost
-    } : null;
+    const accomEntity = accommodationId ? { name: accommodationName || "Selected Accommodation", price: accomCost } : null;
 
     const formatDateForCalendar = (date) => date.toISOString().split('T')[0];
-
     const getImageUrl = (imgPath) => {
         if (!imgPath || imgPath.startsWith('http') || imgPath.startsWith('file://')) return imgPath;
         const base = api.defaults.baseURL || 'http://127.0.0.1:8000';
@@ -104,16 +91,15 @@ const Payment = () => {
 
     const [totalPrice, setTotalPrice] = useState(0);
     const [currentGuideFee, setCurrentGuideFee] = useState(0);
-    const [downPayment, setDownPayment] = useState(0); // NEW
-    const [balanceDue, setBalanceDue] = useState(0); // NEW
+    const [downPayment, setDownPayment] = useState(0); 
+    const [balanceDue, setBalanceDue] = useState(0); 
 
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('gcash');
     const paymentOptions = [
-        { key: 'gcash', name: 'GCash' },
-        { key: 'paymaya', name: 'Maya' },
-        { key: 'card', name: 'Card' },
-        { key: 'grab_pay', name: 'GrabPay' },
-        { key: 'shopeepay', name: 'Shopee' },
+        { key: 'gcash', name: 'GCash', icon: 'wallet' },
+        { key: 'paymaya', name: 'Maya', icon: 'card' },
+        { key: 'card', name: 'Card', icon: 'card-outline' },
+        { key: 'grab_pay', name: 'Grab', icon: 'car' },
     ];
 
     useEffect(() => {
@@ -123,13 +109,10 @@ const Payment = () => {
             setEmail(user.email || '');
             setPhoneNumber(user.phone_number || '');
             setCountry(user.location || '');
-            if (user.valid_id_image) {
-                setValidIdImage(getImageUrl(user.valid_id_image));
-            }
+            if (user.valid_id_image) setValidIdImage(getImageUrl(user.valid_id_image));
         }
     }, [user]);
 
-    // 1. FETCH BLOCKED DATES & AVAILABILITY
     useEffect(() => {
         const fetchAvailabilityData = async () => {
             if (!isAgency && resolvedId) {
@@ -140,9 +123,7 @@ const Payment = () => {
                     ]);
                     setGuideAvailability(availRes.data);
                     setBlockedDates(blockedRes.data || []);
-                } catch (error) {
-                    console.error("Failed to fetch guide data:", error);
-                }
+                } catch (error) { console.error("Failed to fetch guide data:", error); }
             }
         };
         fetchAvailabilityData();
@@ -154,29 +135,20 @@ const Payment = () => {
                 try {
                     const response = await api.get(`/api/bookings/${bookingId}/`);
                     const bookingDetails = response.data;
-                    
                     if (bookingDetails.check_in) setStartDate(new Date(bookingDetails.check_in));
                     if (bookingDetails.check_out) setEndDate(new Date(bookingDetails.check_out));
                     if (bookingDetails.num_guests) {
                         setNumPeople(String(bookingDetails.num_guests));
                         setSelectedOption(bookingDetails.num_guests > 1 ? 'group' : 'solo');
                     }
-                    if (bookingDetails.assigned_guides_detail) {
-                        setAssignedGuidesList(bookingDetails.assigned_guides_detail);
-                    }
-                    if (isAgency && bookingDetails.assigned_agency_guides_detail) {
-                        setAssignedAgencyGuidesList(bookingDetails.assigned_agency_guides_detail);
-                    }
-
-                } catch (error) {
-                    console.error("Failed to fetch booking details:", error);
-                }
+                    if (bookingDetails.assigned_guides_detail) setAssignedGuidesList(bookingDetails.assigned_guides_detail);
+                    if (isAgency && bookingDetails.assigned_agency_guides_detail) setAssignedAgencyGuidesList(bookingDetails.assigned_agency_guides_detail);
+                } catch (error) { console.error("Failed to fetch booking details:", error); }
             }
         };
         fetchBookingDetails();
     }, [isConfirmed, bookingId, isAgency]);
 
-    // 2. CALENDAR LOGIC (RED FOR BLOCKED)
     const getMarkedDates = useMemo(() => {
         const marked = {};
         const startCalc = new Date();
@@ -188,116 +160,84 @@ const Payment = () => {
 
         for (let d = new Date(startCalc); d <= endCalc; d.setDate(d.getDate() + 1)) {
             const dateStr = d.toISOString().split('T')[0];
-            
-            // A. Past Dates
             if (dateStr < new Date().toISOString().split('T')[0]) {
                 marked[dateStr] = { disabled: true, disableTouchEvent: true, textColor: '#d9d9d9' };
                 continue;
             }
-
-            // B. Blocked Dates (Already Booked) -> RED
             if (blockedDates.includes(dateStr)) {
-                marked[dateStr] = { 
-                    disabled: true, 
-                    disableTouchEvent: true, 
-                    color: '#FFEBEE', // Light Red Background
-                    textColor: '#D32F2F', // Red Text
-                    marked: true,
-                    dotColor: '#D32F2F'
-                };
+                marked[dateStr] = { disabled: true, disableTouchEvent: true, color: '#FFEBEE', textColor: '#D32F2F', marked: true, dotColor: '#D32F2F' };
                 continue;
             }
-
-            // C. Guide Availability
             if (isAgency) {
-                marked[dateStr] = { disabled: false, textColor: '#1A2332' };
+                marked[dateStr] = { disabled: false, textColor: TEXT_PRIMARY };
             } else {
                 const dayName = dayNames[d.getDay()];
                 const isSpecific = specificDates.includes(dateStr);
                 const isRecurring = recurringDays.includes("All") || recurringDays.includes(dayName);
-                
-                if (isSpecific || isRecurring) {
-                    marked[dateStr] = { disabled: false, textColor: '#1A2332' };
-                } else {
-                    marked[dateStr] = { disabled: true, disableTouchEvent: true, textColor: '#d9d9d9', color: '#f9f9f9' };
-                }
+                if (isSpecific || isRecurring) marked[dateStr] = { disabled: false, textColor: TEXT_PRIMARY };
+                else marked[dateStr] = { disabled: true, disableTouchEvent: true, textColor: '#d9d9d9', color: '#f9f9f9' };
             }
         }
 
-        // D. Selection Highlighting
         const startStr = formatDateForCalendar(startDate);
         const endStr = formatDateForCalendar(endDate);
+        if (marked[startStr] && !marked[startStr].disabled) marked[startStr] = { ...marked[startStr], selected: true, selectedColor: PRIMARY_COLOR, textColor: '#fff' };
+        if (marked[endStr] && !marked[endStr].disabled) marked[endStr] = { ...marked[endStr], selected: true, selectedColor: PRIMARY_COLOR, textColor: '#fff' };
         
-        if (marked[startStr] && !marked[startStr].disabled) {
-            marked[startStr] = { ...marked[startStr], selected: true, selectedColor: '#00A8FF', textColor: '#fff' };
-        }
-        if (marked[endStr] && !marked[endStr].disabled) {
-            marked[endStr] = { ...marked[endStr], selected: true, selectedColor: '#00A8FF', textColor: '#fff' };
-        }
-        
-        // Highlight range
         let curr = new Date(startDate);
         curr.setDate(curr.getDate() + 1);
         while (curr < endDate) {
              const str = curr.toISOString().split('T')[0];
-             if (marked[str] && !marked[str].disabled) {
-                 marked[str] = { ...marked[str], selected: true, selectedColor: '#E0F2FE', textColor: '#00A8FF' };
-             }
+             if (marked[str] && !marked[str].disabled) marked[str] = { ...marked[str], selected: true, selectedColor: '#E0F2FE', textColor: PRIMARY_COLOR };
              curr.setDate(curr.getDate() + 1);
         }
-
         return marked;
     }, [guideAvailability, startDate, endDate, isAgency, blockedDates]);
 
-    const openCalendar = (type) => {
-        setSelectingType(type);
-        setCalendarVisible(true);
-    };
+    const openCalendar = (type) => { setSelectingType(type); setCalendarVisible(true); };
+    const showError = (message) => { setErrorMessage(message); setErrorModalVisible(true); };
 
     const onDayPress = (day) => {
         const selectedDate = new Date(day.dateString);
-        
-        // Prevent selecting blocked dates
-        if (blockedDates.includes(day.dateString)) {
-            Alert.alert("Date Unavailable", "This date has already been booked by another traveler.");
-            return;
-        }
+        if (blockedDates.includes(day.dateString)) { showError("This date has already been booked by another traveler."); return; }
 
         if (selectingType === 'start') {
             setStartDate(selectedDate);
             if (selectedDate > endDate) setEndDate(selectedDate);
+            setCalendarVisible(false);
         } else {
-            if (selectedDate < startDate) {
-                Alert.alert("Invalid Date", "End date cannot be before start date.");
+            const startDateString = formatDateForCalendar(startDate);
+            if (day.dateString === startDateString) {
+                setCalendarVisible(false);
+                setTimeout(() => showError("You cannot book start and end date on the same day."), 300); 
                 return;
             }
-            // Check for blocked dates in between
+            if (selectedDate < startDate) {
+                setCalendarVisible(false);
+                setTimeout(() => showError("End date cannot be before start date."), 300);
+                return;
+            }
             let curr = new Date(startDate);
             let hasBlock = false;
             while(curr <= selectedDate) {
-                if(blockedDates.includes(curr.toISOString().split('T')[0])) {
-                    hasBlock = true;
-                    break;
-                }
+                if(blockedDates.includes(curr.toISOString().split('T')[0])) { hasBlock = true; break; }
                 curr.setDate(curr.getDate() + 1);
             }
             if(hasBlock) {
-                 Alert.alert("Unavailable Range", "Your selected range includes dates that are already booked.");
+                 setCalendarVisible(false);
+                 setTimeout(() => showError("Your selected range includes dates that are already booked."), 300);
                  return;
             }
-
             setEndDate(selectedDate);
+            setCalendarVisible(false);
         }
-        setCalendarVisible(false);
     };
 
     const pickImage = async () => {
         setIsLoadingImage(true);
         let result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: false,
-            aspect: [4, 3],
-            quality: 1
+            mediaTypes: ImagePicker.MediaTypeOptions.Images, 
+            allowsEditing: false, aspect: [4, 3], quality: 1
         });
         if (!result.canceled) setValidIdImage(result.assets[0].uri);
         setIsLoadingImage(false);
@@ -305,301 +245,297 @@ const Payment = () => {
 
     const takeSelfie = async () => {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
-        if (status !== 'granted') {
-            Alert.alert("Permission Denied", "Camera permission is required to take a selfie.");
-            return;
-        }
-
+        if (status !== 'granted') { Alert.alert("Permission Denied", "Camera permission is required to take a selfie."); return; }
         let result = await ImagePicker.launchCameraAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            aspect: [1, 1],
-            quality: 0.8,
-            cameraType: ImagePicker.CameraType.front,
+            allowsEditing: true, aspect: [1, 1], quality: 0.8, cameraType: ImagePicker.CameraType.front,
         });
-
-        if (!result.canceled) {
-            setUserSelfieImage(result.assets[0].uri);
-        }
+        if (!result.canceled) setUserSelfieImage(result.assets[0].uri);
     };
 
     const handleReviewPress = () => {
-        if (!validIdImage) {
-            Alert.alert("KYC Required", "Please upload a valid government ID to proceed.");
-            return;
-        }
-        if (!userSelfieImage) {
-            Alert.alert("KYC Required", "Please take a selfie for identity verification.");
-            return;
-        }
+        const startStr = formatDateForCalendar(startDate);
+        const endStr = formatDateForCalendar(endDate);
+        if (startStr === endStr) { showError("You cannot book start and end date on the same day."); return; }
+        if (startDate > endDate) { showError("End date cannot be before start date."); return; }
+        if (!validIdImage) { showError("Please upload a valid government ID to proceed."); return; }
+        if (!userSelfieImage) { showError("Please take a selfie for identity verification."); return; }
         setIsModalOpen(true);
     };
 
-    // 3. FINANCIAL CALCULATION (30% DOWN PAYMENT)
     useEffect(() => {
         const oneDay = 24 * 60 * 60 * 1000;
         const numDays = Math.max(Math.round(Math.abs((endDate - startDate) / oneDay)), 1);
         let groupSize = parseInt(numPeople) || 1;
-        
         let guideFee = 0;
         let extraFees = 0;
 
         if (selectedOption === 'solo') {
-            groupSize = 1;
-            guideFee = tourCostSolo;
-            extraFees = 0;
+            groupSize = 1; guideFee = tourCostSolo; extraFees = 0;
         } else {
             if (groupSize < 2) groupSize = 2;
             guideFee = tourCostSolo;
             const extraPeople = Math.max(0, groupSize - 1);
             extraFees = extraPeople * extraPersonFee;
         }
-
         setCurrentGuideFee(guideFee);
-        
         const dailyTotal = guideFee + extraFees + accomCost;
         const grandTotal = dailyTotal * numDays;
-        
-        // --- NEW LOGIC ---
-        const calculatedDownPayment = grandTotal * 0.30; // 30%
+        const calculatedDownPayment = grandTotal * 0.30; 
         const calculatedBalance = grandTotal - calculatedDownPayment;
 
         setTotalPrice(grandTotal);
         setDownPayment(calculatedDownPayment);
         setBalanceDue(calculatedBalance);
-
     }, [startDate, endDate, selectedOption, numPeople, tourCostGroup, tourCostSolo, accomCost, extraPersonFee]);
 
+    // DETERMINE PROFILE PICTURE SOURCE
+    const profileImageSource = useMemo(() => {
+        if (!isAgency && guideAvailability && guideAvailability.profile_picture) {
+            return { uri: getImageUrl(guideAvailability.profile_picture) };
+        }
+        return null;
+    }, [isAgency, guideAvailability]);
+
     return (
-        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-            <SafeAreaView>
-                <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-
-                <View style={styles.header}>
-                    <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} />
-                    <LinearGradient
-                        colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
-                        style={styles.overlay}
-                    />
-                    <Text style={styles.headerTitle}>
-                        {isConfirmed ? "BOOKING CONFIRMED" : "SECURE YOUR DATE"}
-                    </Text>
-                </View>
-
-                <View style={styles.contentContainer}>
-                    <View style={styles.guideInfoCard}>
-                        <View style={styles.guideHeader}>
-                            <View style={[styles.guideIcon, isAgency && styles.agencyIconBg]}>
-                                {isAgency ? <Ionicons name="business" size={32} color="#fff" /> : <User size={32} color="#fff" />}
-                            </View>
-                            <View style={styles.guideInfo}>
-                                <Text style={styles.guideName}>{bookingEntity.name}</Text>
-                                <Text style={styles.guideDetail}>{bookingEntity.purpose}</Text>
-                                <Text style={styles.guideDetail}>{bookingEntity.address}</Text>
-                                {isAgency && (
-                                    <View style={styles.verifiedBadge}>
-                                        <Ionicons name="checkmark-circle" size={12} color="#00C853" />
-                                        <Text style={styles.verifiedText}>Agency Verified</Text>
-                                    </View>
-                                )}
+        <View style={{ flex: 1, backgroundColor: BACKGROUND_COLOR }}>
+            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+            <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+                    <ScrollView style={styles.container} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+                        
+                        {/* HEADER SECTION */}
+                        <View style={styles.header}>
+                            <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} />
+                            <LinearGradient colors={['rgba(0,0,0,0.6)', 'transparent']} style={styles.overlay} />
+                            <View style={styles.headerContent}>
+                                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                                    <Ionicons name="arrow-back" size={24} color="#fff" />
+                                </TouchableOpacity>
+                                <Text style={styles.headerTitle}>{isConfirmed ? "BOOKING CONFIRMED" : "SECURE YOUR DATE"}</Text>
                             </View>
                         </View>
-                    </View>
 
-                    {/* DATES & TYPE SECTION (Only if not confirmed) */}
-                    {!isConfirmed && (
-                        <>
-                            <View style={styles.section}>
-                                <Text style={styles.sectionTitle}>Select Dates</Text>
-                                <View style={styles.dateRow}>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={styles.inputLabel}>Start Date</Text>
-                                        <Pressable style={styles.dateInput} onPress={() => openCalendar('start')}>
-                                            <Text style={styles.dateInputText}>{startDate.toLocaleDateString()}</Text>
-                                            <Ionicons name="calendar-outline" size={18} color="#8B98A8" />
-                                        </Pressable>
+                        <View style={styles.contentContainer}>
+                            
+                            {/* GUIDE PROFILE CARD */}
+                            <View style={styles.card}>
+                                <View style={styles.guideHeader}>
+                                    <View style={[styles.avatarContainer, profileImageSource && styles.avatarHasImage]}>
+                                        {profileImageSource ? (
+                                            <Image source={profileImageSource} style={styles.avatarImage} />
+                                        ) : (
+                                            isAgency ? <Ionicons name="business" size={28} color="#fff" /> : <User size={28} color="#fff" />
+                                        )}
                                     </View>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={styles.inputLabel}>End Date</Text>
-                                        <Pressable style={styles.dateInput} onPress={() => openCalendar('end')}>
-                                            <Text style={styles.dateInputText}>{endDate.toLocaleDateString()}</Text>
-                                            <Ionicons name="calendar-outline" size={18} color="#8B98A8" />
-                                        </Pressable>
+                                    <View style={styles.guideInfo}>
+                                        <Text style={styles.guideName}>{bookingEntity.name}</Text>
+                                        <Text style={styles.guideSub}>{bookingEntity.purpose}</Text>
+                                        {isAgency && (
+                                            <View style={styles.verifiedTag}>
+                                                <ShieldCheck size={12} color="#059669" />
+                                                <Text style={styles.verifiedText}>Verified Partner</Text>
+                                            </View>
+                                        )}
                                     </View>
                                 </View>
                             </View>
 
-                            <Modal visible={isCalendarVisible} transparent={true} animationType="slide">
-                                <View style={styles.modalContainer}>
-                                    <View style={styles.modalContent}>
-                                        <View style={styles.modalHeader}>
-                                            <Text style={styles.modalTitle}>Select Date</Text>
-                                            <TouchableOpacity onPress={() => setCalendarVisible(false)}>
-                                                <Ionicons name="close" size={24} color="#333" />
-                                            </TouchableOpacity>
-                                        </View>
-                                        <Calendar
-                                            current={new Date().toISOString().split('T')[0]}
-                                            minDate={new Date().toISOString().split('T')[0]}
-                                            markedDates={getMarkedDates}
-                                            onDayPress={onDayPress}
-                                            theme={{ todayTextColor: '#00A8FF', arrowColor: '#00A8FF', textMonthFontWeight: 'bold', textDayHeaderFontWeight: '600' }}
-                                        />
-                                        <View style={{flexDirection:'row', alignItems:'center', marginTop:10, gap:5}}>
-                                            <View style={{width:10, height:10, backgroundColor:'#FFEBEE', borderWidth:1, borderColor:'#D32F2F'}}/>
-                                            <Text style={{fontSize:12, color:'#666'}}>Red dates are already booked.</Text>
-                                        </View>
+                            {/* DATES & CONFIGURATION */}
+                            {!isConfirmed && (
+                                <>
+                                    <Text style={styles.sectionTitle}>Trip Details</Text>
+                                    <View style={styles.datesRow}>
+                                        <TouchableOpacity style={styles.dateBox} onPress={() => openCalendar('start')}>
+                                            <Text style={styles.dateLabel}>Check In</Text>
+                                            <View style={styles.dateValueRow}>
+                                                <CalendarIcon size={18} color={PRIMARY_COLOR} />
+                                                <Text style={styles.dateValue}>{startDate.toLocaleDateString()}</Text>
+                                            </View>
+                                        </TouchableOpacity>
+                                        <View style={styles.connector} />
+                                        <TouchableOpacity style={styles.dateBox} onPress={() => openCalendar('end')}>
+                                            <Text style={styles.dateLabel}>Check Out</Text>
+                                            <View style={styles.dateValueRow}>
+                                                <CalendarIcon size={18} color={PRIMARY_COLOR} />
+                                                <Text style={styles.dateValue}>{endDate.toLocaleDateString()}</Text>
+                                            </View>
+                                        </TouchableOpacity>
                                     </View>
-                                </View>
-                            </Modal>
 
-                            <View style={styles.section}>
-                                <Text style={styles.sectionTitle}>Booking Type</Text>
-                                <View style={styles.selectionButtons}>
-                                    <TouchableOpacity
-                                        style={[styles.selectionButton, selectedOption === 'solo' && styles.selectionButtonActive]}
-                                        onPress={() => { setSelectedOption('solo'); setNumPeople('1'); }}
-                                    >
-                                        <Text style={[styles.selectionText, selectedOption === 'solo' && styles.selectionTextActive]}>Solo</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.selectionButton, selectedOption === 'group' && styles.selectionButtonActive]}
-                                        onPress={() => { setSelectedOption('group'); setNumPeople('2'); }}
-                                    >
-                                        <Text style={[styles.selectionText, selectedOption === 'group' && styles.selectionTextActive]}>Group</Text>
-                                    </TouchableOpacity>
-                                </View>
-                                {selectedOption === 'group' && (
-                                    <View style={styles.peopleInputContainer}>
-                                        <Text style={styles.inputLabel}>Number of people:</Text>
-                                        <TextInput
-                                            style={styles.peopleInput}
-                                            value={numPeople}
-                                            onChangeText={(text) => { if (text === '' || /^[0-9]+$/.test(text)) setNumPeople(text); }}
-                                            keyboardType="numeric"
-                                        />
+                                    <View style={styles.switchContainer}>
+                                        <TouchableOpacity style={[styles.switchOption, selectedOption === 'solo' && styles.switchActive]} onPress={() => { setSelectedOption('solo'); setNumPeople('1'); }}>
+                                            <Text style={[styles.switchText, selectedOption === 'solo' && styles.switchTextActive]}>Solo Trip</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={[styles.switchOption, selectedOption === 'group' && styles.switchActive]} onPress={() => { setSelectedOption('group'); setNumPeople('2'); }}>
+                                            <Text style={[styles.switchText, selectedOption === 'group' && styles.switchTextActive]}>Group</Text>
+                                        </TouchableOpacity>
                                     </View>
-                                )}
-                            </View>
 
-                            <View style={styles.section}>
-                                <Text style={styles.sectionTitle}>Billing Information</Text>
-                                <View style={styles.billingRow}>
-                                    <TextInput style={styles.billingInput} placeholder="First Name" value={firstName} onChangeText={setFirstName} />
-                                    <TextInput style={styles.billingInput} placeholder="Last Name" value={lastName} onChangeText={setLastName} />
-                                </View>
-                                <TextInput style={[styles.billingInput, styles.fullWidthInput]} placeholder="Phone" value={phoneNumber} onChangeText={setPhoneNumber} />
-                            </View>
-
-                            <View style={styles.section}>
-                                <Text style={styles.sectionTitle}>Identity Verification (KYC)</Text>
-                                <Text style={styles.helperText}>Required before booking. Your ID ensures safety.</Text>
-                                <View style={{flexDirection: 'row', gap: 10}}>
-                                    <TouchableOpacity style={[styles.uploadContainer, {flex: 1}]} onPress={pickImage}>
-                                        {validIdImage ? <Image source={{ uri: validIdImage }} style={styles.previewImage} /> : <View style={styles.uploadPlaceholder}><Ionicons name="id-card-outline" size={32} color="#00A8FF" /><Text style={styles.uploadText}>Upload ID</Text></View>}
-                                        {validIdImage && <View style={styles.checkBadge}><Ionicons name="checkmark-circle" size={20} color="#00C853" /></View>}
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={[styles.uploadContainer, {flex: 1}]} onPress={takeSelfie}>
-                                        {userSelfieImage ? <Image source={{ uri: userSelfieImage }} style={styles.previewImage} /> : <View style={styles.uploadPlaceholder}><Ionicons name="camera-outline" size={32} color="#00A8FF" /><Text style={styles.uploadText}>Take Selfie</Text></View>}
-                                        {userSelfieImage && <View style={styles.checkBadge}><Ionicons name="checkmark-circle" size={20} color="#00C853" /></View>}
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        </>
-                    )}
-
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Payment Method (Down Payment)</Text>
-                        <View style={styles.paymentGridContainer}>
-                            {paymentOptions.map((option) => (
-                                <TouchableOpacity 
-                                    key={option.key} 
-                                    style={[styles.paymentGridCard, selectedPaymentMethod === option.key && styles.paymentGridCardSelected]} 
-                                    onPress={() => setSelectedPaymentMethod(option.key)} 
-                                >
-                                    <Ionicons name="wallet-outline" size={24} color={selectedPaymentMethod === option.key ? '#007DFE' : '#1A2332'} />
-                                    <Text style={styles.gridMethodTitle}>{option.name}</Text>
-                                    {selectedPaymentMethod === option.key && (
-                                        <View style={styles.selectedCheckBadge}>
-                                            <Ionicons name="checkmark" size={12} color="#fff" />
+                                    {selectedOption === 'group' && (
+                                        <View style={styles.inputGroup}>
+                                            <Text style={styles.inputLabel}>Number of Guests</Text>
+                                            <TextInput
+                                                style={styles.modernInput}
+                                                value={numPeople}
+                                                onChangeText={(text) => { if (text === '' || /^[0-9]+$/.test(text)) setNumPeople(text); }}
+                                                keyboardType="numeric"
+                                            />
                                         </View>
                                     )}
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                    </View>
 
-                    {/* UPDATED PRICE CARD */}
-                    <View style={styles.priceCard}>
-                        <View style={styles.priceRow}>
-                            <Text style={styles.priceLabel}>Total Trip Cost</Text>
-                            <Text style={styles.priceValue}>₱ {totalPrice.toLocaleString()}</Text>
-                        </View>
-                        
-                        <View style={styles.priceDivider}>
-                            <View style={styles.dashedLine} />
-                        </View>
-
-                        <View style={styles.priceRow}>
-                            <Text style={[styles.totalLabel, {color:'#1A2332'}]}>Down Payment (30%)</Text>
-                            <View style={styles.totalValueContainer}>
-                                <Text style={styles.currency}>₱</Text>
-                                <Text style={styles.totalValue}>{downPayment.toLocaleString()}</Text>
-                            </View>
-                        </View>
-                        <Text style={styles.helperTextRight}>Due Now to Confirm Booking</Text>
-                        
-                        <View style={[styles.priceRow, {marginTop:10}]}>
-                            <Text style={styles.priceLabel}>Balance Pay Later</Text>
-                            <Text style={styles.priceValue}>₱ {balanceDue.toLocaleString()}</Text>
-                        </View>
-                    </View>
-
-                    {isAgency && assignedAgencyGuidesList.length > 0 && (
-                        <View style={styles.section}>
-                            <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom: 12, marginTop: 10}}>
-                                <Text style={styles.sectionTitle}>Assigned Guides</Text>
-                                <Text style={styles.subtitleLink}>{assignedAgencyGuidesList.length} Guide(s)</Text>
-                            </View>
-                            <View style={styles.assignedGuidesContainer}>
-                                {assignedAgencyGuidesList.map((guide, index) => (
-                                    <View key={index} style={styles.assignedGuideCard}>
-                                        <View style={styles.guideCardLeft}>
-                                            <Image source={{ uri: guide.profile_picture || '' }} style={styles.guideAvatarLarge} />
-                                        </View>
-                                        <View style={styles.guideCardRight}>
-                                            <Text style={styles.guideCardName}>{guide.full_name}</Text>
-                                            <Text style={styles.roleTagText}>Agency Guide</Text>
-                                        </View>
+                                    <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Billing Details</Text>
+                                    <View style={styles.inputRow}>
+                                        <TextInput style={[styles.modernInput, {flex:1}]} placeholder="First Name" value={firstName} onChangeText={setFirstName} />
+                                        <View style={{width: 10}}/>
+                                        <TextInput style={[styles.modernInput, {flex:1}]} placeholder="Last Name" value={lastName} onChangeText={setLastName} />
                                     </View>
+                                    <TextInput style={[styles.modernInput, {marginTop: 10}]} placeholder="Phone Number" keyboardType="phone-pad" value={phoneNumber} onChangeText={setPhoneNumber} />
+
+                                    <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Identity Verification</Text>
+                                    <View style={styles.kycRow}>
+                                        <TouchableOpacity style={[styles.kycCard, validIdImage && styles.kycCardDone]} onPress={pickImage}>
+                                            {validIdImage ? (
+                                                <Image source={{ uri: validIdImage }} style={styles.kycImage} />
+                                            ) : (
+                                                <View style={styles.kycPlaceholder}>
+                                                    <UploadCloud size={24} color={PRIMARY_COLOR} />
+                                                    <Text style={styles.kycText}>Upload ID</Text>
+                                                </View>
+                                            )}
+                                            {validIdImage && <View style={styles.checkBubble}><CheckCircle2 size={16} color="#fff" /></View>}
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity style={[styles.kycCard, userSelfieImage && styles.kycCardDone]} onPress={takeSelfie}>
+                                            {userSelfieImage ? (
+                                                <Image source={{ uri: userSelfieImage }} style={styles.kycImage} />
+                                            ) : (
+                                                <View style={styles.kycPlaceholder}>
+                                                    <Ionicons name="camera-outline" size={28} color={PRIMARY_COLOR} />
+                                                    <Text style={styles.kycText}>Take Selfie</Text>
+                                                </View>
+                                            )}
+                                            {userSelfieImage && <View style={styles.checkBubble}><CheckCircle2 size={16} color="#fff" /></View>}
+                                        </TouchableOpacity>
+                                    </View>
+                                </>
+                            )}
+
+                            <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Payment Method</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.paymentScroll}>
+                                {paymentOptions.map((opt) => (
+                                    <TouchableOpacity 
+                                        key={opt.key} 
+                                        style={[styles.paymentOption, selectedPaymentMethod === opt.key && styles.paymentOptionActive]}
+                                        onPress={() => setSelectedPaymentMethod(opt.key)}
+                                    >
+                                        <View style={[styles.paymentIconCircle, selectedPaymentMethod === opt.key && styles.paymentIconCircleActive]}>
+                                            <Ionicons name={opt.icon} size={20} color={selectedPaymentMethod === opt.key ? '#fff' : TEXT_SECONDARY} />
+                                        </View>
+                                        <Text style={[styles.paymentText, selectedPaymentMethod === opt.key && styles.paymentTextActive]}>{opt.name}</Text>
+                                    </TouchableOpacity>
                                 ))}
+                            </ScrollView>
+
+                            {/* PRICE RECEIPT CARD */}
+                            <View style={styles.receiptCard}>
+                                <View style={styles.receiptHeader}>
+                                    <Text style={styles.receiptTitle}>Payment Summary</Text>
+                                </View>
+                                <View style={styles.receiptRow}>
+                                    <Text style={styles.receiptLabel}>Total Trip Cost</Text>
+                                    <Text style={styles.receiptValue}>₱ {totalPrice.toLocaleString()}</Text>
+                                </View>
+                                <View style={styles.receiptDivider} />
+                                <View style={styles.receiptRow}>
+                                    <Text style={[styles.receiptLabel, {color: TEXT_PRIMARY, fontWeight:'700'}]}>Down Payment (30%)</Text>
+                                    <Text style={[styles.receiptTotal, {color: PRIMARY_COLOR}]}>₱ {downPayment.toLocaleString()}</Text>
+                                </View>
+                                <Text style={styles.receiptNote}>Payable now to secure dates</Text>
+                                <View style={[styles.receiptRow, {marginTop: 12}]}>
+                                    <Text style={styles.receiptLabel}>Balance Due Later</Text>
+                                    <Text style={styles.receiptValue}>₱ {balanceDue.toLocaleString()}</Text>
+                                </View>
                             </View>
+
+                            {isAgency && assignedAgencyGuidesList.length > 0 && (
+                                <View style={styles.agencyGuideSection}>
+                                    <Text style={styles.sectionTitle}>Assigned Team</Text>
+                                    {assignedAgencyGuidesList.map((g, i) => (
+                                        <View key={i} style={styles.miniGuideCard}>
+                                            <Image source={{ uri: g.profile_picture || '' }} style={styles.miniAvatar} />
+                                            <View>
+                                                <Text style={styles.miniName}>{g.full_name}</Text>
+                                                <Text style={styles.miniRole}>Agency Guide</Text>
+                                            </View>
+                                        </View>
+                                    ))}
+                                </View>
+                            )}
+
                         </View>
-                    )}
+                    </ScrollView>
+                </KeyboardAvoidingView>
 
-                    {!isConfirmed ? (
-                        <TouchableOpacity style={styles.confirmButton} onPress={handleReviewPress}>
-                            <LinearGradient
-                                colors={['#0072FF', '#00C6FF']}
-                                style={styles.gradientBtn}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                            >
-                                <Text style={styles.confirmButtonText}>Pay ₱{downPayment.toLocaleString()} & Book</Text>
-                            </LinearGradient>
+                {/* BOTTOM ACTION BAR */}
+                {!isConfirmed ? (
+                    <View style={styles.bottomBar}>
+                        <View>
+                            <Text style={styles.bottomLabel}>Total Payable Now</Text>
+                            <Text style={styles.bottomPrice}>₱{downPayment.toLocaleString()}</Text>
+                        </View>
+                        <TouchableOpacity style={styles.payButton} onPress={handleReviewPress}>
+                            <Text style={styles.payButtonText}>Pay & Book</Text>
+                            <Ionicons name="arrow-forward" size={18} color="#fff" />
                         </TouchableOpacity>
-                    ) : (
-                         <View style={styles.confirmedBox}>
-                            <Ionicons name="checkmark-circle" size={40} color="#00C853" />
-                            <Text style={styles.confirmedTitle}>Booking Confirmed!</Text>
-                            <Text style={styles.confirmedDesc}>Your guide has been notified. See you on {new Date(startDate).toDateString()}!</Text>
-                            <TouchableOpacity style={styles.homeBtn} onPress={() => router.push('/(protected)/home')}>
-                                <Text style={styles.homeBtnText}>Back to Home</Text>
-                            </TouchableOpacity>
-                         </View>
-                    )}
+                    </View>
+                ) : (
+                    <View style={styles.bottomBar}>
+                        <TouchableOpacity style={[styles.payButton, {backgroundColor: '#059669', width: '100%'}]} onPress={() => router.push('/(protected)/home')}>
+                            <Ionicons name="home" size={18} color="#fff" style={{marginRight:8}}/>
+                            <Text style={styles.payButtonText}>Return Home</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
 
-                </View>
+                {/* MODALS */}
+                <Modal visible={isCalendarVisible} transparent={true} animationType="slide">
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.calendarCard}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Select {selectingType === 'start' ? 'Start' : 'End'} Date</Text>
+                                <TouchableOpacity onPress={() => setCalendarVisible(false)} style={styles.closeBtn}>
+                                    <Ionicons name="close" size={20} color="#333" />
+                                </TouchableOpacity>
+                            </View>
+                            <Calendar
+                                current={new Date().toISOString().split('T')[0]}
+                                minDate={new Date().toISOString().split('T')[0]}
+                                markedDates={getMarkedDates}
+                                onDayPress={onDayPress}
+                                theme={{ 
+                                    todayTextColor: PRIMARY_COLOR, 
+                                    arrowColor: PRIMARY_COLOR, 
+                                    textMonthFontWeight: '800', 
+                                    textDayHeaderFontWeight: '600' 
+                                }}
+                            />
+                        </View>
+                    </View>
+                </Modal>
+
+                <Modal visible={errorModalVisible} transparent={true} animationType="fade">
+                    <View style={styles.errorOverlay}>
+                        <View style={styles.errorCard}>
+                            <View style={styles.errorIconBox}><AlertCircle size={32} color="#EF4444" /></View>
+                            <Text style={styles.errorTitle}>Oops!</Text>
+                            <Text style={styles.errorMessage}>{errorMessage}</Text>
+                            <TouchableOpacity style={styles.errorButton} onPress={() => setErrorModalVisible(false)}>
+                                <Text style={styles.errorButtonText}>Okay, Got it</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </Modal>
 
                 {isModalOpen && (
                     <PaymentReviewModal
@@ -607,182 +543,124 @@ const Payment = () => {
                         setIsModalOpen={setIsModalOpen}
                         paymentData={{
                             [isAgency ? 'agency' : 'guide']: bookingEntity,
-                            accommodation: accomEntity,
-                            accommodationId: accommodationId,
-                            tourPackageId: tourPackageId,
-
+                            accommodation: accomEntity, accommodationId, tourPackageId,
                             startDate, endDate, firstName, lastName, phoneNumber, country, email,
-                            basePrice: bookingEntity.basePrice,
-                            serviceFee: bookingEntity.serviceFee,
-                            
-                            // PASS FINANCIALS
-                            totalPrice,
-                            downPayment,
-                            balanceDue,
-
-                            bookingId: params.bookingId,
-                            placeId: params.placeId,
-                            paymentMethod: selectedPaymentMethod,
-                            groupType: selectedOption,
+                            basePrice: bookingEntity.basePrice, serviceFee: bookingEntity.serviceFee,
+                            totalPrice, downPayment, balanceDue, bookingId, placeId,
+                            paymentMethod: selectedPaymentMethod, groupType: selectedOption,
                             numberOfPeople: selectedOption === 'group' ? (parseInt(numPeople) < 2 ? 2 : parseInt(numPeople)) : 1,
-                            validIdImage,
-                            userSelfieImage,
-                            isNewKycImage: validIdImage && validIdImage.startsWith('file://'),
-                            
-                            tourCost: currentGuideFee,
-                            accomCost,
-                            extraPersonFee
+                            validIdImage, userSelfieImage, isNewKycImage: validIdImage && validIdImage.startsWith('file://'),
+                            tourCost: currentGuideFee, accomCost, extraPersonFee
                         }}
                     />
                 )}
             </SafeAreaView>
-        </ScrollView>
+        </View>
     );
 };
 
 export default Payment;
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F9FAFB' },
-    header: { position: 'relative', height: 120, justifyContent: 'center' },
-    headerImage: { width: '100%', height: '100%', resizeMode: 'cover', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
-    overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
-    headerTitle: { position: 'absolute', bottom: 15, left: 20, color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 1 },
-    contentContainer: { padding: 16, paddingBottom: 30 },
+    container: { flex: 1 },
+    header: { height: 100, position: 'relative', marginBottom: 20 },
+    headerImage: { width: '100%', height: '100%', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
+    overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
+    headerContent: { position: 'absolute', bottom: 15, left: 20, right: 20, flexDirection: 'row', alignItems: 'center' },
+    backButton: { marginRight: 15, padding: 5 },
+    headerTitle: { color: '#fff', fontSize: 20, fontWeight: '800', letterSpacing: 0.5 },
     
-    guideInfoCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E0E6ED', marginBottom: 20, shadowColor: '#000', shadowOpacity: 0.02, shadowRadius: 4, elevation: 2 },
-    guideHeader: { flexDirection: 'row', alignItems: 'flex-start' },
-    guideIcon: { width: 60, height: 60, borderRadius: 16, backgroundColor: '#1A2332', justifyContent: 'center', alignItems: 'center', marginRight: 14 },
-    agencyIconBg: { backgroundColor: '#00A8FF' },
-    guideInfo: { flex: 1, justifyContent: 'center' },
-    guideName: { fontSize: 18, fontWeight: '800', color: '#1A2332', marginBottom: 2 },
-    guideDetail: { fontSize: 12, color: '#64748B', marginBottom: 2 },
-    verifiedBadge: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 4, backgroundColor: '#ECFDF5', alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
-    verifiedText: { fontSize: 10, color: '#00C853', fontWeight: '700' },
-
-    section: { marginBottom: 24 },
-    sectionTitle: { fontSize: 16, fontWeight: '800', color: '#1A2332', marginBottom: 12 },
-    subtitleLink: { fontSize: 12, color: '#00A8FF', fontWeight: '600' },
+    contentContainer: { paddingHorizontal: 20 },
     
-    dateRow: { flexDirection: 'row', gap: 12 },
-    dateInput: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: '#fff' },
-    dateInputText: { fontSize: 14, color: '#1A2332', fontWeight: '500' },
-    inputLabel: { fontSize: 12, color: '#64748B', fontWeight: '600', marginBottom: 6 },
+    // Card Style
+    card: { backgroundColor: SURFACE_COLOR, borderRadius: 16, padding: 16, marginBottom: 24, shadowColor: '#000', shadowOffset: {width:0, height:4}, shadowOpacity:0.05, shadowRadius:8, elevation:2 },
+    guideHeader: { flexDirection: 'row', alignItems: 'center' },
+    avatarContainer: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#1E293B', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+    avatarHasImage: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#E2E8F0', padding: 1 },
+    avatarImage: { width: '100%', height: '100%', borderRadius: 28 },
+    guideName: { fontSize: 18, fontWeight: '700', color: TEXT_PRIMARY },
+    guideSub: { fontSize: 13, color: TEXT_SECONDARY },
+    verifiedTag: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 4, backgroundColor: '#ECFDF5', alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+    verifiedText: { fontSize: 11, color: '#059669', fontWeight: '600' },
+
+    sectionTitle: { fontSize: 16, fontWeight: '700', color: TEXT_PRIMARY, marginBottom: 12 },
     
-    selectionButtons: { flexDirection: 'row', gap: 10 },
-    selectionButton: { flex: 1, borderWidth: 1, borderColor: '#E2E8F0', paddingVertical: 12, borderRadius: 12, alignItems: 'center', backgroundColor: '#fff' },
-    selectionButtonActive: { backgroundColor: '#00A8FF', borderColor: '#00A8FF' },
-    selectionText: { fontSize: 14, color: '#64748B', fontWeight: '600' },
-    selectionTextActive: { color: '#fff' },
-    peopleInputContainer: { marginTop: 16 },
-    peopleInput: { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: '#fff', fontSize: 14, color: '#1A2332' },
+    // Dates
+    datesRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+    dateBox: { flex: 1, backgroundColor: SURFACE_COLOR, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0' },
+    dateLabel: { fontSize: 12, color: TEXT_SECONDARY, marginBottom: 4 },
+    dateValueRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    dateValue: { fontSize: 14, fontWeight: '700', color: TEXT_PRIMARY },
+    connector: { width: 10, height: 1, backgroundColor: '#CBD5E1', marginHorizontal: 10 },
 
-    priceCard: { 
-        backgroundColor: '#fff', 
-        borderRadius: 16, 
-        padding: 20, 
-        marginBottom: 24,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 3,
-        borderWidth: 1,
-        borderColor: '#E2E8F0'
-    },
-    priceRow: { 
-        flexDirection: 'row', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        marginBottom: 8 
-    },
-    priceLabel: { 
-        fontSize: 14, 
-        color: '#64748B', 
-        fontWeight: '500' 
-    },
-    priceValue: { 
-        fontSize: 14, 
-        color: '#1E293B', 
-        fontWeight: '600' 
-    },
-    priceDivider: { 
-        marginVertical: 16,
-        overflow: 'hidden' 
-    },
-    dashedLine: {
-        height: 1,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-        borderStyle: 'dashed',
-        borderRadius: 1
-    },
-    totalLabel: { 
-        fontSize: 16, 
-        fontWeight: '700', 
-        color: '#1E293B' 
-    },
-    totalValueContainer: {
-        flexDirection: 'row',
-        alignItems: 'baseline'
-    },
-    currency: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#00A8FF',
-        marginRight: 2
-    },
-    totalValue: { 
-        fontSize: 20, 
-        fontWeight: '800', 
-        color: '#00A8FF' 
-    },
-    helperTextRight: {
-        fontSize: 11,
-        color: '#00A8FF',
-        textAlign: 'right',
-        marginTop: 2,
-        fontStyle: 'italic'
-    },
+    // Switches
+    switchContainer: { flexDirection: 'row', backgroundColor: '#F1F5F9', borderRadius: 12, padding: 4, marginBottom: 16 },
+    switchOption: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
+    switchActive: { backgroundColor: SURFACE_COLOR, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
+    switchText: { fontSize: 14, fontWeight: '600', color: TEXT_SECONDARY },
+    switchTextActive: { color: PRIMARY_COLOR, fontWeight: '700' },
 
-    billingRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
-    billingInput: { flex: 1, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: '#1A2332', backgroundColor: '#fff' },
-    fullWidthInput: { width: '100%' },
+    // Inputs
+    modernInput: { backgroundColor: SURFACE_COLOR, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: TEXT_PRIMARY },
+    inputRow: { flexDirection: 'row' },
+    inputGroup: { marginBottom: 20 },
+    inputLabel: { fontSize: 13, fontWeight: '600', color: TEXT_SECONDARY, marginBottom: 8 },
 
-    helperText: { fontSize: 12, color: '#64748B', marginBottom: 12, lineHeight: 18 },
+    // KYC
+    kycRow: { flexDirection: 'row', gap: 12 },
+    kycCard: { flex: 1, height: 120, backgroundColor: '#F8FAFC', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+    kycCardDone: { borderStyle: 'solid', borderColor: '#22C55E' },
+    kycPlaceholder: { alignItems: 'center', gap: 8 },
+    kycText: { fontSize: 13, fontWeight: '600', color: TEXT_SECONDARY },
+    kycImage: { width: '100%', height: '100%' },
+    checkBubble: { position: 'absolute', top: 8, right: 8, backgroundColor: '#22C55E', borderRadius: 12, padding: 2 },
+
+    // Payments
+    paymentScroll: { flexDirection: 'row', marginBottom: 24 },
+    paymentOption: { marginRight: 12, width: 80, height: 80, backgroundColor: SURFACE_COLOR, borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', justifyContent: 'center', alignItems: 'center', gap: 8 },
+    paymentOptionActive: { borderColor: PRIMARY_COLOR, backgroundColor: '#EFF6FF' },
+    paymentIconCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
+    paymentIconCircleActive: { backgroundColor: PRIMARY_COLOR },
+    paymentText: { fontSize: 12, fontWeight: '600', color: TEXT_SECONDARY },
+    paymentTextActive: { color: PRIMARY_COLOR },
+
+    // Receipt
+    receiptCard: { backgroundColor: SURFACE_COLOR, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed', marginBottom: 40 },
+    receiptHeader: { alignItems: 'center', marginBottom: 16 },
+    receiptTitle: { fontSize: 14, fontWeight: '700', color: TEXT_SECONDARY, textTransform: 'uppercase', letterSpacing: 1 },
+    receiptRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+    receiptLabel: { fontSize: 14, color: TEXT_SECONDARY },
+    receiptValue: { fontSize: 14, fontWeight: '600', color: TEXT_PRIMARY },
+    receiptTotal: { fontSize: 18, fontWeight: '800' },
+    receiptDivider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 12 },
+    receiptNote: { fontSize: 11, color: PRIMARY_COLOR, fontStyle: 'italic', textAlign: 'right' },
+
+    // Agency
+    agencyGuideSection: { marginTop: -20, marginBottom: 30 },
+    miniGuideCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: SURFACE_COLOR, padding: 10, borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: '#E2E8F0' },
+    miniAvatar: { width: 40, height: 40, borderRadius: 20, marginRight: 12, backgroundColor: '#ccc' },
+    miniName: { fontSize: 14, fontWeight: '700', color: TEXT_PRIMARY },
+    miniRole: { fontSize: 11, color: TEXT_SECONDARY },
+
+    // Bottom Bar
+    bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: SURFACE_COLOR, paddingHorizontal: 24, paddingVertical: 16, paddingBottom: 30, borderTopWidth: 1, borderTopColor: '#F1F5F9', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', shadowColor: '#000', shadowOffset: {width:0, height:-2}, shadowOpacity:0.05, shadowRadius:10, elevation:10 },
+    bottomLabel: { fontSize: 12, color: TEXT_SECONDARY, fontWeight: '600' },
+    bottomPrice: { fontSize: 20, color: TEXT_PRIMARY, fontWeight: '800' },
+    payButton: { backgroundColor: PRIMARY_COLOR, flexDirection: 'row', paddingVertical: 14, paddingHorizontal: 24, borderRadius: 14, alignItems: 'center', gap: 8, shadowColor: PRIMARY_COLOR, shadowOffset: {width:0, height:4}, shadowOpacity:0.3, shadowRadius:8, elevation:4 },
+    payButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+
+    // Modal Styles
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
+    calendarCard: { backgroundColor: SURFACE_COLOR, borderRadius: 24, padding: 20 },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    modalTitle: { fontSize: 18, fontWeight: '700', color: TEXT_PRIMARY },
+    closeBtn: { padding: 4, backgroundColor: '#F1F5F9', borderRadius: 20 },
     
-    uploadContainer: { height: 130, borderWidth: 1, borderColor: '#CBD5E1', borderStyle: 'dashed', borderRadius: 16, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', position: 'relative' },
-    uploadPlaceholder: { alignItems: 'center' },
-    uploadText: { marginTop: 8, fontSize: 13, fontWeight: '600', color: '#00A8FF' },
-    previewImage: { width: '100%', height: '100%', resizeMode: 'cover' },
-    checkBadge: { position: 'absolute', top: 5, right: 5, backgroundColor: '#fff', borderRadius: 10 },
-
-    confirmButton: { borderRadius: 16, overflow: 'hidden', shadowColor: '#00A8FF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5, marginTop: 10 },
-    gradientBtn: { paddingVertical: 16, alignItems: 'center', justifyContent: 'center' },
-    confirmButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-
-    paymentGridContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12 },
-    paymentGridCard: { width: '31%', aspectRatio: 1, backgroundColor: '#fff', borderRadius: 16, padding: 8, borderWidth: 1, borderColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 2, position: 'relative' },
-    paymentGridCardSelected: { borderColor: '#007DFE', backgroundColor: '#F0F9FF', borderWidth: 2 },
-    gridMethodTitle: { fontSize: 11, fontWeight: '600', color: '#64748B', textAlign: 'center', marginTop: 8 },
-    selectedCheckBadge: { position: 'absolute', top: 6, right: 6, backgroundColor: '#007DFE', width: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
-
-    modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
-    modalContent: { backgroundColor: '#fff', borderRadius: 15, padding: 20, elevation: 5 },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-    modalTitle: { fontSize: 18, fontWeight: '700', color: '#1A2332' },
-
-    assignedGuidesContainer: { flexDirection: 'column', gap: 12 },
-    assignedGuideCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
-    guideCardLeft: { marginRight: 16 },
-    guideAvatarLarge: { width: 56, height: 56, borderRadius: 28, borderWidth: 2, borderColor: '#F1F5F9' },
-    guideCardRight: { flex: 1, justifyContent: 'center' },
-    guideCardName: { fontSize: 15, fontWeight: '800', color: '#1E293B', flex: 1 },
-    roleTagText: { fontSize: 10, fontWeight: '700', color: '#0284C7', textTransform: 'uppercase' },
-    
-    confirmedBox: { alignItems:'center', justifyContent:'center', padding: 20, backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#E0E6ED' },
-    confirmedTitle: { fontSize: 20, fontWeight: '800', color: '#1A2332', marginTop: 10 },
-    confirmedDesc: { fontSize: 14, color: '#64748B', textAlign: 'center', marginVertical: 10 },
-    homeBtn: { backgroundColor: '#F3F4F6', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
-    homeBtnText: { color: '#1A2332', fontWeight: '600' }
+    errorOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
+    errorCard: { width: '85%', backgroundColor: SURFACE_COLOR, borderRadius: 24, padding: 24, alignItems: 'center', elevation: 10 },
+    errorIconBox: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#FEF2F2', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+    errorTitle: { fontSize: 20, fontWeight: '800', color: TEXT_PRIMARY, marginBottom: 8 },
+    errorMessage: { fontSize: 14, color: TEXT_SECONDARY, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
+    errorButton: { backgroundColor: '#EF4444', paddingVertical: 12, width: '100%', alignItems: 'center', borderRadius: 12 },
+    errorButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });

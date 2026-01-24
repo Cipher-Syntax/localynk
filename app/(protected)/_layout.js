@@ -21,36 +21,10 @@ export default function ProtectedLayout() {
     const PROFILE_SETUP_PATH = '/onboarding/profile_setup';
     const TERMS_PATH = '/onboarding/terms_and_conditions';
     const HOME_PATH = '/home';
-    
-    const protectedNonTabPaths = [
-        PROFILE_SETUP_PATH,
-        TERMS_PATH,
-        '/touristGuideDetails',
-        '/payment',
-        '/message',
-        '/addTour',
-        '/addAccommodation',
-        '/UpdateGuideInfoForm',
-        '/placesDetails',
-        '/guideSelection',
-        '/bookingChoice',
-        '/guideAvailability',
-        '/notification',
-        '/agencySelection',
-        '/agencyBookingDetails',
-        '/termsAndAgreement',
-        '/completePayment',
-        '/completeRegistrationFee',
-        '/profile',
-        '/profile/edit_profile',
-        '/explore',
-        '/viewAccommodations',
-        '/upgradeMembership',
-        '/reviewModal',
-        '/myReviews',
-        // ADDED THE NEW PATH HERE
-        '/(protected)/support'
-    ]; 
+
+    // NOTE: This array was unused in your previous code. 
+    // By switching to <Stack />, we don't need to manually list paths 
+    // to hide tabs; the Stack handles overlaying screens naturally.
 
     useEffect(() => {
         if (isLoading) return;
@@ -100,9 +74,9 @@ export default function ProtectedLayout() {
     if (!isAuthenticated) return null;
 
     return (
-        <View style={{ flex: 1 }}>
-            <Slot key={user?.id ?? 'signed-in'} />
-        </View>
+        <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
+            <Stack.Screen name="home" />
+        </Stack>
     );
 }
 

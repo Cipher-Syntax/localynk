@@ -161,11 +161,11 @@ const UpdateGuideInfoForm = () => {
                 specific_available_dates: specific_dates
             });
             
-            showToast("Info updated! Going to next step...", "success");
+            showToast("Info updated!", "success");
             
-            // Navigate to next step after short delay for toast to be readable
+            // Navigate back to Dashboard (IsTourist) instead of next step
             setTimeout(() => {
-                router.push('/(protected)/addAccommodation');
+                router.back(); 
             }, 1500);
 
         } catch (error) {

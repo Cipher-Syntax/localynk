@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import api from '../../api/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,12 +24,20 @@ const ConversationList = () => {
         fetchConversations();
     }, []);
 
+    const getImageUrl = (imgPath) => {
+        if (!imgPath) return null;
+        if (imgPath.startsWith('http')) return imgPath;
+        const base = api.defaults.baseURL || 'http://127.0.0.1:8000';
+        return `${base}${imgPath}`;
+    };
+
     const handlePressConversation = (partner) => {
         router.push({
             pathname: '/(protected)/message',
             params: {
                 partnerId: partner.id,
                 partnerName: partner.full_name,
+                partnerImage: partner.profile_picture || null // PASS IMAGE
             },
         });
     };
@@ -52,9 +60,16 @@ const ConversationList = () => {
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={({ item }) => (
                     <TouchableOpacity style={styles.conversationItem} onPress={() => handlePressConversation(item)}>
-                        <View style={styles.avatar}>
-                            <Text style={styles.avatarText}>{item.full_name.charAt(0)}</Text>
-                        </View>
+                        {item.profile_picture ? (
+                            <Image 
+                                source={{ uri: getImageUrl(item.profile_picture) }} 
+                                style={styles.avatarImage} 
+                            />
+                        ) : (
+                            <View style={styles.avatar}>
+                                <Text style={styles.avatarText}>{item.full_name.charAt(0)}</Text>
+                            </View>
+                        )}
                         <Text style={styles.conversationName}>{item.full_name}</Text>
                     </TouchableOpacity>
                 )}
@@ -98,6 +113,13 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 15,
+    },
+    avatarImage: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        marginRight: 15,
+        backgroundColor: '#f0f0f0'
     },
     avatarText: {
         color: '#fff',

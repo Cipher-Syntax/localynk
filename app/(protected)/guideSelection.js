@@ -43,6 +43,13 @@ const GuideSelection = () => {
         fetchGuides();
     }, [placeId]);
 
+    const getImageUrl = (imgPath) => {
+        if (!imgPath) return null;
+        if (imgPath.startsWith('http')) return imgPath;
+        const base = api.defaults.baseURL || 'http://127.0.0.1:8000';
+        return `${base}${imgPath}`;
+    };
+
     const renderAvailability = (guideDays) => {
         const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
         const shortDays = ["M", "T", "W", "T", "F", "S", "S"];
@@ -151,8 +158,15 @@ const GuideSelection = () => {
                     {guides.map((guide, index) => (
                         <View key={guide.id || index} style={styles.guideCard}>
                             <View style={styles.cardProfileSection}>
-                                <View style={styles.iconWrapper}>
-                                    <User size={40} color="#8B98A8" />
+                                <View style={[styles.iconWrapper, guide.profile_picture && styles.imageWrapper]}>
+                                    {guide.profile_picture ? (
+                                        <Image 
+                                            source={{ uri: getImageUrl(guide.profile_picture) }} 
+                                            style={styles.profileImage}
+                                        />
+                                    ) : (
+                                        <User size={40} color="#8B98A8" />
+                                    )}
                                 </View>
                                 
                                 <View style={styles.profileInfo}>
@@ -258,7 +272,10 @@ const styles = StyleSheet.create({
     guideCard: { backgroundColor: '#F5F7FA', borderRadius: 15, padding: 16, borderWidth: 1, borderColor: '#E0E6ED', marginBottom: 10 },
     
     cardProfileSection: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 },
-    iconWrapper: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#EBF0F5', justifyContent: 'center', alignItems: 'center' },
+    iconWrapper: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#EBF0F5', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+    imageWrapper: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd' },
+    profileImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+
     profileInfo: { flex: 1, marginLeft: 12 },
     
     nameRow: { flexDirection: 'column', alignItems: 'flex-start' },
@@ -282,58 +299,11 @@ const styles = StyleSheet.create({
     buttonContainer: { alignItems: 'center' },
     bookButton: { backgroundColor: '#00C6FF', color: '#fff', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, fontSize: 14, fontWeight: '700', textAlign: 'center', width: '100%', overflow: 'hidden' },
 
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    modalContent: {
-        width: '85%',
-        backgroundColor: '#fff',
-        borderRadius: 20,
-        padding: 24,
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 10,
-        elevation: 10,
-    },
-    modalIconContainer: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        backgroundColor: '#FFEBEE',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 16,
-    },
-    modalTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-        color: '#253347',
-        marginBottom: 8,
-        textAlign: 'center'
-    },
-    modalMessage: {
-        fontSize: 14,
-        color: '#666',
-        textAlign: 'center',
-        lineHeight: 20,
-        marginBottom: 24,
-    },
-    modalButton: {
-        backgroundColor: '#253347',
-        paddingVertical: 12,
-        paddingHorizontal: 30,
-        borderRadius: 25,
-        width: '100%',
-        alignItems: 'center'
-    },
-    modalButtonText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '700'
-    }
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+    modalContent: { width: '85%', backgroundColor: '#fff', borderRadius: 20, padding: 24, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 10 },
+    modalIconContainer: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#FFEBEE', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+    modalTitle: { fontSize: 20, fontWeight: '700', color: '#253347', marginBottom: 8, textAlign: 'center' },
+    modalMessage: { fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 20, marginBottom: 24 },
+    modalButton: { backgroundColor: '#253347', paddingVertical: 12, paddingHorizontal: 30, borderRadius: 25, width: '100%', alignItems: 'center' },
+    modalButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' }
 });

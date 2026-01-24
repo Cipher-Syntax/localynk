@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import { Map, Calendar as CalendarIcon, CheckCircle, Bed, ArrowRight } from "lucide-react-native";
+import { Map, Calendar as CalendarIcon, CheckCircle, Bed, ArrowRight, User } from "lucide-react-native";
 import api from '../../api/api';
 
 const { width } = Dimensions.get('window');
@@ -16,14 +16,13 @@ const GuideAvailability = () => {
 
     const [guide, setGuide] = useState(null);
     const [tourPackage, setTourPackage] = useState(null);
-    const [blockedDates, setBlockedDates] = useState([]); // <--- NEW STATE
+    const [blockedDates, setBlockedDates] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchData = async () => {
             if (!guideId || !placeId) return;
             try {
-                // <--- UPDATED API CALLS to include blocked dates
                 const [guideRes, toursRes, blockedRes] = await Promise.all([
                     api.get(`/api/guides/${guideId}/`),
                     api.get(`/api/destinations/${placeId}/tours/`),
@@ -31,7 +30,7 @@ const GuideAvailability = () => {
                 ]);
 
                 setGuide(guideRes.data);
-                setBlockedDates(blockedRes.data || []); // <--- SAVE BLOCKED DATES
+                setBlockedDates(blockedRes.data || []); 
                 
                 const specificTour = toursRes.data.find(tour => tour.guide === parseInt(guideId));
                 setTourPackage(specificTour);
@@ -43,6 +42,13 @@ const GuideAvailability = () => {
         };
         fetchData();
     }, [guideId, placeId]);
+
+    const getImageUrl = (imgPath) => {
+        if (!imgPath) return null;
+        if (imgPath.startsWith('http')) return imgPath;
+        const base = api.defaults.baseURL || 'http://127.0.0.1:8000';
+        return `${base}${imgPath}`;
+    };
 
     const getInclusions = () => {
         if (!tourPackage) return ["Standard Guide Services"];
@@ -66,7 +72,6 @@ const GuideAvailability = () => {
         return [];
     }, [tourPackage, params.accommodations]);
 
-    // <--- UPDATED MARKED DATES LOGIC
     const markedDates = useMemo(() => {
         if (!guide) return {};
 
@@ -85,14 +90,14 @@ const GuideAvailability = () => {
             });
         }
 
-        // 2. Mark BLOCKED dates (Red) - Overwrites Blue if conflict
+        // 2. Mark BLOCKED dates (Red)
         blockedDates.forEach(date => {
             marked[date] = { 
                 selected: true, 
-                selectedColor: '#FFEBEE', // Light Red Background
+                selectedColor: '#FFEBEE', 
                 marked: true, 
-                dotColor: '#D32F2F',      // Red Dot
-                textColor: '#D32F2F',     // Red Text
+                dotColor: '#D32F2F',      
+                textColor: '#D32F2F',    
                 disabled: true, 
                 disableTouchEvent: true 
             };
@@ -172,9 +177,20 @@ const GuideAvailability = () => {
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                 <View style={styles.introContainer}>
                     <Text style={styles.sectionTitle}>Availability & Plans</Text>
-                    <Text style={styles.subText}>
-                        Viewing schedule for <Text style={{fontWeight:'700', color:'#00A8FF'}}>{guide.first_name} {guide.last_name}</Text>
-                    </Text>
+                    
+                    {/* UPDATED: Added Profile Picture Logic */}
+                    <View style={styles.profileRow}>
+                        <View style={styles.profilePicWrapper}>
+                            {guide.profile_picture ? (
+                                <Image source={{ uri: getImageUrl(guide.profile_picture) }} style={styles.profilePic} />
+                            ) : (
+                                <User size={24} color="#fff" />
+                            )}
+                        </View>
+                        <Text style={styles.subText}>
+                            Viewing schedule for <Text style={{fontWeight:'700', color:'#00A8FF'}}>{guide.first_name} {guide.last_name}</Text>
+                        </Text>
+                    </View>
                 </View>
 
                 <View style={styles.cardContainer}>
@@ -202,7 +218,6 @@ const GuideAvailability = () => {
                         style={styles.calendarStyle}
                     />
                     
-                    {/* UPDATED LEGEND */}
                     <View style={styles.legendContainer}>
                         <View style={styles.legendItem}>
                             <View style={[styles.dot, { backgroundColor: '#00A8FF' }]} />
@@ -305,7 +320,13 @@ const styles = StyleSheet.create({
     scrollContent: { padding: 20, paddingBottom: 100 },
     introContainer: { marginBottom: 20 },
     sectionTitle: { fontSize: 20, fontWeight: '700', color: '#1A2332' },
-    subText: { fontSize: 14, color: '#8B98A8', marginTop: 5 },
+    
+    // NEW STYLES
+    profileRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
+    profilePicWrapper: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#ccc', marginRight: 10, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+    profilePic: { width: '100%', height: '100%' },
+    
+    subText: { fontSize: 14, color: '#8B98A8' },
     cardContainer: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 16, elevation: 1 },
     sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
     cardTitle: { fontSize: 16, fontWeight: '700', color: '#333', marginLeft: 10 },

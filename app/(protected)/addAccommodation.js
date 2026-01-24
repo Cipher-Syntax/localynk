@@ -143,7 +143,7 @@ const AddAccommodation = () => {
 
             showToast("Accommodation listed! Moving to final step...", "success");
             setTimeout(() => {
-                router.push('/(protected)/addTour');
+                router.back();
             }, 1500);
             
         } 

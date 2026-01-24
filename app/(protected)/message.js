@@ -18,7 +18,7 @@ export default function Message() {
     const scrollViewRef = useRef();
     const router = useRouter();
 
-    const { partnerId, partnerName } = useLocalSearchParams();
+    const { partnerId, partnerName, partnerImage } = useLocalSearchParams();
 
     const fetchMessages = async () => {
         if (!partnerId) {
@@ -33,6 +33,13 @@ export default function Message() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const getImageUrl = (imgPath) => {
+        if (!imgPath) return null;
+        if (imgPath.startsWith('http')) return imgPath;
+        const base = api.defaults.baseURL || 'http://127.0.0.1:8000';
+        return `${base}${imgPath}`;
     };
 
     useEffect(() => {
@@ -134,7 +141,23 @@ export default function Message() {
             </View>
 
             <View style={styles.guideInfo}>
-                <Text style={styles.guideName}>{partnerName || 'Conversation'}</Text>
+                <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                    {/* NEW: Profile Image */}
+                    {partnerImage ? (
+                        <Image 
+                            source={{ uri: getImageUrl(partnerImage) }} 
+                            style={styles.headerAvatar}
+                        />
+                    ) : (
+                        <View style={styles.headerAvatarPlaceholder}>
+                            <Text style={styles.headerAvatarText}>
+                                {(partnerName || 'U').charAt(0)}
+                            </Text>
+                        </View>
+                    )}
+                    <Text style={styles.guideName}>{partnerName || 'Conversation'}</Text>
+                </View>
+
                 {user.id !== partnerId && (
                     <TouchableOpacity onPress={() => setModalVisible(true)}>
                         <Ionicons name="flag-outline" size={22} color="#000" />
@@ -316,6 +339,29 @@ const styles = StyleSheet.create({
         fontWeight: "700",
         color: "#00051A",
     },
+    // NEW STYLES
+    headerAvatar: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        marginRight: 10,
+        backgroundColor: '#eee'
+    },
+    headerAvatarPlaceholder: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        marginRight: 10,
+        backgroundColor: '#00A8FF',
+        alignItems: 'center',
+        justifyContent: 'center'
+    },
+    headerAvatarText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 14
+    },
+    
     messagesContainer: {
         flex: 1,
         padding: 15,
