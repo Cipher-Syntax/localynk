@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, ActivityIndicator, ScrollView, StyleSheet, StatusBar, Image, TouchableOpacity, RefreshControl,Dimensions} from "react-native";
+import { View, Text, ActivityIndicator, ScrollView, StyleSheet, StatusBar, Image, TouchableOpacity, RefreshControl, Dimensions } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, AntDesign, MaterialIcons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
@@ -127,7 +127,8 @@ const Profile = () => {
         { id: 2, icon: "heart", label: "Favorite Guides", route: '/favorites' },
         { id: 3, icon: "card", label: "Payment Methods", route: '/payments' },
         { id: 4, icon: "shield-checkmark", label: "Privacy & Security", route: '/privacy' },
-        { id: 5, icon: "help-circle", label: "Help & Support", route: '/support' }
+        // UPDATED ROUTE HERE
+        { id: 5, icon: "help-circle", label: "Help & Support", route: '/(protected)/support' }
     ];
 
     const guideSettingsItems = [
@@ -137,7 +138,9 @@ const Profile = () => {
         { id: 4, icon: "wallet", label: "Earnings & Payouts", route: '/earnings' },
         { id: 5, icon: "star", label: "Reviews & Ratings", route: '/myReviews' },
         { id: 6, icon: "settings", label: "Guide Settings", route: '/guide-settings' },
-        { id: 7, icon: "shield-checkmark", label: "Privacy & Security", route: '/privacy' }
+        { id: 7, icon: "shield-checkmark", label: "Privacy & Security", route: '/privacy' },
+        // ADDED ITEM HERE
+        { id: 8, icon: "help-circle", label: "Help & Support", route: '/(protected)/support' }
     ];
 
     const menuItems = isGuide ? guideSettingsItems : touristSettingsItems;
@@ -264,6 +267,7 @@ const Profile = () => {
                                             <Ionicons name={item.icon} size={20} color={isGuide ? '#0072FF' : '#10B981'} />
                                         </View>
                                         <Text style={styles.menuLabel}>{item.label}</Text>
+                                        <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
                                     </TouchableOpacity>
                                 ))}
                             </View>

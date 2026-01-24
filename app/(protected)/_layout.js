@@ -47,7 +47,9 @@ export default function ProtectedLayout() {
         '/viewAccommodations',
         '/upgradeMembership',
         '/reviewModal',
-        '/myReviews'
+        '/myReviews',
+        // ADDED THE NEW PATH HERE
+        '/(protected)/support'
     ]; 
 
     useEffect(() => {
