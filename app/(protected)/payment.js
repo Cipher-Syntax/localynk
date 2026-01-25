@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, StatusBar, StyleSheet, Image, TextInput, TouchableOpacity, Pressable, ActivityIndicator, Alert, Modal, Dimensions, Platform, KeyboardAvoidingView } from 'react-native';
+import { View, Text, ScrollView, StatusBar, StyleSheet, Image, TextInput, TouchableOpacity, ActivityIndicator, Alert, Modal, Dimensions, Platform, KeyboardAvoidingView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { User, AlertCircle, CheckCircle2, UploadCloud, Calendar as CalendarIcon, Wallet, ShieldCheck } from 'lucide-react-native'; 
+import { User, AlertCircle, CheckCircle2, UploadCloud, Calendar as CalendarIcon, ShieldCheck, CreditCard } from 'lucide-react-native'; 
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -30,10 +30,39 @@ const Payment = () => {
         accommodationName, additionalFee, placeId, tourPackageId
     } = params;
 
-    const isConfirmed = !!bookingId; 
+    // --- 1. FETCH BOOKING STATUS LOGIC ---
+    const [fetchedBooking, setFetchedBooking] = useState(null);
+    const [loadingBooking, setLoadingBooking] = useState(!!bookingId);
+
+    useEffect(() => {
+        const fetchBookingDetails = async () => {
+            if (!bookingId) return;
+            try {
+                const response = await api.get(`/api/bookings/${bookingId}/`);
+                setFetchedBooking(response.data);
+            } catch (error) {
+                console.error("Failed to fetch booking details:", error);
+            } finally {
+                setLoadingBooking(false);
+            }
+        };
+        fetchBookingDetails();
+    }, [bookingId]);
+
+    // --- 2. DETERMINE REAL STATUS ---
+    const currentStatus = fetchedBooking?.status || 'Pending_Payment';
+    
+    // "Confirmed" means PAID and DONE.
+    const isConfirmed = currentStatus === 'Confirmed' || currentStatus === 'Completed';
+    // "Payable" means we have an ID (Accepted Request) but haven't paid yet.
+    const isPayable = bookingId && (currentStatus === 'Accepted' || currentStatus === 'Pending_Payment');
+    
+    // If no ID, we are in "New Request" mode
+    const isRequestMode = !bookingId;
+
     const isAgency = bookingType === 'agency';
-    const resolvedName = entityName || guideName || (isAgency ? "Selected Agency" : "Selected Guide");
-    const resolvedId = entityId || guideId;
+    const resolvedName = fetchedBooking?.guide_detail?.username || fetchedBooking?.agency_detail?.username || entityName || guideName || (isAgency ? "Selected Agency" : "Selected Guide");
+    const resolvedId = fetchedBooking?.guide || fetchedBooking?.agency || entityId || guideId;
 
     const [guideAvailability, setGuideAvailability] = useState(null);
     const [blockedDates, setBlockedDates] = useState([]); 
@@ -48,14 +77,13 @@ const Payment = () => {
     const [selectingType, setSelectingType] = useState('start');
     const [isLoadingImage, setIsLoadingImage] = useState(false);
     
-    // Custom Error Modal State
     const [errorModalVisible, setErrorModalVisible] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
 
-    // --- PRICE COMPONENTS ---
+    // --- PRICE COMPONENTS (Fixed Variable Names) ---
     const tourCostGroup = basePrice ? parseFloat(basePrice) : 500;
     const tourCostSolo = soloPrice ? parseFloat(soloPrice) : tourCostGroup;
-    const accomCost = accommodationPrice ? parseFloat(accommodationPrice) : 0;
+    const accomCost = accommodationPrice ? parseFloat(accommodationPrice) : 0; // Defined correctly
     const extraPersonFee = additionalFee ? parseFloat(additionalFee) : 0;
     
     const bookingEntity = {
@@ -99,8 +127,21 @@ const Payment = () => {
         { key: 'gcash', name: 'GCash', icon: 'wallet' },
         { key: 'paymaya', name: 'Maya', icon: 'card' },
         { key: 'card', name: 'Card', icon: 'card-outline' },
-        { key: 'grab_pay', name: 'Grab', icon: 'car' },
     ];
+
+    // SYNC DATA IF BOOKING EXISTS
+    useEffect(() => {
+        if (fetchedBooking) {
+            if (fetchedBooking.check_in) setStartDate(new Date(fetchedBooking.check_in));
+            if (fetchedBooking.check_out) setEndDate(new Date(fetchedBooking.check_out));
+            if (fetchedBooking.num_guests) {
+                setNumPeople(String(fetchedBooking.num_guests));
+                setSelectedOption(fetchedBooking.num_guests > 1 ? 'group' : 'solo');
+            }
+            if (fetchedBooking.assigned_guides_detail) setAssignedGuidesList(fetchedBooking.assigned_guides_detail);
+            if (fetchedBooking.assigned_agency_guides_detail) setAssignedAgencyGuidesList(fetchedBooking.assigned_agency_guides_detail);
+        }
+    }, [fetchedBooking]);
 
     useEffect(() => {
         if (user) {
@@ -128,26 +169,6 @@ const Payment = () => {
         };
         fetchAvailabilityData();
     }, [resolvedId, isAgency]);
-
-    useEffect(() => {
-        const fetchBookingDetails = async () => {
-            if (isConfirmed && bookingId) {
-                try {
-                    const response = await api.get(`/api/bookings/${bookingId}/`);
-                    const bookingDetails = response.data;
-                    if (bookingDetails.check_in) setStartDate(new Date(bookingDetails.check_in));
-                    if (bookingDetails.check_out) setEndDate(new Date(bookingDetails.check_out));
-                    if (bookingDetails.num_guests) {
-                        setNumPeople(String(bookingDetails.num_guests));
-                        setSelectedOption(bookingDetails.num_guests > 1 ? 'group' : 'solo');
-                    }
-                    if (bookingDetails.assigned_guides_detail) setAssignedGuidesList(bookingDetails.assigned_guides_detail);
-                    if (isAgency && bookingDetails.assigned_agency_guides_detail) setAssignedAgencyGuidesList(bookingDetails.assigned_agency_guides_detail);
-                } catch (error) { console.error("Failed to fetch booking details:", error); }
-            }
-        };
-        fetchBookingDetails();
-    }, [isConfirmed, bookingId, isAgency]);
 
     const getMarkedDates = useMemo(() => {
         const marked = {};
@@ -258,8 +279,11 @@ const Payment = () => {
         const endStr = formatDateForCalendar(endDate);
         if (startStr === endStr) { showError("You cannot book start and end date on the same day."); return; }
         if (startDate > endDate) { showError("End date cannot be before start date."); return; }
-        if (!validIdImage) { showError("Please upload a valid government ID to proceed."); return; }
-        if (!userSelfieImage) { showError("Please take a selfie for identity verification."); return; }
+        
+        // Strict KYC only if Request Mode. If Payable, allow proceed (KYC likely done).
+        if (!validIdImage && !isPayable) { showError("Please upload a valid government ID to proceed."); return; }
+        if (!userSelfieImage && !isPayable) { showError("Please take a selfie for identity verification."); return; }
+        
         setIsModalOpen(true);
     };
 
@@ -279,8 +303,11 @@ const Payment = () => {
             extraFees = extraPeople * extraPersonFee;
         }
         setCurrentGuideFee(guideFee);
+        
+        // Use accomCost here (Matched variable name)
         const dailyTotal = guideFee + extraFees + accomCost;
         const grandTotal = dailyTotal * numDays;
+        
         const calculatedDownPayment = grandTotal * 0.30; 
         const calculatedBalance = grandTotal - calculatedDownPayment;
 
@@ -289,13 +316,21 @@ const Payment = () => {
         setBalanceDue(calculatedBalance);
     }, [startDate, endDate, selectedOption, numPeople, tourCostGroup, tourCostSolo, accomCost, extraPersonFee]);
 
-    // DETERMINE PROFILE PICTURE SOURCE
     const profileImageSource = useMemo(() => {
         if (!isAgency && guideAvailability && guideAvailability.profile_picture) {
             return { uri: getImageUrl(guideAvailability.profile_picture) };
         }
         return null;
     }, [isAgency, guideAvailability]);
+
+    if (loadingBooking) {
+        return (
+            <View style={{flex:1, justifyContent:'center', alignItems:'center', backgroundColor: BACKGROUND_COLOR}}>
+                <ActivityIndicator size="large" color={PRIMARY_COLOR} />
+                <Text style={{marginTop: 10, color: TEXT_SECONDARY}}>Loading booking details...</Text>
+            </View>
+        );
+    }
 
     return (
         <View style={{ flex: 1, backgroundColor: BACKGROUND_COLOR }}>
@@ -304,7 +339,6 @@ const Payment = () => {
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
                     <ScrollView style={styles.container} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
                         
-                        {/* HEADER SECTION */}
                         <View style={styles.header}>
                             <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} />
                             <LinearGradient colors={['rgba(0,0,0,0.6)', 'transparent']} style={styles.overlay} />
@@ -312,13 +346,14 @@ const Payment = () => {
                                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                                     <Ionicons name="arrow-back" size={24} color="#fff" />
                                 </TouchableOpacity>
-                                <Text style={styles.headerTitle}>{isConfirmed ? "BOOKING CONFIRMED" : "SECURE YOUR DATE"}</Text>
+                                <Text style={styles.headerTitle}>
+                                    {isConfirmed ? "BOOKING CONFIRMED" : (isPayable ? "COMPLETE PAYMENT" : "SECURE YOUR DATE")}
+                                </Text>
                             </View>
                         </View>
 
                         <View style={styles.contentContainer}>
                             
-                            {/* GUIDE PROFILE CARD */}
                             <View style={styles.card}>
                                 <View style={styles.guideHeader}>
                                     <View style={[styles.avatarContainer, profileImageSource && styles.avatarHasImage]}>
@@ -342,48 +377,52 @@ const Payment = () => {
                             </View>
 
                             {/* DATES & CONFIGURATION */}
-                            {!isConfirmed && (
-                                <>
-                                    <Text style={styles.sectionTitle}>Trip Details</Text>
-                                    <View style={styles.datesRow}>
-                                        <TouchableOpacity style={styles.dateBox} onPress={() => openCalendar('start')}>
-                                            <Text style={styles.dateLabel}>Check In</Text>
-                                            <View style={styles.dateValueRow}>
-                                                <CalendarIcon size={18} color={PRIMARY_COLOR} />
-                                                <Text style={styles.dateValue}>{startDate.toLocaleDateString()}</Text>
-                                            </View>
-                                        </TouchableOpacity>
-                                        <View style={styles.connector} />
-                                        <TouchableOpacity style={styles.dateBox} onPress={() => openCalendar('end')}>
-                                            <Text style={styles.dateLabel}>Check Out</Text>
-                                            <View style={styles.dateValueRow}>
-                                                <CalendarIcon size={18} color={PRIMARY_COLOR} />
-                                                <Text style={styles.dateValue}>{endDate.toLocaleDateString()}</Text>
-                                            </View>
-                                        </TouchableOpacity>
-                                    </View>
-
-                                    <View style={styles.switchContainer}>
-                                        <TouchableOpacity style={[styles.switchOption, selectedOption === 'solo' && styles.switchActive]} onPress={() => { setSelectedOption('solo'); setNumPeople('1'); }}>
-                                            <Text style={[styles.switchText, selectedOption === 'solo' && styles.switchTextActive]}>Solo Trip</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity style={[styles.switchOption, selectedOption === 'group' && styles.switchActive]} onPress={() => { setSelectedOption('group'); setNumPeople('2'); }}>
-                                            <Text style={[styles.switchText, selectedOption === 'group' && styles.switchTextActive]}>Group</Text>
-                                        </TouchableOpacity>
-                                    </View>
-
-                                    {selectedOption === 'group' && (
-                                        <View style={styles.inputGroup}>
-                                            <Text style={styles.inputLabel}>Number of Guests</Text>
-                                            <TextInput
-                                                style={styles.modernInput}
-                                                value={numPeople}
-                                                onChangeText={(text) => { if (text === '' || /^[0-9]+$/.test(text)) setNumPeople(text); }}
-                                                keyboardType="numeric"
-                                            />
+                            <View style={[isPayable && {opacity: 0.7}]}>
+                                <Text style={styles.sectionTitle}>Trip Details</Text>
+                                <View style={styles.datesRow}>
+                                    <TouchableOpacity style={styles.dateBox} onPress={() => !isPayable && openCalendar('start')} disabled={isPayable}>
+                                        <Text style={styles.dateLabel}>Check In</Text>
+                                        <View style={styles.dateValueRow}>
+                                            <CalendarIcon size={18} color={PRIMARY_COLOR} />
+                                            <Text style={styles.dateValue}>{startDate.toLocaleDateString()}</Text>
                                         </View>
-                                    )}
+                                    </TouchableOpacity>
+                                    <View style={styles.connector} />
+                                    <TouchableOpacity style={styles.dateBox} onPress={() => !isPayable && openCalendar('end')} disabled={isPayable}>
+                                        <Text style={styles.dateLabel}>Check Out</Text>
+                                        <View style={styles.dateValueRow}>
+                                            <CalendarIcon size={18} color={PRIMARY_COLOR} />
+                                            <Text style={styles.dateValue}>{endDate.toLocaleDateString()}</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                </View>
 
+                                <View style={styles.switchContainer}>
+                                    <TouchableOpacity style={[styles.switchOption, selectedOption === 'solo' && styles.switchActive]} onPress={() => { setSelectedOption('solo'); setNumPeople('1'); }} disabled={isPayable}>
+                                        <Text style={[styles.switchText, selectedOption === 'solo' && styles.switchTextActive]}>Solo Trip</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={[styles.switchOption, selectedOption === 'group' && styles.switchActive]} onPress={() => { setSelectedOption('group'); setNumPeople('2'); }} disabled={isPayable}>
+                                        <Text style={[styles.switchText, selectedOption === 'group' && styles.switchTextActive]}>Group</Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                                {selectedOption === 'group' && (
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.inputLabel}>Number of Guests</Text>
+                                        <TextInput
+                                            style={styles.modernInput}
+                                            value={numPeople}
+                                            onChangeText={(text) => { if (text === '' || /^[0-9]+$/.test(text)) setNumPeople(text); }}
+                                            keyboardType="numeric"
+                                            editable={!isPayable}
+                                        />
+                                    </View>
+                                )}
+                            </View>
+
+                            {/* Billing & KYC - Hide if paying existing booking */}
+                            {!isPayable && (
+                                <>
                                     <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Billing Details</Text>
                                     <View style={styles.inputRow}>
                                         <TextInput style={[styles.modernInput, {flex:1}]} placeholder="First Name" value={firstName} onChangeText={setFirstName} />
@@ -421,23 +460,28 @@ const Payment = () => {
                                 </>
                             )}
 
-                            <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Payment Method</Text>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.paymentScroll}>
-                                {paymentOptions.map((opt) => (
-                                    <TouchableOpacity 
-                                        key={opt.key} 
-                                        style={[styles.paymentOption, selectedPaymentMethod === opt.key && styles.paymentOptionActive]}
-                                        onPress={() => setSelectedPaymentMethod(opt.key)}
-                                    >
-                                        <View style={[styles.paymentIconCircle, selectedPaymentMethod === opt.key && styles.paymentIconCircleActive]}>
-                                            <Ionicons name={opt.icon} size={20} color={selectedPaymentMethod === opt.key ? '#fff' : TEXT_SECONDARY} />
-                                        </View>
-                                        <Text style={[styles.paymentText, selectedPaymentMethod === opt.key && styles.paymentTextActive]}>{opt.name}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </ScrollView>
+                            {/* Payment Method - Show if Payable or Confirmed */}
+                            {(isPayable || isConfirmed) && (
+                                <>
+                                    <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Payment Method</Text>
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.paymentScroll}>
+                                        {paymentOptions.map((opt) => (
+                                            <TouchableOpacity 
+                                                key={opt.key} 
+                                                style={[styles.paymentOption, selectedPaymentMethod === opt.key && styles.paymentOptionActive]}
+                                                onPress={() => !isConfirmed && setSelectedPaymentMethod(opt.key)}
+                                                disabled={isConfirmed}
+                                            >
+                                                <View style={[styles.paymentIconCircle, selectedPaymentMethod === opt.key && styles.paymentIconCircleActive]}>
+                                                    <Ionicons name={opt.icon} size={20} color={selectedPaymentMethod === opt.key ? '#fff' : TEXT_SECONDARY} />
+                                                </View>
+                                                <Text style={[styles.paymentText, selectedPaymentMethod === opt.key && styles.paymentTextActive]}>{opt.name}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </ScrollView>
+                                </>
+                            )}
 
-                            {/* PRICE RECEIPT CARD */}
                             <View style={styles.receiptCard}>
                                 <View style={styles.receiptHeader}>
                                     <Text style={styles.receiptTitle}>Payment Summary</Text>
@@ -451,7 +495,7 @@ const Payment = () => {
                                     <Text style={[styles.receiptLabel, {color: TEXT_PRIMARY, fontWeight:'700'}]}>Down Payment (30%)</Text>
                                     <Text style={[styles.receiptTotal, {color: PRIMARY_COLOR}]}>₱ {downPayment.toLocaleString()}</Text>
                                 </View>
-                                <Text style={styles.receiptNote}>Payable now to secure dates</Text>
+                                <Text style={styles.receiptNote}>{isConfirmed ? "Paid Successfully" : "Payable now to secure dates"}</Text>
                                 <View style={[styles.receiptRow, {marginTop: 12}]}>
                                     <Text style={styles.receiptLabel}>Balance Due Later</Text>
                                     <Text style={styles.receiptValue}>₱ {balanceDue.toLocaleString()}</Text>
@@ -485,7 +529,7 @@ const Payment = () => {
                             <Text style={styles.bottomPrice}>₱{downPayment.toLocaleString()}</Text>
                         </View>
                         <TouchableOpacity style={styles.payButton} onPress={handleReviewPress}>
-                            <Text style={styles.payButtonText}>Pay & Book</Text>
+                            <Text style={styles.payButtonText}>{isPayable ? "Confirm Payment" : "Pay & Book"}</Text>
                             <Ionicons name="arrow-forward" size={18} color="#fff" />
                         </TouchableOpacity>
                     </View>
@@ -550,7 +594,8 @@ const Payment = () => {
                             paymentMethod: selectedPaymentMethod, groupType: selectedOption,
                             numberOfPeople: selectedOption === 'group' ? (parseInt(numPeople) < 2 ? 2 : parseInt(numPeople)) : 1,
                             validIdImage, userSelfieImage, isNewKycImage: validIdImage && validIdImage.startsWith('file://'),
-                            tourCost: currentGuideFee, accomCost, extraPersonFee
+                            tourCost: currentGuideFee, accomCost, extraPersonFee,
+                            status: currentStatus 
                         }}
                     />
                 )}
@@ -569,10 +614,7 @@ const styles = StyleSheet.create({
     headerContent: { position: 'absolute', bottom: 15, left: 20, right: 20, flexDirection: 'row', alignItems: 'center' },
     backButton: { marginRight: 15, padding: 5 },
     headerTitle: { color: '#fff', fontSize: 20, fontWeight: '800', letterSpacing: 0.5 },
-    
     contentContainer: { paddingHorizontal: 20 },
-    
-    // Card Style
     card: { backgroundColor: SURFACE_COLOR, borderRadius: 16, padding: 16, marginBottom: 24, shadowColor: '#000', shadowOffset: {width:0, height:4}, shadowOpacity:0.05, shadowRadius:8, elevation:2 },
     guideHeader: { flexDirection: 'row', alignItems: 'center' },
     avatarContainer: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#1E293B', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
@@ -582,31 +624,25 @@ const styles = StyleSheet.create({
     guideSub: { fontSize: 13, color: TEXT_SECONDARY },
     verifiedTag: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 4, backgroundColor: '#ECFDF5', alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
     verifiedText: { fontSize: 11, color: '#059669', fontWeight: '600' },
-
     sectionTitle: { fontSize: 16, fontWeight: '700', color: TEXT_PRIMARY, marginBottom: 12 },
-    
-    // Dates
     datesRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
     dateBox: { flex: 1, backgroundColor: SURFACE_COLOR, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0' },
     dateLabel: { fontSize: 12, color: TEXT_SECONDARY, marginBottom: 4 },
     dateValueRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     dateValue: { fontSize: 14, fontWeight: '700', color: TEXT_PRIMARY },
     connector: { width: 10, height: 1, backgroundColor: '#CBD5E1', marginHorizontal: 10 },
-
-    // Switches
+    
+    // UPDATED SWITCH STYLES
     switchContainer: { flexDirection: 'row', backgroundColor: '#F1F5F9', borderRadius: 12, padding: 4, marginBottom: 16 },
     switchOption: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
-    switchActive: { backgroundColor: SURFACE_COLOR, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
+    switchActive: { backgroundColor: PRIMARY_COLOR, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
     switchText: { fontSize: 14, fontWeight: '600', color: TEXT_SECONDARY },
-    switchTextActive: { color: PRIMARY_COLOR, fontWeight: '700' },
+    switchTextActive: { color: '#FFFFFF', fontWeight: '700' }, // WHITE text on BLUE bg
 
-    // Inputs
     modernInput: { backgroundColor: SURFACE_COLOR, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: TEXT_PRIMARY },
     inputRow: { flexDirection: 'row' },
     inputGroup: { marginBottom: 20 },
     inputLabel: { fontSize: 13, fontWeight: '600', color: TEXT_SECONDARY, marginBottom: 8 },
-
-    // KYC
     kycRow: { flexDirection: 'row', gap: 12 },
     kycCard: { flex: 1, height: 120, backgroundColor: '#F8FAFC', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
     kycCardDone: { borderStyle: 'solid', borderColor: '#22C55E' },
@@ -614,8 +650,6 @@ const styles = StyleSheet.create({
     kycText: { fontSize: 13, fontWeight: '600', color: TEXT_SECONDARY },
     kycImage: { width: '100%', height: '100%' },
     checkBubble: { position: 'absolute', top: 8, right: 8, backgroundColor: '#22C55E', borderRadius: 12, padding: 2 },
-
-    // Payments
     paymentScroll: { flexDirection: 'row', marginBottom: 24 },
     paymentOption: { marginRight: 12, width: 80, height: 80, backgroundColor: SURFACE_COLOR, borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', justifyContent: 'center', alignItems: 'center', gap: 8 },
     paymentOptionActive: { borderColor: PRIMARY_COLOR, backgroundColor: '#EFF6FF' },
@@ -623,8 +657,6 @@ const styles = StyleSheet.create({
     paymentIconCircleActive: { backgroundColor: PRIMARY_COLOR },
     paymentText: { fontSize: 12, fontWeight: '600', color: TEXT_SECONDARY },
     paymentTextActive: { color: PRIMARY_COLOR },
-
-    // Receipt
     receiptCard: { backgroundColor: SURFACE_COLOR, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed', marginBottom: 40 },
     receiptHeader: { alignItems: 'center', marginBottom: 16 },
     receiptTitle: { fontSize: 14, fontWeight: '700', color: TEXT_SECONDARY, textTransform: 'uppercase', letterSpacing: 1 },
@@ -634,28 +666,21 @@ const styles = StyleSheet.create({
     receiptTotal: { fontSize: 18, fontWeight: '800' },
     receiptDivider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 12 },
     receiptNote: { fontSize: 11, color: PRIMARY_COLOR, fontStyle: 'italic', textAlign: 'right' },
-
-    // Agency
     agencyGuideSection: { marginTop: -20, marginBottom: 30 },
     miniGuideCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: SURFACE_COLOR, padding: 10, borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: '#E2E8F0' },
     miniAvatar: { width: 40, height: 40, borderRadius: 20, marginRight: 12, backgroundColor: '#ccc' },
     miniName: { fontSize: 14, fontWeight: '700', color: TEXT_PRIMARY },
     miniRole: { fontSize: 11, color: TEXT_SECONDARY },
-
-    // Bottom Bar
     bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: SURFACE_COLOR, paddingHorizontal: 24, paddingVertical: 16, paddingBottom: 30, borderTopWidth: 1, borderTopColor: '#F1F5F9', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', shadowColor: '#000', shadowOffset: {width:0, height:-2}, shadowOpacity:0.05, shadowRadius:10, elevation:10 },
     bottomLabel: { fontSize: 12, color: TEXT_SECONDARY, fontWeight: '600' },
     bottomPrice: { fontSize: 20, color: TEXT_PRIMARY, fontWeight: '800' },
     payButton: { backgroundColor: PRIMARY_COLOR, flexDirection: 'row', paddingVertical: 14, paddingHorizontal: 24, borderRadius: 14, alignItems: 'center', gap: 8, shadowColor: PRIMARY_COLOR, shadowOffset: {width:0, height:4}, shadowOpacity:0.3, shadowRadius:8, elevation:4 },
     payButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-
-    // Modal Styles
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
     calendarCard: { backgroundColor: SURFACE_COLOR, borderRadius: 24, padding: 20 },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
     modalTitle: { fontSize: 18, fontWeight: '700', color: TEXT_PRIMARY },
     closeBtn: { padding: 4, backgroundColor: '#F1F5F9', borderRadius: 20 },
-    
     errorOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
     errorCard: { width: '85%', backgroundColor: SURFACE_COLOR, borderRadius: 24, padding: 24, alignItems: 'center', elevation: 10 },
     errorIconBox: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#FEF2F2', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
