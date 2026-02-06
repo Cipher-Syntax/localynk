@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator, AppState, Dimensions, Platform } from 'react-native';
+import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator, AppState, Dimensions, Platform, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Receipt, MapPin, Calendar, CreditCard, User, Mail } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -47,7 +47,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     };
 
-    // --- LOGIC SECTION (UNCHANGED) ---
     const checkPaymentStatus = useCallback(async (id) => {
         if (!id) return;
         try {
@@ -106,19 +105,24 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         const formData = new FormData();
         formData.append('check_in', formatLocalDate(startDate));
         formData.append('check_out', formatLocalDate(endDate));
-        formData.append('num_guests', String(numberOfPeople));
-        formData.append('first_name', firstName);
-        formData.append('last_name', lastName);
-        formData.append('phone_number', phoneNumber);
-        formData.append('country', country);
-        formData.append('email', email);
+        // FIX: Ensure default '1' if numberOfPeople is null/undefined
+        formData.append('num_guests', String(numberOfPeople || 1));
+        formData.append('first_name', firstName || '');
+        formData.append('last_name', lastName || '');
+        formData.append('phone_number', phoneNumber || '');
+        formData.append('country', country || '');
+        formData.append('email', email || '');
 
         if (guide && guide.id) formData.append('guide', String(guide.id));
         else if (agency && agency.id) formData.append('agency', String(agency.id));
         
         if (accommodationId) formData.append('accommodation', String(accommodationId));
         if (tourPackageId) formData.append('tour_package_id', String(tourPackageId));
-        if (placeId) formData.append('destination', placeId);
+        
+        // FIX: Only append destination if placeId is actually present
+        if (placeId) {
+            formData.append('destination', placeId);
+        }
         
         if (validIdImage && isNewKycImage) {
             const uri = validIdImage;
@@ -181,7 +185,17 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 
         } catch (error) {
             console.error("Action failed:", error);
-            // ... Error handling remains the same
+            // FIX: Enhanced Error Handling for 400 Bad Request to show backend message
+            if (error.response && error.response.data) {
+                const errorData = error.response.data;
+                const errorMsg = typeof errorData === 'object' 
+                    ? Object.entries(errorData).map(([k, v]) => `${k}: ${v}`).join('\n')
+                    : String(errorData);
+                
+                Alert.alert("Booking Error", errorMsg);
+            } else {
+                Alert.alert("Error", "Something went wrong processing your request.");
+            }
         } finally {
             setIsLoading(false);
         }
@@ -199,7 +213,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         router.replace('/(protected)/home');
     };
 
-    // --- RECEIPT COMPONENT HELPER ---
     const DashedLine = () => (
         <View style={styles.dashedLineContainer}>
             {[...Array(30)].map((_, i) => (
@@ -435,16 +448,12 @@ const styles = StyleSheet.create({
     itemText: {
         fontSize: 14, color: '#334155', fontWeight: '500'
     },
-    
-    // Dashed Line
     dashedLineContainer: {
         flexDirection: 'row', justifyContent: 'space-between', overflow: 'hidden', marginBottom: 20
     },
     dash: {
         width: 6, height: 1, backgroundColor: '#CBD5E1', marginRight: 4
     },
-
-    // Billing
     billRow: {
         flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8
     },
@@ -454,8 +463,6 @@ const styles = StyleSheet.create({
     billValue: {
         fontSize: 13, color: '#1E293B', fontWeight: '600', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace'
     },
-
-    // Footer
     receiptFooter: {
         padding: 20,
         backgroundColor: '#F8FAFC',
@@ -487,8 +494,6 @@ const styles = StyleSheet.create({
     secureText: {
         textAlign: 'center', fontSize: 10, color: '#94A3B8'
     },
-
-    // SUCCESS SCREEN
     successContainer: {
         flex: 1, backgroundColor: '#0072FF', justifyContent: 'center', alignItems: 'center'
     },

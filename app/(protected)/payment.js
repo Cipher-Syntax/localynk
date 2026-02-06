@@ -80,10 +80,10 @@ const Payment = () => {
     const [errorModalVisible, setErrorModalVisible] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
 
-    // --- PRICE COMPONENTS (Fixed Variable Names) ---
+    // --- PRICE COMPONENTS ---
     const tourCostGroup = basePrice ? parseFloat(basePrice) : 500;
     const tourCostSolo = soloPrice ? parseFloat(soloPrice) : tourCostGroup;
-    const accomCost = accommodationPrice ? parseFloat(accommodationPrice) : 0; // Defined correctly
+    const accomCost = accommodationPrice ? parseFloat(accommodationPrice) : 0; 
     const extraPersonFee = additionalFee ? parseFloat(additionalFee) : 0;
     
     const bookingEntity = {
@@ -97,7 +97,13 @@ const Payment = () => {
     
     const accomEntity = accommodationId ? { name: accommodationName || "Selected Accommodation", price: accomCost } : null;
 
-    const formatDateForCalendar = (date) => date.toISOString().split('T')[0];
+    const formatDateForCalendar = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
     const getImageUrl = (imgPath) => {
         if (!imgPath || imgPath.startsWith('http') || imgPath.startsWith('file://')) return imgPath;
         const base = api.defaults.baseURL || 'http://127.0.0.1:8000';
@@ -129,7 +135,6 @@ const Payment = () => {
         { key: 'card', name: 'Card', icon: 'card-outline' },
     ];
 
-    // SYNC DATA IF BOOKING EXISTS
     useEffect(() => {
         if (fetchedBooking) {
             if (fetchedBooking.check_in) setStartDate(new Date(fetchedBooking.check_in));
@@ -176,42 +181,76 @@ const Payment = () => {
         const endCalc = new Date();
         endCalc.setFullYear(startCalc.getFullYear() + 1);
         const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        
         const specificDates = guideAvailability?.specific_available_dates || [];
         const recurringDays = guideAvailability?.available_days || [];
 
         for (let d = new Date(startCalc); d <= endCalc; d.setDate(d.getDate() + 1)) {
-            const dateStr = d.toISOString().split('T')[0];
-            if (dateStr < new Date().toISOString().split('T')[0]) {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const dateStr = `${year}-${month}-${day}`;
+
+            const today = new Date();
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+            
+            if (dateStr < todayStr) {
                 marked[dateStr] = { disabled: true, disableTouchEvent: true, textColor: '#d9d9d9' };
                 continue;
             }
+
             if (blockedDates.includes(dateStr)) {
-                marked[dateStr] = { disabled: true, disableTouchEvent: true, color: '#FFEBEE', textColor: '#D32F2F', marked: true, dotColor: '#D32F2F' };
+                marked[dateStr] = { 
+                    disabled: true, 
+                    disableTouchEvent: true, 
+                    color: '#FFEBEE', 
+                    textColor: '#D32F2F', 
+                    marked: true, 
+                    dotColor: '#D32F2F' 
+                };
                 continue;
             }
+
             if (isAgency) {
                 marked[dateStr] = { disabled: false, textColor: TEXT_PRIMARY };
             } else {
                 const dayName = dayNames[d.getDay()];
                 const isSpecific = specificDates.includes(dateStr);
                 const isRecurring = recurringDays.includes("All") || recurringDays.includes(dayName);
-                if (isSpecific || isRecurring) marked[dateStr] = { disabled: false, textColor: TEXT_PRIMARY };
-                else marked[dateStr] = { disabled: true, disableTouchEvent: true, textColor: '#d9d9d9', color: '#f9f9f9' };
+                
+                if (isSpecific || isRecurring) {
+                    marked[dateStr] = { disabled: false, textColor: TEXT_PRIMARY };
+                } else {
+                    marked[dateStr] = { 
+                        disabled: true, 
+                        disableTouchEvent: true, 
+                        textColor: '#d9d9d9', 
+                        color: '#f9f9f9' 
+                    };
+                }
             }
         }
 
         const startStr = formatDateForCalendar(startDate);
         const endStr = formatDateForCalendar(endDate);
-        if (marked[startStr] && !marked[startStr].disabled) marked[startStr] = { ...marked[startStr], selected: true, selectedColor: PRIMARY_COLOR, textColor: '#fff' };
-        if (marked[endStr] && !marked[endStr].disabled) marked[endStr] = { ...marked[endStr], selected: true, selectedColor: PRIMARY_COLOR, textColor: '#fff' };
+        
+        if (marked[startStr] && !marked[startStr].disabled) {
+            marked[startStr] = { ...marked[startStr], selected: true, selectedColor: PRIMARY_COLOR, textColor: '#fff' };
+        }
+        if (marked[endStr] && !marked[endStr].disabled) {
+            marked[endStr] = { ...marked[endStr], selected: true, selectedColor: PRIMARY_COLOR, textColor: '#fff' };
+        }
         
         let curr = new Date(startDate);
         curr.setDate(curr.getDate() + 1);
         while (curr < endDate) {
-             const str = curr.toISOString().split('T')[0];
-             if (marked[str] && !marked[str].disabled) marked[str] = { ...marked[str], selected: true, selectedColor: '#E0F2FE', textColor: PRIMARY_COLOR };
+             const str = formatDateForCalendar(curr);
+             if (marked[str] && !marked[str].disabled && !marked[str].color?.includes('FFEBEE')) {
+                 marked[str] = { ...marked[str], selected: true, selectedColor: '#E0F2FE', textColor: PRIMARY_COLOR };
+             }
              curr.setDate(curr.getDate() + 1);
         }
+        
         return marked;
     }, [guideAvailability, startDate, endDate, isAgency, blockedDates]);
 
@@ -220,7 +259,11 @@ const Payment = () => {
 
     const onDayPress = (day) => {
         const selectedDate = new Date(day.dateString);
-        if (blockedDates.includes(day.dateString)) { showError("This date has already been booked by another traveler."); return; }
+        
+        if (blockedDates.includes(day.dateString)) { 
+            showError("This date has already been booked by another traveler."); 
+            return; 
+        }
 
         if (selectingType === 'start') {
             setStartDate(selectedDate);
@@ -238,10 +281,12 @@ const Payment = () => {
                 setTimeout(() => showError("End date cannot be before start date."), 300);
                 return;
             }
+            
             let curr = new Date(startDate);
             let hasBlock = false;
             while(curr <= selectedDate) {
-                if(blockedDates.includes(curr.toISOString().split('T')[0])) { hasBlock = true; break; }
+                const checkStr = formatDateForCalendar(curr);
+                if(blockedDates.includes(checkStr)) { hasBlock = true; break; }
                 curr.setDate(curr.getDate() + 1);
             }
             if(hasBlock) {
@@ -249,6 +294,34 @@ const Payment = () => {
                  setTimeout(() => showError("Your selected range includes dates that are already booked."), 300);
                  return;
             }
+            
+            if (!isAgency && guideAvailability) {
+                let checkCurr = new Date(startDate);
+                let hasUnavailable = false;
+                const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                const specificDates = guideAvailability.specific_available_dates || [];
+                const recurringDays = guideAvailability.available_days || [];
+
+                while(checkCurr <= selectedDate) {
+                    const dStr = formatDateForCalendar(checkCurr);
+                    const dayName = dayNames[checkCurr.getDay()];
+                    const isSpecific = specificDates.includes(dStr);
+                    const isRecurring = recurringDays.includes("All") || recurringDays.includes(dayName);
+
+                    if (!isSpecific && !isRecurring) {
+                        hasUnavailable = true;
+                        break;
+                    }
+                    checkCurr.setDate(checkCurr.getDate() + 1);
+                }
+
+                if (hasUnavailable) {
+                    setCalendarVisible(false);
+                    setTimeout(() => showError("Your selected range includes dates the guide is not working."), 300);
+                    return;
+                }
+            }
+
             setEndDate(selectedDate);
             setCalendarVisible(false);
         }
@@ -280,7 +353,6 @@ const Payment = () => {
         if (startStr === endStr) { showError("You cannot book start and end date on the same day."); return; }
         if (startDate > endDate) { showError("End date cannot be before start date."); return; }
         
-        // Strict KYC only if Request Mode. If Payable, allow proceed (KYC likely done).
         if (!validIdImage && !isPayable) { showError("Please upload a valid government ID to proceed."); return; }
         if (!userSelfieImage && !isPayable) { showError("Please take a selfie for identity verification."); return; }
         
@@ -304,7 +376,6 @@ const Payment = () => {
         }
         setCurrentGuideFee(guideFee);
         
-        // Use accomCost here (Matched variable name)
         const dailyTotal = guideFee + extraFees + accomCost;
         const grandTotal = dailyTotal * numDays;
         
@@ -376,7 +447,6 @@ const Payment = () => {
                                 </View>
                             </View>
 
-                            {/* DATES & CONFIGURATION */}
                             <View style={[isPayable && {opacity: 0.7}]}>
                                 <Text style={styles.sectionTitle}>Trip Details</Text>
                                 <View style={styles.datesRow}>
@@ -420,7 +490,6 @@ const Payment = () => {
                                 )}
                             </View>
 
-                            {/* Billing & KYC - Hide if paying existing booking */}
                             {!isPayable && (
                                 <>
                                     <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Billing Details</Text>
@@ -460,8 +529,8 @@ const Payment = () => {
                                 </>
                             )}
 
-                            {/* Payment Method - Show if Payable or Confirmed */}
-                            {(isPayable || isConfirmed) && (
+                            {/* --- FIX: ALWAYS VISIBLE PAYMENT METHODS --- */}
+                            {(isRequestMode || isPayable || isConfirmed) && (
                                 <>
                                     <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Payment Method</Text>
                                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.paymentScroll}>
@@ -521,7 +590,6 @@ const Payment = () => {
                     </ScrollView>
                 </KeyboardAvoidingView>
 
-                {/* BOTTOM ACTION BAR */}
                 {!isConfirmed ? (
                     <View style={styles.bottomBar}>
                         <View>
@@ -542,7 +610,6 @@ const Payment = () => {
                     </View>
                 )}
 
-                {/* MODALS */}
                 <Modal visible={isCalendarVisible} transparent={true} animationType="slide">
                     <View style={styles.modalOverlay}>
                         <View style={styles.calendarCard}>
@@ -631,14 +698,11 @@ const styles = StyleSheet.create({
     dateValueRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     dateValue: { fontSize: 14, fontWeight: '700', color: TEXT_PRIMARY },
     connector: { width: 10, height: 1, backgroundColor: '#CBD5E1', marginHorizontal: 10 },
-    
-    // UPDATED SWITCH STYLES
     switchContainer: { flexDirection: 'row', backgroundColor: '#F1F5F9', borderRadius: 12, padding: 4, marginBottom: 16 },
     switchOption: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
     switchActive: { backgroundColor: PRIMARY_COLOR, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
     switchText: { fontSize: 14, fontWeight: '600', color: TEXT_SECONDARY },
-    switchTextActive: { color: '#FFFFFF', fontWeight: '700' }, // WHITE text on BLUE bg
-
+    switchTextActive: { color: '#FFFFFF', fontWeight: '700' },
     modernInput: { backgroundColor: SURFACE_COLOR, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: TEXT_PRIMARY },
     inputRow: { flexDirection: 'row' },
     inputGroup: { marginBottom: 20 },

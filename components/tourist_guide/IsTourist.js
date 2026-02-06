@@ -29,10 +29,17 @@ const IsTourist = () => {
             const bookingRes = await api.get('/api/bookings/', {
                 params: { view_as: 'guide' }
             });
+            
             // Filter to show primarily Confirmed bookings (Upcoming Trips)
-            // You can also show Completed if you like.
-            const sorted = bookingRes.data.filter(b => b.status === 'Confirmed' || b.status === 'Completed')
-                                          .sort((a,b) => new Date(b.check_in) - new Date(a.check_in));
+            // Added check: b.tourist_id !== user.id to ensure I don't see my own trips
+            const sorted = bookingRes.data
+                .filter(b => {
+                    const isMyOwnTrip = b.tourist_id === user?.id;
+                    const isValidStatus = b.status === 'Confirmed' || b.status === 'Completed';
+                    return isValidStatus && !isMyOwnTrip; 
+                })
+                .sort((a,b) => new Date(b.check_in) - new Date(a.check_in));
+                
             setBookings(sorted);
         } catch (error) {
             console.error('Failed to fetch dashboard data:', error);
