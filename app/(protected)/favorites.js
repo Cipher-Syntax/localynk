@@ -1,53 +1,39 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, ScrollView, StyleSheet, StatusBar, Image, Text, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
 import { User } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter, useFocusEffect } from 'expo-router';
 import api from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
 
-const GuideSelection = () => {
-    const { placeId, placeName } = useLocalSearchParams();
+const Favorites = () => {
     const router = useRouter();
     const { user } = useAuth();
     
     const [loading, setLoading] = useState(true);
     const [guides, setGuides] = useState([]);
-    const [favorites, setFavorites] = useState(new Set());
     
     const [errorModalVisible, setErrorModalVisible] = useState(false);
 
-    useEffect(() => {
-        const fetchGuidesAndFavorites = async () => {
-            if (!placeId || placeId === 'undefined' || placeId === 'null') {
-                console.log("Invalid Place ID, skipping fetch");
-                setLoading(false);
-                return;
-            }
+    const fetchFavorites = async () => {
+        try {
+            setLoading(true);
+            const response = await api.get('/api/favorites/');
+            setGuides(response.data || []);
+        } catch (error) {
+            console.error('Failed to fetch favorites:', error);
+            setGuides([]);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-            try {
-                // Fetch guides for the location
-                const guidesResponse = await api.get(`/api/guide-list/?main_destination=${placeId}`);
-                const guidesData = Array.isArray(guidesResponse.data) ? guidesResponse.data : [];
-                setGuides(guidesData);
-                
-                // Fetch user's existing favorites
-                const favoritesResponse = await api.get('/api/favorites/');
-                const favoriteIds = new Set(favoritesResponse.data.map(guide => guide.id));
-                setFavorites(favoriteIds);
-
-            } catch (error) {
-                console.error('Failed to fetch data:', error);
-                setGuides([]);
-            } finally {
-                setLoading(false);
-            }
-        };
-        
-        fetchGuidesAndFavorites();
-    }, [placeId]);
+    useFocusEffect(
+        useCallback(() => {
+            fetchFavorites();
+        }, [])
+    );
 
     const getImageUrl = (imgPath) => {
         if (!imgPath) return null;
@@ -88,39 +74,27 @@ const GuideSelection = () => {
 
     const handleChooseGuide = (guide) => {
         if (user && guide && String(user.id) === String(guide.id)) {
-            console.log("MATCH DETECTED! You cannot book yourself.");
             setErrorModalVisible(true);
             return;
         }
 
+        // Navigate to the list of destinations/tours for this guide
         router.push({
-            pathname: "/(protected)/guideAvailability",
+            pathname: "/(protected)/guideTours",
             params: { 
                 guideId: guide.id, 
                 guideName: guide.guide_name || `${guide.first_name} ${guide.last_name}`,
-                itinerary: guide.tour_itinerary || '',
-                availableDays: JSON.stringify(guide.available_days || []),
-                price: guide.price_per_day,
-                placeId: placeId,
-                placeName: placeName
             }
         });
     };
 
-    const toggleFavorite = async (guideId) => {
+    const removeFavorite = async (guideId) => {
         try {
             await api.post('/api/favorites/toggle/', { guide_id: guideId });
-            setFavorites(prev => {
-                const newFavorites = new Set(prev);
-                if (newFavorites.has(guideId)) {
-                    newFavorites.delete(guideId);
-                } else {
-                    newFavorites.add(guideId);
-                }
-                return newFavorites;
-            });
+            // Remove from local state immediately
+            setGuides(prev => prev.filter(g => g.id !== guideId));
         } catch (error) {
-            console.error("Error toggling favorite:", error);
+            console.error("Error removing favorite:", error);
         }
     };
     
@@ -150,11 +124,12 @@ const GuideSelection = () => {
                         <Ionicons name="arrow-back" size={24} color="#fff" />
                     </TouchableOpacity>
 
-                    <Text style={styles.headerTitle}>EXPLORE PERFECT GUIDE FOR YOU</Text>
+                    <Text style={styles.headerTitle}>MY FAVORITE GUIDES</Text>
                 </View>
                 <View style={styles.emptyContainer}>
-                    <Text style={styles.emptyText}>No guides available for {placeName} yet.</Text>
-                    <Text style={styles.emptySubtext}>Check back soon!</Text>
+                    <Ionicons name="heart-outline" size={60} color="#D1D5DB" />
+                    <Text style={styles.emptyText}>No favorite guides yet.</Text>
+                    <Text style={styles.emptySubtext}>Mark guides as favorites to see them here.</Text>
                 </View>
             </ScrollView>
         );
@@ -179,12 +154,12 @@ const GuideSelection = () => {
                         <Ionicons name="arrow-back" size={24} color="#fff" />
                     </TouchableOpacity>
 
-                    <Text style={styles.headerTitle}>EXPLORE PERFECT GUIDE FOR YOU</Text>
+                    <Text style={styles.headerTitle}>MY FAVORITE GUIDES</Text>
                 </View>
 
                 <View style={styles.destinationInfo}>
-                    <Text style={styles.destinationName}>{placeName}</Text>
-                    <Text style={styles.guideCount}>{guides.length} guide{guides.length !== 1 ? 's' : ''} available</Text>
+                    <Text style={styles.destinationName}>Saved Guides</Text>
+                    <Text style={styles.guideCount}>{guides.length} guide{guides.length !== 1 ? 's' : ''} saved</Text>
                 </View>
 
                 <View style={styles.contentContainer}>
@@ -214,9 +189,9 @@ const GuideSelection = () => {
                                     </Text>
                                 </View>
 
-                                <TouchableOpacity onPress={() => toggleFavorite(guide.id)}>
+                                <TouchableOpacity onPress={() => removeFavorite(guide.id)}>
                                     <Ionicons 
-                                        name={favorites.has(guide.id) ? "heart" : "heart-outline"} 
+                                        name="heart" 
                                         size={22} 
                                         color="#FF5A5F" 
                                     />
@@ -251,7 +226,7 @@ const GuideSelection = () => {
                                 activeOpacity={0.8} 
                                 onPress={() => handleChooseGuide(guide)}
                             >
-                                <Text style={styles.bookButton}>CHOOSE THIS GUIDE</Text>
+                                <Text style={styles.bookButton}>VIEW AVAILABLE DESTINATIONS</Text>
                             </TouchableOpacity>
                         </View>
                     ))}
@@ -286,13 +261,13 @@ const GuideSelection = () => {
     );
 };
 
-export default GuideSelection;
+export default Favorites;
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#fff' },
     loadingCenter: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: '#fff' },
     emptyContainer: { flex: 1, justifyContent: "center", alignItems: "center", paddingVertical: 60, paddingHorizontal: 20 },
-    emptyText: { fontSize: 18, color: '#1A2332', fontWeight: '600', textAlign: 'center' },
+    emptyText: { fontSize: 18, color: '#1A2332', fontWeight: '600', textAlign: 'center', marginTop: 16 },
     emptySubtext: { fontSize: 14, color: '#8B98A8', marginTop: 8, textAlign: 'center' },
     
     header: { height: 120, justifyContent: 'center' },
