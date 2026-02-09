@@ -93,6 +93,12 @@ export default function PlacesDetails() {
                         colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
                         style={styles.overlay}
                     />
+                    
+                    {/* --- ADDED BACK BUTTON --- */}
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                        <Ionicons name="arrow-back" size={24} color="#fff" />
+                    </TouchableOpacity>
+
                     <Text style={styles.headerTitle}>EXPLORE YOUR NEXT DESTINATION</Text>
                 </View>
 
@@ -268,6 +274,9 @@ const styles = StyleSheet.create({
     headerImage: { width: '100%', height: '100%', resizeMode: 'cover', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     headerTitle: { position: 'absolute', bottom: 15, left: 20, color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 1 },
+
+    // --- ADDED BACK BUTTON STYLE ---
+    backButton: { position: 'absolute', top: 20, left: 20, padding: 5, zIndex: 10 },
 
     heroContainer: { height: 280, margin: 15, borderRadius: 24, overflow: 'hidden', position: 'relative', elevation: 5, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: {width:0, height: 5} },
     heroImage: { width: '100%', height: '100%', resizeMode: 'cover' },

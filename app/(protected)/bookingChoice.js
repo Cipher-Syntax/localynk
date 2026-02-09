@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Image 
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
 const BookingChoice = () => {
     const router = useRouter();
@@ -114,6 +115,12 @@ const BookingChoice = () => {
                         colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
                         style={styles.overlay}
                     />
+                    
+                    {/* --- ADDED BACK BUTTON --- */}
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                        <Ionicons name="arrow-back" size={24} color="#fff" />
+                    </TouchableOpacity>
+
                     <Text style={styles.headerTitle}>CHOOSE BOOKING TYPE</Text>
                 </View>
 
@@ -210,6 +217,14 @@ const styles = StyleSheet.create({
         ...StyleSheet.absoluteFillObject,
         borderBottomLeftRadius: 25,
         borderBottomRightRadius: 25,
+    },
+    // --- ADDED BACK BUTTON STYLE ---
+    backButton: { 
+        position: 'absolute', 
+        top: 20, 
+        left: 20, 
+        padding: 5, 
+        zIndex: 10 
     },
     headerTitle: {
         position: 'absolute',

@@ -122,6 +122,12 @@ const GuideSelection = () => {
                         colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
                         style={styles.overlay}
                     />
+                    
+                    {/* --- ADDED BACK BUTTON --- */}
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                        <Ionicons name="arrow-back" size={24} color="#fff" />
+                    </TouchableOpacity>
+
                     <Text style={styles.headerTitle}>EXPLORE PERFECT GUIDE FOR YOU</Text>
                 </View>
                 <View style={styles.emptyContainer}>
@@ -146,6 +152,12 @@ const GuideSelection = () => {
                         colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']}
                         style={styles.overlay}
                     />
+                    
+                    {/* --- ADDED BACK BUTTON --- */}
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                        <Ionicons name="arrow-back" size={24} color="#fff" />
+                    </TouchableOpacity>
+
                     <Text style={styles.headerTitle}>EXPLORE PERFECT GUIDE FOR YOU</Text>
                 </View>
 
@@ -263,6 +275,15 @@ const styles = StyleSheet.create({
     overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     headerTitle: { position: 'absolute', bottom: 15, left: 20, color: '#fff', fontSize: 18, fontWeight: '700' },
     
+    // --- ADDED BACK BUTTON STYLE ---
+    backButton: { 
+        position: 'absolute', 
+        top: 20, 
+        left: 20, 
+        padding: 5, 
+        zIndex: 10 
+    },
+
     destinationInfo: { paddingHorizontal: 16, paddingVertical: 16, backgroundColor: '#F5F7FA', borderBottomWidth: 1, borderBottomColor: '#E0E6ED' },
     destinationName: { fontSize: 18, fontWeight: '700', color: '#1A2332', marginBottom: 4 },
     guideCount: { fontSize: 13, color: '#8B98A8' },

@@ -199,6 +199,12 @@ const Notifications = () => {
                 <View style={styles.header}>
                     <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} />
                     <LinearGradient colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']} style={styles.overlay} />
+                    
+                    {/* --- ADDED BACK BUTTON --- */}
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                        <Ionicons name="arrow-back" size={24} color="#fff" />
+                    </TouchableOpacity>
+
                     <Text style={styles.headerTitle}>NOTIFICATIONS</Text>
                 </View>
             </View>
@@ -247,6 +253,16 @@ const styles = StyleSheet.create({
     headerImage: { width: '100%', height: '100%', resizeMode: 'cover', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     headerTitle: { position: 'absolute', bottom: 15, left: 20, color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 1 },
+    
+    // --- ADDED BACK BUTTON STYLE ---
+    backButton: { 
+        position: 'absolute', 
+        top: 20, 
+        left: 20, 
+        padding: 5, 
+        zIndex: 10 
+    },
+
     actionHeader: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 20, marginTop: 15 },
     sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
     sectionTitle: { fontWeight: '700', fontSize: 16, color: '#0A2342', marginHorizontal: 20, marginTop: 10 },
