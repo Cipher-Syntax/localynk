@@ -1,10 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import api from '../api/api';
+import api, { setApiToken } from '../api/api';
 import { ACCESS_TOKEN, REFRESH_TOKEN } from '../constants/constants';
 import { useRouter } from 'expo-router';
-import { setApiToken } from '../api/api';
 
 const AuthContext = createContext();
 
@@ -17,6 +16,9 @@ export function AuthProvider({ children }) {
         message: null,
         messageType: null,
     });
+    
+    // NEW: Session variable to track if user skipped onboarding this session
+    const [hasSkippedOnboarding, setHasSkippedOnboarding] = useState(false);
     
     const router = useRouter();
 
@@ -100,7 +102,6 @@ export function AuthProvider({ children }) {
         loadStoredUser();
     }, []);
 
-
     const login = async (username, password) => {
         setState(prev => ({ ...prev, isLoading: true, message: null }));
 
@@ -141,7 +142,6 @@ export function AuthProvider({ children }) {
             return user; 
         } 
         catch (error) {
-
             let msg = "Invalid username or password";
             const errorDetail = error.response?.data?.detail;
 
@@ -215,8 +215,9 @@ export function AuthProvider({ children }) {
     const logout = async (shouldRedirect = true) => {
         try {
             await AsyncStorage.multiRemove([ACCESS_TOKEN, REFRESH_TOKEN]);
-            
             setApiToken(null); 
+            // Reset skip state on logout
+            setHasSkippedOnboarding(false);
 
             setState({
                 isAuthenticated: false,
@@ -260,6 +261,8 @@ export function AuthProvider({ children }) {
         return {
             ...state,
             role,
+            hasSkippedOnboarding, // Export the state
+            setHasSkippedOnboarding, // Export the setter
             login,
             register,
             logout,
@@ -268,7 +271,7 @@ export function AuthProvider({ children }) {
             resendVerificationEmail,
             clearMessage,
         }
-    }, [state]);
+    }, [state, hasSkippedOnboarding]);
 
     if (state.isLoading) {
         return (

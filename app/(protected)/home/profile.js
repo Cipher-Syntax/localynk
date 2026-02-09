@@ -122,25 +122,29 @@ const Profile = () => {
         } : null
     };
 
+    // Updated Tourist Settings to include Personalization
     const touristSettingsItems = [
         { id: 1, icon: "bookmarks", label: "My Bookings", route: '/(protected)/bookings' },
         { id: 2, icon: "heart", label: "Favorite Guides", route: '/favorites' },
-        { id: 3, icon: "card", label: "Payment Methods", route: '/payments' },
-        { id: 4, icon: "shield-checkmark", label: "Privacy & Security", route: '/privacy' },
-        // UPDATED ROUTE HERE
-        { id: 5, icon: "help-circle", label: "Help & Support", route: '/(protected)/support' }
+        // NEW ITEM
+        { id: 3, icon: "map", label: "My Travel Interests", route: '/(protected)/onboarding/personalization?mode=edit' },
+        { id: 4, icon: "card", label: "Payment Methods", route: '/payments' },
+        { id: 5, icon: "shield-checkmark", label: "Privacy & Security", route: '/privacy' },
+        { id: 6, icon: "help-circle", label: "Help & Support", route: '/(protected)/support' }
     ];
 
+    // Updated Guide Settings to include Personalization
     const guideSettingsItems = [
         { id: 1, icon: "calendar", label: "My Bookings", route: '/(protected)/bookings' },
         { id: 2, icon: "heart", label: "Favorite Guides", route: '/favorites' },
-        { id: 3, icon: "business", label: "View Accommodations", route: `/(protected)/viewAccommodations?userId=${profile.id}` },
-        { id: 4, icon: "wallet", label: "Earnings & Payouts", route: '/earnings' },
-        { id: 5, icon: "star", label: "Reviews & Ratings", route: '/myReviews' },
-        { id: 6, icon: "settings", label: "Guide Settings", route: '/guide-settings' },
-        { id: 7, icon: "shield-checkmark", label: "Privacy & Security", route: '/privacy' },
-        // ADDED ITEM HERE
-        { id: 8, icon: "help-circle", label: "Help & Support", route: '/(protected)/support' }
+        // NEW ITEM
+        { id: 3, icon: "map", label: "My Travel Interests", route: '/(protected)/onboarding/personalization?mode=edit' },
+        { id: 4, icon: "business", label: "View Accommodations", route: `/(protected)/viewAccommodations?userId=${profile.id}` },
+        { id: 5, icon: "wallet", label: "Earnings & Payouts", route: '/earnings' },
+        { id: 6, icon: "star", label: "Reviews & Ratings", route: '/myReviews' },
+        { id: 7, icon: "settings", label: "Guide Settings", route: '/guide-settings' },
+        { id: 8, icon: "shield-checkmark", label: "Privacy & Security", route: '/privacy' },
+        { id: 9, icon: "help-circle", label: "Help & Support", route: '/(protected)/support' }
     ];
 
     const menuItems = isGuide ? guideSettingsItems : touristSettingsItems;

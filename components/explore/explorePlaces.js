@@ -1,10 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, StatusBar, Image, Text, TouchableOpacity, ImageBackground, Animated, Easing, TextInput, Dimensions, FlatList, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, StatusBar, Image, Text, TouchableOpacity, Animated, Easing, TextInput, Dimensions, FlatList, ActivityIndicator } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
 import { User } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import api from '../../api/api';
+
+// Fallback image if none exists
+const FALLBACK_IMAGE = require('../../assets/localynk_images/discover1.png'); 
 
 const { width } = Dimensions.get('window');
 const GAP = 12;
@@ -192,29 +195,55 @@ const ExplorePlaces = () => {
         </View>
     );
 
+    // --- UPDATED PLACE CARD COMPONENT (Matches HomePlacesBrowse) ---
     const PlaceCardBento = ({ item, style }) => {
         const imageSource = item.image || item.first_image || item.thumbnail
             ? { uri: item.image || item.first_image || item.thumbnail }
-            : null;
+            : FALLBACK_IMAGE;
+
         return (
-            <TouchableOpacity
-                style={[styles.bentoCard, style]}
-                activeOpacity={0.9}
+            <TouchableOpacity 
+                style={[styles.placeCard, style]} 
                 onPress={() => router.push({
                     pathname: "/(protected)/placesDetails",
-                    params: { id: item.id.toString(), image: item.image || item.first_image || '' },
+                    params: { id: item.id.toString() },
                 })}
+                activeOpacity={0.9}
             >
-                <ImageBackground source={imageSource} style={styles.placeImageBento} imageStyle={{ borderRadius: 15 }}>
-                    <View style={styles.placeOverlayBento} />
-                    <View style={styles.placeContentBento}>
-                        <Text style={styles.placeNameBento} numberOfLines={2}>{item.name}</Text>
-                        <View style={styles.placeLocRow}>
-                            <Ionicons name="location" size={10} color="#00C6FF" />
-                            <Text style={styles.placeLocText} numberOfLines={1}>{item.location || 'Zamboanga City'}</Text>
-                        </View>
+                <Image 
+                    source={imageSource} 
+                    style={styles.placeImage} 
+                    resizeMode="cover" 
+                />
+                
+                {/* --- CATEGORY BADGE --- */}
+                {item.category && (
+                    <View style={styles.categoryBadge}>
+                        <Text style={styles.categoryText}>{item.category}</Text>
                     </View>
-                </ImageBackground>
+                )}
+
+                {/* --- GRADIENT & INFO --- */}
+                <LinearGradient 
+                    colors={['transparent', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.8)']} 
+                    style={styles.gradient} 
+                />
+                
+                <View style={styles.infoOverlay}>
+                    <View style={styles.placeNameRow}>
+                        <Text style={styles.placeName} numberOfLines={1}>{item.name}</Text>
+                        {item.average_rating && (
+                             <View style={styles.ratingContainer}>
+                                <Ionicons name="star" size={8} color="#FFD700" />
+                                <Text style={styles.ratingText}>{parseFloat(item.average_rating).toFixed(1)}</Text>
+                            </View>
+                        )}
+                    </View>
+                    <View style={styles.placeLocationRow}>
+                        <Ionicons name="location" size={10} color="#fff" />
+                        <Text style={styles.placeLocation} numberOfLines={1}>{item.location || 'Zamboanga City'}</Text>
+                    </View>
+                </View>
             </TouchableOpacity>
         );
     };
@@ -313,7 +342,6 @@ const ExplorePlaces = () => {
         return <View style={styles.emptyContainer}><Text style={styles.emptyText}>No results found.</Text></View>;
     };
 
-
     const displayData = activeTab === 'guides' ? filteredGuides : chunkData(filteredPlaces, 3);
 
     return (
@@ -362,14 +390,33 @@ const styles = StyleSheet.create({
 
     rowContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: GAP, marginHorizontal: PADDING },
     columnContainer: { width: '33%', justifyContent: 'space-between', height: LARGE_HEIGHT },
-    bentoCard: { borderRadius: 15, overflow: 'hidden', backgroundColor: '#F5F7FA', borderWidth: 1, borderColor: '#E0E6ED' },
-    placeImageBento: { width: '100%', height: '100%', justifyContent: 'flex-end' },
-    placeOverlayBento: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 15 },
-    placeContentBento: { padding: 10 },
-    placeNameBento: { color: '#fff', fontSize: 14, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3, marginBottom: 4 },
-    placeLocRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-    placeLocText: { color: '#eee', fontSize: 10, flex: 1 },
 
+    // --- NEW PLACE CARD STYLES ---
+    placeCard: { 
+        borderRadius: 16, 
+        overflow: 'hidden', 
+        backgroundColor: '#f0f0f0', 
+        elevation: 2, 
+        position: 'relative' 
+    },
+    placeImage: { width: '100%', height: '100%' },
+    gradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: '60%', zIndex: 1 },
+    
+    infoOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 10, zIndex: 2 },
+    placeNameRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
+    placeName: { fontSize: 13, fontWeight: '700', color: '#fff', flex: 1, marginRight: 5, textShadowColor: 'rgba(0, 0, 0, 0.5)', textShadowRadius: 3 },
+    
+    placeLocationRow: { flexDirection: 'row', alignItems: 'center' },
+    placeLocation: { fontSize: 10, color: 'rgba(255,255,255,0.9)', marginLeft: 4, flex: 1, fontWeight: '500' },
+    
+    // Badge Styles
+    categoryBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, zIndex: 5 },
+    categoryText: { color: '#fff', fontSize: 9, fontWeight: '700', textTransform: 'uppercase' },
+    
+    ratingContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 4, paddingVertical: 2, borderRadius: 4 },
+    ratingText: { color: '#fff', fontSize: 9, fontWeight: '700', marginLeft: 2 },
+
+    // --- GUIDE CARD STYLES ---
     guideCardStack: { 
         backgroundColor: '#F5F7FA', 
         borderRadius: 15, 
