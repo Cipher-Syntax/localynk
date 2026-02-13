@@ -195,7 +195,6 @@ const ExplorePlaces = () => {
         </View>
     );
 
-    // --- UPDATED PLACE CARD COMPONENT (Matches HomePlacesBrowse) ---
     const PlaceCardBento = ({ item, style }) => {
         const imageSource = item.image || item.first_image || item.thumbnail
             ? { uri: item.image || item.first_image || item.thumbnail }
@@ -216,14 +215,12 @@ const ExplorePlaces = () => {
                     resizeMode="cover" 
                 />
                 
-                {/* --- CATEGORY BADGE --- */}
                 {item.category && (
                     <View style={styles.categoryBadge}>
                         <Text style={styles.categoryText}>{item.category}</Text>
                     </View>
                 )}
 
-                {/* --- GRADIENT & INFO --- */}
                 <LinearGradient 
                     colors={['transparent', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.8)']} 
                     style={styles.gradient} 
@@ -294,6 +291,12 @@ const ExplorePlaces = () => {
             <View style={styles.header}>
                 <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} />
                 <LinearGradient colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']} style={styles.overlay} />
+                
+                {/* Back Button Added Here */}
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                    <Ionicons name="arrow-back" size={24} color="#fff" />
+                </TouchableOpacity>
+
                 <Text style={styles.headerTitle}>EXPLORE {activeTab === 'guides' ? 'GUIDES' : 'PLACES'}</Text>
             </View>
 
@@ -374,6 +377,17 @@ const styles = StyleSheet.create({
     overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     headerTitle: { position: 'absolute', bottom: 15, left: 20, color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 1 },
     
+    // Back Button Style
+    backButton: {
+        position: 'absolute',
+        top: 20, // Adjusted for spacing
+        left: 20,
+        zIndex: 10,
+        backgroundColor: 'rgba(0,0,0,0.3)', // Semi-transparent background for visibility
+        padding: 6,
+        borderRadius: 20,
+    },
+
     searchFilterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, gap: 10 },
     searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#EBF0F5', borderRadius: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: '#D0DAE3' },
     searchIcon: { marginRight: 8 },
