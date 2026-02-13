@@ -4,6 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import api from '../../../api/api';
+// [1] IMPORT useAuth
+import { useAuth } from '../../../context/AuthContext'; 
 
 const CustomCheckbox = ({ value, onValueChange }) => {
     return (
@@ -21,6 +23,8 @@ const OnboardingTerms = () => {
     const [isChecked, setIsChecked] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const router = useRouter();
+    // [2] DESTRUCTURE refreshUser
+    const { refreshUser } = useAuth(); 
 
     const handleContinue = async () => {
         if (!isChecked) {
@@ -30,6 +34,12 @@ const OnboardingTerms = () => {
         setIsSubmitting(true);
         try {
             await api.post('/api/accept-terms/');
+            
+            // [3] CRITICAL: Update local user state before navigating
+            await refreshUser(); 
+            
+            // Navigate to home; _layout.js will automatically redirect to Personalization
+            // because isOnboardingComplete is false.
             router.replace('/(protected)/home');
         } 
         catch (error) {

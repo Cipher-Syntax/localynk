@@ -142,13 +142,40 @@ export function AuthProvider({ children }) {
             return user; 
         } 
         catch (error) {
-            let msg = "Invalid username or password";
-            const errorDetail = error.response?.data?.detail;
+            console.log("--- LOGIN ERROR DEBUG ---");
+            console.log("Error Message:", error.message);
 
-            if (errorDetail && (
-                (typeof errorDetail === 'string' && errorDetail.toLowerCase().includes("verify")) || 
-                (typeof errorDetail === 'string' && errorDetail.toLowerCase().includes("active"))
-            )) {
+            let msg = "Invalid username or password";
+            let errorDetail = null;
+
+            // --- FIX FOR INTERCEPTOR ERROR ---
+            if (error.message === "No refresh token available") {
+                // The interceptor swallowed the original 401 error.
+                // We know login failed, so we show the default message.
+                msg = "Invalid username or password";
+            }
+            // ----------------------------------
+
+            // 1. Standard Axios: error.response.data.detail
+            else if (error.response?.data?.detail) {
+                errorDetail = error.response.data.detail;
+            }
+            // 2. Interceptor unwrapped: error.detail (if api.js unwraps it)
+            else if (error.detail) {
+                errorDetail = error.detail;
+            }
+            // 3. Alternative field: error.response.data.message
+            else if (error.response?.data?.message) {
+                errorDetail = error.response.data.message;
+            }
+            
+            // Apply found message
+            if (errorDetail && typeof errorDetail === 'string') {
+                msg = errorDetail;
+            }
+
+            // Handle "No active account" specifically
+            if (msg.toLowerCase().includes("no active account")) {
                 msg = "Please verify your email before logging in.";
             }
 
@@ -261,8 +288,8 @@ export function AuthProvider({ children }) {
         return {
             ...state,
             role,
-            hasSkippedOnboarding, // Export the state
-            setHasSkippedOnboarding, // Export the setter
+            hasSkippedOnboarding, 
+            setHasSkippedOnboarding,
             login,
             register,
             logout,

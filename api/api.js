@@ -1,6 +1,6 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ACCESS_TOKEN, REFRESH_TOKEN } from '../constants/constants';
+import { ACCESS_TOKEN, REFRESH_TOKEN } from '../constants/constants'; // Adjust path if needed
 
 const api = axios.create({
     baseURL: process.env.EXPO_PUBLIC_API_URL,
@@ -23,9 +23,11 @@ export function setApiToken(token) {
 }
 
 api.interceptors.request.use(
-    (config) => {
+    async (config) => {
+        // Ensure headers object exists
+        config.headers = config.headers || {};
+
         if (tokenCache) {
-            config.headers = config.headers || {};
             config.headers['Authorization'] = `Bearer ${tokenCache}`;
         }
         return config;
@@ -38,18 +40,31 @@ api.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
 
+        if (!originalRequest) {
+            return Promise.reject(error);
+        }
+
+
+        if (originalRequest.url && (originalRequest.url.includes('/token/') || originalRequest.url.includes('/login'))) {
+            return Promise.reject(error);
+        }
+
         const isTokenInvalid =
             error.response?.data?.code === 'token_not_valid' ||
             (error.response?.status === 401 && !originalRequest._retry);
 
-        const isRefreshEndpoint = originalRequest?.url?.includes('/api/token/refresh/');
+        const isRefreshEndpoint = originalRequest.url?.includes('/api/token/refresh/');
 
         if (isTokenInvalid && !originalRequest._retry && !isRefreshEndpoint) {
             originalRequest._retry = true;
 
             try {
                 const refresh = await AsyncStorage.getItem(REFRESH_TOKEN);
-                if (!refresh) throw new Error('No refresh token available');
+                
+
+                if (!refresh) {
+                    throw new Error('No refresh token available');
+                }
 
                 const res = await api.post('/api/token/refresh/', { refresh });
 
@@ -61,6 +76,7 @@ api.interceptors.response.use(
 
                 originalRequest.headers = originalRequest.headers || {};
                 originalRequest.headers['Authorization'] = `Bearer ${newAccess}`;
+                
                 return api(originalRequest);
             } 
             catch (refreshError) {
@@ -68,9 +84,10 @@ api.interceptors.response.use(
                     await AsyncStorage.removeItem(ACCESS_TOKEN);
                     await AsyncStorage.removeItem(REFRESH_TOKEN);
                 } catch (e) {
-                    console.log('Failed to refresh token: ', e)
+                    console.log('Failed to clear storage: ', e);
                 }
                 setApiToken(null);
+                
                 return Promise.reject(refreshError);
             }
         }
