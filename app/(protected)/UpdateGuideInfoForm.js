@@ -125,7 +125,12 @@ const UpdateGuideInfoForm = () => {
                 const daysInMonth = new Date(year, month + 1, 0).getDate();
                 for (let day = 1; day <= daysInMonth; day++) {
                     const date = new Date(year, month, day);
-                    const dateString = date.toISOString().split('T')[0];
+                    
+                    // FIX: Manually format to YYYY-MM-DD to avoid timezone shifts
+                    const yearStr = year;
+                    const monthStr = String(month + 1).padStart(2, '0');
+                    const dayStr = String(day).padStart(2, '0');
+                    const dateString = `${yearStr}-${monthStr}-${dayStr}`;
 
                     if (date < today) {
                         disabled[dateString] = { disabled: true, disableTouchEvent: true, color: '#f0f0f0', textColor: '#d9d9d9' };
