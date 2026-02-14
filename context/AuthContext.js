@@ -4,6 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import api, { setApiToken } from '../api/api';
 import { ACCESS_TOKEN, REFRESH_TOKEN } from '../constants/constants';
 import { useRouter } from 'expo-router';
+// --- CORRECT IMPORT ADDED HERE ---
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 const AuthContext = createContext();
 
@@ -102,44 +104,49 @@ export function AuthProvider({ children }) {
         loadStoredUser();
     }, []);
 
+    // Helper to process login response
+    const handleAuthResponse = async (data) => {
+        const access = data.access;
+        const refresh = data.refresh;
+
+        await AsyncStorage.setItem(ACCESS_TOKEN, access);
+        await AsyncStorage.setItem(REFRESH_TOKEN, refresh);
+        
+        api.defaults.headers.common['Authorization'] = `Bearer ${access}`;
+
+        const user = await fetchProfile();
+
+        if (!user) {
+             await AsyncStorage.multiRemove([ACCESS_TOKEN, REFRESH_TOKEN]);
+             setState(prev => ({
+                ...prev,
+                isLoading: false,
+                isAuthenticated: false,
+                user: null,
+                message: "Please verify your email first.", // Default fall back
+                messageType: "error",
+            }));
+            return false;
+        }
+
+        setState({
+            isAuthenticated: true,
+            user,
+            token: access,
+            isLoading: false,
+            message: "Login successful!",
+            messageType: "success"
+        });
+
+        return user;
+    }
+
     const login = async (username, password) => {
         setState(prev => ({ ...prev, isLoading: true, message: null }));
 
         try {
             const response = await api.post('/api/token/', { username, password });
-            const access = response.data.access;
-            const refresh = response.data.refresh;
-
-            await AsyncStorage.setItem(ACCESS_TOKEN, access);
-            await AsyncStorage.setItem(REFRESH_TOKEN, refresh);
-            
-            api.defaults.headers.common['Authorization'] = `Bearer ${access}`;
-
-            const user = await fetchProfile();
-
-            if (!user) {
-                 await AsyncStorage.multiRemove([ACCESS_TOKEN, REFRESH_TOKEN]);
-                 setState(prev => ({
-                    ...prev,
-                    isLoading: false,
-                    isAuthenticated: false,
-                    user: null,
-                    message: "Please verify your email first.",
-                    messageType: "error",
-                }));
-                return false;
-            }
-
-            setState({
-                isAuthenticated: true,
-                user,
-                token: access,
-                isLoading: false,
-                message: "Login successful!",
-                messageType: "success"
-            });
-
-            return user; 
+            return await handleAuthResponse(response.data);
         } 
         catch (error) {
             console.log("--- LOGIN ERROR DEBUG ---");
@@ -148,33 +155,23 @@ export function AuthProvider({ children }) {
             let msg = "Invalid username or password";
             let errorDetail = null;
 
-            // --- FIX FOR INTERCEPTOR ERROR ---
             if (error.message === "No refresh token available") {
-                // The interceptor swallowed the original 401 error.
-                // We know login failed, so we show the default message.
                 msg = "Invalid username or password";
             }
-            // ----------------------------------
-
-            // 1. Standard Axios: error.response.data.detail
             else if (error.response?.data?.detail) {
                 errorDetail = error.response.data.detail;
             }
-            // 2. Interceptor unwrapped: error.detail (if api.js unwraps it)
             else if (error.detail) {
                 errorDetail = error.detail;
             }
-            // 3. Alternative field: error.response.data.message
             else if (error.response?.data?.message) {
                 errorDetail = error.response.data.message;
             }
             
-            // Apply found message
             if (errorDetail && typeof errorDetail === 'string') {
                 msg = errorDetail;
             }
 
-            // Handle "No active account" specifically
             if (msg.toLowerCase().includes("no active account")) {
                 msg = "Please verify your email before logging in.";
             }
@@ -187,6 +184,25 @@ export function AuthProvider({ children }) {
                 messageType: "error"
             }));
 
+            return false;
+        }
+    };
+
+    // --- GOOGLE LOGIN FUNCTION ---
+    const googleLogin = async (token) => {
+        setState(prev => ({ ...prev, isLoading: true, message: null }));
+        try {
+            const response = await api.post('/api/auth/google/', { token });
+            return await handleAuthResponse(response.data);
+        } catch (error) {
+            console.log("Google Login Error:", error);
+            setState(prev => ({
+                ...prev,
+                isLoading: false,
+                isAuthenticated: false,
+                message: "Google Login failed. Please try again.",
+                messageType: "error"
+            }));
             return false;
         }
     };
@@ -239,11 +255,27 @@ export function AuthProvider({ children }) {
         }
     };
 
+    // --- UPDATED LOGOUT FUNCTION ---
     const logout = async (shouldRedirect = true) => {
+        // 1. Defensive Google Sign-Out
+        try {
+            // Check if GoogleSignin is defined AND has the method we need
+            if (GoogleSignin && typeof GoogleSignin.isSignedIn === 'function') {
+                const isSignedIn = await GoogleSignin.isSignedIn();
+                if (isSignedIn) {
+                    await GoogleSignin.signOut();
+                }
+            } else {
+                console.log("GoogleSignin module not ready or incorrectly imported.");
+            }
+        } catch (googleError) {
+            console.log("Google Sign-out notice (handled):", googleError);
+        }
+
+        // 2. Local Session Cleanup
         try {
             await AsyncStorage.multiRemove([ACCESS_TOKEN, REFRESH_TOKEN]);
             setApiToken(null); 
-            // Reset skip state on logout
             setHasSkippedOnboarding(false);
 
             setState({
@@ -258,18 +290,9 @@ export function AuthProvider({ children }) {
             if (shouldRedirect) {
                 router.replace("/auth/login");
             }
-
         } catch (e) {
             console.error("Logout failed", e);
             setApiToken(null); 
-            setState({
-                isAuthenticated: false,
-                user: null,
-                token: null,
-                isLoading: false,
-                message: "Logged out",
-                messageType: "info"
-            });
             router.replace("/auth/login");
         }
     }
@@ -291,6 +314,7 @@ export function AuthProvider({ children }) {
             hasSkippedOnboarding, 
             setHasSkippedOnboarding,
             login,
+            googleLogin, 
             register,
             logout,
             refreshUser,

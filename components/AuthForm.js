@@ -1,21 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ImageBackground, StyleSheet, Dimensions,  Alert, KeyboardAvoidingView, Platform,TouchableWithoutFeedback, Keyboard } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ImageBackground, StyleSheet, Dimensions,  Alert, KeyboardAvoidingView, Platform,TouchableWithoutFeedback, Keyboard, ActivityIndicator } from 'react-native';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useForm, Controller } from 'react-hook-form';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../context/AuthContext'; 
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 
 const { width, height } = Dimensions.get('window');
 
 const AuthForm = ({ method }) => {
-    const { login, register, resendVerificationEmail, message, messageType, clearMessage } = useAuth(); 
+    // Get googleLogin from context
+    const { login, register, googleLogin, resendVerificationEmail, message, messageType, clearMessage } = useAuth(); 
 
     const { control, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm();
     const [remember, setRemember] = useState(false);
     
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    
+    // Google Loading state
+    const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
     const router = useRouter();
 
@@ -27,25 +32,33 @@ const AuthForm = ({ method }) => {
     const subtitleText = method === 'login' ? 'Continue your adventure' : 'Join the community of explorers';
 
     useEffect(() => {
-        
+        GoogleSignin.configure({
+            webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
+            offlineAccess: true,
+            scopes: ['profile', 'email']
+        });
     }, []); 
+
+    const handleNavigation = (user) => {
+        if (user) {
+            const isFirstNameMissing = !user.first_name || String(user.first_name).trim() === "";
+            const isLastNameMissing = !user.last_name || String(user.last_name).trim() === "";
+
+            if (isFirstNameMissing || isLastNameMissing) {
+                router.replace('/onboarding/profile_setup');
+            } else {
+                router.replace('/home'); 
+            }
+        }
+    };
 
     const onSubmit = async (data) => {
         clearMessage(); 
 
         if (method === 'login') {
             const successUser = await login(data.username, data.password); 
+            if (successUser) handleNavigation(successUser);
 
-            if (successUser) {
-                const isFirstNameMissing = !successUser.first_name || String(successUser.first_name).trim() === "";
-                const isLastNameMissing = !successUser.last_name || String(successUser.last_name).trim() === "";
-
-                if (isFirstNameMissing || isLastNameMissing) {
-                    router.replace('/onboarding/profile_setup');
-                } else {
-                    router.replace('/home'); 
-                }
-            }
         } else {
             const userData = {
                 username: data.username,
@@ -59,6 +72,37 @@ const AuthForm = ({ method }) => {
             if (result && result.success) {
                 router.replace('/auth/login')
             }
+        }
+    };
+
+    const handleGoogleLogin = async () => {
+        setIsGoogleLoading(true);
+        clearMessage();
+        try {
+            await GoogleSignin.hasPlayServices();
+            const userInfo = await GoogleSignin.signIn();
+            const tokens = await GoogleSignin.getTokens(); // Ensure we get the tokens
+
+            if (tokens?.idToken) {
+                const successUser = await googleLogin(tokens.idToken);
+                if (successUser) handleNavigation(successUser);
+            } else {
+                Alert.alert("Error", "Could not get ID token from Google.");
+            }
+
+        } catch (error) {
+            if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+                console.log("User cancelled login");
+            } else if (error.code === statusCodes.IN_PROGRESS) {
+                console.log("Sign in is in progress");
+            } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+                Alert.alert("Error", "Google Play Services not available");
+            } else {
+                console.error(error);
+                Alert.alert("Login Error", error.message);
+            }
+        } finally {
+            setIsGoogleLoading(false);
         }
     };
 
@@ -201,13 +245,24 @@ const AuthForm = ({ method }) => {
                                             <View style={styles.divider} />
                                         </View>
 
-                                        <TouchableOpacity style={styles.googleButton}>
-                                            <ImageBackground 
-                                                source={{uri: 'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg'}} 
-                                                style={{width: 20, height: 20}} 
-                                            />
-                                            <FontAwesome name="google" size={20} color="#DB4437" />
-                                            <Text style={styles.googleText}>Continue with Google</Text>
+                                        {/* MODIFIED GOOGLE BUTTON */}
+                                        <TouchableOpacity 
+                                            style={styles.googleButton} 
+                                            onPress={handleGoogleLogin}
+                                            disabled={isGoogleLoading}
+                                        >
+                                            {isGoogleLoading ? (
+                                                <ActivityIndicator size="small" color="#DB4437" />
+                                            ) : (
+                                                <>
+                                                    <ImageBackground 
+                                                        source={{uri: 'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg'}} 
+                                                        style={{width: 20, height: 20}} 
+                                                    />
+                                                    <FontAwesome name="google" size={20} color="#DB4437" />
+                                                    <Text style={styles.googleText}>Continue with Google</Text>
+                                                </>
+                                            )}
                                         </TouchableOpacity>
 
                                         <View style={styles.switchContainer}>
