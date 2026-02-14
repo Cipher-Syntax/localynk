@@ -4,7 +4,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import api, { setApiToken } from '../api/api';
 import { ACCESS_TOKEN, REFRESH_TOKEN } from '../constants/constants';
 import { useRouter } from 'expo-router';
-// --- CORRECT IMPORT ADDED HERE ---
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 const AuthContext = createContext();
@@ -19,10 +18,24 @@ export function AuthProvider({ children }) {
         messageType: null,
     });
     
-    // NEW: Session variable to track if user skipped onboarding this session
+    // Session variable to track if user skipped onboarding this session
     const [hasSkippedOnboarding, setHasSkippedOnboarding] = useState(false);
     
     const router = useRouter();
+
+    // --- 1. INITIALIZE GOOGLE SIGN-IN GLOBALLY ---
+    // This ensures GoogleSignin is configured even if the user skips the Login screen
+    useEffect(() => {
+        try {
+            GoogleSignin.configure({
+                webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID, 
+                offlineAccess: true,
+                scopes: ['profile', 'email']
+            });
+        } catch (e) {
+            console.log("Google Sign-In Configuration Error:", e);
+        }
+    }, []);
 
     const clearMessage = useCallback(() => {
         setState(prev => ({ ...prev, message: null, messageType: null }));
@@ -104,7 +117,6 @@ export function AuthProvider({ children }) {
         loadStoredUser();
     }, []);
 
-    // Helper to process login response
     const handleAuthResponse = async (data) => {
         const access = data.access;
         const refresh = data.refresh;
@@ -123,7 +135,7 @@ export function AuthProvider({ children }) {
                 isLoading: false,
                 isAuthenticated: false,
                 user: null,
-                message: "Please verify your email first.", // Default fall back
+                message: "Please verify your email first.",
                 messageType: "error",
             }));
             return false;
@@ -188,7 +200,6 @@ export function AuthProvider({ children }) {
         }
     };
 
-    // --- GOOGLE LOGIN FUNCTION ---
     const googleLogin = async (token) => {
         setState(prev => ({ ...prev, isLoading: true, message: null }));
         try {
@@ -255,21 +266,22 @@ export function AuthProvider({ children }) {
         }
     };
 
-    // --- UPDATED LOGOUT FUNCTION ---
+    // --- UPDATED LOGOUT FUNCTION (FIXED) ---
     const logout = async (shouldRedirect = true) => {
-        // 1. Defensive Google Sign-Out
+        // 1. Google Sign-Out Logic
         try {
-            // Check if GoogleSignin is defined AND has the method we need
-            if (GoogleSignin && typeof GoogleSignin.isSignedIn === 'function') {
-                const isSignedIn = await GoogleSignin.isSignedIn();
-                if (isSignedIn) {
-                    await GoogleSignin.signOut();
-                }
-            } else {
-                console.log("GoogleSignin module not ready or incorrectly imported.");
-            }
-        } catch (googleError) {
-            console.log("Google Sign-out notice (handled):", googleError);
+            // Attempt to revoke access (disconnects app from Google account)
+            // This FORCES the account picker to show up next time.
+            await GoogleSignin.revokeAccess();
+            await GoogleSignin.signOut();
+        } catch (error) {
+            // We ignore errors here (e.g., if user wasn't signed in to Google)
+            console.log("Google Sign-out note:", error);
+            
+            // Fallback: Ensure local sign-out happens even if revoke fails
+            try {
+                await GoogleSignin.signOut();
+            } catch (e) { /* ignore */ }
         }
 
         // 2. Local Session Cleanup
