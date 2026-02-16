@@ -164,6 +164,19 @@ export function AuthProvider({ children }) {
             console.log("--- LOGIN ERROR DEBUG ---");
             console.log("Error Message:", error.message);
 
+            // Pass the full error object back so UI can check for code: "account_deactivated"
+            if (error.response?.data?.code === "account_deactivated") {
+                setState(prev => ({
+                    ...prev,
+                    isLoading: false,
+                    isAuthenticated: false,
+                    message: error.response.data.detail,
+                    messageType: "error"
+                }));
+                // Return the specific error structure
+                return { success: false, error: error.response.data };
+            }
+
             let msg = "Invalid username or password";
             let errorDetail = null;
 
@@ -266,6 +279,23 @@ export function AuthProvider({ children }) {
         }
     };
 
+    // --- NEW: Reactivate Account Function ---
+    const reactivateAccount = async (username, password) => {
+        setState(prev => ({ ...prev, isLoading: true, message: null }));
+        try {
+            const response = await api.post('/api/auth/reactivate/', { username, password });
+            return await handleAuthResponse(response.data);
+        } catch (error) {
+            setState(prev => ({
+                ...prev,
+                isLoading: false,
+                message: "Reactivation failed. " + (error.response?.data?.detail || ""),
+                messageType: "error"
+            }));
+            return false;
+        }
+    };
+
     // --- UPDATED LOGOUT FUNCTION (FIXED) ---
     const logout = async (shouldRedirect = true) => {
         // 1. Google Sign-Out Logic
@@ -332,6 +362,7 @@ export function AuthProvider({ children }) {
             refreshUser,
             updateUserProfile,
             resendVerificationEmail,
+            reactivateAccount, // Exporting the new function
             clearMessage,
         }
     }, [state, hasSkippedOnboarding]);
