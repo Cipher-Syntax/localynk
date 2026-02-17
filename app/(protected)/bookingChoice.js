@@ -100,7 +100,7 @@ const BookingChoice = () => {
 
     return (
         <SafeAreaView style={styles.fullContainer}>
-            <StatusBar barStyle="light-content" backgroundColor="#000" />
+            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
             <ScrollView 
                 style={styles.container} 

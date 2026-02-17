@@ -283,7 +283,7 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
                         </ScrollView>
 
                         {/* Footer Navigation */}
-                        <View style={styles.footer}>
+                        <SafeAreaView style={styles.footer}>
                             {currentStep > 1 && (
                                 <TouchableOpacity style={styles.secondaryButton} onPress={prevStep}>
                                     <Text style={styles.secondaryButtonText}>Back</Text>
@@ -310,7 +310,7 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
                                     )}
                                 </LinearGradient>
                             </TouchableOpacity>
-                        </View>
+                        </SafeAreaView>
 
                     </SafeAreaView>
                 </View>

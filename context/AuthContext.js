@@ -24,7 +24,6 @@ export function AuthProvider({ children }) {
     const router = useRouter();
 
     // --- 1. INITIALIZE GOOGLE SIGN-IN GLOBALLY ---
-    // This ensures GoogleSignin is configured even if the user skips the Login screen
     useEffect(() => {
         try {
             GoogleSignin.configure({
@@ -154,6 +153,8 @@ export function AuthProvider({ children }) {
     }
 
     const login = async (username, password) => {
+        // We set isLoading to true here to update state, 
+        // but since we removed the blocking render below, the UI stays mounted.
         setState(prev => ({ ...prev, isLoading: true, message: null }));
 
         try {
@@ -164,7 +165,6 @@ export function AuthProvider({ children }) {
             console.log("--- LOGIN ERROR DEBUG ---");
             console.log("Error Message:", error.message);
 
-            // Pass the full error object back so UI can check for code: "account_deactivated"
             if (error.response?.data?.code === "account_deactivated") {
                 setState(prev => ({
                     ...prev,
@@ -173,7 +173,6 @@ export function AuthProvider({ children }) {
                     message: error.response.data.detail,
                     messageType: "error"
                 }));
-                // Return the specific error structure
                 return { success: false, error: error.response.data };
             }
 
@@ -279,7 +278,6 @@ export function AuthProvider({ children }) {
         }
     };
 
-    // --- NEW: Reactivate Account Function ---
     const reactivateAccount = async (username, password) => {
         setState(prev => ({ ...prev, isLoading: true, message: null }));
         try {
@@ -296,25 +294,17 @@ export function AuthProvider({ children }) {
         }
     };
 
-    // --- UPDATED LOGOUT FUNCTION (FIXED) ---
     const logout = async (shouldRedirect = true) => {
-        // 1. Google Sign-Out Logic
         try {
-            // Attempt to revoke access (disconnects app from Google account)
-            // This FORCES the account picker to show up next time.
             await GoogleSignin.revokeAccess();
             await GoogleSignin.signOut();
         } catch (error) {
-            // We ignore errors here (e.g., if user wasn't signed in to Google)
             console.log("Google Sign-out note:", error);
-            
-            // Fallback: Ensure local sign-out happens even if revoke fails
             try {
                 await GoogleSignin.signOut();
             } catch (e) { /* ignore */ }
         }
 
-        // 2. Local Session Cleanup
         try {
             await AsyncStorage.multiRemove([ACCESS_TOKEN, REFRESH_TOKEN]);
             setApiToken(null); 
@@ -362,19 +352,15 @@ export function AuthProvider({ children }) {
             refreshUser,
             updateUserProfile,
             resendVerificationEmail,
-            reactivateAccount, // Exporting the new function
+            reactivateAccount,
             clearMessage,
         }
     }, [state, hasSkippedOnboarding]);
 
-    if (state.isLoading) {
-        return (
-            <View style={styles.loadingOverlay}>
-                <ActivityIndicator size="large" color="#007AFF" />
-                <Text style={{ marginTop: 10 }}>Loading...</Text>
-            </View>
-        );
-    }
+    // *** FIX: REMOVED THE BLOCKING RENDER HERE ***
+    // The previous "if (state.isLoading) return ..." was unmounting the whole app 
+    // when login started, causing the navigation reset.
+    // Initial loading is now handled by app/index.js instead.
 
     return (
         <AuthContext.Provider value={value}>

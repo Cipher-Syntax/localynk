@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ImageBackground, StyleSheet, Dimensions,  Alert, KeyboardAvoidingView, Platform,TouchableWithoutFeedback, Keyboard, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ImageBackground, StyleSheet, Dimensions, Alert, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, ActivityIndicator, ScrollView } from 'react-native';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useForm, Controller } from 'react-hook-form';
@@ -10,7 +10,6 @@ import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-si
 const { width, height } = Dimensions.get('window');
 
 const AuthForm = ({ method }) => {
-    // Get googleLogin from context
     const { login, register, googleLogin, resendVerificationEmail, message, messageType, clearMessage } = useAuth(); 
 
     const { control, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm();
@@ -19,7 +18,6 @@ const AuthForm = ({ method }) => {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     
-    // Google Loading state
     const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
     const router = useRouter();
@@ -81,7 +79,7 @@ const AuthForm = ({ method }) => {
         try {
             await GoogleSignin.hasPlayServices();
             const userInfo = await GoogleSignin.signIn();
-            const tokens = await GoogleSignin.getTokens(); // Ensure we get the tokens
+            const tokens = await GoogleSignin.getTokens();
 
             if (tokens?.idToken) {
                 const successUser = await googleLogin(tokens.idToken);
@@ -151,139 +149,155 @@ const AuthForm = ({ method }) => {
     );
 
     return (
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <View style={styles.container}>
-                <ImageBackground source={bgImage} style={styles.bgImage} resizeMode="cover">
-                    <LinearGradient
-                        colors={['rgba(0,0,0,0.1)', 'rgba(15, 23, 42, 0.85)']}
-                        style={styles.gradientOverlay}
+        <View style={styles.container}>
+            <ImageBackground source={bgImage} style={styles.bgImage} resizeMode="cover">
+                <LinearGradient
+                    colors={['rgba(0,0,0,0.1)', 'rgba(15, 23, 42, 0.85)']}
+                    style={styles.gradientOverlay}
+                >
+                    {/* FIX: 
+                        1. Restored behavior="height" for Android. This forces the view to shrink 
+                           when keyboard opens, ensuring content moves up.
+                        2. Kept behavior="padding" for iOS.
+                    */}
+                    <KeyboardAvoidingView 
+                        behavior={Platform.OS === "ios" ? "padding" : "height"}
+                        style={styles.keyboardView}
+                        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
                     >
-                        <KeyboardAvoidingView 
-                            behavior={Platform.OS === "ios" ? "padding" : "height"}
-                            style={styles.keyboardView}
+                        {/* CRITICAL FIX: 
+                            1. style={{ flex: 1 }} ensures ScrollView fills the KeyboardAvoidingView.
+                            2. contentContainerStyle={{ flexGrow: 1 }} allows inner content to expand.
+                        */}
+                        <ScrollView 
+                            style={{ flex: 1 }}
+                            contentContainerStyle={styles.scrollContentContainer}
+                            keyboardShouldPersistTaps="handled"
+                            showsVerticalScrollIndicator={false}
                         >
-                            <View style={styles.contentContainer}>
-                                
-                                <View style={styles.headerContainer}>
-                                    <Text style={styles.welcomeText}>{titleText}</Text>
-                                    <Text style={styles.subtitleText}>{subtitleText}</Text>
-                                </View>
-
-                                <View style={styles.formCard}>
+                            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                                <View style={styles.innerContentWrapper}>
                                     
-                                    {message ? (
-                                        <View style={[styles.messageBox, messageType === 'error' ? styles.msgError : styles.msgSuccess]}>
-                                            <Text style={[styles.messageText, messageType === 'error' ? {color:'#EF4444'} : {color:'#10B981'}]}>
-                                                {message}
-                                            </Text>
-                                            {message.includes('verify your email') && method === 'login' && (
-                                                <TouchableOpacity onPress={handleResendVerification}>
-                                                    <Text style={styles.resendText}>Resend Email</Text>
-                                                </TouchableOpacity>
-                                            )}
-                                        </View>
-                                    ) : null}
-
-                                    {renderInput('username', 'Username', 'user', false, null, null, { required: 'Username is required' })}
-                                    
-                                    {method === 'register' && renderInput('email', 'Email Address', 'envelope', false, null, null, { 
-                                        required: 'Email is required', 
-                                        pattern: { value: /^\S+@\S+$/i, message: "Invalid email format" } 
-                                    })}
-
-                                    {renderInput('password', 'Password', 'lock', true, showPassword, setShowPassword, { 
-                                        required: 'Password is required', 
-                                        minLength: { value: 8, message: 'Min 8 characters' } 
-                                    })}
-
-                                    {method === 'register' && renderInput('confirm_password', 'Confirm Password', 'lock', true, showConfirmPassword, setShowConfirmPassword, {
-                                        required: 'Confirm your password',
-                                        validate: (val) => val === watch('password') || 'Passwords do not match'
-                                    })}
-
-                                    {method === 'login' && (
-                                        <View style={styles.optionsRow}>
-                                            <TouchableOpacity 
-                                                style={styles.rememberRow} 
-                                                activeOpacity={0.8}
-                                                onPress={() => setRemember(!remember)}
-                                            >
-                                                <View style={[styles.checkbox, remember && styles.checkboxChecked]}>
-                                                    {remember && <FontAwesome name="check" size={10} color="#fff" />}
-                                                </View>
-                                                <Text style={styles.rememberText}>Remember me</Text>
-                                            </TouchableOpacity>
-                                            
-                                            <TouchableOpacity onPress={() => router.push('/auth/forgotPassword')}>
-                                                <Text style={styles.forgotText}>Forgot Password?</Text>
-                                            </TouchableOpacity>
-                                        </View>
-                                    )}
-
-                                    <TouchableOpacity
-                                        style={styles.mainButtonShadow}
-                                        onPress={handleSubmit(onSubmit)}
-                                        disabled={isSubmitting}
-                                    >
-                                        <LinearGradient
-                                            colors={['#0072FF', '#00C6FF']}
-                                            start={{ x: 0, y: 0 }} 
-                                            end={{ x: 1, y: 0 }}
-                                            style={styles.mainButton}
-                                        >
-                                            <Text style={styles.mainButtonText}>
-                                                {isSubmitting ? 'Please wait...' : (method === 'login' ? 'Log In' : 'Sign Up')}
-                                            </Text>
-                                            <Ionicons name="arrow-forward" size={20} color="#fff" />
-                                        </LinearGradient>
-                                    </TouchableOpacity>
-
-                                    <View style={styles.footerContainer}>
-                                        <View style={styles.dividerRow}>
-                                            <View style={styles.divider} />
-                                            <Text style={styles.orText}>OR</Text>
-                                            <View style={styles.divider} />
-                                        </View>
-
-                                        {/* MODIFIED GOOGLE BUTTON */}
-                                        <TouchableOpacity 
-                                            style={styles.googleButton} 
-                                            onPress={handleGoogleLogin}
-                                            disabled={isGoogleLoading}
-                                        >
-                                            {isGoogleLoading ? (
-                                                <ActivityIndicator size="small" color="#DB4437" />
-                                            ) : (
-                                                <>
-                                                    <ImageBackground 
-                                                        source={{uri: 'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg'}} 
-                                                        style={{width: 20, height: 20}} 
-                                                    />
-                                                    <FontAwesome name="google" size={20} color="#DB4437" />
-                                                    <Text style={styles.googleText}>Continue with Google</Text>
-                                                </>
-                                            )}
-                                        </TouchableOpacity>
-
-                                        <View style={styles.switchContainer}>
-                                            <Text style={styles.switchText}>
-                                                {method === 'login' ? "Don't have an account? " : "Already have an account? "}
-                                            </Text>
-                                            <TouchableOpacity onPress={() => router.push(method === 'login' ? '/auth/register' : '/auth/login')}>
-                                                <Text style={styles.switchLink}>
-                                                    {method === 'login' ? 'Sign Up' : 'Log In'}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        </View>
+                                    <View style={styles.headerContainer}>
+                                        <Text style={styles.welcomeText}>{titleText}</Text>
+                                        <Text style={styles.subtitleText}>{subtitleText}</Text>
                                     </View>
 
+                                    <View style={styles.formCard}>
+                                        
+                                        {message ? (
+                                            <View style={[styles.messageBox, messageType === 'error' ? styles.msgError : styles.msgSuccess]}>
+                                                <Text style={[styles.messageText, messageType === 'error' ? {color:'#EF4444'} : {color:'#10B981'}]}>
+                                                    {message}
+                                                </Text>
+                                                {message.includes('verify your email') && method === 'login' && (
+                                                    <TouchableOpacity onPress={handleResendVerification}>
+                                                        <Text style={styles.resendText}>Resend Email</Text>
+                                                    </TouchableOpacity>
+                                                )}
+                                            </View>
+                                        ) : null}
+
+                                        {renderInput('username', 'Username', 'user', false, null, null, { required: 'Username is required' })}
+                                        
+                                        {method === 'register' && renderInput('email', 'Email Address', 'envelope', false, null, null, { 
+                                            required: 'Email is required', 
+                                            pattern: { value: /^\S+@\S+$/i, message: "Invalid email format" } 
+                                        })}
+
+                                        {renderInput('password', 'Password', 'lock', true, showPassword, setShowPassword, { 
+                                            required: 'Password is required', 
+                                            minLength: { value: 8, message: 'Min 8 characters' } 
+                                        })}
+
+                                        {method === 'register' && renderInput('confirm_password', 'Confirm Password', 'lock', true, showConfirmPassword, setShowConfirmPassword, {
+                                            required: 'Confirm your password',
+                                            validate: (val) => val === watch('password') || 'Passwords do not match'
+                                        })}
+
+                                        {method === 'login' && (
+                                            <View style={styles.optionsRow}>
+                                                <TouchableOpacity 
+                                                    style={styles.rememberRow} 
+                                                    activeOpacity={0.8}
+                                                    onPress={() => setRemember(!remember)}
+                                                >
+                                                    <View style={[styles.checkbox, remember && styles.checkboxChecked]}>
+                                                        {remember && <FontAwesome name="check" size={10} color="#fff" />}
+                                                    </View>
+                                                    <Text style={styles.rememberText}>Remember me</Text>
+                                                </TouchableOpacity>
+                                                
+                                                <TouchableOpacity onPress={() => router.push('/auth/forgotPassword')}>
+                                                    <Text style={styles.forgotText}>Forgot Password?</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        )}
+
+                                        <TouchableOpacity
+                                            style={styles.mainButtonShadow}
+                                            onPress={handleSubmit(onSubmit)}
+                                            disabled={isSubmitting}
+                                        >
+                                            <LinearGradient
+                                                colors={['#0072FF', '#00C6FF']}
+                                                start={{ x: 0, y: 0 }} 
+                                                end={{ x: 1, y: 0 }}
+                                                style={styles.mainButton}
+                                            >
+                                                <Text style={styles.mainButtonText}>
+                                                    {isSubmitting ? 'Please wait...' : (method === 'login' ? 'Log In' : 'Sign Up')}
+                                                </Text>
+                                                <Ionicons name="arrow-forward" size={20} color="#fff" />
+                                            </LinearGradient>
+                                        </TouchableOpacity>
+
+                                        <View style={styles.footerContainer}>
+                                            <View style={styles.dividerRow}>
+                                                <View style={styles.divider} />
+                                                <Text style={styles.orText}>OR</Text>
+                                                <View style={styles.divider} />
+                                            </View>
+
+                                            <TouchableOpacity 
+                                                style={styles.googleButton} 
+                                                onPress={handleGoogleLogin}
+                                                disabled={isGoogleLoading}
+                                            >
+                                                {isGoogleLoading ? (
+                                                    <ActivityIndicator size="small" color="#DB4437" />
+                                                ) : (
+                                                    <>
+                                                        <ImageBackground 
+                                                            source={{uri: 'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg'}} 
+                                                            style={{width: 20, height: 20}} 
+                                                        />
+                                                        <FontAwesome name="google" size={20} color="#DB4437" />
+                                                        <Text style={styles.googleText}>Continue with Google</Text>
+                                                    </>
+                                                )}
+                                            </TouchableOpacity>
+
+                                            <View style={styles.switchContainer}>
+                                                <Text style={styles.switchText}>
+                                                    {method === 'login' ? "Don't have an account? " : "Already have an account? "}
+                                                </Text>
+                                                <TouchableOpacity onPress={() => router.push(method === 'login' ? '/auth/register' : '/auth/login')}>
+                                                    <Text style={styles.switchLink}>
+                                                        {method === 'login' ? 'Sign Up' : 'Log In'}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        </View>
+
+                                    </View>
                                 </View>
-                            </View>
-                        </KeyboardAvoidingView>
-                    </LinearGradient>
-                </ImageBackground>
-            </View>
-        </TouchableWithoutFeedback>
+                            </TouchableWithoutFeedback>
+                        </ScrollView>
+                    </KeyboardAvoidingView>
+                </LinearGradient>
+            </ImageBackground>
+        </View>
     );
 };
 
@@ -292,10 +306,15 @@ export default AuthForm;
 const styles = StyleSheet.create({
     container: { flex: 1 },
     bgImage: { flex: 1, width: '100%', height: '100%' },
-    gradientOverlay: { flex: 1, justifyContent: 'flex-end' },
-    keyboardView: { flex: 1, justifyContent: 'flex-end' },
+    gradientOverlay: { flex: 1 }, 
+    keyboardView: { flex: 1 },
     
-    contentContainer: {
+    scrollContentContainer: {
+        flexGrow: 1,
+        justifyContent: 'flex-end',
+    },
+    
+    innerContentWrapper: {
         width: '100%',
         paddingHorizontal: 20,
         paddingBottom: 40,
@@ -334,6 +353,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.25,
         shadowRadius: 15,
         elevation: 10,
+        marginBottom: 20
     },
 
     inputWrapper: { marginBottom: 15 },

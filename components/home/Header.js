@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TextInput, ImageBackground, StyleSheet, TouchableOpacity, Dimensions, FlatList, Image } from 'react-native';
+import { View, Text, TextInput, ImageBackground, StyleSheet, TouchableOpacity, Dimensions, FlatList, Image, StatusBar } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import Swiper from 'react-native-swiper';
 import MaskedView from '@react-native-masked-view/masked-view';
@@ -49,6 +49,7 @@ const Header = ({ destinations = [], unreadCount = 0 }) => {
 
     return (
         <View style={{ flex: 1 }}>
+            <StatusBar barStyle="dark-content" />
             <View style={[styles.headerBar, { width: width * 1 }]}>
                 
                 <View style={styles.searchWrapper}>

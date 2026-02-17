@@ -161,9 +161,9 @@ const GuideSelection = () => {
     }
 
     return (
-        <View style={{ flex: 1 }}> 
+        <SafeAreaView style={{ flex: 1 }}> 
             <ScrollView style={styles.container}>
-                <StatusBar barStyle="light-content" />
+                <StatusBar barStyle="dark-content" backgroundColor="#fff" />
                 
                 <View style={styles.header}>
                     <Image
@@ -282,7 +282,7 @@ const GuideSelection = () => {
                     </View>
                 </View>
             </Modal>
-        </View>
+        </SafeAreaView>
     );
 };
 

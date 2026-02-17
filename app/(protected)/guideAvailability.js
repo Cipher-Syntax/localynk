@@ -288,7 +288,7 @@ const GuideAvailability = () => {
                 <View style={{height: 100}} />
             </ScrollView>
 
-            <View style={styles.footer}>
+            <SafeAreaView style={styles.footer}>
                 <View style={styles.footerTextContainer}>
                     <Text style={styles.footerLabel}>Interested?</Text>
                     <Text style={styles.footerSub}>View full profile to book.</Text>
@@ -304,7 +304,7 @@ const GuideAvailability = () => {
                     <Text style={styles.proceedText}>View Details</Text>
                     <ArrowRight size={20} color="#fff" />
                 </TouchableOpacity>
-            </View>
+            </SafeAreaView>
         </SafeAreaView>
     );
 };
@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
     accInfo: { position: 'absolute', bottom: 8, left: 8, right: 8 },
     accTitle: { fontSize: 12, fontWeight: '700', color: '#fff', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 2 },
     accPrice: { fontSize: 10, color: '#00A8FF', fontWeight: '700', marginTop: 2 },
-    footer: { position: 'absolute', bottom: 10, left: 0, right: 0, backgroundColor: '#fff', padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 10, borderTopWidth: 1, borderTopColor: '#eee' },
+    footer: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 10, borderTopWidth: 1, borderTopColor: '#eee' },
     footerTextContainer: { justifyContent: 'center' },
     footerLabel: { fontSize: 14, fontWeight: '700', color: '#333' },
     footerSub: { fontSize: 12, color: '#888' },

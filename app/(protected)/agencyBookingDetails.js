@@ -345,7 +345,7 @@ const AgencyBookingDetails = () => {
                             )}
 
                              {/* PAYMENT SUMMARY - No Platform Fee */}
-                             <View style={styles.receiptCard}>
+                            <View style={styles.receiptCard}>
                                 <View style={styles.receiptHeader}>
                                     <Text style={styles.receiptTitle}>Payment Summary</Text>
                                 </View>
@@ -372,7 +372,7 @@ const AgencyBookingDetails = () => {
                 </KeyboardAvoidingView>
 
                 {/* BOTTOM BAR: ALWAYS SHOWS PAYMENT/REQUEST BUTTON */}
-                <View style={styles.bottomBar}>
+                <SafeAreaView style={styles.bottomBar}>
                     <View>
                         <Text style={styles.bottomLabel}>
                             {isPaymentMode ? "Total Payable Now" : "Estimated Down Payment"}
@@ -385,7 +385,7 @@ const AgencyBookingDetails = () => {
                         </Text>
                         <Ionicons name="arrow-forward" size={18} color="#fff" />
                     </TouchableOpacity>
-                </View>
+                </SafeAreaView>
 
                 {/* MODALS */}
                 <Modal visible={isCalendarVisible} transparent={true} animationType="slide">
@@ -501,7 +501,7 @@ const styles = StyleSheet.create({
     kycText: { fontSize: 13, fontWeight: '600', color: TEXT_SECONDARY },
     kycImage: { width: '100%', height: '100%' },
     checkBubble: { position: 'absolute', top: 8, right: 8, backgroundColor: '#22C55E', borderRadius: 12, padding: 2 },
-    receiptCard: { backgroundColor: SURFACE_COLOR, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed', marginBottom: 40, marginTop: 24 },
+    receiptCard: { backgroundColor: SURFACE_COLOR, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed', marginBottom: 100, marginTop: 24 },
     receiptHeader: { alignItems: 'center', marginBottom: 16 },
     receiptTitle: { fontSize: 14, fontWeight: '700', color: TEXT_SECONDARY, textTransform: 'uppercase', letterSpacing: 1 },
     receiptRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },

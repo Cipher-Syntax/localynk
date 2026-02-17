@@ -591,7 +591,7 @@ const Payment = () => {
                 </KeyboardAvoidingView>
 
                 {!isConfirmed ? (
-                    <View style={styles.bottomBar}>
+                    <SafeAreaView style={styles.bottomBar}>
                         <View>
                             <Text style={styles.bottomLabel}>Total Payable Now</Text>
                             <Text style={styles.bottomPrice}>₱{downPayment.toLocaleString()}</Text>
@@ -600,7 +600,7 @@ const Payment = () => {
                             <Text style={styles.payButtonText}>{isPayable ? "Confirm Payment" : "Pay & Book"}</Text>
                             <Ionicons name="arrow-forward" size={18} color="#fff" />
                         </TouchableOpacity>
-                    </View>
+                    </SafeAreaView>
                 ) : (
                     <View style={styles.bottomBar}>
                         <TouchableOpacity style={[styles.payButton, {backgroundColor: '#059669', width: '100%'}]} onPress={() => router.push('/(protected)/home')}>
@@ -721,7 +721,7 @@ const styles = StyleSheet.create({
     paymentIconCircleActive: { backgroundColor: PRIMARY_COLOR },
     paymentText: { fontSize: 12, fontWeight: '600', color: TEXT_SECONDARY },
     paymentTextActive: { color: PRIMARY_COLOR },
-    receiptCard: { backgroundColor: SURFACE_COLOR, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed', marginBottom: 40 },
+    receiptCard: { backgroundColor: SURFACE_COLOR, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed', marginBottom: 100 },
     receiptHeader: { alignItems: 'center', marginBottom: 16 },
     receiptTitle: { fontSize: 14, fontWeight: '700', color: TEXT_SECONDARY, textTransform: 'uppercase', letterSpacing: 1 },
     receiptRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
