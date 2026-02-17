@@ -28,7 +28,7 @@ const Profile = () => {
     
     // --- MODAL STATES ---
     const [deactivateModalVisible, setDeactivateModalVisible] = useState(false);
-    const [successModalVisible, setSuccessModalVisible] = useState(false); // New Success Modal State
+    const [successModalVisible, setSuccessModalVisible] = useState(false); 
     
     const { user, logout, refreshUser } = useAuth(); 
     const params = useLocalSearchParams();
@@ -171,8 +171,10 @@ const Profile = () => {
         { id: 6, icon: "help-circle", label: "Help & Support", route: '/(protected)/support' }
     ];
 
+    // [UPDATED] Added Earnings & Payments
     const guideSettingsItems = [
         { id: 1, icon: "calendar", label: "My Bookings", route: '/(protected)/bookings' },
+        { id: 5, icon: "cash", label: "Earnings & Payments", route: '/(protected)/earnings' },
         { id: 2, icon: "heart", label: "Favorite Guides", route: '/favorites' },
         { id: 3, icon: "map", label: "My Travel Interests", route: '/(protected)/onboarding/personalization?mode=edit' },
         { id: 4, icon: "business", label: "View Accommodations", route: `/(protected)/viewAccommodations?userId=${profile.id}` },
