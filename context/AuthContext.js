@@ -18,12 +18,9 @@ export function AuthProvider({ children }) {
         messageType: null,
     });
     
-    // Session variable to track if user skipped onboarding this session
     const [hasSkippedOnboarding, setHasSkippedOnboarding] = useState(false);
-    
     const router = useRouter();
 
-    // --- 1. INITIALIZE GOOGLE SIGN-IN GLOBALLY ---
     useEffect(() => {
         try {
             GoogleSignin.configure({
@@ -38,6 +35,10 @@ export function AuthProvider({ children }) {
 
     const clearMessage = useCallback(() => {
         setState(prev => ({ ...prev, message: null, messageType: null }));
+    }, []);
+
+    const setMessage = useCallback((msg, type = 'error') => {
+        setState(prev => ({ ...prev, message: msg, messageType: type }));
     }, []);
 
     const fetchProfile = async () => {
@@ -153,8 +154,6 @@ export function AuthProvider({ children }) {
     }
 
     const login = async (username, password) => {
-        // We set isLoading to true here to update state, 
-        // but since we removed the blocking render below, the UI stays mounted.
         setState(prev => ({ ...prev, isLoading: true, message: null }));
 
         try {
@@ -162,9 +161,6 @@ export function AuthProvider({ children }) {
             return await handleAuthResponse(response.data);
         } 
         catch (error) {
-            console.log("--- LOGIN ERROR DEBUG ---");
-            console.log("Error Message:", error.message);
-
             if (error.response?.data?.code === "account_deactivated") {
                 setState(prev => ({
                     ...prev,
@@ -241,8 +237,6 @@ export function AuthProvider({ children }) {
             return { success: true };
         } 
         catch (error) {
-            console.log("REGISTER ERROR:", error.response?.data);
-            
             let errorMsg = "Registration failed.";
             if (error.response?.data) {
                 const data = error.response.data;
@@ -299,10 +293,7 @@ export function AuthProvider({ children }) {
             await GoogleSignin.revokeAccess();
             await GoogleSignin.signOut();
         } catch (error) {
-            console.log("Google Sign-out note:", error);
-            try {
-                await GoogleSignin.signOut();
-            } catch (e) { /* ignore */ }
+            try { await GoogleSignin.signOut(); } catch (e) { /* ignore */ }
         }
 
         try {
@@ -354,13 +345,9 @@ export function AuthProvider({ children }) {
             resendVerificationEmail,
             reactivateAccount,
             clearMessage,
+            setMessage, 
         }
     }, [state, hasSkippedOnboarding]);
-
-    // *** FIX: REMOVED THE BLOCKING RENDER HERE ***
-    // The previous "if (state.isLoading) return ..." was unmounting the whole app 
-    // when login started, causing the navigation reset.
-    // Initial loading is now handled by app/index.js instead.
 
     return (
         <AuthContext.Provider value={value}>
@@ -372,10 +359,5 @@ export function AuthProvider({ children }) {
 export const useAuth = () => useContext(AuthContext);
 
 const styles = StyleSheet.create({
-    loadingOverlay: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#fff',
-    }
+    loadingOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }
 });

@@ -1,16 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ImageBackground, StyleSheet, Dimensions, Alert, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, ActivityIndicator, ScrollView } from 'react-native';
+import { 
+    View, Text, TextInput, TouchableOpacity, ImageBackground, StyleSheet, 
+    Dimensions, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, 
+    Keyboard, ActivityIndicator, ScrollView 
+} from 'react-native';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useForm, Controller } from 'react-hook-form';
 import { useRouter } from 'expo-router';
+import * as Linking from 'expo-linking'; 
 import { useAuth } from '../context/AuthContext'; 
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 
 const { width, height } = Dimensions.get('window');
 
 const AuthForm = ({ method }) => {
-    const { login, register, googleLogin, resendVerificationEmail, message, messageType, clearMessage } = useAuth(); 
+    const { login, register, googleLogin, resendVerificationEmail, message, messageType, clearMessage, setMessage } = useAuth(); 
 
     const { control, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm();
     const [remember, setRemember] = useState(false);
@@ -29,6 +34,36 @@ const AuthForm = ({ method }) => {
     const titleText = method === 'login' ? 'Welcome Back' : 'Start Journey';
     const subtitleText = method === 'login' ? 'Continue your adventure' : 'Join the community of explorers';
 
+    useEffect(() => {
+        if (method !== 'login') return;
+
+        const handleDeepLink = (event) => {
+            if (!event.url) return;
+            
+            let data = Linking.parse(event.url);
+            
+            if (data.queryParams?.status === 'success') {
+                setMessage(
+                    data.queryParams?.message || "Your account has been successfully verified. You can now log in.",
+                    'success'
+                );
+            } else if (data.queryParams?.status === 'error') {
+                setMessage(
+                    data.queryParams?.message || "Invalid or expired verification link.",
+                    'error'
+                );
+            }
+        };
+
+        Linking.getInitialURL().then((url) => {
+            if (url) handleDeepLink({ url });
+        });
+
+        const subscription = Linking.addEventListener('url', handleDeepLink);
+
+        return () => subscription.remove();
+    }, [method]);
+    
     useEffect(() => {
         GoogleSignin.configure({
             webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
@@ -85,7 +120,7 @@ const AuthForm = ({ method }) => {
                 const successUser = await googleLogin(tokens.idToken);
                 if (successUser) handleNavigation(successUser);
             } else {
-                Alert.alert("Error", "Could not get ID token from Google.");
+                setMessage("Could not get ID token from Google.", "error");
             }
 
         } catch (error) {
@@ -94,10 +129,10 @@ const AuthForm = ({ method }) => {
             } else if (error.code === statusCodes.IN_PROGRESS) {
                 console.log("Sign in is in progress");
             } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-                Alert.alert("Error", "Google Play Services not available");
+                setMessage("Google Play Services not available", "error");
             } else {
                 console.error(error);
-                Alert.alert("Login Error", error.message);
+                setMessage(error.message || "Google Login failed", "error");
             }
         } finally {
             setIsGoogleLoading(false);
@@ -108,7 +143,7 @@ const AuthForm = ({ method }) => {
         const usernameOrEmail = watch('username'); 
         if (!usernameOrEmail) {
             clearMessage();
-            Alert.alert("Error", "Please enter your email in the username field to resend verification.");
+            setMessage("Please enter your email in the username field to resend verification.", "error");
             return;
         }
         clearMessage(); 
@@ -155,20 +190,11 @@ const AuthForm = ({ method }) => {
                     colors={['rgba(0,0,0,0.1)', 'rgba(15, 23, 42, 0.85)']}
                     style={styles.gradientOverlay}
                 >
-                    {/* FIX: 
-                        1. Restored behavior="height" for Android. This forces the view to shrink 
-                           when keyboard opens, ensuring content moves up.
-                        2. Kept behavior="padding" for iOS.
-                    */}
                     <KeyboardAvoidingView 
                         behavior={Platform.OS === "ios" ? "padding" : "height"}
                         style={styles.keyboardView}
                         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
                     >
-                        {/* CRITICAL FIX: 
-                            1. style={{ flex: 1 }} ensures ScrollView fills the KeyboardAvoidingView.
-                            2. contentContainerStyle={{ flexGrow: 1 }} allows inner content to expand.
-                        */}
                         <ScrollView 
                             style={{ flex: 1 }}
                             contentContainerStyle={styles.scrollContentContainer}
@@ -190,7 +216,8 @@ const AuthForm = ({ method }) => {
                                                 <Text style={[styles.messageText, messageType === 'error' ? {color:'#EF4444'} : {color:'#10B981'}]}>
                                                     {message}
                                                 </Text>
-                                                {message.includes('verify your email') && method === 'login' && (
+                                                
+                                                {(message.includes('verify your email') || message.includes('verification')) && method === 'login' && messageType === 'error' && (
                                                     <TouchableOpacity onPress={handleResendVerification}>
                                                         <Text style={styles.resendText}>Resend Email</Text>
                                                     </TouchableOpacity>
