@@ -310,7 +310,7 @@ const IsTourist = () => {
                                         {loadingPrice ? (
                                             <ActivityIndicator size="small" color="#64748B" style={{marginTop: 5, alignSelf: 'flex-start'}} />
                                         ) : (
-                                            <Text style={styles.planCost}>₱{subscriptionPrice || '499.00'} / year</Text>
+                                            <Text style={styles.planCost}>₱{subscriptionPrice || '00.00'} / year</Text>
                                         )}
                                     </View>
                                     {user?.guide_tier === 'paid' ? (
