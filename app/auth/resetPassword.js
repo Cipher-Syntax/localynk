@@ -41,6 +41,9 @@ const ResetPassword = () => {
 
             setMessageType('success');
             setMessage("Your password has been reset successfully.");
+
+            setShowPassword("");
+            setShowConfirmPassword("")
             
         } catch (error) {
             console.error("Reset Password Error:", error);
