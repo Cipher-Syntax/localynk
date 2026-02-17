@@ -74,7 +74,7 @@ export default function TourGuide() {
 
     const handleSubscription = () => {
         setShowWelcomeModal(false);
-        router.push('/(protected)/upgrade');
+        router.push('/(protected)/UpgradeMembership');
     };
     
     if (role === 'guide') {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, ScrollView, StyleSheet, StatusBar, Image, Text, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
-import { User } from "lucide-react-native";
+import { User, Lock } from "lucide-react-native"; // Added Lock icon
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,7 +17,9 @@ const GuideSelection = () => {
     const [guides, setGuides] = useState([]);
     const [favorites, setFavorites] = useState(new Set());
     
+    // Modals
     const [errorModalVisible, setErrorModalVisible] = useState(false);
+    const [limitModalVisible, setLimitModalVisible] = useState(false); // NEW STATE
 
     useEffect(() => {
         const fetchGuidesAndFavorites = async () => {
@@ -87,12 +89,24 @@ const GuideSelection = () => {
     };
 
     const handleChooseGuide = (guide) => {
+        // 1. Prevent booking yourself
         if (user && guide && String(user.id) === String(guide.id)) {
             console.log("MATCH DETECTED! You cannot book yourself.");
             setErrorModalVisible(true);
             return;
         }
 
+        // 2. NEW CHECK: Free Tier Limit
+        // Note: Ensure your API returns 'guide_tier' and 'active_bookings_count' (or similar logic)
+        const isFreeTier = guide.guide_tier !== 'paid'; 
+        const hasActiveBooking = guide.active_bookings_count >= 1; // Or check specific flag from backend
+
+        if (isFreeTier && hasActiveBooking) {
+            setLimitModalVisible(true);
+            return;
+        }
+
+        // 3. Proceed if clear
         router.push({
             pathname: "/(protected)/guideAvailability",
             params: { 
@@ -188,76 +202,89 @@ const GuideSelection = () => {
                 </View>
 
                 <View style={styles.contentContainer}>
-                    {guides.map((guide, index) => (
-                        <View key={guide.id || index} style={styles.guideCard}>
-                            <View style={styles.cardProfileSection}>
-                                <View style={[styles.iconWrapper, guide.profile_picture && styles.imageWrapper]}>
-                                    {guide.profile_picture ? (
-                                        <Image 
-                                            source={{ uri: getImageUrl(guide.profile_picture) }} 
-                                            style={styles.profileImage}
-                                        />
-                                    ) : (
-                                        <User size={40} color="#8B98A8" />
-                                    )}
-                                </View>
-                                
-                                <View style={styles.profileInfo}>
-                                    <View style={styles.nameRow}>
-                                        <Text style={styles.guideName}>{guide.guide_name || `${guide.first_name} ${guide.last_name}`}</Text>
-                                        {renderAvailability(guide.available_days)}
+                    {guides.map((guide, index) => {
+                         // Optional: Visually indicate they are busy
+                         const isBusy = (guide.guide_tier !== 'paid' && guide.active_bookings_count >= 1);
+                         
+                         return (
+                            <View key={guide.id || index} style={[styles.guideCard, isBusy && styles.guideCardBusy]}>
+                                <View style={styles.cardProfileSection}>
+                                    <View style={[styles.iconWrapper, guide.profile_picture && styles.imageWrapper]}>
+                                        {guide.profile_picture ? (
+                                            <Image 
+                                                source={{ uri: getImageUrl(guide.profile_picture) }} 
+                                                style={[styles.profileImage, isBusy && { opacity: 0.5 }]}
+                                            />
+                                        ) : (
+                                            <User size={40} color="#8B98A8" />
+                                        )}
                                     </View>
                                     
-                                    <Text style={styles.guideAddress}>{guide.location || 'Location not specified'}</Text>
-                                    <Text style={styles.guideRating}>
-                                        {guide.guide_rating || 'New'} <Ionicons name="star" size={12} color="#C99700" />
-                                    </Text>
+                                    <View style={styles.profileInfo}>
+                                        <View style={styles.nameRow}>
+                                            <Text style={styles.guideName}>{guide.guide_name || `${guide.first_name} ${guide.last_name}`}</Text>
+                                            {isBusy && (
+                                                <View style={styles.busyBadge}>
+                                                    <Text style={styles.busyText}>Busy</Text>
+                                                </View>
+                                            )}
+                                            {!isBusy && renderAvailability(guide.available_days)}
+                                        </View>
+                                        
+                                        <Text style={styles.guideAddress}>{guide.location || 'Location not specified'}</Text>
+                                        <Text style={styles.guideRating}>
+                                            {guide.guide_rating || 'New'} <Ionicons name="star" size={12} color="#C99700" />
+                                        </Text>
+                                    </View>
+
+                                    <TouchableOpacity onPress={() => toggleFavorite(guide.id)}>
+                                        <Ionicons 
+                                            name={favorites.has(guide.id) ? "heart" : "heart-outline"} 
+                                            size={22} 
+                                            color="#FF5A5F" 
+                                        />
+                                    </TouchableOpacity>
                                 </View>
 
-                                <TouchableOpacity onPress={() => toggleFavorite(guide.id)}>
-                                    <Ionicons 
-                                        name={favorites.has(guide.id) ? "heart" : "heart-outline"} 
-                                        size={22} 
-                                        color="#FF5A5F" 
-                                    />
+                                <View style={styles.detailsGrid}>
+                                    <View style={styles.detailItem}>
+                                        <Text style={styles.detailLabel}>Language</Text>
+                                        <Text style={styles.detailValue}>
+                                            {Array.isArray(guide.languages) 
+                                                ? guide.languages.join(', ') 
+                                                : guide.languages || 'N/A'}
+                                        </Text>
+                                    </View>
+                                    <View style={styles.detailItem}>
+                                        <Text style={styles.detailLabel}>Specialty</Text>
+                                        <Text style={styles.detailValue}>{guide.specialty || 'General'}</Text>
+                                    </View>
+                                    <View style={styles.detailItem}>
+                                        <Text style={styles.detailLabel}>Experience</Text>
+                                        <Text style={styles.detailValue}>{guide.experience_years || 0} years</Text>
+                                    </View>
+                                    <View style={styles.detailItem}>
+                                        <Text style={styles.detailLabel}>Price</Text>
+                                        <Text style={styles.detailValue}>₱{guide.price_per_day || 'N/A'}/day</Text>
+                                    </View>
+                                </View>
+
+                                <TouchableOpacity 
+                                    style={[styles.buttonContainer, isBusy && styles.buttonBusy]} 
+                                    activeOpacity={0.8} 
+                                    onPress={() => handleChooseGuide(guide)}
+                                >
+                                    <Text style={styles.bookButton}>
+                                        {isBusy ? "GUIDE UNAVAILABLE" : "CHOOSE THIS GUIDE"}
+                                    </Text>
                                 </TouchableOpacity>
                             </View>
-
-                            <View style={styles.detailsGrid}>
-                                <View style={styles.detailItem}>
-                                    <Text style={styles.detailLabel}>Language</Text>
-                                    <Text style={styles.detailValue}>
-                                        {Array.isArray(guide.languages) 
-                                            ? guide.languages.join(', ') 
-                                            : guide.languages || 'N/A'}
-                                    </Text>
-                                </View>
-                                <View style={styles.detailItem}>
-                                    <Text style={styles.detailLabel}>Specialty</Text>
-                                    <Text style={styles.detailValue}>{guide.specialty || 'General'}</Text>
-                                </View>
-                                <View style={styles.detailItem}>
-                                    <Text style={styles.detailLabel}>Experience</Text>
-                                    <Text style={styles.detailValue}>{guide.experience_years || 0} years</Text>
-                                </View>
-                                <View style={styles.detailItem}>
-                                    <Text style={styles.detailLabel}>Price</Text>
-                                    <Text style={styles.detailValue}>₱{guide.price_per_day || 'N/A'}/day</Text>
-                                </View>
-                            </View>
-
-                            <TouchableOpacity 
-                                style={styles.buttonContainer} 
-                                activeOpacity={0.8} 
-                                onPress={() => handleChooseGuide(guide)}
-                            >
-                                <Text style={styles.bookButton}>CHOOSE THIS GUIDE</Text>
-                            </TouchableOpacity>
-                        </View>
-                    ))}
+                        );
+                    })}
                 </View>
             </ScrollView>
 
+            {/* ERROR MODAL (Self Booking) */}
             <Modal
                 animationType="fade"
                 transparent={true}
@@ -282,6 +309,34 @@ const GuideSelection = () => {
                     </View>
                 </View>
             </Modal>
+
+            {/* NEW MODAL: FREE TIER LIMIT REACHED */}
+            <Modal
+                animationType="fade"
+                transparent={true}
+                visible={limitModalVisible}
+                onRequestClose={() => setLimitModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={[styles.modalIconContainer, { backgroundColor: '#E3F2FD' }]}>
+                            <Lock size={40} color="#0072FF" />
+                        </View>
+                        <Text style={styles.modalTitle}>Guide Unavailable</Text>
+                        <Text style={styles.modalMessage}>
+                            This guide is currently fully booked.{"\n\n"}
+                            They are on the Starter (Free) Tier and have reached their active booking limit. Please choose another guide or try again later when they are free.
+                        </Text>
+                        <TouchableOpacity 
+                            style={[styles.modalButton, { backgroundColor: '#0072FF' }]}
+                            onPress={() => setLimitModalVisible(false)}
+                        >
+                            <Text style={styles.modalButtonText}>Close</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
         </SafeAreaView>
     );
 };
@@ -315,7 +370,8 @@ const styles = StyleSheet.create({
     contentContainer: { padding: 16, gap: 12 },
     
     guideCard: { backgroundColor: '#F5F7FA', borderRadius: 15, padding: 16, borderWidth: 1, borderColor: '#E0E6ED', marginBottom: 10 },
-    
+    guideCardBusy: { backgroundColor: '#FAFAFA', borderColor: '#EEE', opacity: 0.9 }, // Style for busy guides
+
     cardProfileSection: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 },
     iconWrapper: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#EBF0F5', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
     imageWrapper: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd' },
@@ -328,6 +384,10 @@ const styles = StyleSheet.create({
     guideAddress: { fontSize: 12, color: '#8B98A8' },
     guideRating: { fontSize: 12, color: '#C99700', marginTop: 2 },
     
+    // Busy Badge Styles
+    busyBadge: { backgroundColor: '#CFD8DC', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, marginTop: 4 },
+    busyText: { fontSize: 10, color: '#455A64', fontWeight: '700', textTransform: 'uppercase' },
+
     availabilityContainer: { flexDirection: 'row', gap: 4, marginTop: 4, marginBottom: 4 },
     dayBadge: { width: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
     dayAvailable: { backgroundColor: '#28A745' },
@@ -342,6 +402,7 @@ const styles = StyleSheet.create({
     detailValue: { fontSize: 13, color: '#1A2332', fontWeight: '600', marginTop: 4 },
     
     buttonContainer: { alignItems: 'center' },
+    buttonBusy: { opacity: 0.6 },
     bookButton: { backgroundColor: '#00C6FF', color: '#fff', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, fontSize: 14, fontWeight: '700', textAlign: 'center', width: '100%', overflow: 'hidden' },
 
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },

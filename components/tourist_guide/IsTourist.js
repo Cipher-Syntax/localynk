@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, Image, Text, StatusBar, ScrollView, TouchableOpacity, Alert, Modal, Switch } from 'react-native';
+import { View, StyleSheet, Image, Text, StatusBar, ScrollView, TouchableOpacity, Alert, Modal, Switch, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -15,6 +15,10 @@ const IsTourist = () => {
     const [modalVisible, setModalVisible] = useState(false);
     const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
 
+    // State for Dynamic Pricing
+    const [subscriptionPrice, setSubscriptionPrice] = useState(null);
+    const [loadingPrice, setLoadingPrice] = useState(true);
+
     // Progress Flags from Backend
     const setupProgress = user?.setup_progress || { has_info: false, has_accommodation: false, has_tour: false };
 
@@ -24,6 +28,21 @@ const IsTourist = () => {
         }
     }, [user]);
 
+    // Fetch Subscription Price from Backend
+    useEffect(() => {
+        const fetchPrice = async () => {
+            try {
+                const response = await api.get('/api/payments/subscription-price/');
+                setSubscriptionPrice(response.data.price);
+            } catch (error) {
+                console.error('Failed to fetch subscription price:', error);
+            } finally {
+                setLoadingPrice(false);
+            }
+        };
+        fetchPrice();
+    }, []);
+
     const fetchBookings = async () => {
         try {
             const bookingRes = await api.get('/api/bookings/', {
@@ -31,7 +50,6 @@ const IsTourist = () => {
             });
             
             // Filter to show primarily Confirmed bookings (Upcoming Trips)
-            // Added check: b.tourist_id !== user.id to ensure I don't see my own trips
             const sorted = bookingRes.data
                 .filter(b => {
                     const isMyOwnTrip = b.tourist_id === user?.id;
@@ -131,7 +149,7 @@ const IsTourist = () => {
 
     return (
         <View style={styles.container} edges={['top']}>
-            <StatusBar barStyle="light-content" />
+            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
             <View style={styles.header}>
                 <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} />
@@ -236,7 +254,7 @@ const IsTourist = () => {
                 </View>
             </ScrollView>
 
-            {/* Re-using modal & toast styles from previous code... */}
+            {/* Toast Notification */}
             {toast.visible && (
                 <View style={[styles.toastContainer, styles.toastSuccess]}>
                     <Ionicons name="checkmark-circle" size={24} color="#fff" />
@@ -244,6 +262,7 @@ const IsTourist = () => {
                 </View>
             )}
             
+            {/* Membership Plans Modal */}
             <Modal animationType="fade" transparent={true} visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
@@ -251,7 +270,96 @@ const IsTourist = () => {
                             <Text style={styles.modalTitle}>Membership Plans</Text>
                             <TouchableOpacity onPress={() => setModalVisible(false)}><Ionicons name="close" size={24} color="#333" /></TouchableOpacity>
                         </View>
-                        {/* Plan Content... */}
+                        
+                        <ScrollView showsVerticalScrollIndicator={false}>
+                            {/* FREE TIER CARD */}
+                            <View style={[styles.planCard, user?.guide_tier !== 'paid' && styles.activePlanBorder]}>
+                                <View style={styles.planHeaderRow}>
+                                    <View>
+                                        <Text style={styles.planName}>Free Tier</Text>
+                                        <Text style={styles.planCost}>₱0.00 / forever</Text>
+                                    </View>
+                                    {user?.guide_tier !== 'paid' && (
+                                        <View style={styles.currentBadge}>
+                                            <Text style={styles.currentBadgeText}>CURRENT</Text>
+                                        </View>
+                                    )}
+                                </View>
+                                <View style={styles.planFeatures}>
+                                    <View style={styles.featureRow}>
+                                        <Ionicons name="checkmark" size={16} color="#64748B" />
+                                        <Text style={styles.featureText}>Basic Profile Visibility</Text>
+                                    </View>
+                                    <View style={styles.featureRow}>
+                                        <Ionicons name="alert-circle-outline" size={16} color="#FFAB00" />
+                                        {/* Updated Limit Text */}
+                                        <Text style={styles.featureText}>1 Active Booking Limit</Text>
+                                    </View>
+                                </View>
+                            </View>
+
+                            {/* PREMIUM TIER CARD */}
+                            <View style={[styles.planCard, styles.premiumCard, user?.guide_tier === 'paid' && styles.activePlanBorder]}>
+                                <View style={styles.planHeaderRow}>
+                                    <View>
+                                        <View style={{flexDirection:'row', alignItems:'center', gap: 6}}>
+                                            <Text style={styles.planName}>Premium Guide</Text>
+                                            <Ionicons name="ribbon" size={18} color="#FFAB00" />
+                                        </View>
+                                        {/* Dynamic Price */}
+                                        {loadingPrice ? (
+                                            <ActivityIndicator size="small" color="#64748B" style={{marginTop: 5, alignSelf: 'flex-start'}} />
+                                        ) : (
+                                            <Text style={styles.planCost}>₱{subscriptionPrice || '499.00'} / year</Text>
+                                        )}
+                                    </View>
+                                    {user?.guide_tier === 'paid' ? (
+                                        <View style={[styles.currentBadge, {backgroundColor:'#00C853'}]}>
+                                            <Text style={styles.currentBadgeText}>ACTIVE</Text>
+                                        </View>
+                                    ) : (
+                                        <View style={styles.bestValueBadge}>
+                                            <Text style={styles.bestValueText}>BEST VALUE</Text>
+                                        </View>
+                                    )}
+                                </View>
+                                
+                                <View style={styles.planFeatures}>
+                                    <View style={styles.featureRow}>
+                                        <Ionicons name="checkmark-circle" size={16} color="#00C853" />
+                                        <Text style={styles.featureText}>Accept Unlimited Bookings</Text>
+                                    </View>
+                                    <View style={styles.featureRow}>
+                                        <Ionicons name="checkmark-circle" size={16} color="#00C853" />
+                                        <Text style={styles.featureText}>Verified Guide Badge</Text>
+                                    </View>
+                                    <View style={styles.featureRow}>
+                                        <Ionicons name="checkmark-circle" size={16} color="#00C853" />
+                                        <Text style={styles.featureText}>Priority Support</Text>
+                                    </View>
+                                </View>
+
+                                {user?.guide_tier !== 'paid' && (
+                                    <TouchableOpacity 
+                                        style={styles.upgradeBtnModal}
+                                        onPress={() => {
+                                            setModalVisible(false);
+                                            router.push('/(protected)/upgradeMembership');
+                                        }}
+                                    >
+                                        <LinearGradient
+                                            colors={['#0072FF', '#00C6FF']}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 0 }}
+                                            style={styles.gradientBtn}
+                                        >
+                                            <Text style={styles.upgradeBtnText}>UPGRADE NOW</Text>
+                                            <Ionicons name="arrow-forward" size={16} color="#fff" />
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        </ScrollView>
                     </View>
                 </View>
             </Modal>
@@ -332,4 +440,102 @@ const styles = StyleSheet.create({
     modalContent: { width: '90%', backgroundColor: '#fff', borderRadius: 24, padding: 24, maxHeight: '80%', elevation: 10 },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
     modalTitle: { fontSize: 20, fontWeight: '800', color: '#253347' },
+
+    // MODAL PLAN STYLES
+    planCard: {
+        backgroundColor: '#F8FAFC',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    premiumCard: {
+        backgroundColor: '#FFF',
+        borderColor: '#FFAB00',
+        borderWidth: 1,
+        shadowColor: '#FFAB00',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 3,
+    },
+    activePlanBorder: {
+        borderColor: '#00C853',
+        borderWidth: 2,
+        backgroundColor: '#F0FDF4',
+    },
+    planHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 12,
+        paddingBottom: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F1F5F9',
+    },
+    planName: {
+        fontSize: 16,
+        fontWeight: '800',
+        color: '#1E293B',
+    },
+    planCost: {
+        fontSize: 13,
+        color: '#64748B',
+        fontWeight: '500',
+        marginTop: 2,
+    },
+    currentBadge: {
+        backgroundColor: '#94A3B8',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+    },
+    currentBadgeText: {
+        color: '#fff',
+        fontSize: 10,
+        fontWeight: '800',
+    },
+    bestValueBadge: {
+        backgroundColor: '#FFAB00',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+    },
+    bestValueText: {
+        color: '#fff',
+        fontSize: 10,
+        fontWeight: '800',
+    },
+    planFeatures: {
+        gap: 8,
+    },
+    featureRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    featureText: {
+        fontSize: 13,
+        color: '#475569',
+        fontWeight: '500',
+    },
+    upgradeBtnModal: {
+        marginTop: 16,
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    gradientBtn: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 12,
+        gap: 8,
+    },
+    upgradeBtnText: {
+        color: '#fff',
+        fontWeight: '700',
+        fontSize: 14,
+        letterSpacing: 0.5,
+    },
 });
