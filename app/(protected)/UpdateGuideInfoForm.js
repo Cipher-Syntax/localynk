@@ -23,7 +23,7 @@ const SPECIALTY_OPTIONS = [
 
 const UpdateGuideInfoForm = () => {
     const router = useRouter();
-    const { user, isLoading: authLoading } = useAuth();
+    const { user, isLoading: authLoading, refreshUser } = useAuth();
     const insets = useSafeAreaInsets(); 
     const [isSubmitting, setIsSubmitting] = useState(false);
     
@@ -168,7 +168,10 @@ const UpdateGuideInfoForm = () => {
             
             showToast("Info updated!", "success");
             
-            // Navigate back to Dashboard (IsTourist) instead of next step
+            // Refresh user data so the checklist turns green
+            await refreshUser();
+            
+            // Navigate back to Dashboard (IsTourist)
             setTimeout(() => {
                 router.back(); 
             }, 1500);
@@ -249,9 +252,11 @@ const UpdateGuideInfoForm = () => {
                                 selectedValue={selectedSpecialty}
                                 onValueChange={(itemValue) => setSelectedSpecialty(itemValue)}
                                 style={styles.picker}
+                                dropdownIconColor="#1F2937"
+                                itemStyle={{ color: '#1F2937', fontSize: 14 }}
                             >
                                 {SPECIALTY_OPTIONS.map((opt) => (
-                                    <Picker.Item key={opt} label={opt} value={opt} style={{fontSize: 14}} />
+                                    <Picker.Item key={opt} label={opt} value={opt} color="#1F2937" />
                                 ))}
                             </Picker>
                         </View>
@@ -264,6 +269,7 @@ const UpdateGuideInfoForm = () => {
                                     onChangeText={setCustomSpecialty}
                                     style={styles.input}
                                     placeholder="e.g. Bird Watching"
+                                    placeholderTextColor="#A0AEC0"
                                 />
                             </View>
                         )}
@@ -277,6 +283,7 @@ const UpdateGuideInfoForm = () => {
                                     keyboardType="numeric"
                                     style={styles.input}
                                     placeholder="0"
+                                    placeholderTextColor="#A0AEC0"
                                 />
                             </View>
                             <View style={{flex: 1}}>
@@ -287,6 +294,7 @@ const UpdateGuideInfoForm = () => {
                                     keyboardType="numeric"
                                     style={styles.input}
                                     placeholder="0.00"
+                                    placeholderTextColor="#A0AEC0"
                                 />
                             </View>
                         </View>
@@ -475,6 +483,7 @@ const styles = StyleSheet.create({
     picker: {
         width: '100%',
         height: 50,
+        color: '#1F2937', // Fixes Android text visibility
     },
     statusBox: {
         backgroundColor: '#F0F9FF',
