@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "483220783523",
+    "project_id": "localynk-487408",
+    "storage_bucket": "localynk-487408.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:483220783523:android:bdb309a38d31e1a6c4da16",
+        "android_client_info": {
+          "package_name": "com.localynk.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "483220783523-0uo25n7opqc72h99bt0bj0vvssuarbpe.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.localynk.app",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "483220783523-5shfec08dbf87rp5qtve73ih7pg9sbub.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB19cfEhvmiivel2Gx8x7jibj5RWBGc_Xs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "483220783523-5shfec08dbf87rp5qtve73ih7pg9sbub.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "483220783523-goc1a7iq8ep3n2mq89qc58iskc71d998.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.localynk.app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
