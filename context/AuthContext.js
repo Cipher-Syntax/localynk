@@ -21,18 +21,6 @@ export function AuthProvider({ children }) {
     const [hasSkippedOnboarding, setHasSkippedOnboarding] = useState(false);
     const router = useRouter();
 
-    useEffect(() => {
-        try {
-            GoogleSignin.configure({
-                webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID, 
-                offlineAccess: true,
-                scopes: ['profile', 'email']
-            });
-        } catch (e) {
-            console.log("Google Sign-In Configuration Error:", e);
-        }
-    }, []);
-
     const clearMessage = useCallback(() => {
         setState(prev => ({ ...prev, message: null, messageType: null }));
     }, []);

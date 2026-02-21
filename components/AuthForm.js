@@ -104,6 +104,15 @@ const AuthForm = ({ method }) => {
         setIsGoogleLoading(true);
         clearMessage();
         try {
+            // Guarantee configuration happens right before signing in
+            const clientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || "YOUR_ACTUAL_GOOGLE_CLIENT_ID_HERE";
+            
+            GoogleSignin.configure({
+                webClientId: clientId,
+                offlineAccess: true,
+                scopes: ['profile', 'email']
+            });
+
             await GoogleSignin.hasPlayServices();
             const userInfo = await GoogleSignin.signIn();
             const tokens = await GoogleSignin.getTokens();
