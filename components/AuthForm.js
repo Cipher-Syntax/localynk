@@ -63,14 +63,6 @@ const AuthForm = ({ method }) => {
 
         return () => subscription.remove();
     }, [method]);
-    
-    useEffect(() => {
-        GoogleSignin.configure({
-            webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
-            offlineAccess: true,
-            scopes: ['profile', 'email']
-        });
-    }, []); 
 
     const handleNavigation = (user) => {
         if (user) {
