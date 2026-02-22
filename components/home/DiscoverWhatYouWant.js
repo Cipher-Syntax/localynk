@@ -13,8 +13,6 @@ import DiscoverPlace4 from '../../assets/localynk_images/discover4.png';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
-// Calculate precise widths to keep the exact 4-item view proportion for the slider.
-// The active item takes up 4/7 of the screen, and inactive items take 1/7 each.
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ACTIVE_WIDTH = SCREEN_WIDTH * (4 / 7);
 const INACTIVE_WIDTH = SCREEN_WIDTH * (1 / 7);
@@ -29,28 +27,24 @@ const DiscoverWhatYouWant = ({ isPublic = false }) => {
 
     const bounceValue = useRef(new Animated.Value(0)).current;
     
-    // We use a ref object to hold dynamically generated Animated Values for the width of each category item
     const widthAnimations = useRef({});
 
     useEffect(() => {
         const fetchCategories = async () => {
             try {
                 const response = await api.get('/api/categories/');
-                const fetchedCategories = response.data; // e.g. ['Cultural', 'Historical', 'Adventure', ...]
+                const fetchedCategories = response.data; 
 
-                // Fallback images to cycle through
                 const localImages = [DiscoverPlace1, DiscoverPlace2, DiscoverPlace3, DiscoverPlace4];
 
                 const dynamicItems = fetchedCategories.map((cat, index) => ({
                     id: index + 1,
-                    originalName: cat, // Need this to pass into the API params later
+                    originalName: cat, 
                     name: cat.toUpperCase(),
                     image: localImages[index % localImages.length],
                 }));
 
-                // Initialize the width animation value for each dynamic item
                 dynamicItems.forEach((item, index) => {
-                    // Make the first item expanded by default
                     const isFirst = index === 0;
                     widthAnimations.current[item.id] = new Animated.Value(isFirst ? ACTIVE_WIDTH : INACTIVE_WIDTH);
                 });
@@ -69,7 +63,6 @@ const DiscoverWhatYouWant = ({ isPublic = false }) => {
         fetchCategories();
     }, []);
 
-    // Animate widths when the active item changes
     useEffect(() => {
         if (!isActive || items.length === 0) return;
 
@@ -78,14 +71,13 @@ const DiscoverWhatYouWant = ({ isPublic = false }) => {
                 toValue: item.id === isActive ? ACTIVE_WIDTH : INACTIVE_WIDTH,
                 duration: 500,
                 easing: Easing.out(Easing.cubic),
-                useNativeDriver: false, // width animation doesn't support native driver
+                useNativeDriver: false, 
             });
         });
         
         Animated.parallel(animations).start();
     }, [isActive, items]);
 
-    // Bounce animation for the circular arrow button
     useEffect(() => {
         const startBounce = () => {
             bounceValue.setValue(0);
@@ -112,13 +104,17 @@ const DiscoverWhatYouWant = ({ isPublic = false }) => {
         }
     }, [isActive]);
 
+    // UPDATED: Now directs to explore page with the selected category filter
     const handleDiscoverPress = (item) => {
         if (isPublic && !isAuthenticated) {
             router.push('/auth/login');
         } else {
             router.push({
-                pathname: "/(protected)/guideSelection",
-                params: { category: item.originalName }, // Use the exact name from the backend for filtering
+                pathname: "/(protected)/explore",
+                params: { 
+                    tab: 'places', // Automatically switch to places tab
+                    category: item.originalName 
+                }, 
             });
         }
     };
@@ -131,7 +127,7 @@ const DiscoverWhatYouWant = ({ isPublic = false }) => {
         );
     }
 
-    if (items.length === 0) return null; // Don't show the section if no categories exist
+    if (items.length === 0) return null; 
 
     return (
         <View style={styles.discoverSection}>
@@ -301,7 +297,7 @@ const styles = StyleSheet.create({
         color: 'rgba(255,255,255,0.85)',
         transform: [{ rotate: '-90deg' }],
         letterSpacing: 6,
-        width: 450, // wide enough to accommodate rotated text
+        width: 450, 
         textAlign: "center",
         textShadowColor: 'rgba(0, 0, 0, 0.5)',
         textShadowOffset: { width: 0, height: 1 },

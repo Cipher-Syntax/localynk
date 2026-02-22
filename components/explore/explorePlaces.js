@@ -6,7 +6,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import api from '../../api/api';
 
-// Fallback image if none exists
 const FALLBACK_IMAGE = require('../../assets/localynk_images/discover1.png'); 
 
 const { width } = Dimensions.get('window');
@@ -20,6 +19,7 @@ const ExplorePlaces = () => {
     const params = useLocalSearchParams();
 
     const [activeTab, setActiveTab] = useState(params.tab || 'guides');
+    const [selectedCategory, setSelectedCategory] = useState(params.category || ''); // NEW: Category state
     const [searchQuery, setSearchQuery] = useState('');
     const [guides, setGuides] = useState([]);
     const [places, setPlaces] = useState([]);
@@ -50,11 +50,11 @@ const ExplorePlaces = () => {
         startBounce();
     }, []);
 
+    // Watch for params changes if navigated from other tabs
     useEffect(() => {
-        if (params.tab) {
-            setActiveTab(params.tab);
-        }
-    }, [params.tab]);
+        if (params.tab) setActiveTab(params.tab);
+        if (params.category) setSelectedCategory(params.category);
+    }, [params.tab, params.category]);
 
     useEffect(() => {
         let isMounted = true;
@@ -94,9 +94,12 @@ const ExplorePlaces = () => {
         return fullName.includes(query) || specialty.includes(query) || location.includes(query);
     });
 
-    const filteredPlaces = places.filter(place =>
-        (place.name || '').toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    // UPDATED: Filter places by both search query AND category
+    const filteredPlaces = places.filter(place => {
+        const matchesSearch = (place.name || '').toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesCategory = selectedCategory ? place.category === selectedCategory : true;
+        return matchesSearch && matchesCategory;
+    });
 
     const chunkData = (data, size) => {
         if (!data || !Array.isArray(data)) return [];
@@ -292,12 +295,14 @@ const ExplorePlaces = () => {
                 <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} />
                 <LinearGradient colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']} style={styles.overlay} />
                 
-                {/* Back Button Added Here */}
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color="#fff" />
                 </TouchableOpacity>
 
-                <Text style={styles.headerTitle}>EXPLORE {activeTab === 'guides' ? 'GUIDES' : 'PLACES'}</Text>
+                {/* UPDATED: Dynamic Header Title depending on selected category */}
+                <Text style={styles.headerTitle}>
+                    EXPLORE {activeTab === 'guides' ? 'GUIDES' : (selectedCategory ? selectedCategory.toUpperCase() : 'PLACES')}
+                </Text>
             </View>
 
             <View style={styles.searchFilterRow}>
@@ -337,6 +342,17 @@ const ExplorePlaces = () => {
                     </TouchableOpacity>
                 </View>
             </View>
+
+            {/* NEW: Filter Badge to allow user to clear the category and see all places again */}
+            {selectedCategory && activeTab === 'places' && (
+                <View style={styles.activeFilterContainer}>
+                    <Text style={styles.activeFilterText}>Filtered by: {selectedCategory}</Text>
+                    <TouchableOpacity onPress={() => setSelectedCategory('')} style={styles.clearFilterBadge}>
+                        <Ionicons name="close" size={14} color="#fff" />
+                        <Text style={styles.clearFilterText}>Clear</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
         </View>
     );
 
@@ -377,13 +393,12 @@ const styles = StyleSheet.create({
     overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     headerTitle: { position: 'absolute', bottom: 15, left: 20, color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 1 },
     
-    // Back Button Style
     backButton: {
         position: 'absolute',
-        top: 20, // Adjusted for spacing
+        top: 20, 
         left: 20,
         zIndex: 10,
-        backgroundColor: 'rgba(0,0,0,0.3)', // Semi-transparent background for visibility
+        backgroundColor: 'rgba(0,0,0,0.3)', 
         padding: 6,
         borderRadius: 20,
     },
@@ -393,6 +408,7 @@ const styles = StyleSheet.create({
     searchIcon: { marginRight: 8 },
     searchInput: { flex: 1, paddingVertical: 10, fontSize: 14, color: '#1A2332' },
     filterButton: { backgroundColor: '#EBF0F5', padding: 10, borderRadius: 10, borderWidth: 1, borderColor: '#D0DAE3' },
+    
     toggleRow: { flexDirection: 'row', justifyContent: 'center', paddingHorizontal: 16, marginBottom: 10 },
     toggleContainer: { flexDirection: 'row', width: '100%', gap: 12 },
     toggleButton: { flex: 1, paddingVertical: 10, borderRadius: 20, borderWidth: 1, borderColor: '#00A8FF', backgroundColor: '#fff', alignItems: 'center' },
@@ -400,12 +416,17 @@ const styles = StyleSheet.create({
     toggleButtonText: { fontSize: 14, fontWeight: '600', color: '#00A8FF' },
     toggleButtonTextActive: { color: '#fff' },
     
+    // NEW: Styles for the clear category filter badge
+    activeFilterContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 10, backgroundColor: '#E8F6FF', paddingVertical: 8, marginHorizontal: 16, borderRadius: 8, borderWidth: 1, borderColor: '#BFE4FF' },
+    activeFilterText: { fontSize: 13, color: '#006699', fontWeight: '600' },
+    clearFilterBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#00A8FF', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
+    clearFilterText: { color: '#fff', fontSize: 11, fontWeight: '700', marginLeft: 2 },
+
     contentContainer: { paddingBottom: 40 },
 
     rowContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: GAP, marginHorizontal: PADDING },
     columnContainer: { width: '33%', justifyContent: 'space-between', height: LARGE_HEIGHT },
 
-    // --- NEW PLACE CARD STYLES ---
     placeCard: { 
         borderRadius: 16, 
         overflow: 'hidden', 
@@ -423,14 +444,12 @@ const styles = StyleSheet.create({
     placeLocationRow: { flexDirection: 'row', alignItems: 'center' },
     placeLocation: { fontSize: 10, color: 'rgba(255,255,255,0.9)', marginLeft: 4, flex: 1, fontWeight: '500' },
     
-    // Badge Styles
     categoryBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, zIndex: 5 },
     categoryText: { color: '#fff', fontSize: 9, fontWeight: '700', textTransform: 'uppercase' },
     
     ratingContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 4, paddingVertical: 2, borderRadius: 4 },
     ratingText: { color: '#fff', fontSize: 9, fontWeight: '700', marginLeft: 2 },
 
-    // --- GUIDE CARD STYLES ---
     guideCardStack: { 
         backgroundColor: '#F5F7FA', 
         borderRadius: 15, 
