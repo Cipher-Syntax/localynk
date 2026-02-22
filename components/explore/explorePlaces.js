@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, StatusBar, Image, Text, TouchableOpacity, Animated, Easing, TextInput, Dimensions, FlatList, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, StatusBar, Image, Text, TouchableOpacity, Animated, Easing, TextInput, Dimensions, FlatList, ActivityIndicator, Modal, ScrollView } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
 import { User } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
@@ -19,8 +19,15 @@ const ExplorePlaces = () => {
     const params = useLocalSearchParams();
 
     const [activeTab, setActiveTab] = useState(params.tab || 'guides');
-    const [selectedCategory, setSelectedCategory] = useState(params.category || ''); // NEW: Category state
+    const [selectedCategory, setSelectedCategory] = useState(params.category || ''); 
     const [searchQuery, setSearchQuery] = useState('');
+    
+    // NEW: Filter States
+    const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
+    const [minRating, setMinRating] = useState(0);
+    const [maxGuidePrice, setMaxGuidePrice] = useState('');
+    const [selectedGuideLocation, setSelectedGuideLocation] = useState('');
+
     const [guides, setGuides] = useState([]);
     const [places, setPlaces] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -86,19 +93,34 @@ const ExplorePlaces = () => {
         return () => { isMounted = false };
     }, []);
 
+    // UPDATED: Apply Guide Filters
     const filteredGuides = guides.filter(guide => {
         const fullName = `${guide.first_name || ''} ${guide.last_name || ''}`.toLowerCase();
         const specialty = (guide.specialty || '').toLowerCase();
-        const location = (guide.location || '').toLowerCase();
+        const loc = (guide.location || '').toLowerCase();
         const query = searchQuery.toLowerCase();
-        return fullName.includes(query) || specialty.includes(query) || location.includes(query);
+        
+        const matchesSearch = fullName.includes(query) || specialty.includes(query) || loc.includes(query);
+        const matchesLocation = selectedGuideLocation ? loc.includes(selectedGuideLocation.toLowerCase()) : true;
+        
+        const guidePrice = parseFloat(guide.price_per_day) || 0;
+        const matchesPrice = maxGuidePrice ? guidePrice <= parseFloat(maxGuidePrice) : true;
+        
+        const guideRating = parseFloat(guide.guide_rating) || 0;
+        const matchesRating = minRating > 0 ? guideRating >= minRating : true;
+
+        return matchesSearch && matchesLocation && matchesPrice && matchesRating;
     });
 
-    // UPDATED: Filter places by both search query AND category
+    // UPDATED: Apply Places Filters
     const filteredPlaces = places.filter(place => {
         const matchesSearch = (place.name || '').toLowerCase().includes(searchQuery.toLowerCase());
         const matchesCategory = selectedCategory ? place.category === selectedCategory : true;
-        return matchesSearch && matchesCategory;
+        
+        const placeRating = parseFloat(place.average_rating) || 0;
+        const matchesRating = minRating > 0 ? placeRating >= minRating : true;
+
+        return matchesSearch && matchesCategory && matchesRating;
     });
 
     const chunkData = (data, size) => {
@@ -108,6 +130,16 @@ const ExplorePlaces = () => {
             chunks.push(data.slice(i, i + size));
         }
         return chunks;
+    };
+
+    // Helper: Check if there are any active filters to display the clear badge
+    const hasActiveFilters = selectedCategory !== '' || minRating > 0 || (activeTab === 'guides' && (maxGuidePrice !== '' || selectedGuideLocation !== ''));
+
+    const clearAllFilters = () => {
+        setSelectedCategory('');
+        setMinRating(0);
+        setMaxGuidePrice('');
+        setSelectedGuideLocation('');
     };
 
     const renderAvailability = (guideDays) => {
@@ -299,7 +331,6 @@ const ExplorePlaces = () => {
                     <Ionicons name="arrow-back" size={24} color="#fff" />
                 </TouchableOpacity>
 
-                {/* UPDATED: Dynamic Header Title depending on selected category */}
                 <Text style={styles.headerTitle}>
                     EXPLORE {activeTab === 'guides' ? 'GUIDES' : (selectedCategory ? selectedCategory.toUpperCase() : 'PLACES')}
                 </Text>
@@ -316,8 +347,11 @@ const ExplorePlaces = () => {
                         onChangeText={setSearchQuery}
                     />
                 </View>
-                <TouchableOpacity style={styles.filterButton} onPress={() => alert("Filter options coming soon!")}>
+                
+                {/* UPDATED: Open Filter Modal Instead of Alert */}
+                <TouchableOpacity style={styles.filterButton} onPress={() => setIsFilterModalVisible(true)}>
                     <Ionicons name="options-outline" size={22} color="#00A8FF" />
+                    {hasActiveFilters && <View style={styles.filterActiveDot} />}
                 </TouchableOpacity>
             </View>
 
@@ -343,13 +377,15 @@ const ExplorePlaces = () => {
                 </View>
             </View>
 
-            {/* NEW: Filter Badge to allow user to clear the category and see all places again */}
-            {selectedCategory && activeTab === 'places' && (
+            {/* UPDATED: Dynamic Filter Badge that shows if ANY filter is active */}
+            {hasActiveFilters && (
                 <View style={styles.activeFilterContainer}>
-                    <Text style={styles.activeFilterText}>Filtered by: {selectedCategory}</Text>
-                    <TouchableOpacity onPress={() => setSelectedCategory('')} style={styles.clearFilterBadge}>
+                    <Text style={styles.activeFilterText}>
+                        Filters applied {selectedCategory && activeTab === 'places' ? `(${selectedCategory})` : ''}
+                    </Text>
+                    <TouchableOpacity onPress={clearAllFilters} style={styles.clearFilterBadge}>
                         <Ionicons name="close" size={14} color="#fff" />
-                        <Text style={styles.clearFilterText}>Clear</Text>
+                        <Text style={styles.clearFilterText}>Clear All</Text>
                     </TouchableOpacity>
                 </View>
             )}
@@ -376,6 +412,99 @@ const ExplorePlaces = () => {
                 ListEmptyComponent={renderEmpty}
                 showsVerticalScrollIndicator={false}
             />
+
+            {/* NEW: Filter Bottom Sheet Modal */}
+            <Modal
+                visible={isFilterModalVisible}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setIsFilterModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Filters ({activeTab === 'guides' ? 'Guides' : 'Places'})</Text>
+                            <TouchableOpacity onPress={() => setIsFilterModalVisible(false)}>
+                                <Ionicons name="close" size={24} color="#1A2332" />
+                            </TouchableOpacity>
+                        </View>
+                        
+                        <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+                            
+                            <Text style={styles.filterSectionTitle}>Minimum Rating</Text>
+                            <View style={styles.ratingFilterContainer}>
+                                {[1, 2, 3, 4, 5].map(star => (
+                                    <TouchableOpacity 
+                                        key={star} 
+                                        style={[styles.ratingPill, minRating === star && styles.ratingPillActive]}
+                                        onPress={() => setMinRating(minRating === star ? 0 : star)}
+                                    >
+                                        <Ionicons name="star" size={14} color={minRating === star ? "#fff" : "#C99700"} />
+                                        <Text style={[styles.ratingPillText, minRating === star && styles.ratingPillTextActive]}>{star}+</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+
+                            {activeTab === 'places' && (
+                                <>
+                                    <Text style={styles.filterSectionTitle}>Category</Text>
+                                    <View style={styles.categoryFilterContainer}>
+                                        {/* Get unique categories from fetched places */}
+                                        {Array.from(new Set(places.map(p => p.category).filter(Boolean))).map(cat => (
+                                            <TouchableOpacity 
+                                                key={cat} 
+                                                style={[styles.categoryPill, selectedCategory === cat && styles.categoryPillActive]}
+                                                onPress={() => setSelectedCategory(selectedCategory === cat ? '' : cat)}
+                                            >
+                                                <Text style={[styles.categoryPillText, selectedCategory === cat && styles.categoryPillTextActive]}>{cat}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                </>
+                            )}
+
+                            {activeTab === 'guides' && (
+                                <>
+                                    <Text style={styles.filterSectionTitle}>Maximum Price (₱/day)</Text>
+                                    <TextInput
+                                        style={styles.filterInput}
+                                        placeholder="e.g. 1500"
+                                        placeholderTextColor="#8B98A8"
+                                        keyboardType="numeric"
+                                        value={maxGuidePrice}
+                                        onChangeText={setMaxGuidePrice}
+                                    />
+
+                                    <Text style={styles.filterSectionTitle}>Location</Text>
+                                    <TextInput
+                                        style={styles.filterInput}
+                                        placeholder="e.g. Zamboanga City"
+                                        placeholderTextColor="#8B98A8"
+                                        value={selectedGuideLocation}
+                                        onChangeText={setSelectedGuideLocation}
+                                    />
+                                </>
+                            )}
+                        </ScrollView>
+
+                        <View style={styles.modalFooter}>
+                            <TouchableOpacity 
+                                style={styles.modalClearButton}
+                                onPress={clearAllFilters}
+                            >
+                                <Text style={styles.modalClearButtonText}>Reset</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={styles.modalApplyButton}
+                                onPress={() => setIsFilterModalVisible(false)}
+                            >
+                                <Text style={styles.modalApplyButtonText}>Show Results</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
         </View>
     );
 };
@@ -407,7 +536,9 @@ const styles = StyleSheet.create({
     searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#EBF0F5', borderRadius: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: '#D0DAE3' },
     searchIcon: { marginRight: 8 },
     searchInput: { flex: 1, paddingVertical: 10, fontSize: 14, color: '#1A2332' },
-    filterButton: { backgroundColor: '#EBF0F5', padding: 10, borderRadius: 10, borderWidth: 1, borderColor: '#D0DAE3' },
+    
+    filterButton: { position: 'relative', backgroundColor: '#EBF0F5', padding: 10, borderRadius: 10, borderWidth: 1, borderColor: '#D0DAE3' },
+    filterActiveDot: { position: 'absolute', top: -3, right: -3, width: 10, height: 10, borderRadius: 5, backgroundColor: '#FF5A5F', borderWidth: 2, borderColor: '#fff' },
     
     toggleRow: { flexDirection: 'row', justifyContent: 'center', paddingHorizontal: 16, marginBottom: 10 },
     toggleContainer: { flexDirection: 'row', width: '100%', gap: 12 },
@@ -416,7 +547,6 @@ const styles = StyleSheet.create({
     toggleButtonText: { fontSize: 14, fontWeight: '600', color: '#00A8FF' },
     toggleButtonTextActive: { color: '#fff' },
     
-    // NEW: Styles for the clear category filter badge
     activeFilterContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 10, backgroundColor: '#E8F6FF', paddingVertical: 8, marginHorizontal: 16, borderRadius: 8, borderWidth: 1, borderColor: '#BFE4FF' },
     activeFilterText: { fontSize: 13, color: '#006699', fontWeight: '600' },
     clearFilterBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#00A8FF', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
@@ -489,4 +619,33 @@ const styles = StyleSheet.create({
     
     buttonContainer: { alignItems: 'center' },
     bookButton: { backgroundColor: '#00C6FF', color: '#fff', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, fontSize: 14, fontWeight: '700', textAlign: 'center', width: '100%', overflow: 'hidden' },
+
+    // FILTER MODAL STYLES
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+    modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '85%' },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    modalTitle: { fontSize: 20, fontWeight: '700', color: '#1A2332' },
+    modalBody: { marginBottom: 20 },
+    
+    filterSectionTitle: { fontSize: 15, fontWeight: '600', color: '#1A2332', marginBottom: 12, marginTop: 16 },
+    
+    ratingFilterContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    ratingPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#E0E6ED', backgroundColor: '#F5F7FA' },
+    ratingPillActive: { backgroundColor: '#00A8FF', borderColor: '#00A8FF' },
+    ratingPillText: { fontSize: 14, fontWeight: '600', color: '#8B98A8', marginLeft: 4 },
+    ratingPillTextActive: { color: '#fff' },
+
+    categoryFilterContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    categoryPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#E0E6ED', backgroundColor: '#F5F7FA' },
+    categoryPillActive: { backgroundColor: '#00A8FF', borderColor: '#00A8FF' },
+    categoryPillText: { fontSize: 14, fontWeight: '500', color: '#1A2332' },
+    categoryPillTextActive: { color: '#fff', fontWeight: '600' },
+
+    filterInput: { backgroundColor: '#F5F7FA', borderWidth: 1, borderColor: '#E0E6ED', borderRadius: 10, padding: 12, fontSize: 15, color: '#1A2332' },
+
+    modalFooter: { flexDirection: 'row', gap: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#E0E6ED' },
+    modalClearButton: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#EBF0F5', alignItems: 'center' },
+    modalClearButtonText: { fontSize: 15, fontWeight: '600', color: '#1A2332' },
+    modalApplyButton: { flex: 2, paddingVertical: 14, borderRadius: 12, backgroundColor: '#00A8FF', alignItems: 'center' },
+    modalApplyButtonText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 });
