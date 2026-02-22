@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, StatusBar, Image, Text, TouchableOpacity, Animated, Easing, TextInput, Dimensions, FlatList, ActivityIndicator, Modal, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from "expo-linear-gradient";
 import { User } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
@@ -400,7 +401,7 @@ const ExplorePlaces = () => {
     const displayData = activeTab === 'guides' ? filteredGuides : chunkData(filteredPlaces, 3);
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
             <FlatList
                 key={activeTab}
@@ -505,7 +506,7 @@ const ExplorePlaces = () => {
                 </View>
             </Modal>
 
-        </View>
+        </SafeAreaView>
     );
 };
 
