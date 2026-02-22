@@ -401,7 +401,7 @@ const ExplorePlaces = () => {
     const displayData = activeTab === 'guides' ? filteredGuides : chunkData(filteredPlaces, 3);
 
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
             <FlatList
                 key={activeTab}
@@ -421,7 +421,7 @@ const ExplorePlaces = () => {
                 transparent={true}
                 onRequestClose={() => setIsFilterModalVisible(false)}
             >
-                <View style={styles.modalOverlay}>
+                <SafeAreaView style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Filters ({activeTab === 'guides' ? 'Guides' : 'Places'})</Text>
@@ -503,10 +503,10 @@ const ExplorePlaces = () => {
                             </TouchableOpacity>
                         </View>
                     </View>
-                </View>
+                </SafeAreaView>
             </Modal>
 
-        </SafeAreaView>
+        </View>
     );
 };
 
