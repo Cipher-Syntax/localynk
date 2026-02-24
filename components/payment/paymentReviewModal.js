@@ -105,7 +105,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         const formData = new FormData();
         formData.append('check_in', formatLocalDate(startDate));
         formData.append('check_out', formatLocalDate(endDate));
-        // FIX: Ensure default '1' if numberOfPeople is null/undefined
         formData.append('num_guests', String(numberOfPeople || 1));
         formData.append('first_name', firstName || '');
         formData.append('last_name', lastName || '');
@@ -119,14 +118,13 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         if (accommodationId) formData.append('accommodation', String(accommodationId));
         if (tourPackageId) formData.append('tour_package_id', String(tourPackageId));
         
-        // FIX: Only append destination if placeId is actually present
         if (placeId) {
             formData.append('destination', placeId);
         }
         
         if (validIdImage && isNewKycImage) {
             const uri = validIdImage;
-            const filename = uri.split('/').pop();
+            const filename = uri.split('/').pop() || 'id_image.jpg';
             const match = /\.(\w+)$/.exec(filename);
             const type = match ? `image/${match[1]}` : `image/jpeg`;
             formData.append('tourist_valid_id_image', { uri, name: filename, type });
@@ -134,15 +132,22 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 
         if (userSelfieImage) {
             const uri = userSelfieImage;
-            const filename = uri.split('/').pop();
+            const filename = uri.split('/').pop() || 'selfie.jpg';
             const match = /\.(\w+)$/.exec(filename);
             const type = match ? `image/${match[1]}` : `image/jpeg`;
             formData.append('tourist_selfie_image', { uri, name: filename, type });
         }
 
+        // FIX: Removed explicit Content-Type header so Axios can automatically generate the correct boundary string.
         const response = await api.post('/api/bookings/', formData, {
-            headers: { 'Accept': 'application/json', 'Content-Type': 'multipart/form-data' },
-            timeout: 15000
+            headers: { 
+                'Accept': 'application/json' 
+            },
+            timeout: 15000,
+            transformRequest: (data, headers) => {
+                // Axios sometimes needs this to prevent it from stringifying FormData
+                return formData;
+            }
         });
         return response.data;
     };
