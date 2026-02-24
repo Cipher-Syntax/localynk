@@ -138,22 +138,41 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
             formData.append('tourist_selfie_image', { uri, name: filename, type });
         }
 
-        // FIX: Removed explicit Content-Type header so Axios can automatically generate the correct boundary string.
-        const response = await api.post('/api/bookings/', formData, {
-            headers: { 
-                'Accept': 'application/json' 
-            },
-            timeout: 15000,
-            transformRequest: (data, headers) => {
-                // Axios sometimes needs this to prevent it from stringifying FormData
-                return formData;
-            }
+        const baseURL = api.defaults.baseURL || 'https://my-friendly-local-guide.onrender.com';
+        const token = api.defaults.headers.common['Authorization']; 
+
+        const fetchHeaders = {
+            'Accept': 'application/json',
+        };
+        if (token) fetchHeaders['Authorization'] = token;
+
+        const response = await fetch(`${baseURL}/api/bookings/`, {
+            method: 'POST',
+            body: formData,
+            headers: fetchHeaders, // Native fetch creates perfect boundary string dynamically
         });
-        return response.data;
+
+        // First, extract raw text so if Django returns a 500 HTML page, we catch it!
+        const responseText = await response.text();
+        let data;
+        try {
+            data = JSON.parse(responseText);
+        } catch (e) {
+            console.error("SERVER CRASH:", responseText);
+            throw new Error(`Server Crash (${response.status}): ${responseText.substring(0, 150)}...`);
+        }
+
+        if (!response.ok) {
+            // Package into response.data format to mimic Axios for the catch block
+            throw { response: { data } }; 
+        }
+
+        return data;
     };
 
     const initiatePayment = async (targetBookingId) => {
         const payload = {
+            payment_type: "Booking", // Explicitly define payment type to prevent backend 400 errors
             booking_id: targetBookingId,
             payment_method: paymentMethod 
         };
@@ -190,7 +209,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 
         } catch (error) {
             console.error("Action failed:", error);
-            // FIX: Enhanced Error Handling for 400 Bad Request to show backend message
+            // Enhanced Error Output to show EXACT backend message
             if (error.response && error.response.data) {
                 const errorData = error.response.data;
                 const errorMsg = typeof errorData === 'object' 
@@ -199,7 +218,8 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                 
                 Alert.alert("Booking Error", errorMsg);
             } else {
-                Alert.alert("Error", "Something went wrong processing your request.");
+                // Now displays the TRUE network/fetch error instead of generic "Something went wrong"
+                Alert.alert("Request Failed", error.message || "Failed to connect to the server.");
             }
         } finally {
             setIsLoading(false);
