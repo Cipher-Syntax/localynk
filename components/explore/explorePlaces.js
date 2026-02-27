@@ -22,7 +22,7 @@ const ExplorePlaces = () => {
     const [activeTab, setActiveTab] = useState(params.tab || 'guides');
     const [selectedCategory, setSelectedCategory] = useState(params.category || ''); 
     const [searchQuery, setSearchQuery] = useState('');
-    
+
     // NEW: Filter States
     const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
     const [minRating, setMinRating] = useState(0);
@@ -100,13 +100,13 @@ const ExplorePlaces = () => {
         const specialty = (guide.specialty || '').toLowerCase();
         const loc = (guide.location || '').toLowerCase();
         const query = searchQuery.toLowerCase();
-        
+
         const matchesSearch = fullName.includes(query) || specialty.includes(query) || loc.includes(query);
         const matchesLocation = selectedGuideLocation ? loc.includes(selectedGuideLocation.toLowerCase()) : true;
-        
+
         const guidePrice = parseFloat(guide.price_per_day) || 0;
         const matchesPrice = maxGuidePrice ? guidePrice <= parseFloat(maxGuidePrice) : true;
-        
+
         const guideRating = parseFloat(guide.guide_rating) || 0;
         const matchesRating = minRating > 0 ? guideRating >= minRating : true;
 
@@ -117,7 +117,7 @@ const ExplorePlaces = () => {
     const filteredPlaces = places.filter(place => {
         const matchesSearch = (place.name || '').toLowerCase().includes(searchQuery.toLowerCase());
         const matchesCategory = selectedCategory ? place.category === selectedCategory : true;
-        
+
         const placeRating = parseFloat(place.average_rating) || 0;
         const matchesRating = minRating > 0 ? placeRating >= minRating : true;
 
@@ -179,13 +179,13 @@ const ExplorePlaces = () => {
                 <View style={styles.iconWrapper}>
                     <User size={40} color="#8B98A8" />
                 </View>
-                
+
                 <View style={styles.profileInfo}>
                     <View style={styles.nameRow}>
                         <Text style={styles.guideName}>{item.first_name} {item.last_name}</Text>
                         {renderAvailability(item.available_days)}
                     </View>
-                    
+
                     <Text style={styles.guideAddress}>{item.location || 'Zamboanga City'}</Text>
                     <Text style={styles.guideRating}>
                         {item.guide_rating || 'New'} <Ionicons name="star" size={12} color="#C99700" />
@@ -250,7 +250,7 @@ const ExplorePlaces = () => {
                     style={styles.placeImage} 
                     resizeMode="cover" 
                 />
-                
+
                 {item.category && (
                     <View style={styles.categoryBadge}>
                         <Text style={styles.categoryText}>{item.category}</Text>
@@ -261,7 +261,7 @@ const ExplorePlaces = () => {
                     colors={['transparent', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.8)']} 
                     style={styles.gradient} 
                 />
-                
+
                 <View style={styles.infoOverlay}>
                     <View style={styles.placeNameRow}>
                         <Text style={styles.placeName} numberOfLines={1}>{item.name}</Text>
@@ -327,7 +327,7 @@ const ExplorePlaces = () => {
             <View style={styles.header}>
                 <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} />
                 <LinearGradient colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']} style={styles.overlay} />
-                
+
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color="#fff" />
                 </TouchableOpacity>
@@ -348,7 +348,7 @@ const ExplorePlaces = () => {
                         onChangeText={setSearchQuery}
                     />
                 </View>
-                
+
                 {/* UPDATED: Open Filter Modal Instead of Alert */}
                 <TouchableOpacity style={styles.filterButton} onPress={() => setIsFilterModalVisible(true)}>
                     <Ionicons name="options-outline" size={22} color="#00A8FF" />
@@ -409,7 +409,7 @@ const ExplorePlaces = () => {
                 renderItem={renderItem}
                 keyExtractor={(item, index) => index.toString()}
                 contentContainerStyle={styles.contentContainer}
-                ListHeaderComponent={renderHeader}
+                ListHeaderComponent={renderHeader()} // FIXED HERE
                 ListEmptyComponent={renderEmpty}
                 showsVerticalScrollIndicator={false}
             />
@@ -429,9 +429,9 @@ const ExplorePlaces = () => {
                                 <Ionicons name="close" size={24} color="#1A2332" />
                             </TouchableOpacity>
                         </View>
-                        
+
                         <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-                            
+
                             <Text style={styles.filterSectionTitle}>Minimum Rating</Text>
                             <View style={styles.ratingFilterContainer}>
                                 {[1, 2, 3, 4, 5].map(star => (
@@ -517,12 +517,12 @@ const styles = StyleSheet.create({
     loadingContainer: { alignItems: 'center', marginTop: 50 },
     emptyContainer: { alignItems: 'center', marginTop: 50 },
     emptyText: { color: '#8B98A8', fontSize: 16 },
-    
+
     header: { position: 'relative', height: 120, justifyContent: 'center', width: '100%' },
     headerImage: { width: '100%', height: '100%', resizeMode: 'cover', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     headerTitle: { position: 'absolute', bottom: 15, left: 20, color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 1 },
-    
+
     backButton: {
         position: 'absolute',
         top: 20, 
@@ -537,17 +537,17 @@ const styles = StyleSheet.create({
     searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#EBF0F5', borderRadius: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: '#D0DAE3' },
     searchIcon: { marginRight: 8 },
     searchInput: { flex: 1, paddingVertical: 10, fontSize: 14, color: '#1A2332' },
-    
+
     filterButton: { position: 'relative', backgroundColor: '#EBF0F5', padding: 10, borderRadius: 10, borderWidth: 1, borderColor: '#D0DAE3' },
     filterActiveDot: { position: 'absolute', top: -3, right: -3, width: 10, height: 10, borderRadius: 5, backgroundColor: '#FF5A5F', borderWidth: 2, borderColor: '#fff' },
-    
+
     toggleRow: { flexDirection: 'row', justifyContent: 'center', paddingHorizontal: 16, marginBottom: 10 },
     toggleContainer: { flexDirection: 'row', width: '100%', gap: 12 },
     toggleButton: { flex: 1, paddingVertical: 10, borderRadius: 20, borderWidth: 1, borderColor: '#00A8FF', backgroundColor: '#fff', alignItems: 'center' },
     toggleButtonActive: { backgroundColor: '#00A8FF' },
     toggleButtonText: { fontSize: 14, fontWeight: '600', color: '#00A8FF' },
     toggleButtonTextActive: { color: '#fff' },
-    
+
     activeFilterContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 10, backgroundColor: '#E8F6FF', paddingVertical: 8, marginHorizontal: 16, borderRadius: 8, borderWidth: 1, borderColor: '#BFE4FF' },
     activeFilterText: { fontSize: 13, color: '#006699', fontWeight: '600' },
     clearFilterBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#00A8FF', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
@@ -567,17 +567,17 @@ const styles = StyleSheet.create({
     },
     placeImage: { width: '100%', height: '100%' },
     gradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: '60%', zIndex: 1 },
-    
+
     infoOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 10, zIndex: 2 },
     placeNameRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
     placeName: { fontSize: 13, fontWeight: '700', color: '#fff', flex: 1, marginRight: 5, textShadowColor: 'rgba(0, 0, 0, 0.5)', textShadowRadius: 3 },
-    
+
     placeLocationRow: { flexDirection: 'row', alignItems: 'center' },
     placeLocation: { fontSize: 10, color: 'rgba(255,255,255,0.9)', marginLeft: 4, flex: 1, fontWeight: '500' },
-    
+
     categoryBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, zIndex: 5 },
     categoryText: { color: '#fff', fontSize: 9, fontWeight: '700', textTransform: 'uppercase' },
-    
+
     ratingContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 4, paddingVertical: 2, borderRadius: 4 },
     ratingText: { color: '#fff', fontSize: 9, fontWeight: '700', marginLeft: 2 },
 
@@ -599,12 +599,12 @@ const styles = StyleSheet.create({
     cardProfileSection: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 },
     iconWrapper: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#EBF0F5', justifyContent: 'center', alignItems: 'center' },
     profileInfo: { flex: 1, marginLeft: 12 },
-    
+
     nameRow: { flexDirection: 'column', alignItems: 'flex-start' },
     guideName: { fontSize: 16, fontWeight: '700', color: '#1A2332', marginBottom: 4 },
     guideAddress: { fontSize: 12, color: '#8B98A8' },
     guideRating: { fontSize: 12, color: '#C99700', marginTop: 2 },
-    
+
     availabilityContainer: { flexDirection: 'row', gap: 4, marginTop: 4, marginBottom: 4 },
     dayBadge: { width: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
     dayAvailable: { backgroundColor: '#28A745' },
@@ -617,7 +617,7 @@ const styles = StyleSheet.create({
     detailItem: { width: '48%', paddingVertical: 8, paddingHorizontal: 10, backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#eee' },
     detailLabel: { fontSize: 11, color: '#8B98A8', fontWeight: '600', textTransform: 'uppercase' },
     detailValue: { fontSize: 13, color: '#1A2332', fontWeight: '600', marginTop: 4 },
-    
+
     buttonContainer: { alignItems: 'center' },
     bookButton: { backgroundColor: '#00C6FF', color: '#fff', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, fontSize: 14, fontWeight: '700', textAlign: 'center', width: '100%', overflow: 'hidden' },
 
@@ -627,9 +627,9 @@ const styles = StyleSheet.create({
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
     modalTitle: { fontSize: 20, fontWeight: '700', color: '#1A2332' },
     modalBody: { marginBottom: 20 },
-    
+
     filterSectionTitle: { fontSize: 15, fontWeight: '600', color: '#1A2332', marginBottom: 12, marginTop: 16 },
-    
+
     ratingFilterContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
     ratingPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#E0E6ED', backgroundColor: '#F5F7FA' },
     ratingPillActive: { backgroundColor: '#00A8FF', borderColor: '#00A8FF' },
