@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { View, StyleSheet, StatusBar, Image, Text, TouchableOpacity, Animated, Easing, TextInput, Dimensions, FlatList, ActivityIndicator, Modal, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from "expo-linear-gradient";
@@ -21,9 +21,13 @@ const ExplorePlaces = () => {
 
     const [activeTab, setActiveTab] = useState(params.tab || 'guides');
     const [selectedCategory, setSelectedCategory] = useState(params.category || ''); 
+    
+    // UI Search State (updates instantly for the text input)
     const [searchQuery, setSearchQuery] = useState('');
+    // Filter Search State (waits for user to stop typing before updating)
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
-    // NEW: Filter States
+    // Filter States
     const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
     const [minRating, setMinRating] = useState(0);
     const [maxGuidePrice, setMaxGuidePrice] = useState('');
@@ -57,6 +61,15 @@ const ExplorePlaces = () => {
     useEffect(() => {
         startBounce();
     }, []);
+
+    // Debounce Effect: Waits 300ms after the last keystroke to update the filter query
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearchQuery(searchQuery);
+        }, 300);
+
+        return () => clearTimeout(timer); // Cleanup timer on every keystroke
+    }, [searchQuery]);
 
     // Watch for params changes if navigated from other tabs
     useEffect(() => {
@@ -94,35 +107,39 @@ const ExplorePlaces = () => {
         return () => { isMounted = false };
     }, []);
 
-    // UPDATED: Apply Guide Filters
-    const filteredGuides = guides.filter(guide => {
-        const fullName = `${guide.first_name || ''} ${guide.last_name || ''}`.toLowerCase();
-        const specialty = (guide.specialty || '').toLowerCase();
-        const loc = (guide.location || '').toLowerCase();
-        const query = searchQuery.toLowerCase();
+    // OPTIMIZED: Memoized Guide Filters using debounced search
+    const filteredGuides = useMemo(() => {
+        return guides.filter(guide => {
+            const fullName = `${guide.first_name || ''} ${guide.last_name || ''}`.toLowerCase();
+            const specialty = (guide.specialty || '').toLowerCase();
+            const loc = (guide.location || '').toLowerCase();
+            const query = debouncedSearchQuery.toLowerCase();
 
-        const matchesSearch = fullName.includes(query) || specialty.includes(query) || loc.includes(query);
-        const matchesLocation = selectedGuideLocation ? loc.includes(selectedGuideLocation.toLowerCase()) : true;
+            const matchesSearch = fullName.includes(query) || specialty.includes(query) || loc.includes(query);
+            const matchesLocation = selectedGuideLocation ? loc.includes(selectedGuideLocation.toLowerCase()) : true;
 
-        const guidePrice = parseFloat(guide.price_per_day) || 0;
-        const matchesPrice = maxGuidePrice ? guidePrice <= parseFloat(maxGuidePrice) : true;
+            const guidePrice = parseFloat(guide.price_per_day) || 0;
+            const matchesPrice = maxGuidePrice ? guidePrice <= parseFloat(maxGuidePrice) : true;
 
-        const guideRating = parseFloat(guide.guide_rating) || 0;
-        const matchesRating = minRating > 0 ? guideRating >= minRating : true;
+            const guideRating = parseFloat(guide.guide_rating) || 0;
+            const matchesRating = minRating > 0 ? guideRating >= minRating : true;
 
-        return matchesSearch && matchesLocation && matchesPrice && matchesRating;
-    });
+            return matchesSearch && matchesLocation && matchesPrice && matchesRating;
+        });
+    }, [guides, debouncedSearchQuery, selectedGuideLocation, maxGuidePrice, minRating]);
 
-    // UPDATED: Apply Places Filters
-    const filteredPlaces = places.filter(place => {
-        const matchesSearch = (place.name || '').toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesCategory = selectedCategory ? place.category === selectedCategory : true;
+    // OPTIMIZED: Memoized Places Filters using debounced search
+    const filteredPlaces = useMemo(() => {
+        return places.filter(place => {
+            const matchesSearch = (place.name || '').toLowerCase().includes(debouncedSearchQuery.toLowerCase());
+            const matchesCategory = selectedCategory ? place.category === selectedCategory : true;
 
-        const placeRating = parseFloat(place.average_rating) || 0;
-        const matchesRating = minRating > 0 ? placeRating >= minRating : true;
+            const placeRating = parseFloat(place.average_rating) || 0;
+            const matchesRating = minRating > 0 ? placeRating >= minRating : true;
 
-        return matchesSearch && matchesCategory && matchesRating;
-    });
+            return matchesSearch && matchesCategory && matchesRating;
+        });
+    }, [places, debouncedSearchQuery, selectedCategory, minRating]);
 
     const chunkData = (data, size) => {
         if (!data || !Array.isArray(data)) return [];
@@ -349,7 +366,7 @@ const ExplorePlaces = () => {
                     />
                 </View>
 
-                {/* UPDATED: Open Filter Modal Instead of Alert */}
+                {/* Open Filter Modal */}
                 <TouchableOpacity style={styles.filterButton} onPress={() => setIsFilterModalVisible(true)}>
                     <Ionicons name="options-outline" size={22} color="#00A8FF" />
                     {hasActiveFilters && <View style={styles.filterActiveDot} />}
@@ -378,7 +395,7 @@ const ExplorePlaces = () => {
                 </View>
             </View>
 
-            {/* UPDATED: Dynamic Filter Badge that shows if ANY filter is active */}
+            {/* Dynamic Filter Badge */}
             {hasActiveFilters && (
                 <View style={styles.activeFilterContainer}>
                     <Text style={styles.activeFilterText}>
@@ -409,12 +426,12 @@ const ExplorePlaces = () => {
                 renderItem={renderItem}
                 keyExtractor={(item, index) => index.toString()}
                 contentContainerStyle={styles.contentContainer}
-                ListHeaderComponent={renderHeader()} // FIXED HERE
+                ListHeaderComponent={renderHeader()}
                 ListEmptyComponent={renderEmpty}
                 showsVerticalScrollIndicator={false}
             />
 
-            {/* NEW: Filter Bottom Sheet Modal */}
+            {/* Filter Bottom Sheet Modal */}
             <Modal
                 visible={isFilterModalVisible}
                 animationType="slide"
@@ -450,7 +467,6 @@ const ExplorePlaces = () => {
                                 <>
                                     <Text style={styles.filterSectionTitle}>Category</Text>
                                     <View style={styles.categoryFilterContainer}>
-                                        {/* Get unique categories from fetched places */}
                                         {Array.from(new Set(places.map(p => p.category).filter(Boolean))).map(cat => (
                                             <TouchableOpacity 
                                                 key={cat} 
@@ -505,7 +521,6 @@ const ExplorePlaces = () => {
                     </View>
                 </SafeAreaView>
             </Modal>
-
         </View>
     );
 };
@@ -621,7 +636,6 @@ const styles = StyleSheet.create({
     buttonContainer: { alignItems: 'center' },
     bookButton: { backgroundColor: '#00C6FF', color: '#fff', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, fontSize: 14, fontWeight: '700', textAlign: 'center', width: '100%', overflow: 'hidden' },
 
-    // FILTER MODAL STYLES
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
     modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '85%' },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
