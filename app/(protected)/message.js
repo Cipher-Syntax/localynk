@@ -1,5 +1,19 @@
 import React, { useState, useEffect, useRef } from "react";
-import {View,Text,ActivityIndicator,ScrollView,StyleSheet,StatusBar,Image,TouchableOpacity,TextInput,Modal,Alert,} from "react-native";
+import {
+    View,
+    Text,
+    ActivityIndicator,
+    ScrollView,
+    StyleSheet,
+    StatusBar,
+    Image,
+    TouchableOpacity,
+    TextInput,
+    Modal,
+    Alert,
+    KeyboardAvoidingView,
+    Platform
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -127,162 +141,166 @@ export default function Message() {
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-
-            <View style={styles.header}>
-                <Image
-                    source={require("../../assets/localynk_images/header.png")}
-                    style={styles.headerImage}
-                />
-                <LinearGradient
-                    colors={["rgba(0,0,0,0.6)", "rgba(0,0,0,0.2)", "transparent"]}
-                    style={styles.overlay}
-                />
-                <Text style={styles.headerTitle}>Message</Text>
-            </View>
-
-            <View style={styles.guideInfo}>
-                <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                    {/* NEW: Profile Image */}
-                    {partnerImage ? (
-                        <Image 
-                            source={{ uri: getImageUrl(partnerImage) }} 
-                            style={styles.headerAvatar}
-                        />
-                    ) : (
-                        <View style={styles.headerAvatarPlaceholder}>
-                            <Text style={styles.headerAvatarText}>
-                                {(partnerName || 'U').charAt(0)}
-                            </Text>
-                        </View>
-                    )}
-                    <Text style={styles.guideName}>{partnerName || 'Conversation'}</Text>
+            
+            <KeyboardAvoidingView 
+                style={{ flex: 1 }} 
+                behavior={Platform.OS === "ios" ? "padding" : undefined}
+            >
+                <View style={styles.header}>
+                    <Image
+                        source={require("../../assets/localynk_images/header.png")}
+                        style={styles.headerImage}
+                    />
+                    <LinearGradient
+                        colors={["rgba(0,0,0,0.6)", "rgba(0,0,0,0.2)", "transparent"]}
+                        style={styles.overlay}
+                    />
+                    <Text style={styles.headerTitle}>Message</Text>
                 </View>
 
-                {user.id !== partnerId && (
-                    <TouchableOpacity onPress={() => setModalVisible(true)}>
-                        <Ionicons name="flag-outline" size={22} color="#000" />
-                    </TouchableOpacity>
-                )}
-            </View>
-
-            <ScrollView 
-                style={styles.messagesContainer} 
-                showsVerticalScrollIndicator={false}
-                ref={scrollViewRef}
-                onContentSizeChange={() => scrollViewRef.current.scrollToEnd({ animated: true })}
-            >
-                {messages.map((message) => {
-                    const isSent = message.sender === user.id;
-                    return (
-                        <View
-                            key={message.id}
-                            style={[
-                                styles.messageBox,
-                                isSent ? styles.sentMessage : styles.receivedMessage,
-                            ]}
-                        >
-                            {!isSent && (
-                                <Text style={styles.senderName}>{partnerName}</Text>
-                            )}
-                            <View
-                                style={[
-                                    styles.messageBubble,
-                                    isSent ? styles.sentBubble : styles.receivedBubble,
-                                ]}
-                            >
-                                <Text
-                                    style={[
-                                        styles.messageText,
-                                        isSent ? styles.sentText : styles.receivedText,
-                                    ]}
-                                >
-                                    {message.content}
+                <View style={styles.guideInfo}>
+                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                        {partnerImage ? (
+                            <Image 
+                                source={{ uri: getImageUrl(partnerImage) }} 
+                                style={styles.headerAvatar}
+                            />
+                        ) : (
+                            <View style={styles.headerAvatarPlaceholder}>
+                                <Text style={styles.headerAvatarText}>
+                                    {(partnerName || 'U').charAt(0)}
                                 </Text>
                             </View>
-                            <Text style={styles.timestamp}>{new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text>
-                        </View>
-                    );
-                })}
-            </ScrollView>
+                        )}
+                        <Text style={styles.guideName}>{partnerName || 'Conversation'}</Text>
+                    </View>
 
-            <Modal
-                visible={isModalVisible}
-                transparent
-                animationType="slide"
-                onRequestClose={() => setModalVisible(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContainer}>
-                        <Text style={styles.modalTitle}>REPORT THIS USER?</Text>
+                    {user.id !== partnerId && (
+                        <TouchableOpacity onPress={() => setModalVisible(true)}>
+                            <Ionicons name="flag-outline" size={22} color="#000" />
+                        </TouchableOpacity>
+                    )}
+                </View>
 
-                        <Text style={styles.reasonLabel}>Select Reason</Text>
-                        {["Rude Behavior", "Inappropriate Message", "Spam", "Other"].map((reason) => (
-                            <TouchableOpacity
-                                key={reason}
+                <ScrollView 
+                    style={styles.messagesContainer} 
+                    showsVerticalScrollIndicator={false}
+                    ref={scrollViewRef}
+                    onContentSizeChange={() => scrollViewRef.current.scrollToEnd({ animated: true })}
+                >
+                    {messages.map((message) => {
+                        const isSent = message.sender === user.id;
+                        return (
+                            <View
+                                key={message.id}
                                 style={[
-                                    styles.reasonOption,
-                                    selectedReason === reason && styles.selectedReason,
+                                    styles.messageBox,
+                                    isSent ? styles.sentMessage : styles.receivedMessage,
                                 ]}
-                                onPress={() => setSelectedReason(reason)}
                             >
-                                <Text
+                                {!isSent && (
+                                    <Text style={styles.senderName}>{partnerName}</Text>
+                                )}
+                                <View
                                     style={[
-                                        styles.reasonText,
-                                        selectedReason === reason && styles.selectedReasonText,
+                                        styles.messageBubble,
+                                        isSent ? styles.sentBubble : styles.receivedBubble,
                                     ]}
                                 >
-                                    {reason}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
+                                    <Text
+                                        style={[
+                                            styles.messageText,
+                                            isSent ? styles.sentText : styles.receivedText,
+                                        ]}
+                                    >
+                                        {message.content}
+                                    </Text>
+                                </View>
+                                <Text style={styles.timestamp}>{new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text>
+                            </View>
+                        );
+                    })}
+                </ScrollView>
 
-                        {selectedReason === "Other" && (
-                            <TextInput
-                                style={styles.reasonInput}
-                                placeholder="Enter your reason..."
-                                placeholderTextColor="#777"
-                                value={customReason}
-                                onChangeText={setCustomReason}
-                                multiline
-                            />
-                        )}
+                <Modal
+                    visible={isModalVisible}
+                    transparent
+                    animationType="slide"
+                    onRequestClose={() => setModalVisible(false)}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContainer}>
+                            <Text style={styles.modalTitle}>REPORT THIS USER?</Text>
 
-                        <View style={styles.modalButtons}>
-                            <TouchableOpacity
-                                style={[styles.modalButton, styles.yesButton]}
-                                onPress={handleReportConfirm}
-                            >
-                                <Text style={styles.buttonText}>Submit</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.modalButton, styles.noButton]}
-                                onPress={() => setModalVisible(false)}
-                            >
-                                <Text style={styles.buttonText}>Cancel</Text>
-                            </TouchableOpacity>
+                            <Text style={styles.reasonLabel}>Select Reason</Text>
+                            {["Rude Behavior", "Inappropriate Message", "Spam", "Other"].map((reason) => (
+                                <TouchableOpacity
+                                    key={reason}
+                                    style={[
+                                        styles.reasonOption,
+                                        selectedReason === reason && styles.selectedReason,
+                                    ]}
+                                    onPress={() => setSelectedReason(reason)}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.reasonText,
+                                            selectedReason === reason && styles.selectedReasonText,
+                                        ]}
+                                    >
+                                        {reason}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+
+                            {selectedReason === "Other" && (
+                                <TextInput
+                                    style={styles.reasonInput}
+                                    placeholder="Enter your reason..."
+                                    placeholderTextColor="#777"
+                                    value={customReason}
+                                    onChangeText={setCustomReason}
+                                    multiline
+                                />
+                            )}
+
+                            <SafeAreaView style={styles.modalButtons}>
+                                <TouchableOpacity
+                                    style={[styles.modalButton, styles.yesButton]}
+                                    onPress={handleReportConfirm}
+                                >
+                                    <Text style={styles.buttonText}>Submit</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.modalButton, styles.noButton]}
+                                    onPress={() => setModalVisible(false)}
+                                >
+                                    <Text style={styles.buttonText}>Cancel</Text>
+                                </TouchableOpacity>
+                            </SafeAreaView>
                         </View>
                     </View>
-                </View>
-            </Modal>
+                </Modal>
 
-            <View style={styles.inputContainer}>
-                <View style={styles.textInputWrapper}>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Aa"
-                        placeholderTextColor="#777"
-                        value={inputText}
-                        onChangeText={setInputText}
-                        multiline
-                    />
+                <View style={styles.inputContainer}>
+                    <View style={styles.textInputWrapper}>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Aa"
+                            placeholderTextColor="#777"
+                            value={inputText}
+                            onChangeText={setInputText}
+                            multiline
+                        />
+                    </View>
+                    <TouchableOpacity
+                        style={[styles.iconButton, styles.sendButton]}
+                        onPress={handleSendMessage}
+                    >
+                        <Ionicons name="send" size={20} color="#fff" />
+                    </TouchableOpacity>
                 </View>
-                <TouchableOpacity
-                    style={[styles.iconButton, styles.sendButton]}
-                    onPress={handleSendMessage}
-                >
-                    <Ionicons name="send" size={20} color="#fff" />
-                </TouchableOpacity>
-            </View>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 }
@@ -339,7 +357,6 @@ const styles = StyleSheet.create({
         fontWeight: "700",
         color: "#00051A",
     },
-    // NEW STYLES
     headerAvatar: {
         width: 32,
         height: 32,
@@ -361,7 +378,6 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         fontSize: 14
     },
-    
     messagesContainer: {
         flex: 1,
         padding: 15,
