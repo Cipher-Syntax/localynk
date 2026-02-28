@@ -116,7 +116,7 @@ export default function Message() {
 
     if (!partnerId) {
         return (
-            <SafeAreaView style={styles.container}>
+            <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
                 <View style={styles.header}>
                     <Text style={styles.headerTitle}>Message</Text>
                 </View>
@@ -139,12 +139,13 @@ export default function Message() {
     }
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
             
             <KeyboardAvoidingView 
                 style={{ flex: 1 }} 
-                behavior={Platform.OS === "ios" ? "padding" : undefined}
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
             >
                 <View style={styles.header}>
                     <Image
@@ -282,7 +283,7 @@ export default function Message() {
                     </View>
                 </Modal>
 
-                <View style={styles.inputContainer}>
+                <SafeAreaView style={styles.inputContainer}>
                     <View style={styles.textInputWrapper}>
                         <TextInput
                             style={styles.input}
@@ -299,7 +300,7 @@ export default function Message() {
                     >
                         <Ionicons name="send" size={20} color="#fff" />
                     </TouchableOpacity>
-                </View>
+                </SafeAreaView>
             </KeyboardAvoidingView>
         </SafeAreaView>
     );
@@ -503,8 +504,8 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         backgroundColor: "#F0F0F0",
-        paddingVertical: 10,
-        paddingHorizontal: 10,
+        paddingVertical: 7,
+        paddingHorizontal: 7,
     },
     iconButton: {
         paddingHorizontal: 6,
