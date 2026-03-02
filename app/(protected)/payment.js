@@ -451,7 +451,7 @@ const Payment = () => {
                                 <Text style={styles.sectionTitle}>Trip Details</Text>
                                 <View style={styles.datesRow}>
                                     <TouchableOpacity style={styles.dateBox} onPress={() => !isPayable && openCalendar('start')} disabled={isPayable}>
-                                        <Text style={styles.dateLabel}>Check In</Text>
+                                        <Text style={styles.dateLabel}>Start Date</Text>
                                         <View style={styles.dateValueRow}>
                                             <CalendarIcon size={18} color={PRIMARY_COLOR} />
                                             <Text style={styles.dateValue}>{startDate.toLocaleDateString()}</Text>
@@ -459,7 +459,7 @@ const Payment = () => {
                                     </TouchableOpacity>
                                     <View style={styles.connector} />
                                     <TouchableOpacity style={styles.dateBox} onPress={() => !isPayable && openCalendar('end')} disabled={isPayable}>
-                                        <Text style={styles.dateLabel}>Check Out</Text>
+                                        <Text style={styles.dateLabel}>End Date</Text>
                                         <View style={styles.dateValueRow}>
                                             <CalendarIcon size={18} color={PRIMARY_COLOR} />
                                             <Text style={styles.dateValue}>{endDate.toLocaleDateString()}</Text>

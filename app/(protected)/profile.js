@@ -126,6 +126,12 @@ const GuideProfile = () => {
                 <View style={styles.header}>
                     <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} />
                     <LinearGradient colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']} style={styles.overlay} />
+                    
+                    {/* Added Back Button */}
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                         <Ionicons name="arrow-back" size={24} color="#fff" />
+                    </TouchableOpacity>
+                    
                     <Text style={styles.headerTitle}>GUIDE DETAILS</Text>
                 </View>
 
@@ -344,6 +350,10 @@ const styles = StyleSheet.create({
     header: { position: 'relative', height: 120, justifyContent: 'center' },
     headerImage: { width: '100%', height: '100%', resizeMode: 'cover', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
+    
+    // Added backButton style
+    backButton: { position: 'absolute', top: 20, left: 20, padding: 5, zIndex: 10 },
+    
     headerTitle: { position: 'absolute', bottom: 15, left: 20, color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 1 },
     contentContainer: { padding: 16 },
     guideCard: { backgroundColor: '#F5F7FA', borderRadius: 15, padding: 16, borderWidth: 1, borderColor: '#E0E6ED' },
