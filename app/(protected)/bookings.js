@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient'; 
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import api from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
@@ -14,6 +14,7 @@ import BookingDetailsModal from '../../components/booking/BookingDetailsModal';
 
 const MyBookings = () => {
     const { user } = useAuth();
+    const router = useRouter();
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -141,6 +142,7 @@ const MyBookings = () => {
         // --- 3. DETERMINE ACTIONS ---
         const canCancel = isMyTrip && ['confirmed', 'pending_payment'].includes(item.status.toLowerCase());
         const canMarkPaid = isMyClient && item.status === 'Confirmed';
+        const canReview = isMyTrip && item.status.toLowerCase() === 'completed'; // Added Review Logic
 
         const titleName = item.accommodation_detail?.title || item.destination_detail?.name || 'Custom Booking';
         const typeLabel = item.accommodation_detail ? 'Stay' : 'Tour';
@@ -195,7 +197,7 @@ const MyBookings = () => {
                                 </Text>
                             </View>
                             
-                            {/* --- GUIDE FINANCIAL BREAKDOWN (The new part) --- */}
+                            {/* --- GUIDE FINANCIAL BREAKDOWN --- */}
                             {isMyClient && (
                                 <View style={styles.financialBox}>
                                     <Text style={styles.finHeader}>PAYOUT BREAKDOWN</Text>
@@ -237,6 +239,16 @@ const MyBookings = () => {
                                 <TouchableOpacity style={styles.paidButton} onPress={() => markAsPaid(item.id)}>
                                     <Ionicons name="checkmark-done-circle" size={16} color="#fff" style={{marginRight:6}} />
                                     <Text style={styles.paidButtonText}>Confirm Balance Received</Text>
+                                </TouchableOpacity>
+                            )}
+
+                            {canReview && (
+                                <TouchableOpacity 
+                                    style={styles.reviewButton} 
+                                    onPress={() => router.push({ pathname: '/(protected)/reviewModal', params: { bookingId: item.id }})}
+                                >
+                                    <Ionicons name="star" size={14} color="#fff" style={{marginRight:6}} />
+                                    <Text style={styles.reviewButtonText}>Leave a Review</Text>
                                 </TouchableOpacity>
                             )}
                         </View>
@@ -360,6 +372,9 @@ const styles = StyleSheet.create({
     
     paidButton: { flexDirection:'row', alignItems:'center', paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#22C55E', borderRadius: 8, shadowColor: "#22C55E", shadowOpacity: 0.3, elevation: 3 },
     paidButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+
+    reviewButton: { flexDirection:'row', alignItems:'center', paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#F59E0B', borderRadius: 8, shadowColor: "#F59E0B", shadowOpacity: 0.3, elevation: 3 },
+    reviewButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
 
     emptyContainer: { alignItems: 'center', marginTop: 60 },
     emptyText: { fontSize: 18, fontWeight: '700', color: '#374151', marginTop: 10 },

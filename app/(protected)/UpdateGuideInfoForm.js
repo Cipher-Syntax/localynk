@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
+import { View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Keyboard, Modal } from 'react-native';
 import api from '../../api/api'; 
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Picker } from '@react-native-picker/picker'; 
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,6 +29,7 @@ const UpdateGuideInfoForm = () => {
     // Form States
     const [languages, setLanguages] = useState([]);
     const [selectedSpecialty, setSelectedSpecialty] = useState(SPECIALTY_OPTIONS[0]);
+    const [isSpecialtyModalVisible, setSpecialtyModalVisible] = useState(false);
     const [customSpecialty, setCustomSpecialty] = useState('');
     const [experience, setExperience] = useState('');
     const [price, setPrice] = useState('');
@@ -126,7 +126,6 @@ const UpdateGuideInfoForm = () => {
                 for (let day = 1; day <= daysInMonth; day++) {
                     const date = new Date(year, month, day);
                     
-                    // FIX: Manually format to YYYY-MM-DD to avoid timezone shifts
                     const yearStr = year;
                     const monthStr = String(month + 1).padStart(2, '0');
                     const dayStr = String(day).padStart(2, '0');
@@ -168,10 +167,8 @@ const UpdateGuideInfoForm = () => {
             
             showToast("Info updated!", "success");
             
-            // Refresh user data so the checklist turns green
             await refreshUser();
             
-            // Navigate back to Dashboard (IsTourist)
             setTimeout(() => {
                 router.back(); 
             }, 1500);
@@ -247,20 +244,15 @@ const UpdateGuideInfoForm = () => {
                         />
 
                         <Text style={styles.inputLabel}>Specialty</Text>
-                        <View style={styles.pickerContainer}>
-                            <Picker
-                                selectedValue={selectedSpecialty}
-                                onValueChange={(itemValue) => setSelectedSpecialty(itemValue)}
-                                style={[styles.picker, { backgroundColor: "#fff", color: "#1F2937" }]}
-                                dropdownIconColor="#1F2937"
-                                itemStyle={{ color: '#1F2937', fontSize: 14 }}
-                                mode="dropdown" 
-                            >
-                                {SPECIALTY_OPTIONS.map((opt) => (
-                                    <Picker.Item key={opt} label={opt} value={opt} color="#1F2937" />
-                                ))}
-                            </Picker>
-                        </View>
+                        <TouchableOpacity
+                            style={[styles.input, { justifyContent: 'center', height: 50, marginBottom: 15 }]}
+                            onPress={() => setSpecialtyModalVisible(true)}
+                        >
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Text style={{ color: '#1F2937' }}>{selectedSpecialty}</Text>
+                                <Ionicons name="chevron-down" size={20} color="#6B7280" />
+                            </View>
+                        </TouchableOpacity>
 
                         {selectedSpecialty === 'Other' && (
                             <View style={{marginTop: 10}}>
@@ -369,6 +361,47 @@ const UpdateGuideInfoForm = () => {
                 </TouchableOpacity>
             </View>
 
+            {/* Specialty Selection Modal */}
+            <Modal
+                visible={isSpecialtyModalVisible}
+                transparent={true}
+                animationType="slide"
+                onRequestClose={() => setSpecialtyModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Select Specialty</Text>
+                            <TouchableOpacity onPress={() => setSpecialtyModalVisible(false)}>
+                                <Ionicons name="close" size={24} color="#1F2937" />
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView showsVerticalScrollIndicator={false}>
+                            {SPECIALTY_OPTIONS.map((opt) => (
+                                <TouchableOpacity
+                                    key={opt}
+                                    style={styles.modalOption}
+                                    onPress={() => {
+                                        setSelectedSpecialty(opt);
+                                        setSpecialtyModalVisible(false);
+                                    }}
+                                >
+                                    <Text style={[
+                                        styles.modalOptionText,
+                                        selectedSpecialty === opt && styles.modalOptionTextSelected
+                                    ]}>
+                                        {opt}
+                                    </Text>
+                                    {selectedSpecialty === opt && (
+                                        <Ionicons name="checkmark" size={20} color="#007AFF" />
+                                    )}
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
+
             {toast.visible && (
                 <View style={[
                     styles.toastContainer, 
@@ -414,7 +447,6 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#1F2937',
     },
-
     scrollContent: {
         padding: 20,
         paddingBottom: 150,
@@ -471,20 +503,6 @@ const styles = StyleSheet.create({
     rowInputs: {
         flexDirection: 'row',
         gap: 12
-    },
-    pickerContainer: {
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-        borderRadius: 8,
-        backgroundColor: '#FAFAFA',
-        marginBottom: 15,
-        justifyContent: 'center',
-        height: 50, 
-    },
-    picker: {
-        width: '100%',
-        height: 50,
-        color: '#1F2937', 
     },
     statusBox: {
         backgroundColor: '#F0F9FF',
@@ -620,5 +638,50 @@ const styles = StyleSheet.create({
     toastSuccess: { backgroundColor: '#00c853' },
     toastError: { backgroundColor: '#ff5252' },
     toastText: { color: '#fff', fontSize: 14, fontWeight: '600', marginLeft: 12 },
+    
+    // Modal Styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+        maxHeight: '60%',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#E5E7EB',
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#1F2937',
+    },
+    modalOption: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 16,
+        paddingHorizontal: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F3F4F6',
+    },
+    modalOptionText: {
+        fontSize: 16,
+        color: '#4B5563',
+    },
+    modalOptionTextSelected: {
+        color: '#007AFF',
+        fontWeight: '600',
+    }
 });
+
 export default UpdateGuideInfoForm;
