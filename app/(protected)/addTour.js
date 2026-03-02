@@ -294,7 +294,7 @@ const AddTour = () => {
                 placeholder="e.g., Grand Island Hopping"
                 value={formData.name}
                 onChangeText={(t) => setFormData({ ...formData, name: t })}
-                placeholderTextColor={{color: "#9CA3AF"}}
+                placeholderTextColor="#9CA3AF"
             />
 
             <Text style={styles.label}>Description</Text>
@@ -304,7 +304,7 @@ const AddTour = () => {
                 multiline
                 value={formData.description}
                 onChangeText={(t) => setFormData({ ...formData, description: t })}
-                placeholderTextColor={{ color: "#9CA3AF" }}
+                placeholderTextColor="#9CA3AF"
             />
 
             <View style={styles.row}>
@@ -315,7 +315,7 @@ const AddTour = () => {
                         placeholder="e.g. 8 Hours"
                         value={formData.duration}
                         onChangeText={(t) => setFormData({ ...formData, duration: t })}
-                        placeholderTextColor={{ color: "#9CA3AF" }}
+                        placeholderTextColor="#9CA3AF"
                     />
                 </View>
                 <View style={{ flex: 1 }}>
@@ -326,7 +326,7 @@ const AddTour = () => {
                         keyboardType="numeric"
                         value={formData.maxGroupSize}
                         onChangeText={(t) => setFormData({ ...formData, maxGroupSize: t })}
-                        placeholderTextColor={{ color: "#9CA3AF" }}
+                        placeholderTextColor="#9CA3AF"
                     />
                 </View>
             </View>
@@ -358,7 +358,7 @@ const AddTour = () => {
                         <TextInput
                             style={styles.cardInput}
                             placeholder={`Stop ${index + 1} Name`}
-                            placeholderTextColor="#9CA3AF" // <-- ADDED THIS
+                            placeholderTextColor="#9CA3AF"
                             value={placeNames[index]}
                             onChangeText={(t) => handlePlaceNameChange(t, index)}
                         />
@@ -375,6 +375,7 @@ const AddTour = () => {
             <TextInput
                 style={styles.input}
                 placeholder="e.g. Sunblock, Extra Clothes, Water"
+                placeholderTextColor="#9CA3AF"
                 value={formData.whatToBring}
                 onChangeText={(t) => setFormData({ ...formData, whatToBring: t })}
             />
@@ -395,6 +396,7 @@ const AddTour = () => {
                             <TextInput
                                 style={styles.priceInput}
                                 placeholder="0"
+                                placeholderTextColor="#9CA3AF"
                                 keyboardType="numeric"
                                 value={formData.pricePerDay}
                                 onChangeText={(t) => setFormData({ ...formData, pricePerDay: t })}
@@ -408,6 +410,7 @@ const AddTour = () => {
                             <TextInput
                                 style={styles.priceInput}
                                 placeholder="0"
+                                placeholderTextColor="#9CA3AF"
                                 keyboardType="numeric"
                                 value={formData.soloPricePerDay}
                                 onChangeText={(t) => setFormData({ ...formData, soloPricePerDay: t })}
@@ -472,16 +475,17 @@ const AddTour = () => {
                     <Picker
                         selectedValue={tempTimelineRow.selectedActivityIndex}
                         onValueChange={(itemValue) => setTempTimelineRow({...tempTimelineRow, selectedActivityIndex: itemValue})}
-                        style={{ height: 50, width: '100%' }}
+                        style={{ height: 50, width: '100%', color: '#1F2937' }}
+                        dropdownIconColor="#1F2937"
                     >
-                        <Picker.Item label="Select Activity..." value="" color="#999" />
-                        <Picker.Item label="--- YOUR STOPS ---" value="" enabled={false} />
+                        <Picker.Item label="Select Activity..." value="" color="#9CA3AF" />
+                        <Picker.Item label="--- YOUR STOPS ---" value="" enabled={false} color="#1F2937" />
                         {placeNames.map((name, idx) => (
-                            <Picker.Item key={`stop-${idx}`} label={`📍 ${name || `Stop ${idx+1}`}`} value={`stop|${idx}`} />
+                            <Picker.Item key={`stop-${idx}`} label={`📍 ${name || `Stop ${idx+1}`}`} value={`stop|${idx}`} color="#1F2937" />
                         ))}
-                        <Picker.Item label="--- ACCOMMODATIONS ---" value="" enabled={false} />
+                        <Picker.Item label="--- ACCOMMODATIONS ---" value="" enabled={false} color="#1F2937" />
                         {accommodations.map((accom, idx) => (
-                            <Picker.Item key={`accom-${idx}`} label={`🏨 ${accom.title}`} value={`accom|${idx}`} />
+                            <Picker.Item key={`accom-${idx}`} label={`🏨 ${accom.title}`} value={`accom|${idx}`} color="#1F2937" />
                         ))}
                     </Picker>
                 </View>
@@ -642,7 +646,7 @@ const styles = StyleSheet.create({
     
     label: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8, marginTop: 15 },
     labelSmall: { fontSize: 12, fontWeight: '600', color: '#6B7280', marginBottom: 5 },
-    input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, paddingHorizontal: 15, paddingVertical: 12, fontSize: 15, color: '#9CA3AF' },
+    input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, paddingHorizontal: 15, paddingVertical: 12, fontSize: 15, color: '#1F2937' },
     inputSmall: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 10, fontSize: 14 },
     
     dropdownSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 15 },
@@ -654,7 +658,6 @@ const styles = StyleSheet.create({
     imageUploadSmall: { height: 100, backgroundColor: '#F3F4F6', borderRadius: 8, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', marginBottom: 8 },
     uploadedImage: { width: '100%', height: '100%' },
     removeIcon: { position: 'absolute', top: 5, right: 5, backgroundColor: 'rgba(0,0,0,0.5)', padding: 4, borderRadius: 10 },
-    // <-- ADDED 'color: #1F2937' HERE TO FIX TYPED TEXT VISIBILITY
     cardInput: { fontSize: 12, textAlign: 'center', padding: 4, backgroundColor: '#F9FAFB', borderRadius: 4, color: '#1F2937' },
     addStopButton: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 15, marginTop: 10, borderStyle: 'dashed', borderWidth: 1, borderColor: '#0072FF', borderRadius: 12, backgroundColor: '#EFF6FF' },
     addStopText: { color: '#0072FF', fontWeight: '600', marginLeft: 8 },

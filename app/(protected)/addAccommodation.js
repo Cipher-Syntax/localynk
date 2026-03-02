@@ -185,6 +185,7 @@ const AddAccommodation = () => {
             <TextInput
                 style={styles.input}
                 placeholder="e.g., Sunset Beach Villa"
+                placeholderTextColor="#9CA3AF"
                 value={formData.name}
                 onChangeText={t => setFormData({ ...formData, name: t })}
             />
@@ -193,8 +194,9 @@ const AddAccommodation = () => {
             <View style={styles.inputIconRow}>
                 <Ionicons name="location-outline" size={20} color="#666" style={{ marginRight: 10 }} />
                 <TextInput
-                    style={{ flex: 1 }}
+                    style={{ flex: 1, color: '#1F2937' }}
                     placeholder="Address or Landmark"
+                    placeholderTextColor="#9CA3AF"
                     value={formData.address}
                     onChangeText={t => setFormData({ ...formData, address: t })}
                 />
@@ -217,8 +219,9 @@ const AddAccommodation = () => {
             <View style={styles.inputIconRow}>
                 <Text style={{ fontSize: 16, fontWeight: '700', color: '#666', marginRight: 5 }}>₱</Text>
                 <TextInput
-                    style={{ flex: 1, fontSize: 16, fontWeight: '600' }}
+                    style={{ flex: 1, fontSize: 16, fontWeight: '600', color: '#1F2937' }}
                     placeholder="0.00"
+                    placeholderTextColor="#9CA3AF"
                     keyboardType="numeric"
                     value={formData.pricePerNight}
                     onChangeText={t => setFormData({ ...formData, pricePerNight: t })}
@@ -229,6 +232,7 @@ const AddAccommodation = () => {
             <TextInput
                 style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
                 placeholder="Tell tourists what makes your place special..."
+                placeholderTextColor="#9CA3AF"
                 multiline
                 value={formData.description}
                 onChangeText={t => setFormData({ ...formData, description: t })}
@@ -331,6 +335,7 @@ const AddAccommodation = () => {
                     <TextInput
                         style={styles.input}
                         placeholder="e.g. Van, Boat, Tricycle"
+                        placeholderTextColor="#9CA3AF"
                         value={formData.vehicleType}
                         onChangeText={t => setFormData({ ...formData, vehicleType: t })}
                     />
@@ -341,6 +346,7 @@ const AddAccommodation = () => {
                             <TextInput
                                 style={styles.input}
                                 placeholder="Pax"
+                                placeholderTextColor="#9CA3AF"
                                 keyboardType="numeric"
                                 value={formData.capacity}
                                 onChangeText={t => setFormData({ ...formData, capacity: t })}
@@ -506,15 +512,6 @@ const styles = StyleSheet.create({
     },
     stepLineActive: {
         backgroundColor: '#0072FF',
-    },
-    stepLine: {
-        flex: 1,
-        height: 2,
-        backgroundColor: '#E5E7EB',
-        marginHorizontal: -2
-    },
-    stepLineActive: {
-        backgroundColor: '#0072FF'
     },
     stepContainer: {
         padding: 20,

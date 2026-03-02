@@ -243,7 +243,7 @@ const UpdateGuideInfoForm = () => {
                             onChangeText={text => setLanguages(text.split(',').map(l => l.trim()))}
                             style={styles.input}
                             placeholder="e.g. English, Tagalog"
-                            placeholderTextColor="#A0AEC0"
+                            placeholderTextColor="#9CA3AF"
                         />
 
                         <Text style={styles.inputLabel}>Specialty</Text>
@@ -251,10 +251,10 @@ const UpdateGuideInfoForm = () => {
                             <Picker
                                 selectedValue={selectedSpecialty}
                                 onValueChange={(itemValue) => setSelectedSpecialty(itemValue)}
-                                style={[styles.picker, { backgroundColor: "#fff" }]}
+                                style={[styles.picker, { backgroundColor: "#fff", color: "#1F2937" }]}
                                 dropdownIconColor="#1F2937"
                                 itemStyle={{ color: '#1F2937', fontSize: 14 }}
-                                mode="dropdown" // <--- ADDED THIS LINE
+                                mode="dropdown" 
                             >
                                 {SPECIALTY_OPTIONS.map((opt) => (
                                     <Picker.Item key={opt} label={opt} value={opt} color="#1F2937" />
@@ -270,7 +270,7 @@ const UpdateGuideInfoForm = () => {
                                     onChangeText={setCustomSpecialty}
                                     style={styles.input}
                                     placeholder="e.g. Bird Watching"
-                                    placeholderTextColor="#A0AEC0"
+                                    placeholderTextColor="#9CA3AF"
                                 />
                             </View>
                         )}
@@ -284,7 +284,7 @@ const UpdateGuideInfoForm = () => {
                                     keyboardType="numeric"
                                     style={styles.input}
                                     placeholder="0"
-                                    placeholderTextColor="#A0AEC0"
+                                    placeholderTextColor="#9CA3AF"
                                 />
                             </View>
                             <View style={{flex: 1}}>
@@ -295,7 +295,7 @@ const UpdateGuideInfoForm = () => {
                                     keyboardType="numeric"
                                     style={styles.input}
                                     placeholder="0.00"
-                                    placeholderTextColor="#A0AEC0"
+                                    placeholderTextColor="#9CA3AF"
                                 />
                             </View>
                         </View>
@@ -484,7 +484,7 @@ const styles = StyleSheet.create({
     picker: {
         width: '100%',
         height: 50,
-        color: '#1F2937', // Fixes Android text visibility
+        color: '#1F2937', 
     },
     statusBox: {
         backgroundColor: '#F0F9FF',
@@ -621,5 +621,4 @@ const styles = StyleSheet.create({
     toastError: { backgroundColor: '#ff5252' },
     toastText: { color: '#fff', fontSize: 14, fontWeight: '600', marginLeft: 12 },
 });
-
 export default UpdateGuideInfoForm;
