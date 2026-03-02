@@ -294,6 +294,7 @@ const AddTour = () => {
                 placeholder="e.g., Grand Island Hopping"
                 value={formData.name}
                 onChangeText={(t) => setFormData({ ...formData, name: t })}
+                placeholderTextColor={{color: "#9CA3AF"}}
             />
 
             <Text style={styles.label}>Description</Text>
@@ -303,26 +304,29 @@ const AddTour = () => {
                 multiline
                 value={formData.description}
                 onChangeText={(t) => setFormData({ ...formData, description: t })}
+                placeholderTextColor={{ color: "#9CA3AF" }}
             />
 
             <View style={styles.row}>
                 <View style={{ flex: 1, marginRight: 10 }}>
                     <Text style={styles.label}>Duration</Text>
                     <TextInput
-                        style={styles.input}
+                        style={[styles.input, { color: "#1F2937"}]}
                         placeholder="e.g. 8 Hours"
                         value={formData.duration}
                         onChangeText={(t) => setFormData({ ...formData, duration: t })}
+                        placeholderTextColor={{ color: "#9CA3AF" }}
                     />
                 </View>
                 <View style={{ flex: 1 }}>
                     <Text style={styles.label}>Max Pax</Text>
                     <TextInput
-                        style={styles.input}
+                        style={[styles.input, { color: "#1F2937"}]}
                         placeholder="e.g. 10"
                         keyboardType="numeric"
                         value={formData.maxGroupSize}
                         onChangeText={(t) => setFormData({ ...formData, maxGroupSize: t })}
+                        placeholderTextColor={{ color: "#9CA3AF" }}
                     />
                 </View>
             </View>
@@ -354,6 +358,7 @@ const AddTour = () => {
                         <TextInput
                             style={styles.cardInput}
                             placeholder={`Stop ${index + 1} Name`}
+                            placeholderTextColor="#9CA3AF" // <-- ADDED THIS
                             value={placeNames[index]}
                             onChangeText={(t) => handlePlaceNameChange(t, index)}
                         />
@@ -580,7 +585,7 @@ const AddTour = () => {
             </SafeAreaView>
 
             <Modal visible={destModalVisible} animationType="slide" transparent={true}>
-                <View style={styles.modalOverlay}>
+                <SafeAreaView style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>Select Destination</Text>
                         <FlatList
@@ -603,7 +608,7 @@ const AddTour = () => {
                             <Text style={styles.modalCloseText}>Close</Text>
                         </TouchableOpacity>
                     </View>
-                </View>
+                </SafeAreaView>
             </Modal>
         </View>
     );
@@ -637,7 +642,7 @@ const styles = StyleSheet.create({
     
     label: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8, marginTop: 15 },
     labelSmall: { fontSize: 12, fontWeight: '600', color: '#6B7280', marginBottom: 5 },
-    input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, paddingHorizontal: 15, paddingVertical: 12, fontSize: 15, color: '#1F2937' },
+    input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, paddingHorizontal: 15, paddingVertical: 12, fontSize: 15, color: '#9CA3AF' },
     inputSmall: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 10, fontSize: 14 },
     
     dropdownSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 15 },
@@ -649,7 +654,8 @@ const styles = StyleSheet.create({
     imageUploadSmall: { height: 100, backgroundColor: '#F3F4F6', borderRadius: 8, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', marginBottom: 8 },
     uploadedImage: { width: '100%', height: '100%' },
     removeIcon: { position: 'absolute', top: 5, right: 5, backgroundColor: 'rgba(0,0,0,0.5)', padding: 4, borderRadius: 10 },
-    cardInput: { fontSize: 12, textAlign: 'center', padding: 4, backgroundColor: '#F9FAFB', borderRadius: 4 },
+    // <-- ADDED 'color: #1F2937' HERE TO FIX TYPED TEXT VISIBILITY
+    cardInput: { fontSize: 12, textAlign: 'center', padding: 4, backgroundColor: '#F9FAFB', borderRadius: 4, color: '#1F2937' },
     addStopButton: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 15, marginTop: 10, borderStyle: 'dashed', borderWidth: 1, borderColor: '#0072FF', borderRadius: 12, backgroundColor: '#EFF6FF' },
     addStopText: { color: '#0072FF', fontWeight: '600', marginLeft: 8 },
 
@@ -688,7 +694,6 @@ const styles = StyleSheet.create({
     modalClose: { marginTop: 15, alignItems: 'center', padding: 10 },
     modalCloseText: { color: '#FF3B30', fontSize: 16, fontWeight: '600' },
     
-    // NEW STYLES FOR TIME PICKER
     timePickerButton: {
         flexDirection: 'row',
         justifyContent: 'space-between',

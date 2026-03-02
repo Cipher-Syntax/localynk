@@ -251,9 +251,10 @@ const UpdateGuideInfoForm = () => {
                             <Picker
                                 selectedValue={selectedSpecialty}
                                 onValueChange={(itemValue) => setSelectedSpecialty(itemValue)}
-                                style={styles.picker}
+                                style={[styles.picker, { backgroundColor: "#fff" }]}
                                 dropdownIconColor="#1F2937"
                                 itemStyle={{ color: '#1F2937', fontSize: 14 }}
+                                mode="dropdown" // <--- ADDED THIS LINE
                             >
                                 {SPECIALTY_OPTIONS.map((opt) => (
                                     <Picker.Item key={opt} label={opt} value={opt} color="#1F2937" />
