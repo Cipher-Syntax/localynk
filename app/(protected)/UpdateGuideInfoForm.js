@@ -368,7 +368,7 @@ const UpdateGuideInfoForm = () => {
                 animationType="slide"
                 onRequestClose={() => setSpecialtyModalVisible(false)}
             >
-                <View style={styles.modalOverlay}>
+                <SafeAreaView style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Select Specialty</Text>
@@ -399,7 +399,7 @@ const UpdateGuideInfoForm = () => {
                             ))}
                         </ScrollView>
                     </View>
-                </View>
+                </SafeAreaView>
             </Modal>
 
             {toast.visible && (
