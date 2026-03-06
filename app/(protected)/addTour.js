@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ScrollView, StatusBar, View, Text, Image, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, Modal, FlatList, Platform, Dimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,11 +8,13 @@ import { useRouter } from 'expo-router';
 import { Picker } from '@react-native-picker/picker'; 
 import DateTimePicker from '@react-native-community/datetimepicker';
 import api from '../../api/api';
+import { useAuth } from '../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
 const AddTour = () => {
     const router = useRouter();
+    const { user } = useAuth();
     const insets = useSafeAreaInsets();
     const scrollViewRef = useRef(null);
     
@@ -73,6 +75,19 @@ const AddTour = () => {
             setIsFetchingData(false);
         }
     };
+
+    // Filter destinations based on user specialty
+    const displayDestinations = useMemo(() => {
+        if (!user?.specialty || !destinations.length) return destinations;
+        
+        const matching = destinations.filter(d => {
+            const destCategory = typeof d.category === 'object' ? d.category?.name : d.category;
+            return destCategory && destCategory.toLowerCase() === user.specialty.toLowerCase();
+        });
+
+        // Fallback to all destinations if no matches are found
+        return matching.length > 0 ? matching : destinations;
+    }, [destinations, user?.specialty]);
 
     const showToast = (message, type = 'success') => {
         setToast({ visible: true, message, type });
@@ -593,7 +608,7 @@ const AddTour = () => {
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>Select Destination</Text>
                         <FlatList
-                            data={destinations}
+                            data={displayDestinations}
                             keyExtractor={(item) => item.id.toString()}
                             renderItem={({ item }) => (
                                 <TouchableOpacity 
@@ -601,12 +616,18 @@ const AddTour = () => {
                                     onPress={() => { setSelectedDest(item); setDestModalVisible(false); }}
                                 >
                                     <Ionicons name="location-outline" size={20} color="#333" style={{marginRight: 10}}/>
-                                    <View>
+                                    <View style={{ flex: 1 }}>
                                         <Text style={styles.modalItemText}>{item.name}</Text>
                                         <Text style={styles.modalItemSub}>{item.location}</Text>
                                     </View>
+                                    <View style={styles.categoryBadge}>
+                                        <Text style={styles.categoryBadgeText}>
+                                            {typeof item.category === 'object' ? item.category?.name : item.category || 'Uncategorized'}
+                                        </Text>
+                                    </View>
                                 </TouchableOpacity>
                             )}
+                            ListEmptyComponent={<Text style={{textAlign: 'center', marginTop: 20, color: '#6B7280'}}>No destinations found.</Text>}
                         />
                         <TouchableOpacity style={styles.modalClose} onPress={() => setDestModalVisible(false)}>
                             <Text style={styles.modalCloseText}>Close</Text>
@@ -696,6 +717,21 @@ const styles = StyleSheet.create({
     modalItemSub: { fontSize: 12, color: '#6B7280' },
     modalClose: { marginTop: 15, alignItems: 'center', padding: 10 },
     modalCloseText: { color: '#FF3B30', fontSize: 16, fontWeight: '600' },
+    
+    categoryBadge: {
+        backgroundColor: '#EFF6FF',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#BFDBFE'
+    },
+    categoryBadgeText: {
+        fontSize: 10,
+        color: '#1D4ED8',
+        fontWeight: '600',
+        textTransform: 'uppercase'
+    },
     
     timePickerButton: {
         flexDirection: 'row',
