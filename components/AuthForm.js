@@ -15,7 +15,8 @@ import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-si
 const { width, height } = Dimensions.get('window');
 
 const AuthForm = ({ method }) => {
-    const { login, register, googleLogin, resendVerificationEmail, message, messageType, clearMessage, setMessage } = useAuth(); 
+    // Added reactivateAccount to destructured context
+    const { login, register, googleLogin, resendVerificationEmail, reactivateAccount, message, messageType, clearMessage, setMessage } = useAuth(); 
 
     const { control, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm();
     const [remember, setRemember] = useState(false);
@@ -98,6 +99,22 @@ const AuthForm = ({ method }) => {
                 router.replace('/auth/login')
             }
         }
+    };
+
+    // New handleReactivate logic
+    const handleReactivate = async () => {
+        const username = watch('username');
+        const password = watch('password');
+        
+        if (!username || !password) {
+            clearMessage();
+            setMessage("Please enter both your username and password to reactivate.", "error");
+            return;
+        }
+        
+        clearMessage();
+        const successUser = await reactivateAccount(username, password);
+        if (successUser) handleNavigation(successUser);
     };
 
     const handleGoogleLogin = async () => {
@@ -218,10 +235,16 @@ const AuthForm = ({ method }) => {
                                                     {message}
                                                 </Text>
                                                 
-                                                {(message.includes('verify your email') || message.includes('verification')) && method === 'login' && messageType === 'error' && (
-                                                    <TouchableOpacity onPress={handleResendVerification}>
-                                                        <Text style={styles.resendText}>Resend Email</Text>
-                                                    </TouchableOpacity>
+                                                {/* Modified to show both Resend Email and Reactivate for inactive accounts */}
+                                                {(message.includes('verify your email') || message.includes('verification') || message.includes('inactive')) && method === 'login' && messageType === 'error' && (
+                                                    <View style={styles.actionButtonsRow}>
+                                                        <TouchableOpacity onPress={handleResendVerification} style={styles.actionButton}>
+                                                            <Text style={styles.actionText}>Resend Email</Text>
+                                                        </TouchableOpacity>
+                                                        <TouchableOpacity onPress={handleReactivate} style={styles.actionButton}>
+                                                            <Text style={styles.actionText}>Reactivate Account</Text>
+                                                        </TouchableOpacity>
+                                                    </View>
                                                 )}
                                             </View>
                                         ) : null}
@@ -433,7 +456,26 @@ const styles = StyleSheet.create({
     msgError: { backgroundColor: '#FEF2F2' },
     msgSuccess: { backgroundColor: '#ECFDF5' },
     messageText: { fontSize: 13, textAlign: 'center', fontWeight: '600' },
-    resendText: { color: '#0072FF', fontWeight: 'bold', marginTop: 5, textDecorationLine: 'underline' },
+    
+    actionButtonsRow: {
+        flexDirection: 'row',
+        marginTop: 10,
+        gap: 15,
+        justifyContent: 'center'
+    },
+    actionButton: {
+        backgroundColor: 'rgba(0, 114, 255, 0.1)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#0072FF'
+    },
+    actionText: {
+        color: '#0072FF',
+        fontWeight: '700',
+        fontSize: 12
+    },
 
     optionsRow: {
         flexDirection: 'row',

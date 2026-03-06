@@ -180,8 +180,9 @@ export function AuthProvider({ children }) {
                 msg = errorDetail;
             }
 
+            // MODIFIED: Updated error to catch both unverified and deactivated accounts
             if (msg.toLowerCase().includes("no active account")) {
-                msg = "Please verify your email before logging in.";
+                msg = "Account inactive. Please verify your email or reactivate your account if it was deactivated.";
             }
 
             setState(prev => ({

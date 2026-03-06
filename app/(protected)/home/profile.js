@@ -347,9 +347,9 @@ const Profile = () => {
                         <Text style={styles.modalMessage}>
                             Are you sure you want to deactivate?
                             {"\n\n"}
-                            Your account will be <Text style={{fontWeight: '700'}}>scheduled for deletion in 30 days</Text>. 
+                            Your account will be <Text style={{fontWeight: '700'}}>scheduled for deletion in 60 days</Text>. 
                             {"\n\n"}
-                            You can reactive it anytime during this period by simply logging in.
+                            You can reactive it anytime during the first 30 days by simply logging in.
                         </Text>
                         <View style={styles.modalButtons}>
                             <TouchableOpacity style={styles.cancelButton} onPress={() => setDeactivateModalVisible(false)}>
@@ -383,7 +383,7 @@ const Profile = () => {
                         <Text style={styles.modalMessage}>
                             Your account has been deactivated.
                             {"\n\n"}
-                            It will be permanently deleted in <Text style={{fontWeight: '700', color:'#10B981'}}>30 days</Text>.
+                            It will be permanently deleted in <Text style={{fontWeight: '700', color:'#10B981'}}>60 days</Text>.
                             {"\n\n"}
                             You will now be logged out.
                         </Text>
@@ -406,7 +406,6 @@ const Profile = () => {
 export default Profile;
 
 const styles = StyleSheet.create({
-    // ... (Existing styles remain exactly the same)
     container: { flex: 1, backgroundColor: '#F8FAFC' },
     centerContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" },
     header: { position: 'relative', height: 120, justifyContent: 'center' },
