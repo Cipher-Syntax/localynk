@@ -8,8 +8,6 @@ import api from '../../api/api';
 
 const { height } = Dimensions.get('window');
 
-const BASE_PEOPLE_INCLUDED = 1; 
-const ADDITIONAL_PER_PERSON_FEE = 50.00;
 const PRIMARY_COLOR = '#0072FF';
 const SURFACE_COLOR = '#FFFFFF';
 const TEXT_PRIMARY = '#1E293B';
@@ -53,15 +51,9 @@ const AgencyPaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) 
     };
 
     useEffect(() => {
-        const peopleCount = parseInt(numPeople);
-        const extraPeople = Math.max(0, peopleCount - BASE_PEOPLE_INCLUDED);
-        const addedFee = extraPeople * ADDITIONAL_PER_PERSON_FEE;
-        const newTotal = priceFloat + addedFee;
-        setCurrentTotalPrice(newTotal);
-    }, [numPeople, priceFloat]);
-    
-    const extraPeopleCount = Math.max(0, parseInt(numPeople) - BASE_PEOPLE_INCLUDED);
-    const addedFeeAmount = extraPeopleCount * ADDITIONAL_PER_PERSON_FEE;
+        // Just use the passed priceFloat from the previous screen without adding any extra guest fees
+        setCurrentTotalPrice(priceFloat);
+    }, [priceFloat]);
     
     const handleNumPeopleChange = (value) => {
         const num = Number(value.replace(/[^0-9]/g, '')) || 1;
@@ -125,17 +117,14 @@ const AgencyPaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) 
 
         try {
             if (!isPaymentMode) {
-                // --- MODE 1: CREATE REQUEST ---
                 const newBooking = await createBooking();
                 setCreatedBookingId(newBooking.id);
                 setIsSuccess(true);
                 setShowConfirmationScreen(true);
             } else {
-                // --- MODE 2: PROCESS PAYMENT ---
                 if (!bookingId) {
                     throw new Error("Missing booking ID for payment.");
                 }
-                // Simulate Payment processing
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 setIsSuccess(true);
                 setShowConfirmationScreen(true);
@@ -241,17 +230,6 @@ const AgencyPaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) 
 
                         <View style={styles.section}>
                             <Text style={styles.sectionLabel}>PAYMENT BREAKDOWN</Text>
-                            <View style={styles.billRow}>
-                                <Text style={styles.billLabel}>Agency Base Price</Text>
-                                <Text style={styles.billValue}>₱ {priceFloat.toLocaleString()}</Text>
-                            </View>
-
-                            {addedFeeAmount > 0 && (
-                                <View style={styles.billRow}>
-                                    <Text style={[styles.billLabel, {color:'#EF4444'}]}>Extra Guest Fee</Text>
-                                    <Text style={[styles.billValue, {color:'#EF4444'}]}>+ ₱ {addedFeeAmount.toLocaleString()}</Text>
-                                </View>
-                            )}
                             
                             <View style={[styles.billRow, {marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F1F5F9'}]}>
                                 <Text style={[styles.billLabel, {fontWeight: '700', color: TEXT_PRIMARY}]}>Total Amount</Text>

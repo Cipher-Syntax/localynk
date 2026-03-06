@@ -551,7 +551,7 @@ const Payment = () => {
                                 </>
                             )}
 
-                            <View style={styles.receiptCard}>
+                            <SafeAreaView style={styles.receiptCard}>
                                 <View style={styles.receiptHeader}>
                                     <Text style={styles.receiptTitle}>Payment Summary</Text>
                                 </View>
@@ -569,10 +569,10 @@ const Payment = () => {
                                     <Text style={styles.receiptLabel}>Balance Due Later</Text>
                                     <Text style={styles.receiptValue}>₱ {balanceDue.toLocaleString()}</Text>
                                 </View>
-                            </View>
+                            </SafeAreaView>
 
                             {isAgency && assignedAgencyGuidesList.length > 0 && (
-                                <View style={styles.agencyGuideSection}>
+                                <SafeAreaView style={styles.agencyGuideSection}>
                                     <Text style={styles.sectionTitle}>Assigned Team</Text>
                                     {assignedAgencyGuidesList.map((g, i) => (
                                         <View key={i} style={styles.miniGuideCard}>
@@ -583,7 +583,7 @@ const Payment = () => {
                                             </View>
                                         </View>
                                     ))}
-                                </View>
+                                </SafeAreaView>
                             )}
 
                         </View>
@@ -602,12 +602,12 @@ const Payment = () => {
                         </TouchableOpacity>
                     </SafeAreaView>
                 ) : (
-                    <View style={styles.bottomBar}>
+                    <SafeAreaView style={styles.bottomBar}>
                         <TouchableOpacity style={[styles.payButton, {backgroundColor: '#059669', width: '100%'}]} onPress={() => router.push('/(protected)/home')}>
                             <Ionicons name="home" size={18} color="#fff" style={{marginRight:8}}/>
                             <Text style={styles.payButtonText}>Return Home</Text>
                         </TouchableOpacity>
-                    </View>
+                    </SafeAreaView>
                 )}
 
                 <Modal visible={isCalendarVisible} transparent={true} animationType="slide">
@@ -730,7 +730,7 @@ const styles = StyleSheet.create({
     receiptTotal: { fontSize: 18, fontWeight: '800' },
     receiptDivider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 12 },
     receiptNote: { fontSize: 11, color: PRIMARY_COLOR, fontStyle: 'italic', textAlign: 'right' },
-    agencyGuideSection: { marginTop: -20, marginBottom: 30 },
+    agencyGuideSection: { marginTop: -20, marginBottom: 100 },
     miniGuideCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: SURFACE_COLOR, padding: 10, borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: '#E2E8F0' },
     miniAvatar: { width: 40, height: 40, borderRadius: 20, marginRight: 12, backgroundColor: '#ccc' },
     miniName: { fontSize: 14, fontWeight: '700', color: TEXT_PRIMARY },
