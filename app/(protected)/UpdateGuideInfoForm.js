@@ -7,28 +7,19 @@ import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-const SPECIALTY_OPTIONS = [
-    'History & Culture',
-    'Food & Culinary',
-    'Nature & Wildlife',
-    'Hiking & Trekking',
-    'Water Sports',
-    'Nightlife & Parties',
-    'Photography',
-    'Spiritual & Wellness',
-    'Shopping & Fashion',
-    'Other'
-];
-
 const UpdateGuideInfoForm = () => {
     const router = useRouter();
     const { user, isLoading: authLoading, refreshUser } = useAuth();
     const insets = useSafeAreaInsets(); 
     const [isSubmitting, setIsSubmitting] = useState(false);
     
+    // Dynamic Specialty Options
+    const [specialtyOptions, setSpecialtyOptions] = useState([]);
+    const [isCategoriesLoaded, setIsCategoriesLoaded] = useState(false);
+
     // Form States
     const [languages, setLanguages] = useState([]);
-    const [selectedSpecialty, setSelectedSpecialty] = useState(SPECIALTY_OPTIONS[0]);
+    const [selectedSpecialty, setSelectedSpecialty] = useState('');
     const [isSpecialtyModalVisible, setSpecialtyModalVisible] = useState(false);
     const [customSpecialty, setCustomSpecialty] = useState('');
     const [experience, setExperience] = useState('');
@@ -42,11 +33,36 @@ const UpdateGuideInfoForm = () => {
     const daysOptions = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const dayMapping = { 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6, 'Sun': 0 };
 
+    // 1. Fetch Categories from the Backend API
     useEffect(() => {
-        if (user) {
+        const fetchCategories = async () => {
+            try {
+                // Adjust this URL if your main urls.py uses a different prefix for destinations
+                const response = await api.get('/api/categories/');
+                if (response.data && Array.isArray(response.data)) {
+                    setSpecialtyOptions([...response.data, 'Other']);
+                }
+            } catch (error) {
+                console.log('Failed to fetch destination categories from API:', error);
+                // Fallback to the choices defined in your models.py if API fails
+                setSpecialtyOptions([
+                    'Cultural', 'Historical', 'Adventure', 'Nature', 
+                    'Beaches', 'Mountains', 'Rivers', 'Islands', 'Other'
+                ]);
+            } finally {
+                setIsCategoriesLoaded(true);
+            }
+        };
+
+        fetchCategories();
+    }, []);
+
+    // 2. Populate form only after user data AND categories are loaded
+    useEffect(() => {
+        if (user && isCategoriesLoaded) {
             populateForm(user);
         }
-    }, [user]);
+    }, [user, isCategoriesLoaded]);
 
     const showToast = (message, type = 'success') => {
         setToast({ visible: true, message, type });
@@ -72,7 +88,7 @@ const UpdateGuideInfoForm = () => {
         
         const incomingSpecialty = data.specialty || '';
         if (incomingSpecialty) {
-            if (SPECIALTY_OPTIONS.includes(incomingSpecialty)) {
+            if (specialtyOptions.includes(incomingSpecialty)) {
                 setSelectedSpecialty(incomingSpecialty);
                 setCustomSpecialty('');
             } 
@@ -80,6 +96,8 @@ const UpdateGuideInfoForm = () => {
                 setSelectedSpecialty('Other');
                 setCustomSpecialty(incomingSpecialty);
             }
+        } else {
+            setSelectedSpecialty(specialtyOptions[0] || 'Other');
         }
 
         const existingMarkedDates = (data.specific_available_dates || []).reduce((acc, dateString) => {
@@ -186,11 +204,11 @@ const UpdateGuideInfoForm = () => {
         router.back();
     };
 
-    if (authLoading || !user) {
+    if (authLoading || !user || !isCategoriesLoaded) {
         return (
             <View style={[styles.loadingContainer]}>
                 <ActivityIndicator size="large" color="#007AFF" />
-                <Text style={{ marginTop: 10, color: '#666' }}>Loading your profile...</Text>
+                <Text style={{ marginTop: 10, color: '#666' }}>Loading your profile data...</Text>
             </View>
         );
     }
@@ -243,7 +261,7 @@ const UpdateGuideInfoForm = () => {
                             placeholderTextColor="#9CA3AF"
                         />
 
-                        <Text style={styles.inputLabel}>Specialty</Text>
+                        <Text style={styles.inputLabel}>Specialty (Category)</Text>
                         <TouchableOpacity
                             style={[styles.input, { justifyContent: 'center', height: 50, marginBottom: 15 }]}
                             onPress={() => setSpecialtyModalVisible(true)}
@@ -377,7 +395,7 @@ const UpdateGuideInfoForm = () => {
                             </TouchableOpacity>
                         </View>
                         <ScrollView showsVerticalScrollIndicator={false}>
-                            {SPECIALTY_OPTIONS.map((opt) => (
+                            {specialtyOptions.map((opt) => (
                                 <TouchableOpacity
                                     key={opt}
                                     style={styles.modalOption}
