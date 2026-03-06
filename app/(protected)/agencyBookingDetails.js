@@ -259,7 +259,7 @@ const AgencyBookingDetails = () => {
                                 <Text style={styles.sectionTitle}>Trip Details</Text>
                                 <View style={styles.datesRow}>
                                     <TouchableOpacity style={styles.dateBox} onPress={() => !isPaymentMode && openCalendar('start')} disabled={isPaymentMode}>
-                                        <Text style={styles.dateLabel}>Check In</Text>
+                                        <Text style={styles.dateLabel}>Start Date</Text>
                                         <View style={styles.dateValueRow}>
                                             <CalendarIcon size={18} color={PRIMARY_COLOR} />
                                             <Text style={styles.dateValue}>{startDate.toLocaleDateString()}</Text>
@@ -267,7 +267,7 @@ const AgencyBookingDetails = () => {
                                     </TouchableOpacity>
                                     <View style={styles.connector} />
                                     <TouchableOpacity style={styles.dateBox} onPress={() => !isPaymentMode && openCalendar('end')} disabled={isPaymentMode}>
-                                        <Text style={styles.dateLabel}>Check Out</Text>
+                                        <Text style={styles.dateLabel}>End Date</Text>
                                         <View style={styles.dateValueRow}>
                                             <CalendarIcon size={18} color={PRIMARY_COLOR} />
                                             <Text style={styles.dateValue}>{endDate.toLocaleDateString()}</Text>
