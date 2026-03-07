@@ -85,9 +85,25 @@ const Home = () => {
 
     if (loading) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#00C6FF" />
-            </View>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, backgroundColor: '#fff' }}>
+                <View style={{ height: 120, backgroundColor: '#E0E6ED', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 }} />
+                <View style={{ padding: 16, marginTop: 10 }}>
+                    <View style={{ height: 24, width: 180, backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 16 }} />
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                        <View style={{ width: 280, height: 180, backgroundColor: '#E0E6ED', borderRadius: 16, marginRight: 16 }} />
+                        <View style={{ width: 280, height: 180, backgroundColor: '#E0E6ED', borderRadius: 16 }} />
+                    </ScrollView>
+                    
+                    <View style={{ height: 24, width: 150, backgroundColor: '#E0E6ED', borderRadius: 4, marginTop: 30, marginBottom: 16 }} />
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
+                        <View style={{ width: '64%', height: 220, backgroundColor: '#E0E6ED', borderRadius: 16 }} />
+                        <View style={{ width: '33%', justifyContent: 'space-between' }}>
+                            <View style={{ height: 105, backgroundColor: '#E0E6ED', borderRadius: 16 }} />
+                            <View style={{ height: 105, backgroundColor: '#E0E6ED', borderRadius: 16 }} />
+                        </View>
+                    </View>
+                </View>
+            </ScrollView>
         );
     }
 

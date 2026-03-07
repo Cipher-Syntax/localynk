@@ -100,8 +100,30 @@ const Favorites = () => {
     
     if (loading) {
         return (
-            <View style={styles.loadingCenter}>
-                <ActivityIndicator size="large" color="#00A8FF" />
+            <View style={{ flex: 1, backgroundColor: '#fff' }}>
+                <View style={{ height: 120, backgroundColor: '#E0E6ED', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 }} />
+                <View style={{ paddingHorizontal: 16, paddingVertical: 16 }}>
+                    <View style={{ width: 150, height: 24, backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 4 }} />
+                    <View style={{ width: 100, height: 14, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                </View>
+                <View style={{ padding: 16, gap: 12 }}>
+                    {[1, 2].map(i => (
+                        <View key={i} style={{ backgroundColor: '#F5F7FA', borderRadius: 15, padding: 16, borderWidth: 1, borderColor: '#E0E6ED' }}>
+                            <View style={{ flexDirection: 'row', marginBottom: 16 }}>
+                                <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: '#E0E6ED' }} />
+                                <View style={{ flex: 1, marginLeft: 12, gap: 6 }}>
+                                    <View style={{ width: 120, height: 18, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                                    <View style={{ width: 80, height: 12, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                                </View>
+                            </View>
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+                                <View style={{ width: '48%', height: 50, backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#eee' }} />
+                                <View style={{ width: '48%', height: 50, backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#eee' }} />
+                            </View>
+                            <View style={{ height: 45, backgroundColor: '#E0E6ED', borderRadius: 8 }} />
+                        </View>
+                    ))}
+                </View>
             </View>
         );
     }

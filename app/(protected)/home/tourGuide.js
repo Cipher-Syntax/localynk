@@ -66,8 +66,16 @@ export default function TourGuide() {
 
     if (loading || isAuthLoading) {
         return (
-            <View style={styles.centerContainer}>
-                <ActivityIndicator size="large" color="#0000ff" />
+            <View style={{ flex: 1, backgroundColor: '#F5F7FA' }}>
+                <View style={{ height: 120, backgroundColor: '#E0E6ED', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 }} />
+                <View style={{ padding: 16, marginTop: 10 }}>
+                    <View style={{ height: 180, backgroundColor: '#E0E6ED', borderRadius: 16, marginBottom: 16 }} />
+                    <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+                        <View style={{ flex: 1, height: 100, backgroundColor: '#E0E6ED', borderRadius: 16 }} />
+                        <View style={{ flex: 1, height: 100, backgroundColor: '#E0E6ED', borderRadius: 16 }} />
+                    </View>
+                    <View style={{ height: 150, backgroundColor: '#E0E6ED', borderRadius: 16 }} />
+                </View>
             </View>
         );
     }

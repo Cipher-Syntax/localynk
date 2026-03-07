@@ -203,9 +203,33 @@ export default function PersonalizationScreen() {
 
     if (loading) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#00C6FF" />
-            </View>
+            <SafeAreaView style={styles.safeArea}>
+                <View style={styles.container}>
+                    <View style={styles.header}>
+                        <View style={styles.headerContent}>
+                            <View style={[styles.headerIcon, { backgroundColor: '#E0E6ED' }]} />
+                            <View style={styles.headerText}>
+                                <View style={{ width: 200, height: 26, backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 8 }} />
+                                <View style={{ width: 150, height: 14, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                            </View>
+                        </View>
+                        <View style={styles.progressBar} />
+                    </View>
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+                        {[1, 2, 3].map(i => (
+                            <View key={i} style={styles.accordionContainer}>
+                                <View style={styles.accordionHeader}>
+                                     <View style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: '#E0E6ED', marginRight: 12 }} />
+                                     <View style={{ flex: 1, gap: 6 }}>
+                                         <View style={{ width: 120, height: 16, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                                         <View style={{ width: 60, height: 12, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                                     </View>
+                                </View>
+                            </View>
+                        ))}
+                    </ScrollView>
+                </View>
+            </SafeAreaView>
         );
     }
 

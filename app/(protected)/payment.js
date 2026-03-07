@@ -396,9 +396,55 @@ const Payment = () => {
 
     if (loadingBooking) {
         return (
-            <View style={{flex:1, justifyContent:'center', alignItems:'center', backgroundColor: BACKGROUND_COLOR}}>
-                <ActivityIndicator size="large" color={PRIMARY_COLOR} />
-                <Text style={{marginTop: 10, color: TEXT_SECONDARY}}>Loading booking details...</Text>
+            <View style={{ flex: 1, backgroundColor: BACKGROUND_COLOR }}>
+                <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+                <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+                    <View style={styles.container}>
+                        <View style={styles.header}>
+                            <View style={[styles.headerImage, { backgroundColor: '#E0E6ED', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }]} />
+                        </View>
+
+                        <View style={styles.contentContainer}>
+                            <View style={styles.card}>
+                                <View style={styles.guideHeader}>
+                                    <View style={[styles.avatarContainer, { backgroundColor: '#E0E6ED' }]} />
+                                    <View style={styles.guideInfo}>
+                                        <View style={{ height: 18, width: 150, backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 8 }} />
+                                        <View style={{ height: 14, width: 100, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                                    </View>
+                                </View>
+                            </View>
+
+                            <View style={{ height: 18, width: 100, backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 12 }} />
+                            
+                            <View style={styles.datesRow}>
+                                <View style={[styles.dateBox, { height: 70, backgroundColor: '#E0E6ED', borderColor: 'transparent' }]} />
+                                <View style={styles.connector} />
+                                <View style={[styles.dateBox, { height: 70, backgroundColor: '#E0E6ED', borderColor: 'transparent' }]} />
+                            </View>
+
+                            <View style={[styles.switchContainer, { height: 45, backgroundColor: '#E0E6ED' }]} />
+
+                            <View style={{ height: 18, width: 120, backgroundColor: '#E0E6ED', borderRadius: 4, marginTop: 24, marginBottom: 12 }} />
+                            <View style={styles.inputRow}>
+                                <View style={[styles.modernInput, { flex: 1, height: 50, backgroundColor: '#E0E6ED', borderColor: 'transparent' }]} />
+                                <View style={{ width: 10 }} />
+                                <View style={[styles.modernInput, { flex: 1, height: 50, backgroundColor: '#E0E6ED', borderColor: 'transparent' }]} />
+                            </View>
+                            <View style={[styles.modernInput, { marginTop: 10, height: 50, backgroundColor: '#E0E6ED', borderColor: 'transparent' }]} />
+
+                            <View style={[styles.receiptCard, { marginTop: 24, height: 180, backgroundColor: '#E0E6ED', borderColor: 'transparent' }]} />
+                        </View>
+                    </View>
+                    
+                    <SafeAreaView style={styles.bottomBar}>
+                        <View style={{ gap: 4 }}>
+                            <View style={{ height: 12, width: 100, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                            <View style={{ height: 24, width: 80, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                        </View>
+                        <View style={{ height: 48, width: 140, backgroundColor: '#E0E6ED', borderRadius: 14 }} />
+                    </SafeAreaView>
+                </SafeAreaView>
             </View>
         );
     }

@@ -54,8 +54,20 @@ const GuideDestinations = () => {
 
     if (loading) {
         return (
-            <View style={styles.loadingCenter}>
-                <ActivityIndicator size="large" color="#00A8FF" />
+            <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+                <View style={{ height: 140, backgroundColor: '#E0E6ED', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 }} />
+                <View style={{ padding: 20 }}>
+                    <View style={{ height: 16, width: 150, backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 15 }} />
+                    {[1, 2].map(i => (
+                        <View key={i} style={{ backgroundColor: '#fff', borderRadius: 16, marginBottom: 20, height: 210, overflow: 'hidden', borderWidth: 1, borderColor: '#eee' }}>
+                            <View style={{ height: 160, backgroundColor: '#E0E6ED' }} />
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 12 }}>
+                                <View style={{ height: 24, width: 80, backgroundColor: '#E0E6ED', borderRadius: 12 }} />
+                                <View style={{ height: 20, width: 60, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                            </View>
+                        </View>
+                    ))}
+                </View>
             </View>
         );
     }

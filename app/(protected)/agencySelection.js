@@ -245,9 +245,40 @@ const AgencySelection = () => {
 
     if (loading) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#00A8FF" />
-                <Text style={styles.loadingText}>Loading agencies...</Text>
+            <View style={styles.container}>
+                <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+                <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+                    <View style={styles.header}>
+                        <View style={[styles.headerImage, { backgroundColor: '#E0E6ED', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 }]} />
+                    </View>
+
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+                        <View style={styles.heroSection}>
+                            <View style={{ height: 28, width: 180, backgroundColor: '#E0E6ED', borderRadius: 8, marginBottom: 8 }} />
+                            <View style={{ height: 16, width: '100%', backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 4 }} />
+                            <View style={{ height: 16, width: '80%', backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                        </View>
+
+                        {[1, 2, 3].map((item) => (
+                            <View key={item} style={styles.agencyCard}>
+                                <View style={styles.cardProfileSection}>
+                                    <View style={[styles.iconWrapper, { backgroundColor: '#E0E6ED', borderWidth: 0 }]} />
+                                    <View style={styles.profileInfo}>
+                                        <View style={{ height: 18, width: 140, backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 8 }} />
+                                        <View style={{ height: 14, width: 100, backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 6 }} />
+                                        <View style={{ height: 14, width: 80, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                                    </View>
+                                </View>
+                                <View style={styles.divider} />
+                                <View style={styles.detailsRow}>
+                                    <View style={{ height: 14, width: 100, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                                    <View style={{ height: 14, width: 120, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                                </View>
+                                <View style={{ height: 45, width: '100%', backgroundColor: '#E0E6ED', borderRadius: 12, marginTop: 8 }} />
+                            </View>
+                        ))}
+                    </ScrollView>
+                </SafeAreaView>
             </View>
         );
     }

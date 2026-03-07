@@ -258,7 +258,20 @@ const MyBookings = () => {
         );
     };
 
-    if (loading) return <View style={styles.loadingContainer}><ActivityIndicator size="large" color="#00A8FF" /></View>;
+    if (loading) {
+        return (
+            <SafeAreaView style={styles.mainContainer}>
+                <View style={styles.header}>
+                    <View style={{ width: '100%', height: '100%', backgroundColor: '#E0E6ED', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 }} />
+                </View>
+                <View style={{ paddingHorizontal: 16 }}>
+                    <View style={{ height: 160, backgroundColor: '#E0E6ED', borderRadius: 16, marginBottom: 16 }} />
+                    <View style={{ height: 160, backgroundColor: '#E0E6ED', borderRadius: 16, marginBottom: 16 }} />
+                    <View style={{ height: 160, backgroundColor: '#E0E6ED', borderRadius: 16 }} />
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.mainContainer}>

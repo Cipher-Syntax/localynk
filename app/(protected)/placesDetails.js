@@ -56,8 +56,16 @@ export default function PlacesDetails() {
 
     if (loading) {
         return (
-            <View style={styles.loader}>
-                <ActivityIndicator size="large" color="#00A8FF" />
+            <View style={{ flex: 1, backgroundColor: '#fff' }}>
+                <View style={{ height: 120, backgroundColor: '#E0E6ED', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 }} />
+                <View style={{ height: 280, margin: 15, borderRadius: 24, backgroundColor: '#E0E6ED' }} />
+                <View style={{ height: 60, marginHorizontal: 15, borderRadius: 16, backgroundColor: '#E0E6ED', marginBottom: 24 }} />
+                <View style={{ paddingHorizontal: 15 }}>
+                    <View style={{ height: 24, width: 100, backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 12 }} />
+                    <View style={{ height: 16, width: '100%', backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 8 }} />
+                    <View style={{ height: 16, width: '100%', backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 8 }} />
+                    <View style={{ height: 16, width: '80%', backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                </View>
             </View>
         );
     }

@@ -135,8 +135,27 @@ const Profile = () => {
 
     if (loading && !profile) {
         return (
-            <View style={styles.centerContainer}>
-                <ActivityIndicator size="large" color="#00C6FF" />
+            <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+                <View style={{ height: 120, backgroundColor: '#E0E6ED', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 }} />
+                <View style={{ alignItems: 'center', marginTop: -50 }}>
+                    <View style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: '#E0E6ED', borderWidth: 4, borderColor: '#fff' }} />
+                </View>
+                <View style={{ paddingHorizontal: 20, marginTop: 15, alignItems: 'center' }}>
+                    <View style={{ width: 180, height: 24, backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 10 }} />
+                    <View style={{ width: 220, height: 14, backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 20 }} />
+                    
+                    <View style={{ width: '100%', height: 80, backgroundColor: '#fff', borderRadius: 16, marginBottom: 30, borderWidth: 1, borderColor: '#eee' }} />
+                    
+                    <View style={{ alignSelf: 'flex-start', width: 100, height: 18, backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 10 }} />
+                    <View style={{ width: '100%', backgroundColor: '#fff', borderRadius: 16, padding: 10, borderWidth: 1, borderColor: '#eee' }}>
+                        {[1, 2, 3, 4].map(i => (
+                            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 15, borderBottomWidth: i === 4 ? 0 : 1, borderBottomColor: '#F1F5F9' }}>
+                                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#E0E6ED', marginRight: 15 }} />
+                                <View style={{ width: 150, height: 16, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                            </View>
+                        ))}
+                    </View>
+                </View>
             </View>
         );
     }

@@ -411,7 +411,15 @@ const ExplorePlaces = () => {
     );
 
     const renderEmpty = () => {
-        if (loading) return <View style={styles.loadingContainer}><ActivityIndicator size="large" color="#00A8FF" /></View>;
+        if (loading) {
+            return (
+                <View style={{ paddingHorizontal: 16, marginTop: 10 }}>
+                    <View style={{ height: activeTab === 'guides' ? 220 : 280, backgroundColor: '#E0E6ED', borderRadius: 15, marginBottom: 16 }} />
+                    <View style={{ height: activeTab === 'guides' ? 220 : 280, backgroundColor: '#E0E6ED', borderRadius: 15, marginBottom: 16 }} />
+                    <View style={{ height: activeTab === 'guides' ? 220 : 280, backgroundColor: '#E0E6ED', borderRadius: 15, marginBottom: 16 }} />
+                </View>
+            );
+        }
         return <View style={styles.emptyContainer}><Text style={styles.emptyText}>No results found.</Text></View>;
     };
 

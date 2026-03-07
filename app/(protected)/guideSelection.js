@@ -140,9 +140,33 @@ const GuideSelection = () => {
     
     if (loading) {
         return (
-            <View style={styles.loadingCenter}>
-                <ActivityIndicator size="large" color="#00A8FF" />
-            </View>
+            <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top', 'left', 'right']}>
+                <View style={{ height: 120, backgroundColor: '#E0E6ED', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 }} />
+                <View style={{ paddingHorizontal: 16, paddingVertical: 16, backgroundColor: '#F5F7FA', borderBottomWidth: 1, borderBottomColor: '#E0E6ED' }}>
+                    <View style={{ width: 150, height: 20, backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 8 }} />
+                    <View style={{ width: 100, height: 14, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                </View>
+                <View style={{ padding: 16, gap: 12 }}>
+                    {[1, 2].map(i => (
+                        <View key={i} style={{ backgroundColor: '#F5F7FA', borderRadius: 15, padding: 16, borderWidth: 1, borderColor: '#E0E6ED' }}>
+                            <View style={{ flexDirection: 'row', marginBottom: 16 }}>
+                                <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: '#E0E6ED' }} />
+                                <View style={{ flex: 1, marginLeft: 12 }}>
+                                    <View style={{ width: 120, height: 18, backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 8 }} />
+                                    <View style={{ width: 150, height: 12, backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 6 }} />
+                                    <View style={{ width: 80, height: 12, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                                </View>
+                            </View>
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+                                {[1, 2, 3, 4].map(j => (
+                                    <View key={j} style={{ width: '48%', height: 45, backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#eee' }} />
+                                ))}
+                            </View>
+                            <View style={{ width: '100%', height: 45, backgroundColor: '#E0E6ED', borderRadius: 8 }} />
+                        </View>
+                    ))}
+                </View>
+            </SafeAreaView>
         );
     }
 

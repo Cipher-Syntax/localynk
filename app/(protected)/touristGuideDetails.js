@@ -160,8 +160,27 @@ const TouristGuideDetails = () => {
 
     if (loading || !guide) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#00A8FF" />
+            <View style={{ flex: 1, backgroundColor: '#fff' }}>
+                <View style={{ height: 120, backgroundColor: '#E0E6ED', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 }} />
+                <View style={{ padding: 16 }}>
+                    <View style={{ backgroundColor: '#F5F7FA', borderRadius: 15, padding: 16, borderWidth: 1, borderColor: '#E0E6ED' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
+                            <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: '#E0E6ED' }} />
+                            <View style={{ flex: 1, marginLeft: 12, gap: 8 }}>
+                                <View style={{ height: 20, width: 150, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                                <View style={{ height: 14, width: 100, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                            </View>
+                        </View>
+                        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
+                            <View style={{ flex: 1, height: 40, backgroundColor: '#E0E6ED', borderRadius: 8 }} />
+                            <View style={{ flex: 1, height: 40, backgroundColor: '#E0E6ED', borderRadius: 8 }} />
+                        </View>
+                        <View style={{ width: '100%', height: 200, backgroundColor: '#E0E6ED', borderRadius: 12, marginBottom: 20 }} />
+                        <View style={{ height: 24, width: 120, backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 12 }} />
+                        <View style={{ height: 16, width: '100%', backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 8 }} />
+                        <View style={{ height: 16, width: '80%', backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                    </View>
+                </View>
             </View>
         );
     }

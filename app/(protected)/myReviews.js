@@ -128,9 +128,33 @@ const MyReviews = () => {
 
     if (loading) {
         return (
-            <View style={styles.centered}>
-                <ActivityIndicator size="large" color="#007AFF" />
-            </View>
+            <SafeAreaView style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+                <View style={{ paddingHorizontal: 20, paddingVertical: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F1F5F9' }}>
+                     <View style={{ width: 120, height: 20, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                </View>
+                <View style={{ padding: 20 }}>
+                     <View style={{ height: 140, backgroundColor: '#E0E6ED', borderRadius: 20, marginBottom: 25 }} />
+                     <View style={{ width: 150, height: 22, backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 15 }} />
+                     
+                     {[1, 2].map(i => (
+                         <View key={i} style={{ backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#F1F5F9' }}>
+                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
+                                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                       <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#E0E6ED', marginRight: 12 }} />
+                                       <View style={{ gap: 6 }}>
+                                           <View style={{ width: 100, height: 14, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                                           <View style={{ width: 60, height: 10, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                                       </View>
+                                  </View>
+                                  <View style={{ width: 50, height: 20, backgroundColor: '#E0E6ED', borderRadius: 10 }} />
+                             </View>
+                             <View style={{ height: 1, backgroundColor: '#F1F5F9', marginBottom: 12 }} />
+                             <View style={{ width: '100%', height: 14, backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 6 }} />
+                             <View style={{ width: '80%', height: 14, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                         </View>
+                     ))}
+                </View>
+            </SafeAreaView>
         );
     }
 

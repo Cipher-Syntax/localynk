@@ -132,9 +132,22 @@ export default function Message() {
 
     if (loading) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#0000ff" />
-            </View>
+            <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top', 'left', 'right']}>
+                <View style={{ height: 120, backgroundColor: '#E0E6ED', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 }} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: '#ddd' }}>
+                     <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#E0E6ED', marginRight: 10 }} />
+                     <View style={{ width: 120, height: 16, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                </View>
+                <View style={{ flex: 1, padding: 15 }}>
+                     <View style={{ alignSelf: 'flex-start', width: '60%', height: 50, backgroundColor: '#E0E6ED', borderRadius: 16, marginBottom: 25 }} />
+                     <View style={{ alignSelf: 'flex-end', width: '50%', height: 40, backgroundColor: '#E0E6ED', borderRadius: 16, marginBottom: 25 }} />
+                     <View style={{ alignSelf: 'flex-start', width: '70%', height: 60, backgroundColor: '#E0E6ED', borderRadius: 16, marginBottom: 25 }} />
+                </View>
+                <View style={{ height: 60, backgroundColor: '#F0F0F0', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15 }}>
+                     <View style={{ flex: 1, height: 40, backgroundColor: '#fff', borderRadius: 20 }} />
+                     <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#E0E6ED', marginLeft: 10 }} />
+                </View>
+            </SafeAreaView>
         );
     }
 

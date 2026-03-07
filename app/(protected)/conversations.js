@@ -44,9 +44,17 @@ const ConversationList = () => {
 
     if (loading) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#00A8FF" />
-            </View>
+            <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+                <View style={{ padding: 20, borderBottomWidth: 1, borderBottomColor: '#eee' }}>
+                    <View style={{ width: 150, height: 28, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                </View>
+                {[1, 2, 3, 4, 5].map(i => (
+                    <View key={i} style={{ flexDirection: 'row', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: '#eee' }}>
+                        <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: '#E0E6ED', marginRight: 15 }} />
+                        <View style={{ width: 120, height: 18, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                    </View>
+                ))}
+            </SafeAreaView>
         );
     }
 
