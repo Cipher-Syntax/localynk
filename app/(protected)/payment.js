@@ -218,7 +218,11 @@ const Payment = () => {
                 const isSpecific = specificDates.includes(dateStr);
                 const isRecurring = recurringDays.includes("All") || recurringDays.includes(dayName);
                 
-                if (isSpecific || isRecurring) {
+                // FIX: If specific dates are set, restrict availability strictly to those explicitly selected dates.
+                // If specific dates are empty, fall back to the recurring weekly schedule.
+                const isAvailable = specificDates.length > 0 ? isSpecific : isRecurring;
+                
+                if (isAvailable) {
                     marked[dateStr] = { disabled: false, textColor: TEXT_PRIMARY };
                 } else {
                     marked[dateStr] = { 
@@ -308,7 +312,10 @@ const Payment = () => {
                     const isSpecific = specificDates.includes(dStr);
                     const isRecurring = recurringDays.includes("All") || recurringDays.includes(dayName);
 
-                    if (!isSpecific && !isRecurring) {
+                    // FIX: Match calendar UI validation with new explicit availability check
+                    const isAvailable = specificDates.length > 0 ? isSpecific : isRecurring;
+
+                    if (!isAvailable) {
                         hasUnavailable = true;
                         break;
                     }
