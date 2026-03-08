@@ -100,22 +100,19 @@ const Profile = () => {
         setRefreshing(false);
     }, [userId]);
 
-    // 1. Open Confirmation Modal
     const handleDeactivate = () => {
         setDeactivateModalVisible(true);
     };
 
-    // 2. Perform Deactivation & Open Success Modal
     const confirmDeactivation = async () => {
         try {
-            setDeactivateModalVisible(false); // Close confirm modal
+            setDeactivateModalVisible(false);
             setLoading(true);
             
             await api.post('/api/auth/deactivate/');
             
             setLoading(false);
             
-            // Open the Success Modal instead of Alert
             setTimeout(() => {
                 setSuccessModalVisible(true);
             }, 300);
@@ -127,7 +124,6 @@ const Profile = () => {
         }
     };
 
-    // 3. User clicks "Okay" on Success Modal -> Then Logout
     const handleFinalLogout = async () => {
         setSuccessModalVisible(false);
         await logout(); 
@@ -148,8 +144,8 @@ const Profile = () => {
                     
                     <View style={{ alignSelf: 'flex-start', width: 100, height: 18, backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 10 }} />
                     <View style={{ width: '100%', backgroundColor: '#fff', borderRadius: 16, padding: 10, borderWidth: 1, borderColor: '#eee' }}>
-                        {[1, 2, 3, 4].map(i => (
-                            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 15, borderBottomWidth: i === 4 ? 0 : 1, borderBottomColor: '#F1F5F9' }}>
+                        {[1, 2, 3, 4, 5].map(i => (
+                            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 15, borderBottomWidth: i === 5 ? 0 : 1, borderBottomColor: '#F1F5F9' }}>
                                 <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#E0E6ED', marginRight: 15 }} />
                                 <View style={{ width: 150, height: 16, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
                             </View>
@@ -190,13 +186,13 @@ const Profile = () => {
         { id: 6, icon: "help-circle", label: "Help & Support", route: '/(protected)/support' }
     ];
 
-    // [UPDATED] Added Earnings & Payments
     const guideSettingsItems = [
         { id: 1, icon: "calendar", label: "My Bookings", route: '/(protected)/bookings' },
         { id: 5, icon: "cash", label: "Earnings & Payments", route: '/(protected)/earnings' },
         { id: 2, icon: "heart", label: "Favorite Guides", route: '/favorites' },
         { id: 3, icon: "map", label: "My Travel Interests", route: '/(protected)/onboarding/personalization?mode=edit' },
         { id: 4, icon: "business", label: "View Accommodations", route: `/(protected)/viewAccommodations?userId=${profile.id}` },
+        { id: 7, icon: "briefcase", label: "Tour Packages", route: '/(protected)/myTourPackages' },
         { id: 6, icon: "star", label: "Reviews & Ratings", route: '/myReviews' },
         { id: 9, icon: "help-circle", label: "Help & Support", route: '/(protected)/support' }
     ];
@@ -348,7 +344,6 @@ const Profile = () => {
                 </View>
             </ScrollView>
 
-            {/* --- 1. DEACTIVATION WARNING MODAL --- */}
             <Modal
                 animationType="fade"
                 transparent={true}
@@ -382,12 +377,11 @@ const Profile = () => {
                 </View>
             </Modal>
 
-            {/* --- 2. SUCCESS/LOGOUT MODAL --- */}
             <Modal
                 animationType="fade"
                 transparent={true}
                 visible={successModalVisible}
-                onRequestClose={() => {}} // Disable closing by tapping back
+                onRequestClose={() => {}} 
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
@@ -458,8 +452,6 @@ const styles = StyleSheet.create({
     logoutButton: { marginTop: 30, marginBottom: 10, alignItems: 'center', justifyContent: 'center', paddingVertical: 15, borderRadius: 16, backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA' },
     logoutText: { color: '#EF4444', fontWeight: '700', fontSize: 15 },
     versionText: { textAlign: 'center', color: '#CBD5E1', fontSize: 12, marginTop: 10 },
-
-    // --- MODAL STYLES ---
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
     modalContent: { backgroundColor: 'white', borderRadius: 20, padding: 24, width: '100%', maxWidth: 340, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
     modalHeader: { marginBottom: 16 },

@@ -5,7 +5,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Picker } from '@react-native-picker/picker'; 
 import DateTimePicker from '@react-native-community/datetimepicker';
 import api from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
@@ -28,6 +27,9 @@ const AddTour = () => {
     
     const [selectedDest, setSelectedDest] = useState(null); 
     const [destModalVisible, setDestModalVisible] = useState(false);
+    
+    // Custom Activity Modal State
+    const [activityModalVisible, setActivityModalVisible] = useState(false);
 
     const [featuredPlaces, setFeaturedPlaces] = useState([null]); 
     const [placeNames, setPlaceNames] = useState(['']); 
@@ -76,7 +78,6 @@ const AddTour = () => {
         }
     };
 
-    // Filter destinations based on user specialty
     const displayDestinations = useMemo(() => {
         if (!user?.specialty || !destinations.length) return destinations;
         
@@ -85,7 +86,6 @@ const AddTour = () => {
             return destCategory && destCategory.toLowerCase() === user.specialty.toLowerCase();
         });
 
-        // Fallback to all destinations if no matches are found
         return matching.length > 0 ? matching : destinations;
     }, [destinations, user?.specialty]);
 
@@ -134,7 +134,6 @@ const AddTour = () => {
         setPlaceNames(newNames);
     };
 
-    // Helper to format time for display/storage
     const formatTime = (date) => {
         let hours = date.getHours();
         const minutes = date.getMinutes();
@@ -161,6 +160,21 @@ const AddTour = () => {
         }
     };
 
+    // Helper to get selected label for custom picker
+    const getSelectedActivityLabel = () => {
+        const val = tempTimelineRow.selectedActivityIndex;
+        if (!val) return "Select Activity...";
+        
+        const [type, index] = val.split('|');
+        if (type === 'stop') {
+            return `📍 ${placeNames[parseInt(index)] || `Stop ${parseInt(index) + 1}`}`;
+        } else if (type === 'accom') {
+            const accom = accommodations[parseInt(index)];
+            return accom ? `🏨 ${accom.title}` : "Select Activity...";
+        }
+        return "Select Activity...";
+    };
+
     const addToTimeline = () => {
         const { startTime, endTime, selectedActivityIndex } = tempTimelineRow;
         if (!startTime || !endTime || !selectedActivityIndex) {
@@ -182,7 +196,6 @@ const AddTour = () => {
 
         const newRow = { startTime, endTime, activityName, type, refId: activityId };
         setTimeline([...timeline, newRow]);
-        // Reset picker selections but keep times for convenience if needed, or reset them too
         setTempTimelineRow(prev => ({ ...prev, selectedActivityIndex: '' })); 
     };
 
@@ -439,7 +452,6 @@ const AddTour = () => {
             <View style={styles.builderContainer}>
                 
                 <View style={styles.row}>
-                    {/* Start Time Picker */}
                     <View style={{flex: 1, marginRight: 5}}>
                         <Text style={{fontSize:12, color:'#666', marginBottom:4}}>Start Time</Text>
                         <TouchableOpacity 
@@ -462,7 +474,6 @@ const AddTour = () => {
                         )}
                     </View>
 
-                    {/* End Time Picker */}
                     <View style={{flex: 1, marginLeft: 5}}>
                         <Text style={{fontSize:12, color:'#666', marginBottom:4}}>End Time</Text>
                         <TouchableOpacity 
@@ -486,24 +497,20 @@ const AddTour = () => {
                     </View>
                 </View>
 
-                <View style={styles.pickerWrapper}>
-                    <Picker
-                        selectedValue={tempTimelineRow.selectedActivityIndex}
-                        onValueChange={(itemValue) => setTempTimelineRow({...tempTimelineRow, selectedActivityIndex: itemValue})}
-                        style={{ height: 50, width: '100%', color: '#1F2937' }}
-                        dropdownIconColor="#1F2937"
-                    >
-                        <Picker.Item label="Select Activity..." value="" color="#9CA3AF" />
-                        <Picker.Item label="--- YOUR STOPS ---" value="" enabled={false} color="#1F2937" />
-                        {placeNames.map((name, idx) => (
-                            <Picker.Item key={`stop-${idx}`} label={`📍 ${name || `Stop ${idx+1}`}`} value={`stop|${idx}`} color="#1F2937" />
-                        ))}
-                        <Picker.Item label="--- ACCOMMODATIONS ---" value="" enabled={false} color="#1F2937" />
-                        {accommodations.map((accom, idx) => (
-                            <Picker.Item key={`accom-${idx}`} label={`🏨 ${accom.title}`} value={`accom|${idx}`} color="#1F2937" />
-                        ))}
-                    </Picker>
-                </View>
+                {/* NEW CUSTOM ACTIVITY SELECTOR */}
+                <TouchableOpacity 
+                    style={styles.pickerTrigger}
+                    onPress={() => setActivityModalVisible(true)}
+                >
+                    <Text style={{ 
+                        color: tempTimelineRow.selectedActivityIndex ? '#1F2937' : '#9CA3AF', 
+                        fontSize: 15,
+                        fontWeight: tempTimelineRow.selectedActivityIndex ? '500' : '400' 
+                    }}>
+                        {getSelectedActivityLabel()}
+                    </Text>
+                    <Ionicons name="chevron-down" size={20} color="#6B7280" />
+                </TouchableOpacity>
 
                 <TouchableOpacity style={styles.addTimeBtn} onPress={addToTimeline}>
                     <Text style={styles.addTimeBtnText}>+ Add to Schedule</Text>
@@ -603,6 +610,7 @@ const AddTour = () => {
 
             </SafeAreaView>
 
+            {/* Destination Selection Modal */}
             <Modal visible={destModalVisible} animationType="slide" transparent={true}>
                 <SafeAreaView style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
@@ -634,6 +642,61 @@ const AddTour = () => {
                         </TouchableOpacity>
                     </View>
                 </SafeAreaView>
+            </Modal>
+
+            {/* Custom Activity Picker Modal */}
+            <Modal visible={activityModalVisible} animationType="fade" transparent={true}>
+                <TouchableOpacity 
+                    style={styles.modalOverlay} 
+                    activeOpacity={1} 
+                    onPress={() => setActivityModalVisible(false)}
+                >
+                    <View style={styles.activityModalContent}>
+                        <View style={styles.activityModalHeader}>
+                            <Text style={styles.activityModalTitle}>Select Activity</Text>
+                            <TouchableOpacity onPress={() => setActivityModalVisible(false)}>
+                                <Ionicons name="close-circle" size={26} color="#9CA3AF" />
+                            </TouchableOpacity>
+                        </View>
+                        
+                        <ScrollView style={{ maxHeight: 350 }} showsVerticalScrollIndicator={false}>
+                            
+                            <Text style={styles.activitySectionTitle}>--- YOUR STOPS ---</Text>
+                            {placeNames.map((name, idx) => (
+                                <TouchableOpacity 
+                                    key={`stop-${idx}`} 
+                                    style={styles.activityOption}
+                                    onPress={() => {
+                                        setTempTimelineRow({...tempTimelineRow, selectedActivityIndex: `stop|${idx}`});
+                                        setActivityModalVisible(false);
+                                    }}
+                                >
+                                    <Text style={styles.activityOptionText}>📍 {name || `Stop ${idx+1}`}</Text>
+                                </TouchableOpacity>
+                            ))}
+                            
+                            <Text style={[styles.activitySectionTitle, {marginTop: 20}]}>--- ACCOMMODATIONS ---</Text>
+                            {accommodations.length === 0 && (
+                                <Text style={styles.activityEmptyText}>No accommodations available</Text>
+                            )}
+                            {accommodations.map((accom, idx) => (
+                                <TouchableOpacity 
+                                    key={`accom-${idx}`} 
+                                    style={styles.activityOption}
+                                    onPress={() => {
+                                        setTempTimelineRow({...tempTimelineRow, selectedActivityIndex: `accom|${idx}`});
+                                        setActivityModalVisible(false);
+                                    }}
+                                >
+                                    <Text style={styles.activityOptionText}>🏨 {accom.title}</Text>
+                                </TouchableOpacity>
+                            ))}
+                            
+                            {/* Adding bottom padding for scroll view */}
+                            <View style={{ height: 20 }} />
+                        </ScrollView>
+                    </View>
+                </TouchableOpacity>
             </Modal>
         </View>
     );
@@ -689,7 +752,44 @@ const styles = StyleSheet.create({
     priceInput: { flex: 1, paddingVertical: 10, fontSize: 16, fontWeight: '600', color: '#1F2937' },
     
     builderContainer: { backgroundColor: '#fff', padding: 15, borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', marginTop: 5 },
-    pickerWrapper: { borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, marginVertical: 10, overflow: 'hidden' },
+    
+    // NEW PICKER STYLES
+    pickerTrigger: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        borderRadius: 8,
+        paddingHorizontal: 15,
+        paddingVertical: 12,
+        marginVertical: 12,
+        backgroundColor: '#fff',
+    },
+    activityModalContent: {
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        paddingHorizontal: 20,
+        paddingTop: 20,
+        paddingBottom: 40,
+        width: '100%',
+    },
+    activityModalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 15,
+        paddingBottom: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F3F4F6'
+    },
+    activityModalTitle: { fontSize: 18, fontWeight: '800', color: '#1F2937' },
+    activitySectionTitle: { fontSize: 13, fontWeight: '700', color: '#9CA3AF', marginBottom: 8, letterSpacing: 1 },
+    activityOption: { paddingVertical: 14, paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: '#F9FAFB' },
+    activityOptionText: { fontSize: 16, color: '#1F2937', fontWeight: '500' },
+    activityEmptyText: { color: '#9CA3AF', fontStyle: 'italic', paddingHorizontal: 10, marginVertical: 10 },
+
     addTimeBtn: { backgroundColor: '#0072FF', padding: 12, borderRadius: 8, alignItems: 'center', marginBottom: 15 },
     addTimeBtnText: { color: '#fff', fontWeight: '700' },
     
