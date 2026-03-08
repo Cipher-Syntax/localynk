@@ -14,6 +14,7 @@ const PublicHome = () => {
     const router = useRouter();
     
     const [destinations, setDestinations] = useState([]);
+    
     useFocusEffect(
         useCallback(() => {
             if (isAuthenticated) {
@@ -57,21 +58,41 @@ const PublicHome = () => {
 
     if (loading) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#00C6FF" />
-            </View>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, backgroundColor: '#fff' }}>
+                {/* Header Skeleton */}
+                <View style={{ height: 380, backgroundColor: '#E0E6ED' }} />
+                
+                {/* Body Skeletons (Mimicking Featured Places & Browse) */}
+                <View style={{ padding: 16, marginTop: 10 }}>
+                    <View style={{ height: 24, width: 180, backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 16 }} />
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                        <View style={{ width: 280, height: 180, backgroundColor: '#E0E6ED', borderRadius: 16, marginRight: 16 }} />
+                        <View style={{ width: 280, height: 180, backgroundColor: '#E0E6ED', borderRadius: 16 }} />
+                    </ScrollView>
+                    
+                    <View style={{ height: 24, width: 150, backgroundColor: '#E0E6ED', borderRadius: 4, marginTop: 30, marginBottom: 16 }} />
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
+                        <View style={{ width: '64%', height: 220, backgroundColor: '#E0E6ED', borderRadius: 16 }} />
+                        <View style={{ width: '33%', justifyContent: 'space-between' }}>
+                            <View style={{ height: 105, backgroundColor: '#E0E6ED', borderRadius: 16 }} />
+                            <View style={{ height: 105, backgroundColor: '#E0E6ED', borderRadius: 16 }} />
+                        </View>
+                    </View>
+                </View>
+            </ScrollView>
         );
     }
 
     return (
         <ScrollView
+            showsVerticalScrollIndicator={false}
             refreshControl={
                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#00C6FF"]} />
             }
         >
-            <SafeAreaView>
+            <View style={{ paddingBottom: 40 }}>
                 {!isAuthenticated ? (
-                    <PublicHeader /> 
+                    <PublicHeader destinations={destinations} /> 
                 ) : (
                     <Header destinations={destinations} unreadCount={0} />
                 )}
@@ -89,7 +110,7 @@ const PublicHome = () => {
                 <DiscoverWhatYouWant isPublic={!isAuthenticated} />
                 
                 <About />
-            </SafeAreaView>
+            </View>
         </ScrollView>
     );
 }

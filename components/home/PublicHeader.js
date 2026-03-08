@@ -7,41 +7,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 
 import LoginBackground from '../../assets/localynk_images/login_background.png';
-import RegisterBackground from '../../assets/localynk_images/register_background.png';
 
 const { width } = Dimensions.get('window');
 
-const dataSlider = [
-    {
-        id: 1,
-        image: LoginBackground,
-        logo: "DISCOVER NATURE'S SERENITY!",
-        name: "MUTI, GRASSLAND",
-        description: "Nestled in the heart of nature, Muti Grassland offers a breathtaking escape into rolling green hills and open skies. Perfect for hiking, sightseeing, or simply unwinding, this serene landscape invites you to explore the untouched beauty of Zamboanga's countryside.",
-        rating: 4.8,
-        reviews: 234
-    },
-    {
-        id: 2,
-        image: RegisterBackground,
-        logo: "DISCOVER COASTAL TRANQUILITY!",
-        name: "BOLONG BEACH",
-        description: "Breathe in the sea breeze and let your worries drift away at Bolong Beach — where calm waters meet golden sands. Whether you're up for a quiet morning stroll, a refreshing swim, or simply soaking in the horizon.",
-        rating: 4.9,
-        reviews: 512
-    },
-    {
-        id: 3,
-        image: RegisterBackground,
-        logo: "DISCOVER SUNSET BLISS!",
-        name: "ZAMBOANGA CITY, BOULEVARD",
-        description: "Watch the sky come alive at Zamboanga's Boulevard, where every sunset paints a masterpiece over calm waves and golden sands. Stroll along the shore, enjoy the sea breeze, and take in the vibrant evening glow.",
-        rating: 4.7,
-        reviews: 189
-    }
-];
-
-const PublicHeader = () => {
+const PublicHeader = ({ destinations }) => {
     const [activeIndex, setActiveIndex] = useState(0);
     const swiperRef = useRef(null);
     const router = useRouter();
@@ -53,6 +22,33 @@ const PublicHeader = () => {
     const handleExplore = () => {
         router.push('/auth/login');
     };
+
+    // If backend data is empty during the transition, provide a simple fallback
+    const sliderData = destinations && destinations.length > 0 
+        ? destinations.slice(0, 5).map((item, index) => {
+            const imageUri = item.images && item.images.length > 0 
+                ? item.images[0].image 
+                : item.image;
+
+            return {
+                id: item.id || index,
+                image: imageUri ? { uri: imageUri } : LoginBackground,
+                logo: item.category ? `DISCOVER ${item.category.toUpperCase()}!` : "DISCOVER NEW PLACES!",
+                name: item.name || "Unknown Destination",
+                description: item.description || "Explore this beautiful destination with LocaLynk.",
+                rating: item.average_rating ? parseFloat(item.average_rating).toFixed(1) : "New",
+                reviews: item.review_count || 0
+            }
+        })
+        : [{
+            id: 1,
+            image: LoginBackground,
+            logo: "WELCOME TO LOCALYNK",
+            name: "DISCOVER ZAMBOANGA",
+            description: "Explore the untouched beauty of Zamboanga. Perfect for hiking, sightseeing, or simply unwinding.",
+            rating: "5.0",
+            reviews: 0
+        }];
 
     return (
         <View style={{ flex: 1 }}>
@@ -84,7 +80,7 @@ const PublicHeader = () => {
                     autoplayTimeout={6}
                     onIndexChanged={handleIndexChanged}
                 >
-                    {dataSlider.map(item => (
+                    {sliderData.map(item => (
                         <ImageBackground
                             key={item.id}
                             source={item.image}
@@ -92,7 +88,7 @@ const PublicHeader = () => {
                             resizeMode="cover"
                         >
                             <LinearGradient
-                                colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.7)']}
+                                colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.8)']}
                                 style={styles.gradientOverlay}
                             />
                             
@@ -110,13 +106,13 @@ const PublicHeader = () => {
                                         </LinearGradient>
                                     </MaskedView>
         
-                                    <MaskedView maskElement={<Text style={styles.name}>{item.name}</Text>}>
+                                    <MaskedView maskElement={<Text style={styles.name} numberOfLines={1}>{item.name}</Text>}>
                                         <LinearGradient colors={['#FFFFFF', '#00C6FF']}>
-                                            <Text style={[styles.name, { opacity: 0 }]}>{item.name}</Text>
+                                            <Text style={[styles.name, { opacity: 0 }]} numberOfLines={1}>{item.name}</Text>
                                         </LinearGradient>
                                     </MaskedView>
         
-                                    <Text style={styles.description}>{item.description}</Text>
+                                    <Text style={styles.description} numberOfLines={3}>{item.description}</Text>
                                 </View>
 
                                 <TouchableOpacity 
@@ -134,7 +130,7 @@ const PublicHeader = () => {
             </View>
 
             <View style={styles.indicatorContainer}>
-                {dataSlider.map((_, index) => (
+                {sliderData.map((_, index) => (
                     <TouchableOpacity
                         key={index}
                         style={[
@@ -245,21 +241,21 @@ const styles = StyleSheet.create({
         marginBottom: 15,
     },
     logo: {
-        fontSize: 18,
+        fontSize: 14,
         fontWeight: '900',
         lineHeight: 24,
     },
     name: {
         fontSize: 22,
         fontWeight: '600',
-        marginVertical: 6,
+        marginVertical: 4,
         lineHeight: 28,
     },
     description: {
         color: 'rgba(255, 255, 255, 0.9)',
         fontSize: 13,
         lineHeight: 18,
-        marginTop: 8,
+        marginTop: 6,
     },
     exploreBtn: {
         flexDirection: 'row',
