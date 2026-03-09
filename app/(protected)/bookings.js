@@ -144,8 +144,8 @@ const MyBookings = () => {
         const canMarkPaid = isMyClient && item.status === 'Confirmed';
         const canReview = isMyTrip && item.status.toLowerCase() === 'completed'; // Added Review Logic
 
-        const titleName = item.accommodation_detail?.title || item.destination_detail?.name || 'Custom Booking';
-        const typeLabel = item.accommodation_detail ? 'Stay' : 'Tour';
+        const titleName = item.destination_detail?.name || item.accommodation_detail?.title || 'Custom Booking';
+        const typeLabel = item.destination_detail ? 'Tour' : (item.accommodation_detail ? 'Stay' : 'Tour');
         
         let otherPartyName = "Unknown";
         if (isMyTrip) {

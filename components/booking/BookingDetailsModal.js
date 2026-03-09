@@ -5,24 +5,25 @@ import { Ionicons } from '@expo/vector-icons';
 const BookingDetailsModal = ({ booking, visible, onClose }) => {
     if (!booking) return null;
 
-    const isAccommodation = !!booking.accommodation_detail;
-    const title = isAccommodation 
-        ? booking.accommodation_detail.title 
-        : (booking.destination_detail?.name ? `${booking.destination_detail.name} Tour` : 'Custom Tour');
+    const hasDestination = !!booking.destination_detail;
+    const hasAccommodation = !!booking.accommodation_detail;
 
-    // Hero Image Logic
-    const heroImage = isAccommodation 
-        ? { uri: booking.accommodation_detail.photo } 
-        : (booking.destination_detail?.image 
-            ? { uri: booking.destination_detail.image } 
+    const title = hasDestination 
+        ? `${booking.destination_detail.name} Tour` 
+        : (hasAccommodation ? booking.accommodation_detail.title : 'Custom Tour');
+
+    const heroImage = hasDestination && booking.destination_detail.image
+        ? { uri: booking.destination_detail.image }
+        : (hasAccommodation && booking.accommodation_detail.photo
+            ? { uri: booking.accommodation_detail.photo }
             : (booking.guide_detail?.profile_picture ? { uri: booking.guide_detail.profile_picture } : null)
         );
 
-    // Provider Info
-    const providerName = isAccommodation 
-        ? booking.accommodation_detail.host_full_name 
-        : (booking.guide_detail ? `${booking.guide_detail.first_name} ${booking.guide_detail.last_name}` : booking.agency_detail?.username);
-    const providerRole = isAccommodation ? 'Host' : 'Local Guide';
+    const providerName = hasDestination || !hasAccommodation
+        ? (booking.guide_detail ? `${booking.guide_detail.first_name} ${booking.guide_detail.last_name}` : booking.agency_detail?.username)
+        : booking.accommodation_detail.host_full_name;
+        
+    const providerRole = hasDestination || !hasAccommodation ? 'Local Guide' : 'Host';
 
     // Status Colors
     const getStatusColor = (status) => {
