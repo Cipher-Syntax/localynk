@@ -29,6 +29,7 @@ const Profile = () => {
     // --- MODAL STATES ---
     const [deactivateModalVisible, setDeactivateModalVisible] = useState(false);
     const [successModalVisible, setSuccessModalVisible] = useState(false); 
+    const [logoutModalVisible, setLogoutModalVisible] = useState(false); // Added logout modal state
     
     const { user, logout, refreshUser } = useAuth(); 
     const params = useLocalSearchParams();
@@ -127,6 +128,11 @@ const Profile = () => {
     const handleFinalLogout = async () => {
         setSuccessModalVisible(false);
         await logout(); 
+    };
+
+    const confirmLogout = async () => {
+        setLogoutModalVisible(false);
+        await logout();
     };
 
     if (loading && !profile) {
@@ -333,7 +339,7 @@ const Profile = () => {
                                     </TouchableOpacity>
                                 </View>
 
-                                <TouchableOpacity style={styles.logoutButton} onPress={async () => await logout()}>
+                                <TouchableOpacity style={styles.logoutButton} onPress={() => setLogoutModalVisible(true)}>
                                     <Text style={styles.logoutText}>Log Out</Text>
                                 </TouchableOpacity>
                                 
@@ -343,6 +349,36 @@ const Profile = () => {
                     </View>
                 </View>
             </ScrollView>
+
+            {/* Logout Confirmation Modal */}
+            <Modal
+                animationType="fade"
+                transparent={true}
+                visible={logoutModalVisible}
+                onRequestClose={() => setLogoutModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <View style={styles.warningIconContainer}>
+                                <Ionicons name="log-out-outline" size={32} color="#EF4444" />
+                            </View>
+                        </View>
+                        <Text style={styles.modalTitle}>Log Out?</Text>
+                        <Text style={styles.modalMessage}>
+                            Are you sure you want to log out of your account?
+                        </Text>
+                        <View style={styles.modalButtons}>
+                            <TouchableOpacity style={styles.cancelButton} onPress={() => setLogoutModalVisible(false)}>
+                                <Text style={styles.cancelButtonText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.confirmButton} onPress={confirmLogout}>
+                                <Text style={styles.confirmButtonText}>Yes, Log Out</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
 
             <Modal
                 animationType="fade"
