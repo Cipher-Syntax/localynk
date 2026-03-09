@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Image, Platform,ActivityIndicator,KeyboardAvoidingView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Image, Platform, ActivityIndicator, KeyboardAvoidingView } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../../context/AuthContext';
@@ -8,12 +8,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import api from '../../../api/api';
+import Toast from '../../../components/Toast';
 
 const ProfileSetupScreen = () => {
     const { user, refreshUser } = useAuth(); 
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [profileImage, setProfileImage] = useState(null);
+    const [toast, setToast] = useState({ visible: false, message: '', type: 'error' });
 
     const { control, handleSubmit, formState: { errors } } = useForm({
         defaultValues: {
@@ -29,7 +31,7 @@ const ProfileSetupScreen = () => {
     const pickImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-            Alert.alert('Permission required', 'We need access to your photos to upload a profile picture.');
+            setToast({ visible: true, message: 'We need access to your photos to upload a profile picture.', type: 'error' });
             return;
         }
 
@@ -74,14 +76,16 @@ const ProfileSetupScreen = () => {
 
             await refreshUser();
 
-            Alert.alert("Success", "Profile updated! Welcome to LocaLynk.", [
-                { text: "Let's Go", onPress: () => router.replace('/(protected)/onboarding/terms_and_conditions') }
-            ]);
+            setToast({ visible: true, message: 'Profile updated! Welcome to LocaLynk.', type: 'success' });
+            setTimeout(() => {
+                // Navigate to Personalization
+                router.replace('/(protected)/onboarding/personalization');
+            }, 1500);
 
         } catch (error) {
             console.error("Profile Update Error:", error);
             const msg = error.response?.data?.detail || "Failed to update profile. Please try again.";
-            Alert.alert("Error", msg);
+            setToast({ visible: true, message: msg, type: 'error' });
         } finally {
             setIsLoading(false);
         }
@@ -90,6 +94,7 @@ const ProfileSetupScreen = () => {
     return (
         <View style={styles.container}>
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+                <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={() => setToast({ ...toast, visible: false })} />
                 <KeyboardAvoidingView 
                     behavior={Platform.OS === "ios" ? "padding" : "height"}
                     style={{ flex: 1 }}
@@ -247,122 +252,23 @@ const ProfileSetupScreen = () => {
 export default ProfileSetupScreen;
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#F9FAFB',
-    },
-    scrollContent: {
-        padding: 20,
-        paddingBottom: 40,
-    },
-    headerContainer: {
-        marginBottom: 30,
-        alignItems: 'center',
-    },
-    headerTitle: {
-        fontSize: 24,
-        fontWeight: '800',
-        color: '#1F2937',
-        marginBottom: 5,
-    },
-    headerSubtitle: {
-        fontSize: 14,
-        color: '#6B7280',
-    },
-    avatarContainer: {
-        alignItems: 'center',
-        marginBottom: 25,
-    },
-    avatarWrapper: {
-        position: 'relative',
-    },
-    avatarPlaceholder: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        backgroundColor: '#EFF6FF',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 2,
-        borderColor: '#DBEAFE',
-        borderStyle: 'dashed',
-    },
-    avatarImage: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        borderWidth: 2,
-        borderColor: '#0072FF',
-    },
-    avatarText: {
-        fontSize: 10,
-        color: '#6B7280',
-        marginTop: 4,
-        fontWeight: '600',
-    },
-    editBadge: {
-        position: 'absolute',
-        bottom: 0,
-        right: 0,
-        backgroundColor: '#0072FF',
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 2,
-        borderColor: '#fff',
-    },
-    formContainer: {
-        marginBottom: 20,
-    },
-    label: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#374151',
-        marginBottom: 8,
-        marginTop: 5,
-    },
-    input: {
-        backgroundColor: '#fff',
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-        borderRadius: 12,
-        paddingHorizontal: 15,
-        paddingVertical: 12,
-        fontSize: 15,
-        color: '#1F2937',
-        marginBottom: 10,
-    },
-    textArea: {
-        height: 100,
-    },
-    errorText: {
-        color: '#EF4444',
-        fontSize: 12,
-        marginTop: -5,
-        marginBottom: 10,
-        marginLeft: 5,
-    },
-    submitButtonContainer: {
-        marginTop: 10,
-        height: 50,
-        borderRadius: 12,
-        overflow: 'hidden',
-        shadowColor: '#0072FF',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 5,
-        elevation: 5,
-    },
-    gradientBtn: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    submitButtonText: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#fff',
-    },
+    container: { flex: 1, backgroundColor: '#F9FAFB' },
+    scrollContent: { padding: 20, paddingBottom: 40 },
+    headerContainer: { marginBottom: 30, alignItems: 'center' },
+    headerTitle: { fontSize: 24, fontWeight: '800', color: '#1F2937', marginBottom: 5 },
+    headerSubtitle: { fontSize: 14, color: '#6B7280' },
+    avatarContainer: { alignItems: 'center', marginBottom: 25 },
+    avatarWrapper: { position: 'relative' },
+    avatarPlaceholder: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#DBEAFE', borderStyle: 'dashed' },
+    avatarImage: { width: 100, height: 100, borderRadius: 50, borderWidth: 2, borderColor: '#0072FF' },
+    avatarText: { fontSize: 10, color: '#6B7280', marginTop: 4, fontWeight: '600' },
+    editBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#0072FF', width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#fff' },
+    formContainer: { marginBottom: 20 },
+    label: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8, marginTop: 5 },
+    input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, paddingHorizontal: 15, paddingVertical: 12, fontSize: 15, color: '#1F2937', marginBottom: 10 },
+    textArea: { height: 100 },
+    errorText: { color: '#EF4444', fontSize: 12, marginTop: -5, marginBottom: 10, marginLeft: 5 },
+    submitButtonContainer: { marginTop: 10, height: 50, borderRadius: 12, overflow: 'hidden', shadowColor: '#0072FF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 5 },
+    gradientBtn: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    submitButtonText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 });

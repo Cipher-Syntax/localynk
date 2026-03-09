@@ -15,7 +15,6 @@ import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-si
 const { width, height } = Dimensions.get('window');
 
 const AuthForm = ({ method }) => {
-    // Added reactivateAccount to destructured context
     const { login, register, googleLogin, resendVerificationEmail, reactivateAccount, message, messageType, clearMessage, setMessage } = useAuth(); 
 
     const { control, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm();
@@ -69,11 +68,20 @@ const AuthForm = ({ method }) => {
         if (user) {
             const isFirstNameMissing = !user.first_name || String(user.first_name).trim() === "";
             const isLastNameMissing = !user.last_name || String(user.last_name).trim() === "";
+            const isPhoneMissing = !user.phone_number || String(user.phone_number).trim() === "";
+            const isLocationMissing = !user.location || String(user.location).trim() === "";
 
-            if (isFirstNameMissing || isLastNameMissing) {
-                router.replace('/onboarding/profile_setup');
-            } else {
-                router.replace('/home'); 
+            // 1. Check Terms First
+            if (user.has_accepted_terms === false) {
+                router.replace('/(protected)/onboarding/terms_and_conditions');
+            } 
+            // 2. Then check Profile completeness
+            else if (isFirstNameMissing || isLastNameMissing || isPhoneMissing || isLocationMissing) {
+                router.replace('/(protected)/onboarding/profile_setup');
+            } 
+            // 3. Everything is complete, go home
+            else {
+                router.replace('/(protected)/home'); 
             }
         }
     };
@@ -101,7 +109,6 @@ const AuthForm = ({ method }) => {
         }
     };
 
-    // New handleReactivate logic
     const handleReactivate = async () => {
         const username = watch('username');
         const password = watch('password');
@@ -121,7 +128,6 @@ const AuthForm = ({ method }) => {
         setIsGoogleLoading(true);
         clearMessage();
         try {
-            // Guarantee configuration happens right before signing in
             const clientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || "YOUR_ACTUAL_GOOGLE_CLIENT_ID_HERE";
             
             GoogleSignin.configure({
@@ -235,7 +241,6 @@ const AuthForm = ({ method }) => {
                                                     {message}
                                                 </Text>
                                                 
-                                                {/* Modified to show both Resend Email and Reactivate for inactive accounts */}
                                                 {(message.includes('verify your email') || message.includes('verification') || message.includes('inactive')) && method === 'login' && messageType === 'error' && (
                                                     <View style={styles.actionButtonsRow}>
                                                         <TouchableOpacity onPress={handleResendVerification} style={styles.actionButton}>

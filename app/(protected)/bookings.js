@@ -1,8 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { 
-    View, Text, StyleSheet, FlatList, ActivityIndicator, StatusBar, 
-    TouchableOpacity, RefreshControl, Image, Dimensions, Modal, Animated, Alert 
-} from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, StatusBar, TouchableOpacity, RefreshControl, Image, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient'; 
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,6 +8,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import api from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
 import BookingDetailsModal from '../../components/booking/BookingDetailsModal';
+import ConfirmationModal from '../../components/ConfirmationModal';
 
 const MyBookings = () => {
     const { user } = useAuth();
@@ -19,17 +17,17 @@ const MyBookings = () => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     
-    // Modal & Action States
     const [detailsModalVisible, setDetailsModalVisible] = useState(false);
     const [selectedBooking, setSelectedBooking] = useState(null);
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
     const fadeAnim = useRef(new Animated.Value(0)).current;
     
-    // Cancellation State
     const [confirmVisible, setConfirmVisible] = useState(false);
     const [bookingIdToCancel, setBookingIdToCancel] = useState(null);
+    
+    const [paidConfirmVisible, setPaidConfirmVisible] = useState(false);
+    const [bookingIdToMarkPaid, setBookingIdToMarkPaid] = useState(null);
 
-    // --- Toast Logic ---
     const showToast = (message, type = 'success') => {
         setToast({ show: true, message, type });
         Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
@@ -39,10 +37,8 @@ const MyBookings = () => {
         Animated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => setToast(prev => ({ ...prev, show: false })));
     };
 
-    // --- Fetch Bookings (ALL) ---
     const fetchBookings = async () => {
         try {
-            // No params = fetch ALL bookings related to me (Guide OR Tourist)
             const response = await api.get('/api/bookings/');
             setBookings(response.data || []);
         } catch (error) {
@@ -57,7 +53,6 @@ const MyBookings = () => {
     useFocusEffect(useCallback(() => { setLoading(true); fetchBookings(); }, []));
     const onRefresh = useCallback(() => { setRefreshing(true); fetchBookings(); }, []);
 
-    // --- ACTION: Cancel Booking (For Tourist) ---
     const initiateCancellation = (bookingId) => {
         setBookingIdToCancel(bookingId);
         setConfirmVisible(true);
@@ -79,31 +74,26 @@ const MyBookings = () => {
         }
     };
 
-    // --- ACTION: Mark as Paid (For Guide) ---
-    const markAsPaid = async (bookingId) => {
-        Alert.alert(
-            "Confirm Payment",
-            "Has the tourist paid the remaining balance? This will mark the trip as Completed.",
-            [
-                { text: "Cancel", style: "cancel" },
-                { 
-                    text: "Yes, Payment Received", 
-                    onPress: async () => {
-                        try {
-                            const res = await api.post(`/api/bookings/${bookingId}/mark_paid/`);
-                            // Update local state
-                            setBookings(prev => prev.map(b => 
-                                b.id === bookingId ? { ...b, status: 'Completed', balance_due: 0 } : b
-                            ));
-                            showToast("Booking marked as Paid & Completed!", "success");
-                        } catch (error) {
-                            console.error("Mark paid failed", error);
-                            showToast("Failed to update booking.", "error");
-                        }
-                    }
-                }
-            ]
-        );
+    const initiateMarkAsPaid = (bookingId) => {
+        setBookingIdToMarkPaid(bookingId);
+        setPaidConfirmVisible(true);
+    };
+
+    const confirmMarkAsPaid = async () => {
+        setPaidConfirmVisible(false);
+        if (!bookingIdToMarkPaid) return;
+        try {
+            const res = await api.post(`/api/bookings/${bookingIdToMarkPaid}/mark_paid/`);
+            setBookings(prev => prev.map(b => 
+                b.id === bookingIdToMarkPaid ? { ...b, status: 'Completed', balance_due: 0 } : b
+            ));
+            showToast("Booking marked as Paid & Completed!", "success");
+        } catch (error) {
+            console.error("Mark paid failed", error);
+            showToast("Failed to update booking.", "error");
+        } finally {
+            setBookingIdToMarkPaid(null);
+        }
     };
 
     const handleOpenModal = (booking) => { setSelectedBooking(booking); setDetailsModalVisible(true); };
@@ -128,21 +118,17 @@ const MyBookings = () => {
     const renderBookingItem = ({ item }) => {
         const { badge, text, icon } = getStatusStyle(item.status);
         
-        // --- 1. DETERMINE ROLE ---
-        const isMyTrip = item.tourist_id === user?.id; // I am the Tourist
-        const isMyClient = !isMyTrip; // I am the Guide/Host
+        const isMyTrip = item.tourist_id === user?.id; 
+        const isMyClient = !isMyTrip; 
 
-        // --- 2. CALCULATE FINANCIALS ---
         const total = Number(item.total_price || 0);
         const down = Number(item.down_payment || 0);
-        // Calculate commission to display to guide
         const commission = total * 0.02; 
         const netPayout = down - commission;
 
-        // --- 3. DETERMINE ACTIONS ---
         const canCancel = isMyTrip && ['confirmed', 'pending_payment'].includes(item.status.toLowerCase());
         const canMarkPaid = isMyClient && item.status === 'Confirmed';
-        const canReview = isMyTrip && item.status.toLowerCase() === 'completed'; // Added Review Logic
+        const canReview = isMyTrip && item.status.toLowerCase() === 'completed'; 
 
         const titleName = item.destination_detail?.name || item.accommodation_detail?.title || 'Custom Booking';
         const typeLabel = item.destination_detail ? 'Tour' : (item.accommodation_detail ? 'Stay' : 'Tour');
@@ -159,13 +145,11 @@ const MyBookings = () => {
         return (
             <TouchableOpacity activeOpacity={0.9} onPress={() => handleOpenModal(item)} style={styles.cardContainer}>
                 <View style={styles.bookingCard}>
-                    {/* Color Strip: Blue for My Trips, Orange for Client Bookings */}
                     <View style={[styles.statusStrip, { backgroundColor: isMyTrip ? '#00A8FF' : '#FF9F43' }]} />
                     
                     <View style={styles.cardContent}>
                         <View style={styles.cardHeader}>
                             <View style={{flex: 1}}>
-                                {/* Label Tag */}
                                 <View style={[styles.roleTag, { backgroundColor: isMyTrip ? '#E0F2FE' : '#FFF3E0' }]}>
                                     <Text style={[styles.roleTagText, { color: isMyTrip ? '#0072FF' : '#FF9F43' }]}>
                                         {isMyTrip ? "MY TRIP" : "CLIENT BOOKING"}
@@ -197,7 +181,6 @@ const MyBookings = () => {
                                 </Text>
                             </View>
                             
-                            {/* --- GUIDE FINANCIAL BREAKDOWN --- */}
                             {isMyClient && (
                                 <View style={styles.financialBox}>
                                     <Text style={styles.finHeader}>PAYOUT BREAKDOWN</Text>
@@ -227,7 +210,6 @@ const MyBookings = () => {
                             )}
                         </View>
 
-                        {/* --- ACTION BUTTONS --- */}
                         <View style={styles.cardFooter}>
                             {canCancel && (
                                 <TouchableOpacity style={styles.cancelButton} onPress={() => initiateCancellation(item.id)}>
@@ -236,7 +218,7 @@ const MyBookings = () => {
                             )}
 
                             {canMarkPaid && (
-                                <TouchableOpacity style={styles.paidButton} onPress={() => markAsPaid(item.id)}>
+                                <TouchableOpacity style={styles.paidButton} onPress={() => initiateMarkAsPaid(item.id)}>
                                     <Ionicons name="checkmark-done-circle" size={16} color="#fff" style={{marginRight:6}} />
                                     <Text style={styles.paidButtonText}>Confirm Balance Received</Text>
                                 </TouchableOpacity>
@@ -302,23 +284,26 @@ const MyBookings = () => {
 
             <BookingDetailsModal booking={selectedBooking} visible={detailsModalVisible} onClose={handleCloseModal} />
 
-            <Modal transparent={true} visible={confirmVisible} animationType="fade" onRequestClose={() => setConfirmVisible(false)}>
-                <View style={styles.modalOverlay}>
-                    <View style={styles.confirmModalBox}>
-                        <View style={styles.confirmIconBg}><Ionicons name="alert" size={32} color="#EF4444" /></View>
-                        <Text style={styles.confirmTitle}>Cancel Booking?</Text>
-                        <Text style={styles.confirmDesc}>Are you sure? You might lose your down payment based on the refund policy.</Text>
-                        <View style={styles.confirmBtnRow}>
-                            <TouchableOpacity style={[styles.modalBtn, styles.modalBtnCancel]} onPress={() => setConfirmVisible(false)}>
-                                <Text style={styles.modalBtnTextCancel}>Keep it</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={[styles.modalBtn, styles.modalBtnConfirm]} onPress={confirmCancellation}>
-                                <Text style={styles.modalBtnTextConfirm}>Yes, Cancel</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </Modal>
+            <ConfirmationModal 
+                visible={confirmVisible}
+                title="Cancel Booking?"
+                description="Are you sure? You might lose your down payment based on the refund policy."
+                confirmText="Yes, Cancel"
+                cancelText="Keep it"
+                onConfirm={confirmCancellation}
+                onCancel={() => setConfirmVisible(false)}
+            />
+
+            <ConfirmationModal 
+                visible={paidConfirmVisible}
+                title="Confirm Payment"
+                description="Has the tourist paid the remaining balance? This will mark the trip as Completed."
+                confirmText="Yes, Payment Received"
+                cancelText="Cancel"
+                isDestructive={false}
+                onConfirm={confirmMarkAsPaid}
+                onCancel={() => setPaidConfirmVisible(false)}
+            />
 
             {toast.show && (
                 <Animated.View style={[styles.toastContainer, { opacity: fadeAnim }, toast.type === 'success' ? styles.toastSuccess : styles.toastError]}>
@@ -342,20 +327,16 @@ const styles = StyleSheet.create({
     headerTitle: { color: '#fff', fontSize: 22, fontWeight: '800' },
     headerSubtitle: { color: '#e0e0e0', fontSize: 13 },
     listContainer: { paddingBottom: 40 },
-    
     cardContainer: { paddingHorizontal: 16, marginBottom: 16 },
     bookingCard: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 16, shadowColor: '#000', shadowOpacity: 0.05, elevation: 3, overflow: 'hidden' },
     statusStrip: { width: 6, height: '100%' },
     cardContent: { flex: 1, padding: 16 },
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-    
     roleTag: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, marginBottom: 4 },
     roleTagText: { fontSize: 10, fontWeight: '800' },
-    
     cardTitle: { fontSize: 16, fontWeight: '700', color: '#1F2937' },
     cardType: { fontSize: 12, color: '#6B7280' },
     statusBadge: { flexDirection: 'row', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, alignItems: 'center', height: 26 },
-    
     acceptedBadge: { backgroundColor: '#DCFCE7' }, 
     acceptedText: { color: '#166534', fontSize: 11, fontWeight: '700' },
     pendingBadge: { backgroundColor: '#FEF9C3' }, 
@@ -364,46 +345,26 @@ const styles = StyleSheet.create({
     declinedText: { color: '#991B1B', fontSize: 11, fontWeight: '700' },
     defaultBadge: { backgroundColor: '#F3F4F6' },
     defaultText: { color: '#4B5563', fontSize: 11 },
-    
     divider: { height: 1, backgroundColor: '#F3F4F6', marginVertical: 10 },
     detailsContainer: { gap: 6 },
     detailRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     iconWidth: { width: 16, textAlign: 'center' },
     detailText: { fontSize: 13, color: '#4B5563' },
-    
-    // --- FINANCIAL BREAKDOWN STYLES ---
     financialBox: { backgroundColor: '#F0FDF4', borderRadius: 8, padding: 12, marginTop: 12, borderWidth: 1, borderColor: '#BBF7D0' },
     finHeader: { fontSize: 10, fontWeight: '800', color: '#15803D', marginBottom: 8, letterSpacing: 0.5, textTransform:'uppercase' },
     finRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
     finLabel: { fontSize: 12, color: '#374151' },
     finValue: { fontSize: 12, fontWeight: '600', color: '#111827' },
     finDivider: { height: 1, backgroundColor: '#DCFCE7', marginVertical: 6 },
-
     cardFooter: { marginTop: 16, flexDirection: 'row', justifyContent: 'flex-end', gap: 10 },
     cancelButton: { paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#FEF2F2', borderRadius: 8, borderWidth: 1, borderColor: '#FECACA' },
     cancelButtonText: { color: '#DC2626', fontSize: 12, fontWeight: '700' },
-    
     paidButton: { flexDirection:'row', alignItems:'center', paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#22C55E', borderRadius: 8, shadowColor: "#22C55E", shadowOpacity: 0.3, elevation: 3 },
     paidButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-
     reviewButton: { flexDirection:'row', alignItems:'center', paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#F59E0B', borderRadius: 8, shadowColor: "#F59E0B", shadowOpacity: 0.3, elevation: 3 },
     reviewButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-
     emptyContainer: { alignItems: 'center', marginTop: 60 },
     emptyText: { fontSize: 18, fontWeight: '700', color: '#374151', marginTop: 10 },
-    
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-    confirmModalBox: { width: '80%', backgroundColor: '#fff', borderRadius: 16, padding: 24, alignItems: 'center' },
-    confirmIconBg: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#FEF2F2', justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
-    confirmTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
-    confirmDesc: { textAlign: 'center', color: '#6B7280', marginBottom: 20 },
-    confirmBtnRow: { flexDirection: 'row', gap: 12, width: '100%' },
-    modalBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
-    modalBtnCancel: { backgroundColor: '#F3F4F6' },
-    modalBtnConfirm: { backgroundColor: '#DC2626' },
-    modalBtnTextCancel: { fontWeight: '600', color: '#374151' },
-    modalBtnTextConfirm: { fontWeight: '600', color: '#fff' },
-    
     toastContainer: { position: 'absolute', top: 50, alignSelf: 'center', backgroundColor: '#1F2937', flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, width: '90%', shadowOpacity: 0.2, elevation: 5 },
     toastSuccess: { borderLeftWidth: 4, borderLeftColor: '#22C55E' },
     toastError: { borderLeftWidth: 4, borderLeftColor: '#EF4444' },

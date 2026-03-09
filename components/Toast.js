@@ -1,64 +1,35 @@
-import React, { useEffect } from 'react';
-import { Animated, StyleSheet, Text, Dimensions } from 'react-native';
-import { useAuth } from '../context/AuthContext';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Text, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-const { width } = Dimensions.get('window');
-
-export default function Toast() {
-    const { message, messageType, clearMessage } = useAuth();
-    const slideAnim = React.useRef(new Animated.Value(-100)).current;
+export default function Toast({ visible, message, type = 'success', onHide }) {
+    const fadeAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
-        if (message) {
-            Animated.timing(slideAnim, {
-                toValue: 30,
-                duration: 300,
-                useNativeDriver: true,
-            }).start();
-
+        if (visible) {
+            Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
             const timer = setTimeout(() => {
-                Animated.timing(slideAnim, {
-                    toValue: -100,
-                    duration: 300,
-                    useNativeDriver: true,
-                }).start(() => clearMessage());
+                Animated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => {
+                    if (onHide) onHide();
+                });
             }, 3000);
-
             return () => clearTimeout(timer);
         }
-    }, [message]);
+    }, [visible]);
 
-    if (!message) return null;
-
-    let backgroundColor = '#007AFF';
-    if (messageType === 'error') backgroundColor = '#FF4D4F';
-    else if (messageType === 'success') backgroundColor = '#4BB543';
+    if (!visible) return null;
 
     return (
-        <Animated.View style={[styles.container, { transform: [{ translateY: slideAnim }], backgroundColor }]}>
-            <Text style={styles.text}>{message}</Text>
+        <Animated.View style={[styles.toastContainer, { opacity: fadeAnim }, type === 'success' ? styles.toastSuccess : styles.toastError]}>
+            <Ionicons name={type === 'success' ? 'checkmark-circle' : 'alert-circle'} size={24} color="#fff" />
+            <Text style={styles.toastText}>{message}</Text>
         </Animated.View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        position: 'absolute',
-        top: 20,
-        alignSelf: 'center',
-        width: width * 0.9,
-        padding: 15,
-        borderRadius: 8,
-        zIndex: 9999,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-        elevation: 5,
-    },
-    text: {
-        color: '#fff',
-        fontWeight: 'bold',
-        textAlign: 'center',
-    },
+    toastContainer: { position: 'absolute', top: 50, zIndex: 9999, alignSelf: 'center', backgroundColor: '#1F2937', flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, width: '90%', shadowOpacity: 0.2, elevation: 5 },
+    toastSuccess: { borderLeftWidth: 4, borderLeftColor: '#22C55E' },
+    toastError: { borderLeftWidth: 4, borderLeftColor: '#EF4444' },
+    toastText: { color: '#fff', marginLeft: 10, fontWeight: '600' }
 });

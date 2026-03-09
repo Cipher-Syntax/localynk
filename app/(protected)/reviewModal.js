@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../api/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Toast from '../../components/Toast';
 
 const StarRating = ({ rating, onRate }) => {
     return (
@@ -33,6 +34,7 @@ const ReviewModal = () => {
     const [agencyComment, setAgencyComment] = useState('');
     const [destinationRating, setDestinationRating] = useState(0);
     const [destinationComment, setDestinationComment] = useState('');
+    const [toast, setToast] = useState({ visible: false, message: '', type: 'error' });
 
     useEffect(() => {
         const fetchBookingDetails = async () => {
@@ -42,8 +44,8 @@ const ReviewModal = () => {
                 setBooking(response.data);
             } catch (error) {
                 console.error('Failed to fetch booking details:', error);
-                Alert.alert('Error', 'Could not load booking details.');
-                router.back();
+                setToast({ visible: true, message: 'Could not load booking details.', type: 'error' });
+                setTimeout(() => router.back(), 1500);
             } finally {
                 setLoading(false);
             }
@@ -60,7 +62,7 @@ const ReviewModal = () => {
         const hasDestRating = destinationToReview && destinationRating > 0;
 
         if (!hasGuideRating && !hasAgencyRating && !hasDestRating) {
-            Alert.alert('Incomplete', 'Please provide a rating.');
+            setToast({ visible: true, message: 'Please provide at least one rating.', type: 'error' });
             return;
         }
 
@@ -98,13 +100,13 @@ const ReviewModal = () => {
 
             await Promise.all(promises);
 
-            Alert.alert('Success', 'Your review has been submitted. Thank you!');
-            router.back();
+            setToast({ visible: true, message: 'Your review has been submitted. Thank you!', type: 'success' });
+            setTimeout(() => router.back(), 1500);
 
         } catch (error) {
             console.error('Failed to submit review:', error.response?.data || error.message);
             const errorMessage = error.response?.data?.destination || error.response?.data?.reviewed_user || 'An error occurred.';
-            Alert.alert('Error', `There was an issue submitting your review. ${errorMessage}`);
+            setToast({ visible: true, message: `Submission failed. ${errorMessage}`, type: 'error' });
         } finally {
             setSubmitting(false);
         }
@@ -119,6 +121,7 @@ const ReviewModal = () => {
 
     return (
         <SafeAreaView style={styles.safeArea}>
+            <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={() => setToast({ ...toast, visible: false })} />
             <ScrollView contentContainerStyle={styles.container}>
                 <View style={styles.header}>
                     <Text style={styles.title}>Leave a Review</Text>
@@ -185,78 +188,19 @@ const ReviewModal = () => {
 };
 
 const styles = StyleSheet.create({
-    safeArea: {
-        flex: 1,
-        backgroundColor: '#f7f7f7',
-    },
-    container: {
-        padding: 20,
-    },
-    centered: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-    },
-    closeButton: {
-        padding: 5,
-    },
-    reviewSection: {
-        backgroundColor: '#fff',
-        borderRadius: 10,
-        padding: 15,
-        marginBottom: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-        elevation: 2,
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        marginBottom: 5,
-    },
-    sectionSubtitle: {
-        fontSize: 16,
-        color: '#666',
-        marginBottom: 15,
-    },
-    starContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        marginBottom: 15,
-    },
-    textInput: {
-        borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 8,
-        padding: 10,
-        height: 100,
-        textAlignVertical: 'top',
-        fontSize: 14,
-    },
-    submitButton: {
-        backgroundColor: '#007AFF',
-        padding: 15,
-        borderRadius: 10,
-        alignItems: 'center',
-        marginTop: 10,
-    },
-    submitButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
+    safeArea: { flex: 1, backgroundColor: '#f7f7f7' },
+    container: { padding: 20 },
+    centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    title: { fontSize: 24, fontWeight: 'bold' },
+    closeButton: { padding: 5 },
+    reviewSection: { backgroundColor: '#fff', borderRadius: 10, padding: 15, marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2 },
+    sectionTitle: { fontSize: 18, fontWeight: '600', marginBottom: 5 },
+    sectionSubtitle: { fontSize: 16, color: '#666', marginBottom: 15 },
+    starContainer: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 15 },
+    textInput: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, height: 100, textAlignVertical: 'top', fontSize: 14 },
+    submitButton: { backgroundColor: '#007AFF', padding: 15, borderRadius: 10, alignItems: 'center', marginTop: 10 },
+    submitButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 });
 
 export default ReviewModal;

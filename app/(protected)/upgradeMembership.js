@@ -1,26 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Linking, Modal, ActivityIndicator, ScrollView, Animated, StatusBar } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Linking, Modal, ActivityIndicator, ScrollView, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
+import Toast from '../../components/Toast';
 
 const UpgradeMembership = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [price, setPrice] = useState(null);
     const [isPaymentStarted, setIsPaymentStarted] = useState(false);
     const [showConfirmation, setShowConfirmation] = useState(false);
+    const [toast, setToast] = useState({ visible: false, message: '', type: 'error' });
     const pollingRef = useRef(null);
     const router = useRouter();
     const { user, refreshUser } = useAuth();
 
     const premiumFeatures = [
         { icon: "infinite", text: "Accept Unlimited Bookings" },
-        // { icon: "shield-checkmark", text: "Verified Guide Badge" },
-        // { icon: "trending-up", text: "Top Search Visibility" },
-        // { icon: "star", text: "Priority Support" },
     ];
 
     useEffect(() => {
@@ -30,7 +29,7 @@ const UpgradeMembership = () => {
                 setPrice(response.data.price);
             } catch (error) {
                 console.error('Failed to fetch subscription price:', error);
-                Alert.alert('Error', 'Could not fetch subscription price.');
+                setToast({ visible: true, message: 'Could not fetch subscription price.', type: 'error' });
             }
         };
 
@@ -69,12 +68,8 @@ const UpgradeMembership = () => {
             } 
             catch (err) {
                 if (err.response && err.response.status === 404) {
-                    console.log("Polling stopped: ID not found in backend (404). Switching to manual verification.");
                     clearInterval(pollingRef.current);
                 } 
-                else {
-                    console.log("Polling check failed (network):", err.message);
-                }
             }
         }, 3000);
     };
@@ -87,10 +82,7 @@ const UpgradeMembership = () => {
             if (user && user.guide_tier === 'paid') {
                 setShowConfirmation(true);
             } else {
-                Alert.alert(
-                    "Payment Not Detected Yet", 
-                    "We haven't received the confirmation yet. Please ensure you completed the payment in the browser, then try clicking this button again."
-                );
+                setToast({ visible: true, message: "We haven't received the confirmation yet. Please try again.", type: 'error' });
             }
             setIsLoading(false);
         }, 1000);
@@ -103,8 +95,6 @@ const UpgradeMembership = () => {
                 payment_type: 'YearlySubscription',
                 payment_method: 'GCash',
             });
-
-            console.log("PAYMENT INIT RESPONSE:", JSON.stringify(response.data, null, 2));
 
             const data = response.data;
             const checkoutUrl = data.checkout_url || data.url || data.link || (data.data && data.data.checkout_url);
@@ -125,19 +115,19 @@ const UpgradeMembership = () => {
                     if (pId) startPolling(pId);
                 } 
                 else {
-                    Alert.alert("Error", "Cannot open payment link.");
+                    setToast({ visible: true, message: "Cannot open payment link.", type: 'error' });
                     setIsLoading(false);
                 }
             } 
             else {
-                Alert.alert('Payment Error', 'Could not generate payment link.');
+                setToast({ visible: true, message: 'Could not generate payment link.', type: 'error' });
                 setIsLoading(false);
             }
         } 
         catch (error) {
             console.error('Upgrade error:', error);
             const serverMsg = error.response?.data?.detail || error.response?.data?.message;
-            Alert.alert('Error', serverMsg || 'An error occurred while trying to upgrade.');
+            setToast({ visible: true, message: serverMsg || 'An error occurred while trying to upgrade.', type: 'error' });
             setIsLoading(false);
         }
     };
@@ -176,6 +166,7 @@ const UpgradeMembership = () => {
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="dark-content" />
+            <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={() => setToast({ ...toast, visible: false })} />
             <LinearGradient
                 colors={['#FFFFFF', '#F3F4F6']}
                 style={styles.gradientBackground}
@@ -303,254 +294,42 @@ const UpgradeMembership = () => {
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#FFFFFF', 
-    },
-    gradientBackground: {
-        flex: 1,
-    },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-    },
-    closeButton: {
-        padding: 8,
-        backgroundColor: '#F3F4F6',
-        borderRadius: 20,
-    },
-    headerTitle: {
-        color: '#9CA3AF',
-        fontSize: 12,
-        letterSpacing: 1.5,
-        fontWeight: '700',
-    },
-    scrollContent: {
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingBottom: 100,
-    },
-    crownContainer: {
-        marginTop: 20,
-        marginBottom: 20,
-        shadowColor: "#FFD700",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 10,
-        elevation: 5,
-    },
-    iconCircle: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 4,
-        borderColor: '#FFF8E1', 
-    },
-    mainTitle: {
-        fontSize: 28,
-        fontWeight: '800',
-        color: '#111827',
-        textAlign: 'center',
-        marginBottom: 8,
-    },
-    subtitle: {
-        fontSize: 14,
-        color: '#6B7280', 
-        textAlign: 'center',
-        marginBottom: 30,
-    },
-    
-    pricingCard: {
-        width: '100%',
-        backgroundColor: '#FFFFFF',
-        borderRadius: 24,
-        padding: 25,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 12,
-        elevation: 3,
-        marginBottom: 30,
-        position: 'relative',
-    },
-    bestValueTag: {
-        position: 'absolute',
-        top: -12,
-        backgroundColor: '#FFD700',
-        paddingHorizontal: 12,
-        paddingVertical: 4,
-        borderRadius: 12,
-    },
-    bestValueText: {
-        color: '#000',
-        fontWeight: '800',
-        fontSize: 10,
-        letterSpacing: 0.5,
-    },
-    periodText: {
-        color: '#6B7280', 
-        fontSize: 14,
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-        marginBottom: 10,
-        marginTop: 5,
-    },
-    priceRow: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        marginBottom: 8,
-    },
-    currencySymbol: {
-        fontSize: 24,
-        color: '#111827',
-        fontWeight: '600',
-        marginTop: 8,
-        marginRight: 4,
-    },
-    priceText: {
-        fontSize: 48,
-        color: '#111827',
-        fontWeight: '800',
-    },
-    perYearText: {
-        fontSize: 16,
-        color: '#6B7280',
-        alignSelf: 'flex-end',
-        marginBottom: 10,
-        marginLeft: 4,
-    },
-    cancelText: {
-        color: '#9CA3AF', 
-        fontSize: 12,
-    },
-
-    featuresContainer: {
-        width: '100%',
-        paddingHorizontal: 10,
-    },
-    featureRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    checkCircle: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        backgroundColor: '#FFD700',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 15,
-    },
-    featureText: {
-        color: '#374151',
-        fontSize: 16,
-        fontWeight: '500',
-    },
-
-    footer: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        padding: 20,
-        backgroundColor: '#FFFFFF',
-        borderTopWidth: 1,
-        borderTopColor: '#E5E7EB', 
-    },
-    upgradeButton: {
-        borderRadius: 16,
-        overflow: 'hidden',
-        elevation: 5,
-        shadowColor: '#0072FF',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-    },
-    buttonDisabled: {
-        opacity: 0.8,
-    },
-    gradientButton: {
-        paddingVertical: 18,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    contentRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-    },
-    loadingRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-    },
-    buttonText: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: '700',
-    },
-    waitingText: {
-        marginTop: 12,
-        color: '#6B7280',
-        fontSize: 12,
-        textAlign: 'center',
-        lineHeight: 18,
-    },
-
-    confirmationContent: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 30,
-    },
-    iconContainer: {
-        marginBottom: 30,
-        shadowColor: '#00C853',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 20,
-    },
-    confirmationTitle: {
-        fontSize: 32,
-        fontWeight: '800',
-        color: '#111827', 
-        marginBottom: 15,
-    },
-    confirmationMessage: {
-        fontSize: 16,
-        color: '#6B7280', 
-        textAlign: 'center',
-        lineHeight: 24,
-        marginBottom: 40,
-    },
-    doneButton: {
-        backgroundColor: '#111827', 
-        paddingVertical: 16,
-        paddingHorizontal: 32,
-        borderRadius: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        elevation: 5,
-    },
-    doneButtonText: {
-        color: '#FFFFFF',
-        fontWeight: 'bold',
-        fontSize: 16,
-    }
+    container: { flex: 1, backgroundColor: '#FFFFFF' },
+    gradientBackground: { flex: 1 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 10 },
+    closeButton: { padding: 8, backgroundColor: '#F3F4F6', borderRadius: 20 },
+    headerTitle: { color: '#9CA3AF', fontSize: 12, letterSpacing: 1.5, fontWeight: '700' },
+    scrollContent: { alignItems: 'center', paddingHorizontal: 20, paddingBottom: 100 },
+    crownContainer: { marginTop: 20, marginBottom: 20, shadowColor: "#FFD700", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 5 },
+    iconCircle: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', borderWidth: 4, borderColor: '#FFF8E1' },
+    mainTitle: { fontSize: 28, fontWeight: '800', color: '#111827', textAlign: 'center', marginBottom: 8 },
+    subtitle: { fontSize: 14, color: '#6B7280', textAlign: 'center', marginBottom: 30 },
+    pricingCard: { width: '100%', backgroundColor: '#FFFFFF', borderRadius: 24, padding: 25, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 12, elevation: 3, marginBottom: 30, position: 'relative' },
+    bestValueTag: { position: 'absolute', top: -12, backgroundColor: '#FFD700', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
+    bestValueText: { color: '#000', fontWeight: '800', fontSize: 10, letterSpacing: 0.5 },
+    periodText: { color: '#6B7280', fontSize: 14, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10, marginTop: 5 },
+    priceRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
+    currencySymbol: { fontSize: 24, color: '#111827', fontWeight: '600', marginTop: 8, marginRight: 4 },
+    priceText: { fontSize: 48, color: '#111827', fontWeight: '800' },
+    perYearText: { fontSize: 16, color: '#6B7280', alignSelf: 'flex-end', marginBottom: 10, marginLeft: 4 },
+    featuresContainer: { width: '100%', paddingHorizontal: 10 },
+    featureRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+    checkCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#FFD700', justifyContent: 'center', alignItems: 'center', marginRight: 15 },
+    featureText: { color: '#374151', fontSize: 16, fontWeight: '500' },
+    footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#E5E7EB' },
+    upgradeButton: { borderRadius: 16, overflow: 'hidden', elevation: 5, shadowColor: '#0072FF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8 },
+    buttonDisabled: { opacity: 0.8 },
+    gradientButton: { paddingVertical: 18, alignItems: 'center', justifyContent: 'center' },
+    contentRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    buttonText: { color: '#fff', fontSize: 18, fontWeight: '700' },
+    waitingText: { marginTop: 12, color: '#6B7280', fontSize: 12, textAlign: 'center', lineHeight: 18 },
+    confirmationContent: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
+    iconContainer: { marginBottom: 30, shadowColor: '#00C853', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 20 },
+    confirmationTitle: { fontSize: 32, fontWeight: '800', color: '#111827', marginBottom: 15 },
+    confirmationMessage: { fontSize: 16, color: '#6B7280', textAlign: 'center', lineHeight: 24, marginBottom: 40 },
+    doneButton: { backgroundColor: '#111827', paddingVertical: 16, paddingHorizontal: 32, borderRadius: 16, flexDirection: 'row', alignItems: 'center', gap: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 5 },
+    doneButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }
 });
 
 export default UpgradeMembership;

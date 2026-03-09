@@ -1,20 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    View, 
-    Text, 
-    StyleSheet, 
-    ScrollView, 
-    TouchableOpacity, 
-    Image, 
-    ActivityIndicator, 
-    Alert,
-    RefreshControl
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
+import Toast from '../../components/Toast';
+import ConfirmationModal from '../../components/ConfirmationModal';
 
 const MyTourPackages = () => {
     const { user } = useAuth();
@@ -28,8 +20,9 @@ const MyTourPackages = () => {
     const [myAccommodations, setMyAccommodations] = useState([]);
     
     const [expandedDestId, setExpandedDestId] = useState(null);
+    const [toast, setToast] = useState({ visible: false, message: '', type: 'error' });
+    const [confirmModal, setConfirmModal] = useState({ visible: false, destId: null, destName: '' });
 
-    // Safely extract arrays from paginated or non-paginated API responses
     const extractArray = (data) => {
         if (Array.isArray(data)) return data;
         if (data && Array.isArray(data.results)) return data.results;
@@ -46,14 +39,12 @@ const MyTourPackages = () => {
     const fetchAllData = async () => {
         if (!user) return;
         try {
-            // Fetch raw data
             const [destRes, toursRes, accomRes] = await Promise.all([
                 api.get(`/api/guides/${user.id}/destinations/`).catch(() => ({ data: [] })),
                 api.get('/api/my-tours/').catch(() => ({ data: [] })),
                 api.get('/api/accommodations/list/').catch(() => ({ data: [] }))
             ]);
             
-            // Safely parse arrays to prevent .filter or .map crashes
             const fetchedDestinations = extractArray(destRes.data);
             const fetchedTours = extractArray(toursRes.data);
             const fetchedAccommodations = extractArray(accomRes.data);
@@ -61,7 +52,6 @@ const MyTourPackages = () => {
             setDestinations(fetchedDestinations);
             setMyTours(fetchedTours);
             
-            // Safely filter accommodations
             const userAccommodations = fetchedAccommodations.filter(acc => 
                 acc.host === user.id || (acc.host && acc.host.id === user.id)
             );
@@ -69,7 +59,7 @@ const MyTourPackages = () => {
             
         } catch (error) {
             console.error('Error fetching tour packages data:', error);
-            Alert.alert("Notice", "Could not load all tour packages data right now.");
+            setToast({ visible: true, message: "Could not load all tour packages data right now.", type: 'error' });
         }
     };
 
@@ -93,46 +83,39 @@ const MyTourPackages = () => {
         setExpandedDestId(expandedDestId === destId ? null : destId);
     };
 
-    const handleDeleteDestination = (destId, destName) => {
-        Alert.alert(
-            "Remove Destination",
-            `Are you sure you want to delete all your tour packages and accommodations for ${destName}? This action cannot be undone.`,
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Delete", 
-                    style: "destructive", 
-                    onPress: async () => {
-                        try {
-                            setLoading(true);
-                            
-                            const toursToDelete = myTours.filter(t => 
-                                t.main_destination === destId || (t.main_destination && t.main_destination.id === destId)
-                            );
-                            
-                            const accomToDelete = myAccommodations.filter(a => 
-                                a.destination === destId || (a.destination && a.destination.id === destId)
-                            );
-                            
-                            for (let t of toursToDelete) {
-                                await api.delete(`/api/tours/${t.id}/`).catch(() => {});
-                            }
-                            for (let a of accomToDelete) {
-                                await api.delete(`/api/accommodations/${a.id}/`).catch(() => {});
-                            }
-                            
-                            Alert.alert("Success", "Successfully removed from destination.");
-                            await fetchAllData(); 
-                        } catch (error) {
-                            console.error("Delete failed:", error);
-                            Alert.alert("Error", "Failed to delete items. Please try again.");
-                        } finally {
-                            setLoading(false);
-                        }
-                    }
-                }
-            ]
-        );
+    const initiateDelete = (destId, destName) => {
+        setConfirmModal({ visible: true, destId, destName });
+    };
+
+    const executeDelete = async () => {
+        const { destId } = confirmModal;
+        setConfirmModal({ visible: false, destId: null, destName: '' });
+        
+        try {
+            setLoading(true);
+            const toursToDelete = myTours.filter(t => 
+                t.main_destination === destId || (t.main_destination && t.main_destination.id === destId)
+            );
+            
+            const accomToDelete = myAccommodations.filter(a => 
+                a.destination === destId || (a.destination && a.destination.id === destId)
+            );
+            
+            for (let t of toursToDelete) {
+                await api.delete(`/api/tours/${t.id}/`).catch(() => {});
+            }
+            for (let a of accomToDelete) {
+                await api.delete(`/api/accommodations/${a.id}/`).catch(() => {});
+            }
+            
+            setToast({ visible: true, message: "Successfully removed from destination.", type: 'success' });
+            await fetchAllData(); 
+        } catch (error) {
+            console.error("Delete failed:", error);
+            setToast({ visible: true, message: "Failed to delete items. Please try again.", type: 'error' });
+        } finally {
+            setLoading(false);
+        }
     };
 
     const renderDestinationCard = (dest) => {
@@ -142,9 +125,6 @@ const MyTourPackages = () => {
         
         const destTours = myTours.filter(t => 
             t.main_destination === dest.id || (t.main_destination && t.main_destination.id === dest.id)
-        );
-        const destAccommodations = myAccommodations.filter(a => 
-            a.destination === dest.id || (a.destination && a.destination.id === dest.id)
         );
 
         let destImage = 'https://via.placeholder.com/300';
@@ -168,7 +148,7 @@ const MyTourPackages = () => {
                             <Text style={styles.cardTitle} numberOfLines={1}>{dest.name || "Unknown Destination"}</Text>
                             <TouchableOpacity 
                                 style={styles.deleteButton} 
-                                onPress={() => handleDeleteDestination(dest.id, dest.name || "this destination")}
+                                onPress={() => initiateDelete(dest.id, dest.name || "this destination")}
                             >
                                 <Ionicons name="trash-outline" size={20} color="#EF4444" />
                             </TouchableOpacity>
@@ -205,22 +185,6 @@ const MyTourPackages = () => {
                         ) : (
                             <Text style={styles.emptyText}>No active tour packages</Text>
                         )}
-
-                        {/* <Text style={[styles.sectionHeader, { marginTop: 15 }]}>Accommodations</Text>
-                        {destAccommodations.length > 0 ? (
-                            destAccommodations.map(acc => (
-                                <View key={`acc-${acc.id}`} style={styles.itemRow}>
-                                    <Ionicons name="bed-outline" size={18} color="#10B981" style={styles.itemIcon} />
-                                    <View style={styles.itemTextContainer}>
-                                        <Text style={styles.itemName}>{acc.title || "Unnamed Stay"}</Text>
-                                        <Text style={styles.itemSubText}>{acc.accommodation_type || 'Stay'}</Text>
-                                    </View>
-                                    <Text style={styles.itemPrice}>₱{acc.price || "0.00"}</Text>
-                                </View>
-                            ))
-                        ) : (
-                            <Text style={styles.emptyText}>No linked accommodations</Text>
-                        )} */}
                     </View>
                 )}
             </View>
@@ -229,6 +193,15 @@ const MyTourPackages = () => {
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
+            <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={() => setToast({ ...toast, visible: false })} />
+            <ConfirmationModal 
+                visible={confirmModal.visible}
+                title="Remove Destination"
+                description={`Are you sure you want to delete all your tour packages for ${confirmModal.destName}?`}
+                confirmText="Delete"
+                onConfirm={executeDelete}
+                onCancel={() => setConfirmModal({ visible: false, destId: null, destName: '' })}
+            />
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color="#1E293B" />
@@ -280,7 +253,6 @@ const styles = StyleSheet.create({
     headerTitle: { fontSize: 18, fontWeight: '700', color: '#1E293B' },
     scrollContent: { padding: 20 },
     pageDescription: { fontSize: 14, color: '#64748B', marginBottom: 20, lineHeight: 20 },
-    
     cardContainer: { backgroundColor: '#fff', borderRadius: 16, marginBottom: 15, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 3, overflow: 'hidden' },
     cardHeader: { flexDirection: 'row', padding: 12 },
     cardImage: { width: 80, height: 80, borderRadius: 12, backgroundColor: '#E2E8F0' },
@@ -293,7 +265,6 @@ const styles = StyleSheet.create({
     cardBottomRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
     badge: { backgroundColor: '#EFF6FF', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
     badgeText: { fontSize: 11, fontWeight: '600', color: '#0072FF' },
-    
     expandedContent: { backgroundColor: '#F8FAFC', padding: 15, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
     sectionHeader: { fontSize: 14, fontWeight: '700', color: '#334155', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
     itemRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 12, borderRadius: 10, marginBottom: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.02, shadowRadius: 2, elevation: 1 },
@@ -303,7 +274,6 @@ const styles = StyleSheet.create({
     itemSubText: { fontSize: 12, color: '#94A3B8', marginTop: 2 },
     itemPrice: { fontSize: 14, fontWeight: '700', color: '#0F172A' },
     emptyText: { fontSize: 13, color: '#94A3B8', fontStyle: 'italic', marginLeft: 5 },
-
     emptyStateContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
     emptyStateTitle: { fontSize: 18, fontWeight: '700', color: '#334155', marginTop: 15, marginBottom: 5 },
     emptyStateText: { fontSize: 14, color: '#94A3B8', textAlign: 'center', paddingHorizontal: 20 },

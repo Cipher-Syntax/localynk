@@ -1,25 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
-import {
-    View,
-    Text,
-    ActivityIndicator,
-    ScrollView,
-    StyleSheet,
-    StatusBar,
-    Image,
-    TouchableOpacity,
-    TextInput,
-    Modal,
-    Alert,
-    KeyboardAvoidingView,
-    Platform
-} from "react-native";
+import { View, Text, ActivityIndicator, ScrollView, StyleSheet, StatusBar, Image, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import api from '../../api/api';
 import { useAuth } from "../../context/AuthContext";
+import Toast from '../../components/Toast';
 
 export default function Message() {
     const [loading, setLoading] = useState(true);
@@ -28,6 +15,7 @@ export default function Message() {
     const [isModalVisible, setModalVisible] = useState(false);
     const [selectedReason, setSelectedReason] = useState("");
     const [customReason, setCustomReason] = useState("");
+    const [toast, setToast] = useState({ visible: false, message: '', type: 'error' });
     const { user } = useAuth();
     const scrollViewRef = useRef();
     const router = useRouter();
@@ -82,20 +70,20 @@ export default function Message() {
 
         try {
             await api.post(`/api/conversations/${partnerId}/messages/`, {
-                content: inputText,
+                content: optimisticMessage.content,
             });
             fetchMessages();
         } catch (error) {
             console.error('Failed to send message:', error);
             setMessages(prevMessages => prevMessages.filter(m => m.id !== optimisticMessage.id));
-            Alert.alert("Error", "Failed to send message.");
+            setToast({ visible: true, message: "Failed to send message.", type: 'error' });
         }
     };
 
     const handleReportConfirm = async () => {
         const reason = selectedReason === "Other" ? customReason : selectedReason;
         if (!reason.trim()) {
-            Alert.alert("⚠️ Incomplete", "Please select or enter a reason for reporting.");
+            setToast({ visible: true, message: "Please select or enter a reason.", type: 'error' });
             return;
         }
 
@@ -106,11 +94,11 @@ export default function Message() {
             });
             setModalVisible(false);
             setTimeout(() => {
-                Alert.alert("✅ Report Sent", "Your report has been successfully submitted.");
+                setToast({ visible: true, message: "Report successfully submitted.", type: 'success' });
             }, 300);
         } catch (error) {
             console.error('Failed to submit report:', error);
-            Alert.alert("Error", "Failed to submit report. Please try again later.");
+            setToast({ visible: true, message: "Failed to submit report. Try again.", type: 'error' });
         }
     };
 
@@ -154,7 +142,7 @@ export default function Message() {
     return (
         <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-            
+            <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={() => setToast({ ...toast, visible: false })} />
             <KeyboardAvoidingView 
                 style={{ flex: 1 }} 
                 behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -320,227 +308,46 @@ export default function Message() {
 }
 
 const styles = StyleSheet.create({
-    loadingContainer: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: "#fff",
-    },
-    container: {
-        flex: 1,
-        backgroundColor: "#fff",
-    },
-    header: {
-        position: "relative",
-        height: 120,
-        justifyContent: "center",
-    },
-    headerImage: {
-        width: "100%",
-        height: "100%",
-        resizeMode: "cover",
-        borderBottomLeftRadius: 25,
-        borderBottomRightRadius: 25,
-    },
-    overlay: {
-        ...StyleSheet.absoluteFillObject,
-        borderBottomLeftRadius: 25,
-        borderBottomRightRadius: 25,
-    },
-    headerTitle: {
-        position: "absolute",
-        bottom: 15,
-        left: 20,
-        color: "#fff",
-        fontSize: 18,
-        fontWeight: "700",
-        letterSpacing: 1,
-    },
-    guideInfo: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        backgroundColor: "#fff",
-        paddingVertical: 10,
-        paddingHorizontal: 15,
-        borderBottomWidth: 1,
-        borderColor: "#ddd",
-    },
-    guideName: {
-        fontSize: 14,
-        fontWeight: "700",
-        color: "#00051A",
-    },
-    headerAvatar: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        marginRight: 10,
-        backgroundColor: '#eee'
-    },
-    headerAvatarPlaceholder: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        marginRight: 10,
-        backgroundColor: '#00A8FF',
-        alignItems: 'center',
-        justifyContent: 'center'
-    },
-    headerAvatarText: {
-        color: '#fff',
-        fontWeight: 'bold',
-        fontSize: 14
-    },
-    messagesContainer: {
-        flex: 1,
-        padding: 15,
-    },
-    messageBox: {
-        marginBottom: 25,
-    },
-    sentMessage: {
-        alignItems: "flex-end",
-    },
-    receivedMessage: {
-        alignItems: "flex-start",
-    },
-    senderName: {
-        fontSize: 12,
-        fontWeight: "600",
-        color: "#555",
-        marginBottom: 4,
-        marginLeft: 10,
-    },
-    messageBubble: {
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 16,
-        maxWidth: "75%",
-    },
-    sentBubble: {
-        backgroundColor: "#00051A",
-    },
-    receivedBubble: {
-        backgroundColor: "#E9EEF3",
-    },
-    messageText: {
-        fontSize: 15,
-    },
-    sentText: {
-        color: "#fff",
-    },
-    receivedText: {
-        color: "#000",
-    },
-    timestamp: {
-        fontSize: 11,
-        color: "#999",
-        marginTop: 4,
-        marginHorizontal: 10,
-    },
-    modalOverlay: {
-        flex: 1,
-        justifyContent: "flex-end",
-        backgroundColor: "rgba(0,0,0,0.4)",
-    },
-    modalContainer: {
-        backgroundColor: "#fff",
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        padding: 20,
-    },
-    modalTitle: {
-        fontSize: 16,
-        fontWeight: "700",
-        color: "#00051A",
-        textAlign: "center",
-        marginBottom: 15,
-    },
-    reasonLabel: {
-        fontWeight: "600",
-        color: "#000",
-        marginBottom: 8,
-    },
-    reasonOption: {
-        borderWidth: 1,
-        borderColor: "#ccc",
-        borderRadius: 8,
-        paddingVertical: 8,
-        paddingHorizontal: 10,
-        marginBottom: 8,
-    },
-    selectedReason: {
-        borderColor: "#00051A",
-        backgroundColor: "#E9EEF3",
-    },
-    reasonText: {
-        color: "#333",
-        fontSize: 14,
-    },
-    selectedReasonText: {
-        color: "#00051A",
-        fontWeight: "700",
-    },
-    reasonInput: {
-        borderWidth: 1,
-        borderColor: "#ccc",
-        borderRadius: 8,
-        padding: 10,
-        height: 80,
-        textAlignVertical: "top",
-        marginBottom: 10,
-    },
-    modalButtons: {
-        flexDirection: "row",
-        justifyContent: "center",
-        marginTop: 10,
-    },
-    modalButton: {
-        borderRadius: 8,
-        paddingVertical: 10,
-        paddingHorizontal: 25,
-        marginHorizontal: 10,
-    },
-    yesButton: {
-        backgroundColor: "#00051A",
-    },
-    noButton: {
-        backgroundColor: "#555",
-    },
-    buttonText: {
-        color: "#fff",
-        fontSize: 14,
-        fontWeight: "600",
-    },
-    inputContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: "#F0F0F0",
-        paddingVertical: 7,
-        paddingHorizontal: 7,
-    },
-    iconButton: {
-        paddingHorizontal: 6,
-    },
-    textInputWrapper: {
-        flex: 1,
-        marginHorizontal: 8,
-        backgroundColor: '#fff',
-        borderRadius: 20,
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-    },
-    input: {
-        fontSize: 15,
-        maxHeight: 100,
-    },
-    sendButton: {
-        backgroundColor: "#007AFF",
-        borderRadius: 20,
-        width: 36,
-        height: 36,
-        justifyContent: "center",
-        alignItems: "center",
-    },
+    loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" },
+    container: { flex: 1, backgroundColor: "#fff" },
+    header: { position: "relative", height: 120, justifyContent: "center" },
+    headerImage: { width: "100%", height: "100%", resizeMode: "cover", borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
+    overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
+    headerTitle: { position: "absolute", bottom: 15, left: 20, color: "#fff", fontSize: 18, fontWeight: "700", letterSpacing: 1 },
+    guideInfo: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#fff", paddingVertical: 10, paddingHorizontal: 15, borderBottomWidth: 1, borderColor: "#ddd" },
+    guideName: { fontSize: 14, fontWeight: "700", color: "#00051A" },
+    headerAvatar: { width: 32, height: 32, borderRadius: 16, marginRight: 10, backgroundColor: '#eee' },
+    headerAvatarPlaceholder: { width: 32, height: 32, borderRadius: 16, marginRight: 10, backgroundColor: '#00A8FF', alignItems: 'center', justifyContent: 'center' },
+    headerAvatarText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
+    messagesContainer: { flex: 1, padding: 15 },
+    messageBox: { marginBottom: 25 },
+    sentMessage: { alignItems: "flex-end" },
+    receivedMessage: { alignItems: "flex-start" },
+    senderName: { fontSize: 12, fontWeight: "600", color: "#555", marginBottom: 4, marginLeft: 10 },
+    messageBubble: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, maxWidth: "75%" },
+    sentBubble: { backgroundColor: "#00051A" },
+    receivedBubble: { backgroundColor: "#E9EEF3" },
+    messageText: { fontSize: 15 },
+    sentText: { color: "#fff" },
+    receivedText: { color: "#000" },
+    timestamp: { fontSize: 11, color: "#999", marginTop: 4, marginHorizontal: 10 },
+    modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" },
+    modalContainer: { backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 },
+    modalTitle: { fontSize: 16, fontWeight: "700", color: "#00051A", textAlign: "center", marginBottom: 15 },
+    reasonLabel: { fontWeight: "600", color: "#000", marginBottom: 8 },
+    reasonOption: { borderWidth: 1, borderColor: "#ccc", borderRadius: 8, paddingVertical: 8, paddingHorizontal: 10, marginBottom: 8 },
+    selectedReason: { borderColor: "#00051A", backgroundColor: "#E9EEF3" },
+    reasonText: { color: "#333", fontSize: 14 },
+    selectedReasonText: { color: "#00051A", fontWeight: "700" },
+    reasonInput: { borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 10, height: 80, textAlignVertical: "top", marginBottom: 10 },
+    modalButtons: { flexDirection: "row", justifyContent: "center", marginTop: 10 },
+    modalButton: { borderRadius: 8, paddingVertical: 10, paddingHorizontal: 25, marginHorizontal: 10 },
+    yesButton: { backgroundColor: "#00051A" },
+    noButton: { backgroundColor: "#555" },
+    buttonText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+    inputContainer: { flexDirection: "row", alignItems: "center", backgroundColor: "#F0F0F0", paddingVertical: 7, paddingHorizontal: 7 },
+    iconButton: { paddingHorizontal: 6 },
+    textInputWrapper: { flex: 1, marginHorizontal: 8, backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
+    input: { fontSize: 15, maxHeight: 100 },
+    sendButton: { backgroundColor: "#007AFF", borderRadius: 20, width: 36, height: 36, justifyContent: "center", alignItems: "center" },
 });

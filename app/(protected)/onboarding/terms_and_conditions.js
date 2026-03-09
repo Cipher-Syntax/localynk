@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { ScrollView, View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Dimensions } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import api from '../../../api/api';
-// [1] IMPORT useAuth
 import { useAuth } from '../../../context/AuthContext'; 
+import Toast from '../../../components/Toast';
 
 const CustomCheckbox = ({ value, onValueChange }) => {
     return (
@@ -22,29 +22,34 @@ const CustomCheckbox = ({ value, onValueChange }) => {
 const OnboardingTerms = () => {
     const [isChecked, setIsChecked] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [toast, setToast] = useState({ visible: false, message: '', type: 'error' });
     const router = useRouter();
-    // [2] DESTRUCTURE refreshUser
-    const { refreshUser } = useAuth(); 
+    const { user, refreshUser } = useAuth(); // ADDED `user` HERE
 
     const handleContinue = async () => {
         if (!isChecked) {
-            Alert.alert("Agreement Required", "You must agree to the terms and conditions to continue.");
+            setToast({ visible: true, message: "You must agree to the terms and conditions to continue.", type: 'error' });
             return;
         }
         setIsSubmitting(true);
         try {
             await api.post('/api/accept-terms/');
-            
-            // [3] CRITICAL: Update local user state before navigating
             await refreshUser(); 
             
-            // Navigate to home; _layout.js will automatically redirect to Personalization
-            // because isOnboardingComplete is false.
-            router.replace('/(protected)/home');
+            // Check if profile is incomplete
+            const isPhoneMissing = !user?.phone_number || String(user.phone_number).trim() === "";
+            const isLocationMissing = !user?.location || String(user.location).trim() === "";
+            const isFirstNameMissing = !user?.first_name || String(user.first_name).trim() === "";
+
+            if (isFirstNameMissing || isPhoneMissing || isLocationMissing) {
+                router.replace('/(protected)/onboarding/profile_setup');
+            } else {
+                router.replace('/(protected)/onboarding/personalization');
+            }
         } 
         catch (error) {
             console.error("Failed to accept terms:", error);
-            Alert.alert("Error", "An error occurred. Please try again.");
+            setToast({ visible: true, message: "An error occurred. Please try again.", type: 'error' });
         } 
         finally {
             setIsSubmitting(false);
@@ -53,6 +58,7 @@ const OnboardingTerms = () => {
 
     return (
         <SafeAreaView style={styles.safeArea}>
+            <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={() => setToast({ ...toast, visible: false })} />
             <ScrollView 
                 contentContainerStyle={styles.scrollContainer}
                 showsVerticalScrollIndicator={false}
@@ -170,10 +176,7 @@ const styles = StyleSheet.create({
         padding: 24,
         marginBottom: 32,
         shadowColor: "#000",
-        shadowOffset: {
-            width: 0,
-            height: 4,
-        },
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.08,
         shadowRadius: 12,
         elevation: 8,
@@ -254,10 +257,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         width: '100%',
         shadowColor: "#007AFF",
-        shadowOffset: {
-            width: 0,
-            height: 4,
-        },
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
         elevation: 6,

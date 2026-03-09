@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StatusBar, StyleSheet, Image, TextInput, TouchableOpacity, Pressable, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, ScrollView, StatusBar, StyleSheet, Image, TouchableOpacity, Pressable, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import FeePaymentReviewModal from '../../components/payment/FeePaymentReviewModal'; 
 import { useAuth } from '../../context/AuthContext'; 
+import Toast from '../../components/Toast';
 
 const REGISTRATION_FEE_DETAILS = {
     amount: 500.00,
@@ -18,10 +18,11 @@ const CompleteRegistrationFee = () => {
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState('gcash'); 
+    const [toast, setToast] = useState({ visible: false, message: '', type: 'error' });
+    
     const baseFee = parseFloat(feeAmount || REGISTRATION_FEE_DETAILS.amount) || REGISTRATION_FEE_DETAILS.amount;
     const finalServiceFee = REGISTRATION_FEE_DETAILS.serviceFee; 
     const totalToPay = baseFee + finalServiceFee;
-
 
     useEffect(() => {
         const timer = setTimeout(() => setLoading(false), 500);
@@ -30,7 +31,7 @@ const CompleteRegistrationFee = () => {
 
     const handleReviewPress = () => {
         if (!user?.first_name || !user?.last_name || !user?.phone_number || !user?.email) {
-            Alert.alert("Missing User Data", "Essential profile information (name, email, phone) is missing. Please update your profile first.");
+            setToast({ visible: true, message: "Essential profile information is missing. Please update your profile.", type: 'error' });
             return;
         }
         setIsModalOpen(true);
@@ -52,11 +53,11 @@ const CompleteRegistrationFee = () => {
         country: 'Philippines',
     };
 
-
     return (
         <ScrollView style={styles.container}>
             <SafeAreaView>
                 <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+                <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={() => setToast({ ...toast, visible: false })} />
 
                 <View style={styles.header}>
                     <Image
@@ -158,7 +159,6 @@ const styles = StyleSheet.create({
     section: { marginBottom: 20 },
     sectionTitle: { fontSize: 14, fontWeight: '700', color: '#1A2332', marginBottom: 12 },
     cardHeader: { fontSize: 16, fontWeight: '700', color: '#1A2332', marginBottom: 10, textAlign: 'center' },
-    
     priceCard: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#1A2332', borderRadius: 12, padding: 16, marginBottom: 20 },
     priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
     priceLabel: { fontSize: 13, color: '#1A2332', fontWeight: '500' },
@@ -166,19 +166,16 @@ const styles = StyleSheet.create({
     priceDivider: { height: 1, backgroundColor: '#1A2332', marginVertical: 10 },
     totalLabel: { fontSize: 15, fontWeight: '700', color: '#1A2332' },
     totalValue: { fontSize: 15, fontWeight: '700', color: '#00A8FF' },
-
     paymentOption: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E0E6ED', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 12, backgroundColor: '#F5F7FA' },
-    radioButton: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#1A2332', marginRight: 12, justifyContent: 'center', alignItems: 'center', },
-    radioButtonActive: { borderColor: '#00A8FF', },
+    radioButton: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#1A2332', marginRight: 12, justifyContent: 'center', alignItems: 'center' },
+    radioButtonActive: { borderColor: '#00A8FF' },
     radioButtonInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#00A8FF' },
     paymentOptionText: { fontSize: 13, color: '#1A2332', fontWeight: '500' },
     infoText: { fontSize: 12, color: '#8B98A8', marginTop: 8 },
-
     billingCardReview: { backgroundColor: '#F5F7FA', borderRadius: 8, padding: 12, borderWidth: 1, borderColor: '#E0E6ED' },
     billingRowReview: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
     billingLabelReview: { fontSize: 13, fontWeight: '500', color: '#8B98A8', width: '30%' },
     billingValueReview: { fontSize: 13, fontWeight: '600', color: '#1A2332', flex: 1, textAlign: 'right' },
-
     confirmButton: { backgroundColor: '#00A8FF', paddingVertical: 12, borderRadius: 8, alignItems: 'center', marginTop: 10 },
     confirmButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 });
