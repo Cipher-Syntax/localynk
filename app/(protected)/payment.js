@@ -624,20 +624,55 @@ const Payment = () => {
                                 </View>
                             </SafeAreaView>
 
+                            {/* --- REDESIGNED AGENCY GUIDES SECTION --- */}
                             {isAgency && assignedAgencyGuidesList.length > 0 && (
                                 <SafeAreaView style={styles.agencyGuideSection}>
                                     <Text style={styles.sectionTitle}>Assigned Team</Text>
                                     {assignedAgencyGuidesList.map((g, i) => (
-                                        <View key={i} style={styles.miniGuideCard}>
-                                            <Image source={{ uri: g.profile_picture || '' }} style={styles.miniAvatar} />
-                                            <View>
-                                                <Text style={styles.miniName}>{g.full_name}</Text>
-                                                <Text style={styles.miniRole}>Agency Guide</Text>
+                                        <View key={i} style={styles.agencyGuideCard}>
+                                            <View style={styles.agencyGuideHeader}>
+                                                {g.profile_picture ? (
+                                                    <Image source={{ uri: getImageUrl(g.profile_picture) }} style={styles.agencyGuideAvatar} />
+                                                ) : (
+                                                    <View style={[styles.agencyGuideAvatar, styles.agencyGuideAvatarFallback]}>
+                                                        <Text style={styles.agencyGuideAvatarText}>
+                                                            {(g.first_name || g.full_name || 'G').charAt(0).toUpperCase()}
+                                                        </Text>
+                                                    </View>
+                                                )}
+                                                <View style={styles.agencyGuideInfo}>
+                                                    <Text style={styles.agencyGuideName}>{g.full_name || `${g.first_name} ${g.last_name}`}</Text>
+                                                    <Text style={styles.agencyGuideRole}>Agency Guide</Text>
+                                                </View>
+                                            </View>
+                                            
+                                            <View style={styles.agencyGuideDetails}>
+                                                {g.contact_number && (
+                                                    <View style={styles.agencyGuideDetailRow}>
+                                                        <Ionicons name="call-outline" size={14} color="#64748B" />
+                                                        <Text style={styles.agencyGuideDetailText}>{g.contact_number}</Text>
+                                                    </View>
+                                                )}
+                                                {g.email && (
+                                                    <View style={styles.agencyGuideDetailRow}>
+                                                        <Ionicons name="mail-outline" size={14} color="#64748B" />
+                                                        <Text style={styles.agencyGuideDetailText}>{g.email}</Text>
+                                                    </View>
+                                                )}
+                                                {g.languages && g.languages.length > 0 && (
+                                                    <View style={styles.agencyGuideDetailRow}>
+                                                        <Ionicons name="language-outline" size={14} color="#64748B" />
+                                                        <Text style={styles.agencyGuideDetailText}>
+                                                            {Array.isArray(g.languages) ? g.languages.join(', ') : g.languages}
+                                                        </Text>
+                                                    </View>
+                                                )}
                                             </View>
                                         </View>
                                     ))}
                                 </SafeAreaView>
                             )}
+                            {/* -------------------------------------- */}
 
                         </View>
                     </ScrollView>
@@ -774,7 +809,7 @@ const styles = StyleSheet.create({
     paymentIconCircleActive: { backgroundColor: PRIMARY_COLOR },
     paymentText: { fontSize: 12, fontWeight: '600', color: TEXT_SECONDARY },
     paymentTextActive: { color: PRIMARY_COLOR },
-    receiptCard: { backgroundColor: SURFACE_COLOR, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed', marginBottom: 100 },
+    receiptCard: { backgroundColor: SURFACE_COLOR, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed', marginBottom: 40 },
     receiptHeader: { alignItems: 'center', marginBottom: 16 },
     receiptTitle: { fontSize: 14, fontWeight: '700', color: TEXT_SECONDARY, textTransform: 'uppercase', letterSpacing: 1 },
     receiptRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
@@ -783,11 +818,22 @@ const styles = StyleSheet.create({
     receiptTotal: { fontSize: 18, fontWeight: '800' },
     receiptDivider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 12 },
     receiptNote: { fontSize: 11, color: PRIMARY_COLOR, fontStyle: 'italic', textAlign: 'right' },
+    
+    // --- NEW STYLES FOR REDESIGNED AGENCY GUIDES SECTION ---
     agencyGuideSection: { marginTop: -20, marginBottom: 100 },
-    miniGuideCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: SURFACE_COLOR, padding: 10, borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: '#E2E8F0' },
-    miniAvatar: { width: 40, height: 40, borderRadius: 20, marginRight: 12, backgroundColor: '#ccc' },
-    miniName: { fontSize: 14, fontWeight: '700', color: TEXT_PRIMARY },
-    miniRole: { fontSize: 11, color: TEXT_SECONDARY },
+    agencyGuideCard: { backgroundColor: SURFACE_COLOR, padding: 16, borderRadius: 16, marginBottom: 12, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 },
+    agencyGuideHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+    agencyGuideAvatar: { width: 48, height: 48, borderRadius: 24, marginRight: 12, backgroundColor: '#E2E8F0' },
+    agencyGuideAvatarFallback: { backgroundColor: PRIMARY_COLOR, justifyContent: 'center', alignItems: 'center' },
+    agencyGuideAvatarText: { color: '#FFF', fontSize: 20, fontWeight: '700' },
+    agencyGuideInfo: { flex: 1 },
+    agencyGuideName: { fontSize: 16, fontWeight: '700', color: TEXT_PRIMARY },
+    agencyGuideRole: { fontSize: 12, color: PRIMARY_COLOR, fontWeight: '600', marginTop: 2 },
+    agencyGuideDetails: { borderTopWidth: 1, borderTopColor: '#F1F5F9', paddingTop: 12, gap: 8 },
+    agencyGuideDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    agencyGuideDetailText: { fontSize: 13, color: TEXT_SECONDARY },
+    // -------------------------------------------------------
+
     bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: SURFACE_COLOR, paddingHorizontal: 24, paddingVertical: 16, paddingBottom: 30, borderTopWidth: 1, borderTopColor: '#F1F5F9', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', shadowColor: '#000', shadowOffset: {width:0, height:-2}, shadowOpacity:0.05, shadowRadius:10, elevation:10 },
     bottomLabel: { fontSize: 12, color: TEXT_SECONDARY, fontWeight: '600' },
     bottomPrice: { fontSize: 20, color: TEXT_PRIMARY, fontWeight: '800' },
