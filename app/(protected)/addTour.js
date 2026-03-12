@@ -28,20 +28,22 @@ const AddTour = () => {
     const [selectedDest, setSelectedDest] = useState(null); 
     const [destModalVisible, setDestModalVisible] = useState(false);
     
-    // Custom Activity Modal State
     const [activityModalVisible, setActivityModalVisible] = useState(false);
 
     const [featuredPlaces, setFeaturedPlaces] = useState([null]); 
     const [placeNames, setPlaceNames] = useState(['']); 
 
     const [timeline, setTimeline] = useState([]); 
+    
+    // NEW: Multi-day tab state
+    const [currentDayTab, setCurrentDayTab] = useState(1);
+    
     const [tempTimelineRow, setTempTimelineRow] = useState({
         startTime: '',
         endTime: '',
         selectedActivityIndex: '',
     });
 
-    // Time Picker State
     const [pickerStart, setPickerStart] = useState(new Date());
     const [pickerEnd, setPickerEnd] = useState(new Date());
     const [showStartPicker, setShowStartPicker] = useState(false);
@@ -51,6 +53,7 @@ const AddTour = () => {
         name: '',
         description: '',
         duration: '',
+        durationDays: '1', // NEW: Package integer length
         maxGroupSize: '',
         whatToBring: '',
         pricePerDay: '',
@@ -80,20 +83,16 @@ const AddTour = () => {
 
     const displayDestinations = useMemo(() => {
         if (!user?.specialty || !destinations.length) return destinations;
-        
         const matching = destinations.filter(d => {
             const destCategory = typeof d.category === 'object' ? d.category?.name : d.category;
             return destCategory && destCategory.toLowerCase() === user.specialty.toLowerCase();
         });
-
         return matching.length > 0 ? matching : destinations;
     }, [destinations, user?.specialty]);
 
     const showToast = (message, type = 'success') => {
         setToast({ visible: true, message, type });
-        setTimeout(() => {
-            setToast(prev => ({ ...prev, visible: false }));
-        }, 3000);
+        setTimeout(() => setToast(prev => ({ ...prev, visible: false })), 3000);
     };
 
     const pickImage = async (index) => {
@@ -102,9 +101,7 @@ const AddTour = () => {
         
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            aspect: [4, 3],
-            quality: 0.7,
+            allowsEditing: true, aspect: [4, 3], quality: 0.7,
         });
 
         if (!result.canceled) {
@@ -160,15 +157,13 @@ const AddTour = () => {
         }
     };
 
-    // Helper to get selected label for custom picker
     const getSelectedActivityLabel = () => {
         const val = tempTimelineRow.selectedActivityIndex;
         if (!val) return "Select Activity...";
         
         const [type, index] = val.split('|');
-        if (type === 'stop') {
-            return `📍 ${placeNames[parseInt(index)] || `Stop ${parseInt(index) + 1}`}`;
-        } else if (type === 'accom') {
+        if (type === 'stop') return `📍 ${placeNames[parseInt(index)] || `Stop ${parseInt(index) + 1}`}`;
+        else if (type === 'accom') {
             const accom = accommodations[parseInt(index)];
             return accom ? `🏨 ${accom.title}` : "Select Activity...";
         }
@@ -186,23 +181,21 @@ const AddTour = () => {
         let activityName = '';
         let activityId = null;
 
-        if (type === 'stop') {
-            activityName = placeNames[parseInt(index)] || `Stop ${parseInt(index) + 1}`;
-        } else if (type === 'accom') {
+        if (type === 'stop') activityName = placeNames[parseInt(index)] || `Stop ${parseInt(index) + 1}`;
+        else if (type === 'accom') {
             const accom = accommodations[parseInt(index)];
             activityName = accom.title;
             activityId = accom.id;
         }
 
-        const newRow = { startTime, endTime, activityName, type, refId: activityId };
+        // Include the currentDayTab in the payload to support multi-day
+        const newRow = { day: currentDayTab, startTime, endTime, activityName, type, refId: activityId };
         setTimeline([...timeline, newRow]);
         setTempTimelineRow(prev => ({ ...prev, selectedActivityIndex: '' })); 
     };
 
-    const removeTimelineRow = (index) => {
-        const newTimeline = [...timeline];
-        newTimeline.splice(index, 1);
-        setTimeline(newTimeline);
+    const removeTimelineRow = (rowToDelete) => {
+        setTimeline(timeline.filter(item => item !== rowToDelete));
     };
 
     const validateStep = (step) => {
@@ -243,6 +236,7 @@ const AddTour = () => {
             data.append('name', formData.name);
             data.append('description', formData.description);
             data.append('duration', formData.duration);
+            data.append('duration_days', parseInt(formData.durationDays) || 1); // Append new multi-day flag
             data.append('max_group_size', formData.maxGroupSize);
             data.append('what_to_bring', formData.whatToBring);
             data.append('price_per_day', formData.pricePerDay);
@@ -271,9 +265,7 @@ const AddTour = () => {
 
             if (response.status === 201) {
                 showToast("Tour Created Successfully! Finishing setup...", "success");
-                setTimeout(() => {
-                    router.replace('/(protected)/home/tourGuide');
-                }, 1500);
+                setTimeout(() => router.replace('/(protected)/home/tourGuide'), 1500);
             }
         } 
         catch (error) {
@@ -337,12 +329,23 @@ const AddTour = () => {
 
             <View style={styles.row}>
                 <View style={{ flex: 1, marginRight: 10 }}>
-                    <Text style={styles.label}>Duration</Text>
+                    <Text style={styles.label}>Duration Label</Text>
                     <TextInput
                         style={[styles.input, { color: "#1F2937"}]}
                         placeholder="e.g. 8 Hours"
                         value={formData.duration}
                         onChangeText={(t) => setFormData({ ...formData, duration: t })}
+                        placeholderTextColor="#9CA3AF"
+                    />
+                </View>
+                <View style={{ flex: 1, marginRight: 10 }}>
+                    <Text style={styles.label}>Package Days</Text>
+                    <TextInput
+                        style={[styles.input, { color: "#1F2937"}]}
+                        placeholder="e.g. 1, 2, 3"
+                        keyboardType="numeric"
+                        value={formData.durationDays}
+                        onChangeText={(t) => setFormData({ ...formData, durationDays: t })}
                         placeholderTextColor="#9CA3AF"
                     />
                 </View>
@@ -410,136 +413,138 @@ const AddTour = () => {
         </View>
     );
 
-    const renderStep3 = () => (
-        <View style={styles.stepContainer}>
-            <Text style={styles.stepTitle}>Pricing & Schedule</Text>
-            <Text style={styles.stepSubtitle}>Finalize the itinerary.</Text>
+    const renderStep3 = () => {
+        const durationNum = parseInt(formData.durationDays) || 1;
+        const dayTabs = Array.from({length: durationNum}, (_, i) => i + 1);
+        
+        // Filter timeline by currently selected Day Tab, fallback to day 1 if missing for old items
+        const filteredTimeline = timeline.filter(r => r.day === currentDayTab || (!r.day && currentDayTab === 1));
 
-            <View style={styles.pricingCard}>
-                <View style={styles.row}>
-                    <View style={{ flex: 1, marginRight: 10 }}>
-                        <Text style={styles.labelSmall}>Group Price</Text>
-                        <View style={styles.priceInputRow}>
-                            <Text style={styles.currency}>₱</Text>
-                            <TextInput
-                                style={styles.priceInput}
-                                placeholder="0"
-                                placeholderTextColor="#9CA3AF"
-                                keyboardType="numeric"
-                                value={formData.pricePerDay}
-                                onChangeText={(t) => setFormData({ ...formData, pricePerDay: t })}
-                            />
-                        </View>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={styles.labelSmall}>Solo Price</Text>
-                        <View style={styles.priceInputRow}>
-                            <Text style={styles.currency}>₱</Text>
-                            <TextInput
-                                style={styles.priceInput}
-                                placeholder="0"
-                                placeholderTextColor="#9CA3AF"
-                                keyboardType="numeric"
-                                value={formData.soloPricePerDay}
-                                onChangeText={(t) => setFormData({ ...formData, soloPricePerDay: t })}
-                            />
-                        </View>
-                    </View>
-                </View>
-            </View>
+        return (
+            <View style={styles.stepContainer}>
+                <Text style={styles.stepTitle}>Pricing & Schedule</Text>
+                <Text style={styles.stepSubtitle}>Finalize the itinerary.</Text>
 
-            <Text style={[styles.label, { marginTop: 25 }]}>Itinerary Builder</Text>
-            <View style={styles.builderContainer}>
-                
-                <View style={styles.row}>
-                    <View style={{flex: 1, marginRight: 5}}>
-                        <Text style={{fontSize:12, color:'#666', marginBottom:4}}>Start Time</Text>
-                        <TouchableOpacity 
-                            style={styles.timePickerButton} 
-                            onPress={() => setShowStartPicker(true)}
-                        >
-                            <Text style={styles.timePickerText}>
-                                {tempTimelineRow.startTime || "Select"}
-                            </Text>
-                            <Ionicons name="time-outline" size={18} color="#666" />
-                        </TouchableOpacity>
-                        
-                        {showStartPicker && (
-                            <DateTimePicker
-                                value={pickerStart}
-                                mode="time"
-                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                onChange={onStartTimeChange}
-                            />
-                        )}
-                    </View>
-
-                    <View style={{flex: 1, marginLeft: 5}}>
-                        <Text style={{fontSize:12, color:'#666', marginBottom:4}}>End Time</Text>
-                        <TouchableOpacity 
-                            style={styles.timePickerButton} 
-                            onPress={() => setShowEndPicker(true)}
-                        >
-                            <Text style={styles.timePickerText}>
-                                {tempTimelineRow.endTime || "Select"}
-                            </Text>
-                            <Ionicons name="time-outline" size={18} color="#666" />
-                        </TouchableOpacity>
-
-                        {showEndPicker && (
-                            <DateTimePicker
-                                value={pickerEnd}
-                                mode="time"
-                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                onChange={onEndTimeChange}
-                            />
-                        )}
-                    </View>
-                </View>
-
-                {/* NEW CUSTOM ACTIVITY SELECTOR */}
-                <TouchableOpacity 
-                    style={styles.pickerTrigger}
-                    onPress={() => setActivityModalVisible(true)}
-                >
-                    <Text style={{ 
-                        color: tempTimelineRow.selectedActivityIndex ? '#1F2937' : '#9CA3AF', 
-                        fontSize: 15,
-                        fontWeight: tempTimelineRow.selectedActivityIndex ? '500' : '400' 
-                    }}>
-                        {getSelectedActivityLabel()}
-                    </Text>
-                    <Ionicons name="chevron-down" size={20} color="#6B7280" />
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.addTimeBtn} onPress={addToTimeline}>
-                    <Text style={styles.addTimeBtnText}>+ Add to Schedule</Text>
-                </TouchableOpacity>
-
-                <View style={styles.timelineList}>
-                    {timeline.length === 0 ? (
-                        <Text style={styles.emptyTimelineText}>No activities added yet.</Text>
-                    ) : (
-                        timeline.map((row, index) => (
-                            <View key={index} style={styles.timelineItem}>
-                                <View style={styles.timelineLeft}>
-                                    <Text style={styles.timeText}>{row.startTime}</Text>
-                                    <View style={styles.dotLine} />
-                                    <Text style={styles.timeText}>{row.endTime}</Text>
-                                </View>
-                                <View style={styles.timelineContent}>
-                                    <Text style={styles.activityName}>{row.type === 'stop' ? '📍' : '🏨'} {row.activityName}</Text>
-                                    <TouchableOpacity onPress={() => removeTimelineRow(index)}>
-                                        <Ionicons name="trash-outline" size={18} color="#FF3B30" />
-                                    </TouchableOpacity>
-                                </View>
+                <View style={styles.pricingCard}>
+                    <View style={styles.row}>
+                        <View style={{ flex: 1, marginRight: 10 }}>
+                            <Text style={styles.labelSmall}>Group Price</Text>
+                            <View style={styles.priceInputRow}>
+                                <Text style={styles.currency}>₱</Text>
+                                <TextInput
+                                    style={styles.priceInput}
+                                    placeholder="0"
+                                    placeholderTextColor="#9CA3AF"
+                                    keyboardType="numeric"
+                                    value={formData.pricePerDay}
+                                    onChangeText={(t) => setFormData({ ...formData, pricePerDay: t })}
+                                />
                             </View>
-                        ))
-                    )}
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.labelSmall}>Solo Price</Text>
+                            <View style={styles.priceInputRow}>
+                                <Text style={styles.currency}>₱</Text>
+                                <TextInput
+                                    style={styles.priceInput}
+                                    placeholder="0"
+                                    placeholderTextColor="#9CA3AF"
+                                    keyboardType="numeric"
+                                    value={formData.soloPricePerDay}
+                                    onChangeText={(t) => setFormData({ ...formData, soloPricePerDay: t })}
+                                />
+                            </View>
+                        </View>
+                    </View>
+                </View>
+
+                <Text style={[styles.label, { marginTop: 25 }]}>Itinerary Builder</Text>
+                
+                {durationNum > 1 && (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 10}}>
+                        {dayTabs.map(day => (
+                            <TouchableOpacity 
+                                key={day} 
+                                style={[styles.dayTab, currentDayTab === day && styles.dayTabActive]}
+                                onPress={() => setCurrentDayTab(day)}
+                            >
+                                <Text style={[styles.dayTabText, currentDayTab === day && styles.dayTabTextActive]}>
+                                    Day {day}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                )}
+
+                <View style={styles.builderContainer}>
+                    <View style={styles.row}>
+                        <View style={{flex: 1, marginRight: 5}}>
+                            <Text style={{fontSize:12, color:'#666', marginBottom:4}}>Start Time</Text>
+                            <TouchableOpacity style={styles.timePickerButton} onPress={() => setShowStartPicker(true)}>
+                                <Text style={styles.timePickerText}>{tempTimelineRow.startTime || "Select"}</Text>
+                                <Ionicons name="time-outline" size={18} color="#666" />
+                            </TouchableOpacity>
+                            {showStartPicker && (
+                                <DateTimePicker
+                                    value={pickerStart} mode="time"
+                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                    onChange={onStartTimeChange}
+                                />
+                            )}
+                        </View>
+
+                        <View style={{flex: 1, marginLeft: 5}}>
+                            <Text style={{fontSize:12, color:'#666', marginBottom:4}}>End Time</Text>
+                            <TouchableOpacity style={styles.timePickerButton} onPress={() => setShowEndPicker(true)}>
+                                <Text style={styles.timePickerText}>{tempTimelineRow.endTime || "Select"}</Text>
+                                <Ionicons name="time-outline" size={18} color="#666" />
+                            </TouchableOpacity>
+                            {showEndPicker && (
+                                <DateTimePicker
+                                    value={pickerEnd} mode="time"
+                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                    onChange={onEndTimeChange}
+                                />
+                            )}
+                        </View>
+                    </View>
+
+                    <TouchableOpacity style={styles.pickerTrigger} onPress={() => setActivityModalVisible(true)}>
+                        <Text style={{ color: tempTimelineRow.selectedActivityIndex ? '#1F2937' : '#9CA3AF', fontSize: 15, fontWeight: tempTimelineRow.selectedActivityIndex ? '500' : '400' }}>
+                            {getSelectedActivityLabel()}
+                        </Text>
+                        <Ionicons name="chevron-down" size={20} color="#6B7280" />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.addTimeBtn} onPress={addToTimeline}>
+                        <Text style={styles.addTimeBtnText}>+ Add to Schedule</Text>
+                    </TouchableOpacity>
+
+                    <View style={styles.timelineList}>
+                        {filteredTimeline.length === 0 ? (
+                            <Text style={styles.emptyTimelineText}>No activities added for Day {currentDayTab} yet.</Text>
+                        ) : (
+                            filteredTimeline.map((row, index) => (
+                                <View key={index} style={styles.timelineItem}>
+                                    <View style={styles.timelineLeft}>
+                                        <Text style={styles.timeText}>{row.startTime}</Text>
+                                        <View style={styles.dotLine} />
+                                        <Text style={styles.timeText}>{row.endTime}</Text>
+                                    </View>
+                                    <View style={styles.timelineContent}>
+                                        <Text style={styles.activityName}>{row.type === 'stop' ? '📍' : '🏨'} {row.activityName}</Text>
+                                        <TouchableOpacity onPress={() => removeTimelineRow(row)}>
+                                            <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            ))
+                        )}
+                    </View>
                 </View>
             </View>
-        </View>
-    );
+        );
+    };
 
     return (
         <View style={styles.container}>
@@ -556,11 +561,7 @@ const AddTour = () => {
 
                 {renderProgressBar()}
 
-                <ScrollView 
-                    ref={scrollViewRef}
-                    contentContainerStyle={{ paddingBottom: 120 }}
-                    showsVerticalScrollIndicator={false}
-                >
+                <ScrollView ref={scrollViewRef} contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
                     {currentStep === 1 && renderStep1()}
                     {currentStep === 2 && renderStep2()}
                     {currentStep === 3 && renderStep3()}
@@ -578,32 +579,15 @@ const AddTour = () => {
                         onPress={currentStep === 3 ? handleFinalSubmit : nextStep}
                         disabled={isLoading}
                     >
-                        <LinearGradient
-                            colors={['#0072FF', '#00C6FF']}
-                            style={styles.gradientBtn}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                        >
-                            {isLoading ? (
-                                <ActivityIndicator color="#fff" />
-                            ) : (
-                                <Text style={styles.primaryButtonText}>
-                                    {currentStep === 3 ? 'Publish Tour' : 'Next Step'}
-                                </Text>
-                            )}
+                        <LinearGradient colors={['#0072FF', '#00C6FF']} style={styles.gradientBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                            {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>{currentStep === 3 ? 'Publish Tour' : 'Next Step'}</Text>}
                         </LinearGradient>
                     </TouchableOpacity>
                 </View>
 
                 {toast.visible && (
-                    <View style={[
-                        styles.toastContainer, 
-                        toast.type === 'error' ? styles.toastError : styles.toastSuccess
-                    ]}>
-                        <Ionicons 
-                            name={toast.type === 'error' ? "alert-circle" : "checkmark-circle"} 
-                            size={24} color="#fff" 
-                        />
+                    <View style={[styles.toastContainer, toast.type === 'error' ? styles.toastError : styles.toastSuccess]}>
+                        <Ionicons name={toast.type === 'error' ? "alert-circle" : "checkmark-circle"} size={24} color="#fff" />
                         <Text style={styles.toastText}>{toast.message}</Text>
                     </View>
                 )}
@@ -646,11 +630,7 @@ const AddTour = () => {
 
             {/* Custom Activity Picker Modal */}
             <Modal visible={activityModalVisible} animationType="fade" transparent={true}>
-                <TouchableOpacity 
-                    style={styles.modalOverlay} 
-                    activeOpacity={1} 
-                    onPress={() => setActivityModalVisible(false)}
-                >
+                <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setActivityModalVisible(false)}>
                     <View style={styles.activityModalContent}>
                         <View style={styles.activityModalHeader}>
                             <Text style={styles.activityModalTitle}>Select Activity</Text>
@@ -660,12 +640,10 @@ const AddTour = () => {
                         </View>
                         
                         <ScrollView style={{ maxHeight: 350 }} showsVerticalScrollIndicator={false}>
-                            
                             <Text style={styles.activitySectionTitle}>--- YOUR STOPS ---</Text>
                             {placeNames.map((name, idx) => (
                                 <TouchableOpacity 
-                                    key={`stop-${idx}`} 
-                                    style={styles.activityOption}
+                                    key={`stop-${idx}`} style={styles.activityOption}
                                     onPress={() => {
                                         setTempTimelineRow({...tempTimelineRow, selectedActivityIndex: `stop|${idx}`});
                                         setActivityModalVisible(false);
@@ -676,13 +654,10 @@ const AddTour = () => {
                             ))}
                             
                             <Text style={[styles.activitySectionTitle, {marginTop: 20}]}>--- ACCOMMODATIONS ---</Text>
-                            {accommodations.length === 0 && (
-                                <Text style={styles.activityEmptyText}>No accommodations available</Text>
-                            )}
+                            {accommodations.length === 0 && <Text style={styles.activityEmptyText}>No accommodations available</Text>}
                             {accommodations.map((accom, idx) => (
                                 <TouchableOpacity 
-                                    key={`accom-${idx}`} 
-                                    style={styles.activityOption}
+                                    key={`accom-${idx}`} style={styles.activityOption}
                                     onPress={() => {
                                         setTempTimelineRow({...tempTimelineRow, selectedActivityIndex: `accom|${idx}`});
                                         setActivityModalVisible(false);
@@ -691,8 +666,6 @@ const AddTour = () => {
                                     <Text style={styles.activityOptionText}>🏨 {accom.title}</Text>
                                 </TouchableOpacity>
                             ))}
-                            
-                            {/* Adding bottom padding for scroll view */}
                             <View style={{ height: 20 }} />
                         </ScrollView>
                     </View>
@@ -706,14 +679,8 @@ export default AddTour;
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F9FAFB' },
-    
-    header: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingHorizontal: 20, paddingVertical: 15, backgroundColor: '#fff',
-        borderBottomWidth: 1, borderBottomColor: '#F3F4F6'
-    },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
     headerTitleText: { fontSize: 18, fontWeight: '700', color: '#1F2937' },
-
     progressContainer: { backgroundColor: '#fff', paddingVertical: 20, marginBottom: 10 },
     progressInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: '100%' },
     stepDot: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', zIndex: 2 },
@@ -722,21 +689,16 @@ const styles = StyleSheet.create({
     stepNumberActive: { color: '#fff' },
     stepLine: { width: 60, height: 3, backgroundColor: '#E5E7EB', marginHorizontal: 4, borderRadius: 2 },
     stepLineActive: { backgroundColor: '#0072FF' },
-
     stepContainer: { padding: 20 },
     stepTitle: { fontSize: 24, fontWeight: '800', color: '#1F2937', marginBottom: 5 },
     stepSubtitle: { fontSize: 14, color: '#6B7280', marginBottom: 25 },
     row: { flexDirection: 'row', alignItems: 'center' },
-    
     label: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8, marginTop: 15 },
     labelSmall: { fontSize: 12, fontWeight: '600', color: '#6B7280', marginBottom: 5 },
     input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, paddingHorizontal: 15, paddingVertical: 12, fontSize: 15, color: '#1F2937' },
-    inputSmall: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 10, fontSize: 14 },
-    
     dropdownSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 15 },
     dropdownTextPlaceholder: { color: '#9CA3AF', fontSize: 15 },
     dropdownTextSelected: { color: '#1F2937', fontSize: 15, fontWeight: '600' },
-
     gridContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
     gridItemCard: { width: (width - 50) / 2, backgroundColor: '#fff', borderRadius: 12, padding: 8, borderWidth: 1, borderColor: '#E5E7EB' },
     imageUploadSmall: { height: 100, backgroundColor: '#F3F4F6', borderRadius: 8, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', marginBottom: 8 },
@@ -745,54 +707,28 @@ const styles = StyleSheet.create({
     cardInput: { fontSize: 12, textAlign: 'center', padding: 4, backgroundColor: '#F9FAFB', borderRadius: 4, color: '#1F2937' },
     addStopButton: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 15, marginTop: 10, borderStyle: 'dashed', borderWidth: 1, borderColor: '#0072FF', borderRadius: 12, backgroundColor: '#EFF6FF' },
     addStopText: { color: '#0072FF', fontWeight: '600', marginLeft: 8 },
-
     pricingCard: { backgroundColor: '#fff', padding: 15, borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB' },
     priceInputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9FAFB', borderRadius: 8, paddingHorizontal: 10 },
     currency: { fontSize: 16, fontWeight: '700', color: '#9CA3AF', marginRight: 5 },
     priceInput: { flex: 1, paddingVertical: 10, fontSize: 16, fontWeight: '600', color: '#1F2937' },
     
+    // Day Tabs Styling
+    dayTab: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, backgroundColor: '#F3F4F6', marginRight: 10, borderWidth: 1, borderColor: '#E5E7EB' },
+    dayTabActive: { backgroundColor: '#EFF6FF', borderColor: '#0072FF' },
+    dayTabText: { fontSize: 14, fontWeight: '600', color: '#6B7280' },
+    dayTabTextActive: { color: '#0072FF' },
+
     builderContainer: { backgroundColor: '#fff', padding: 15, borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', marginTop: 5 },
-    
-    // NEW PICKER STYLES
-    pickerTrigger: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-        borderRadius: 8,
-        paddingHorizontal: 15,
-        paddingVertical: 12,
-        marginVertical: 12,
-        backgroundColor: '#fff',
-    },
-    activityModalContent: {
-        backgroundColor: '#fff',
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 40,
-        width: '100%',
-    },
-    activityModalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 15,
-        paddingBottom: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F3F4F6'
-    },
+    pickerTrigger: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, paddingHorizontal: 15, paddingVertical: 12, marginVertical: 12, backgroundColor: '#fff' },
+    activityModalContent: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40, width: '100%' },
+    activityModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
     activityModalTitle: { fontSize: 18, fontWeight: '800', color: '#1F2937' },
     activitySectionTitle: { fontSize: 13, fontWeight: '700', color: '#9CA3AF', marginBottom: 8, letterSpacing: 1 },
     activityOption: { paddingVertical: 14, paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: '#F9FAFB' },
     activityOptionText: { fontSize: 16, color: '#1F2937', fontWeight: '500' },
     activityEmptyText: { color: '#9CA3AF', fontStyle: 'italic', paddingHorizontal: 10, marginVertical: 10 },
-
     addTimeBtn: { backgroundColor: '#0072FF', padding: 12, borderRadius: 8, alignItems: 'center', marginBottom: 15 },
     addTimeBtnText: { color: '#fff', fontWeight: '700' },
-    
     timelineList: { marginTop: 5 },
     emptyTimelineText: { textAlign: 'center', color: '#9CA3AF', fontSize: 13, fontStyle: 'italic' },
     timelineItem: { flexDirection: 'row', marginBottom: 12 },
@@ -801,14 +737,12 @@ const styles = StyleSheet.create({
     dotLine: { width: 1, flex: 1, backgroundColor: '#D1D5DB', marginVertical: 2 },
     timelineContent: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F3F4F6', padding: 10, borderRadius: 8 },
     activityName: { fontSize: 13, fontWeight: '600', color: '#1F2937' },
-
     footer: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#F3F4F6', padding: 20, flexDirection: 'row', gap: 15, elevation: 10 },
     secondaryButton: { paddingHorizontal: 20, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F3F4F6', borderRadius: 12, height: 50 },
     secondaryButtonText: { fontSize: 16, fontWeight: '600', color: '#4B5563' },
     primaryButton: { flex: 1, height: 50, borderRadius: 12, overflow: 'hidden' },
     gradientBtn: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     primaryButtonText: { fontSize: 16, fontWeight: '700', color: '#fff' },
-
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
     modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '70%' },
     modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 15, textAlign: 'center' },
@@ -817,53 +751,11 @@ const styles = StyleSheet.create({
     modalItemSub: { fontSize: 12, color: '#6B7280' },
     modalClose: { marginTop: 15, alignItems: 'center', padding: 10 },
     modalCloseText: { color: '#FF3B30', fontSize: 16, fontWeight: '600' },
-    
-    categoryBadge: {
-        backgroundColor: '#EFF6FF',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: '#BFDBFE'
-    },
-    categoryBadgeText: {
-        fontSize: 10,
-        color: '#1D4ED8',
-        fontWeight: '600',
-        textTransform: 'uppercase'
-    },
-    
-    timePickerButton: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        backgroundColor: '#fff',
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 12,
-    },
-    timePickerText: {
-        fontSize: 14,
-        color: '#1F2937',
-    },
-    toastContainer: { 
-        position: 'absolute', 
-        bottom: 80, 
-        left: 20, 
-        right: 20, 
-        borderRadius: 12, 
-        padding: 16, 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        shadowColor: '#000', 
-        shadowOffset: { width: 0, height: 4 }, 
-        shadowOpacity: 0.3, 
-        shadowRadius: 8, 
-        elevation: 10, 
-        zIndex: 1000 
-    },
+    categoryBadge: { backgroundColor: '#EFF6FF', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: '#BFDBFE' },
+    categoryBadgeText: { fontSize: 10, color: '#1D4ED8', fontWeight: '600', textTransform: 'uppercase' },
+    timePickerButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 12 },
+    timePickerText: { fontSize: 14, color: '#1F2937' },
+    toastContainer: { position: 'absolute', bottom: 80, left: 20, right: 20, borderRadius: 12, padding: 16, flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 10, zIndex: 1000 },
     toastSuccess: { backgroundColor: '#00c853' },
     toastError: { backgroundColor: '#ff5252' },
     toastText: { color: '#fff', fontSize: 14, fontWeight: '600', marginLeft: 12 },

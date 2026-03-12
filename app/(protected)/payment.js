@@ -27,12 +27,36 @@ const Payment = () => {
     const {
         entityName, guideName, placeName, bookingId, entityId, guideId, bookingType,
         assignedGuides, basePrice, soloPrice, accommodationPrice, accommodationId,
-        accommodationName, additionalFee, placeId, tourPackageId
+        accommodationName, additionalFee, placeId, tourPackageId, itineraryTimeline 
     } = params;
 
-    // --- 1. FETCH BOOKING STATUS LOGIC ---
     const [fetchedBooking, setFetchedBooking] = useState(null);
     const [loadingBooking, setLoadingBooking] = useState(!!bookingId);
+
+    // NEW EXTENSION: Multi-day package state configuration
+    const [packageDuration, setPackageDuration] = useState(1);
+    const packageOptions = [
+        { label: '1 Day', value: 1 },
+        { label: '2 Days', value: 2 },
+        { label: '3 Days', value: 3 },
+        { label: '1 Week', value: 7 },
+    ];
+
+    // Safe parse of incoming itineraries
+    const parsedItinerary = useMemo(() => {
+        try { return itineraryTimeline ? JSON.parse(itineraryTimeline) : []; } 
+        catch (e) { return []; }
+    }, [itineraryTimeline]);
+
+    const groupedItinerary = useMemo(() => {
+        const groups = {};
+        parsedItinerary.forEach(item => {
+            const day = item.day || 1; // Fallback to Day 1 for legacy setups
+            if (!groups[day]) groups[day] = [];
+            groups[day].push(item);
+        });
+        return groups;
+    }, [parsedItinerary]);
 
     useEffect(() => {
         const fetchBookingDetails = async () => {
@@ -40,24 +64,15 @@ const Payment = () => {
             try {
                 const response = await api.get(`/api/bookings/${bookingId}/`);
                 setFetchedBooking(response.data);
-            } catch (error) {
-                console.error("Failed to fetch booking details:", error);
-            } finally {
-                setLoadingBooking(false);
-            }
+            } catch (error) { console.error("Failed to fetch booking:", error); } 
+            finally { setLoadingBooking(false); }
         };
         fetchBookingDetails();
     }, [bookingId]);
 
-    // --- 2. DETERMINE REAL STATUS ---
     const currentStatus = fetchedBooking?.status || 'Pending_Payment';
-    
-    // "Confirmed" means PAID and DONE.
     const isConfirmed = currentStatus === 'Confirmed' || currentStatus === 'Completed';
-    // "Payable" means we have an ID (Accepted Request) but haven't paid yet.
     const isPayable = bookingId && (currentStatus === 'Accepted' || currentStatus === 'Pending_Payment');
-    
-    // If no ID, we are in "New Request" mode
     const isRequestMode = !bookingId;
 
     const isAgency = bookingType === 'agency';
@@ -80,7 +95,6 @@ const Payment = () => {
     const [errorModalVisible, setErrorModalVisible] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
 
-    // --- PRICE COMPONENTS ---
     const tourCostGroup = basePrice ? parseFloat(basePrice) : 500;
     const tourCostSolo = soloPrice ? parseFloat(soloPrice) : tourCostGroup;
     const accomCost = accommodationPrice ? parseFloat(accommodationPrice) : 0; 
@@ -175,6 +189,15 @@ const Payment = () => {
         fetchAvailabilityData();
     }, [resolvedId, isAgency]);
 
+    // Update End Date automatically when Package Duration or Start Date Changes
+    useEffect(() => {
+        if (!isPayable && !isConfirmed) {
+            const newEndDate = new Date(startDate);
+            newEndDate.setDate(newEndDate.getDate() + (packageDuration - 1));
+            setEndDate(newEndDate);
+        }
+    }, [packageDuration, startDate, isPayable, isConfirmed]);
+
     const getMarkedDates = useMemo(() => {
         const marked = {};
         const startCalc = new Date();
@@ -200,14 +223,7 @@ const Payment = () => {
             }
 
             if (blockedDates.includes(dateStr)) {
-                marked[dateStr] = { 
-                    disabled: true, 
-                    disableTouchEvent: true, 
-                    color: '#FFEBEE', 
-                    textColor: '#D32F2F', 
-                    marked: true, 
-                    dotColor: '#D32F2F' 
-                };
+                marked[dateStr] = { disabled: true, disableTouchEvent: true, color: '#FFEBEE', textColor: '#D32F2F', marked: true, dotColor: '#D32F2F' };
                 continue;
             }
 
@@ -217,21 +233,10 @@ const Payment = () => {
                 const dayName = dayNames[d.getDay()];
                 const isSpecific = specificDates.includes(dateStr);
                 const isRecurring = recurringDays.includes("All") || recurringDays.includes(dayName);
-                
-                // FIX: If specific dates are set, restrict availability strictly to those explicitly selected dates.
-                // If specific dates are empty, fall back to the recurring weekly schedule.
                 const isAvailable = specificDates.length > 0 ? isSpecific : isRecurring;
                 
-                if (isAvailable) {
-                    marked[dateStr] = { disabled: false, textColor: TEXT_PRIMARY };
-                } else {
-                    marked[dateStr] = { 
-                        disabled: true, 
-                        disableTouchEvent: true, 
-                        textColor: '#d9d9d9', 
-                        color: '#f9f9f9' 
-                    };
-                }
+                if (isAvailable) marked[dateStr] = { disabled: false, textColor: TEXT_PRIMARY };
+                else marked[dateStr] = { disabled: true, disableTouchEvent: true, textColor: '#d9d9d9', color: '#f9f9f9' };
             }
         }
 
@@ -258,20 +263,72 @@ const Payment = () => {
         return marked;
     }, [guideAvailability, startDate, endDate, isAgency, blockedDates]);
 
-    const openCalendar = (type) => { setSelectingType(type); setCalendarVisible(true); };
+    const openCalendar = (type) => { 
+        if (type === 'end' && packageDuration > 1) {
+            showError("End date is locked based on the multi-day package you selected.");
+            return;
+        }
+        setSelectingType(type); 
+        setCalendarVisible(true); 
+    };
+    
     const showError = (message) => { setErrorMessage(message); setErrorModalVisible(true); };
+
+    const checkDateBlockages = (checkStart, checkEnd) => {
+        let curr = new Date(checkStart);
+        let hasBlock = false;
+        while(curr <= checkEnd) {
+            const checkStr = formatDateForCalendar(curr);
+            if(blockedDates.includes(checkStr)) { hasBlock = true; break; }
+            curr.setDate(curr.getDate() + 1);
+        }
+        if(hasBlock) {
+             setCalendarVisible(false);
+             setTimeout(() => showError("Your selected package range overlaps with dates that are already booked."), 300);
+             return true;
+        }
+        
+        if (!isAgency && guideAvailability) {
+            let checkCurr = new Date(checkStart);
+            let hasUnavailable = false;
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const specificDates = guideAvailability.specific_available_dates || [];
+            const recurringDays = guideAvailability.available_days || [];
+
+            while(checkCurr <= checkEnd) {
+                const dStr = formatDateForCalendar(checkCurr);
+                const dayName = dayNames[checkCurr.getDay()];
+                const isSpecific = specificDates.includes(dStr);
+                const isRecurring = recurringDays.includes("All") || recurringDays.includes(dayName);
+                const isAvailable = specificDates.length > 0 ? isSpecific : isRecurring;
+
+                if (!isAvailable) { hasUnavailable = true; break; }
+                checkCurr.setDate(checkCurr.getDate() + 1);
+            }
+
+            if (hasUnavailable) {
+                setCalendarVisible(false);
+                setTimeout(() => showError("Your multi-day package includes dates the guide is not working."), 300);
+                return true;
+            }
+        }
+        return false;
+    }
 
     const onDayPress = (day) => {
         const selectedDate = new Date(day.dateString);
-        
         if (blockedDates.includes(day.dateString)) { 
             showError("This date has already been booked by another traveler."); 
             return; 
         }
 
         if (selectingType === 'start') {
+            const futureEnd = new Date(selectedDate);
+            futureEnd.setDate(futureEnd.getDate() + (packageDuration - 1));
+            
+            if(checkDateBlockages(selectedDate, futureEnd)) return;
+            
             setStartDate(selectedDate);
-            if (selectedDate > endDate) setEndDate(selectedDate);
             setCalendarVisible(false);
         } else {
             const startDateString = formatDateForCalendar(startDate);
@@ -286,49 +343,7 @@ const Payment = () => {
                 return;
             }
             
-            let curr = new Date(startDate);
-            let hasBlock = false;
-            while(curr <= selectedDate) {
-                const checkStr = formatDateForCalendar(curr);
-                if(blockedDates.includes(checkStr)) { hasBlock = true; break; }
-                curr.setDate(curr.getDate() + 1);
-            }
-            if(hasBlock) {
-                 setCalendarVisible(false);
-                 setTimeout(() => showError("Your selected range includes dates that are already booked."), 300);
-                 return;
-            }
-            
-            if (!isAgency && guideAvailability) {
-                let checkCurr = new Date(startDate);
-                let hasUnavailable = false;
-                const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-                const specificDates = guideAvailability.specific_available_dates || [];
-                const recurringDays = guideAvailability.available_days || [];
-
-                while(checkCurr <= selectedDate) {
-                    const dStr = formatDateForCalendar(checkCurr);
-                    const dayName = dayNames[checkCurr.getDay()];
-                    const isSpecific = specificDates.includes(dStr);
-                    const isRecurring = recurringDays.includes("All") || recurringDays.includes(dayName);
-
-                    // FIX: Match calendar UI validation with new explicit availability check
-                    const isAvailable = specificDates.length > 0 ? isSpecific : isRecurring;
-
-                    if (!isAvailable) {
-                        hasUnavailable = true;
-                        break;
-                    }
-                    checkCurr.setDate(checkCurr.getDate() + 1);
-                }
-
-                if (hasUnavailable) {
-                    setCalendarVisible(false);
-                    setTimeout(() => showError("Your selected range includes dates the guide is not working."), 300);
-                    return;
-                }
-            }
-
+            if(checkDateBlockages(startDate, selectedDate)) return;
             setEndDate(selectedDate);
             setCalendarVisible(false);
         }
@@ -357,9 +372,8 @@ const Payment = () => {
     const handleReviewPress = () => {
         const startStr = formatDateForCalendar(startDate);
         const endStr = formatDateForCalendar(endDate);
-        if (startStr === endStr) { showError("You cannot book start and end date on the same day."); return; }
+        if (startStr === endStr && packageDuration > 1) { showError("Multi-day packages cannot start and end on the same day."); return; }
         if (startDate > endDate) { showError("End date cannot be before start date."); return; }
-        
         if (!validIdImage && !isPayable) { showError("Please upload a valid government ID to proceed."); return; }
         if (!userSelfieImage && !isPayable) { showError("Please take a selfie for identity verification."); return; }
         
@@ -368,7 +382,14 @@ const Payment = () => {
 
     useEffect(() => {
         const oneDay = 24 * 60 * 60 * 1000;
-        const numDays = Math.max(Math.round(Math.abs((endDate - startDate) / oneDay)), 1);
+        let numDays = 1;
+        
+        if (packageDuration > 1 && startDate.getTime() !== endDate.getTime()) {
+            numDays = Math.round(Math.abs((endDate - startDate) / oneDay)) + 1;
+        } else if (packageDuration === 1 && startDate.getTime() !== endDate.getTime()) {
+            numDays = Math.max(Math.round(Math.abs((endDate - startDate) / oneDay)), 1);
+        }
+
         let groupSize = parseInt(numPeople) || 1;
         let guideFee = 0;
         let extraFees = 0;
@@ -392,7 +413,7 @@ const Payment = () => {
         setTotalPrice(grandTotal);
         setDownPayment(calculatedDownPayment);
         setBalanceDue(calculatedBalance);
-    }, [startDate, endDate, selectedOption, numPeople, tourCostGroup, tourCostSolo, accomCost, extraPersonFee]);
+    }, [startDate, endDate, selectedOption, numPeople, tourCostGroup, tourCostSolo, accomCost, extraPersonFee, packageDuration]);
 
     const profileImageSource = useMemo(() => {
         if (!isAgency && guideAvailability && guideAvailability.profile_picture) {
@@ -410,7 +431,6 @@ const Payment = () => {
                         <View style={styles.header}>
                             <View style={[styles.headerImage, { backgroundColor: '#E0E6ED', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }]} />
                         </View>
-
                         <View style={styles.contentContainer}>
                             <View style={styles.card}>
                                 <View style={styles.guideHeader}>
@@ -421,36 +441,8 @@ const Payment = () => {
                                     </View>
                                 </View>
                             </View>
-
-                            <View style={{ height: 18, width: 100, backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 12 }} />
-                            
-                            <View style={styles.datesRow}>
-                                <View style={[styles.dateBox, { height: 70, backgroundColor: '#E0E6ED', borderColor: 'transparent' }]} />
-                                <View style={styles.connector} />
-                                <View style={[styles.dateBox, { height: 70, backgroundColor: '#E0E6ED', borderColor: 'transparent' }]} />
-                            </View>
-
-                            <View style={[styles.switchContainer, { height: 45, backgroundColor: '#E0E6ED' }]} />
-
-                            <View style={{ height: 18, width: 120, backgroundColor: '#E0E6ED', borderRadius: 4, marginTop: 24, marginBottom: 12 }} />
-                            <View style={styles.inputRow}>
-                                <View style={[styles.modernInput, { flex: 1, height: 50, backgroundColor: '#E0E6ED', borderColor: 'transparent' }]} />
-                                <View style={{ width: 10 }} />
-                                <View style={[styles.modernInput, { flex: 1, height: 50, backgroundColor: '#E0E6ED', borderColor: 'transparent' }]} />
-                            </View>
-                            <View style={[styles.modernInput, { marginTop: 10, height: 50, backgroundColor: '#E0E6ED', borderColor: 'transparent' }]} />
-
-                            <View style={[styles.receiptCard, { marginTop: 24, height: 180, backgroundColor: '#E0E6ED', borderColor: 'transparent' }]} />
                         </View>
                     </View>
-                    
-                    <SafeAreaView style={styles.bottomBar}>
-                        <View style={{ gap: 4 }}>
-                            <View style={{ height: 12, width: 100, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
-                            <View style={{ height: 24, width: 80, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
-                        </View>
-                        <View style={{ height: 48, width: 140, backgroundColor: '#E0E6ED', borderRadius: 14 }} />
-                    </SafeAreaView>
                 </SafeAreaView>
             </View>
         );
@@ -501,6 +493,27 @@ const Payment = () => {
                             </View>
 
                             <View style={[isPayable && {opacity: 0.7}]}>
+                                
+                                {/* NEW EXTENSION: Package Options Selection */}
+                                {!isPayable && !isConfirmed && (
+                                    <>
+                                        <Text style={styles.sectionTitle}>Select Package Duration</Text>
+                                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.packageScroll}>
+                                            {packageOptions.map((opt) => (
+                                                <TouchableOpacity 
+                                                    key={opt.value} 
+                                                    style={[styles.packagePill, packageDuration === opt.value && styles.packagePillActive]}
+                                                    onPress={() => setPackageDuration(opt.value)}
+                                                >
+                                                    <Text style={[styles.packagePillText, packageDuration === opt.value && styles.packagePillTextActive]}>
+                                                        {opt.label}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </ScrollView>
+                                    </>
+                                )}
+
                                 <Text style={styles.sectionTitle}>Trip Details</Text>
                                 <View style={styles.datesRow}>
                                     <TouchableOpacity style={styles.dateBox} onPress={() => !isPayable && openCalendar('start')} disabled={isPayable}>
@@ -511,14 +524,37 @@ const Payment = () => {
                                         </View>
                                     </TouchableOpacity>
                                     <View style={styles.connector} />
-                                    <TouchableOpacity style={styles.dateBox} onPress={() => !isPayable && openCalendar('end')} disabled={isPayable}>
-                                        <Text style={styles.dateLabel}>End Date</Text>
+                                    <TouchableOpacity 
+                                        style={[styles.dateBox, packageDuration > 1 && { backgroundColor: '#F1F5F9' }]} 
+                                        onPress={() => !isPayable && openCalendar('end')} 
+                                        disabled={isPayable || packageDuration > 1}
+                                    >
+                                        <Text style={styles.dateLabel}>{packageDuration > 1 ? "Auto-Locked End" : "End Date"}</Text>
                                         <View style={styles.dateValueRow}>
-                                            <CalendarIcon size={18} color={PRIMARY_COLOR} />
-                                            <Text style={styles.dateValue}>{endDate.toLocaleDateString()}</Text>
+                                            <CalendarIcon size={18} color={packageDuration > 1 ? '#94A3B8' : PRIMARY_COLOR} />
+                                            <Text style={[styles.dateValue, packageDuration > 1 && { color: '#64748B' }]}>{endDate.toLocaleDateString()}</Text>
                                         </View>
                                     </TouchableOpacity>
                                 </View>
+
+                                {/* NEW EXTENSION: Daily Itinerary Preview */}
+                                {Object.keys(groupedItinerary).length > 0 && (
+                                    <View style={styles.itineraryPreviewBox}>
+                                        <Text style={styles.itineraryPreviewTitle}>Included Itinerary Preview</Text>
+                                        {Object.keys(groupedItinerary).map(day => (
+                                            <View key={`day-${day}`} style={{ marginBottom: 12 }}>
+                                                <Text style={styles.itineraryDayLabel}>Day {day}</Text>
+                                                {groupedItinerary[day].map((act, idx) => (
+                                                    <View key={idx} style={styles.itineraryActivityRow}>
+                                                        <Text style={styles.itineraryActivityTime}>{act.startTime}</Text>
+                                                        <View style={styles.itineraryActivityDot} />
+                                                        <Text style={styles.itineraryActivityName}>{act.activityName}</Text>
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
 
                                 <View style={styles.switchContainer}>
                                     <TouchableOpacity style={[styles.switchOption, selectedOption === 'solo' && styles.switchActive]} onPress={() => { setSelectedOption('solo'); setNumPeople('1'); }} disabled={isPayable}>
@@ -582,7 +618,6 @@ const Payment = () => {
                                 </>
                             )}
 
-                            {/* --- FIX: ALWAYS VISIBLE PAYMENT METHODS --- */}
                             {(isRequestMode || isPayable || isConfirmed) && (
                                 <>
                                     <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Payment Method</Text>
@@ -623,56 +658,6 @@ const Payment = () => {
                                     <Text style={styles.receiptValue}>₱ {balanceDue.toLocaleString()}</Text>
                                 </View>
                             </SafeAreaView>
-
-                            {/* --- REDESIGNED AGENCY GUIDES SECTION --- */}
-                            {isAgency && assignedAgencyGuidesList.length > 0 && (
-                                <SafeAreaView style={styles.agencyGuideSection}>
-                                    <Text style={styles.sectionTitle}>Assigned Team</Text>
-                                    {assignedAgencyGuidesList.map((g, i) => (
-                                        <View key={i} style={styles.agencyGuideCard}>
-                                            <View style={styles.agencyGuideHeader}>
-                                                {g.profile_picture ? (
-                                                    <Image source={{ uri: getImageUrl(g.profile_picture) }} style={styles.agencyGuideAvatar} />
-                                                ) : (
-                                                    <View style={[styles.agencyGuideAvatar, styles.agencyGuideAvatarFallback]}>
-                                                        <Text style={styles.agencyGuideAvatarText}>
-                                                            {(g.first_name || g.full_name || 'G').charAt(0).toUpperCase()}
-                                                        </Text>
-                                                    </View>
-                                                )}
-                                                <View style={styles.agencyGuideInfo}>
-                                                    <Text style={styles.agencyGuideName}>{g.full_name || `${g.first_name} ${g.last_name}`}</Text>
-                                                    <Text style={styles.agencyGuideRole}>Agency Guide</Text>
-                                                </View>
-                                            </View>
-                                            
-                                            <View style={styles.agencyGuideDetails}>
-                                                {g.contact_number && (
-                                                    <View style={styles.agencyGuideDetailRow}>
-                                                        <Ionicons name="call-outline" size={14} color="#64748B" />
-                                                        <Text style={styles.agencyGuideDetailText}>{g.contact_number}</Text>
-                                                    </View>
-                                                )}
-                                                {g.email && (
-                                                    <View style={styles.agencyGuideDetailRow}>
-                                                        <Ionicons name="mail-outline" size={14} color="#64748B" />
-                                                        <Text style={styles.agencyGuideDetailText}>{g.email}</Text>
-                                                    </View>
-                                                )}
-                                                {g.languages && g.languages.length > 0 && (
-                                                    <View style={styles.agencyGuideDetailRow}>
-                                                        <Ionicons name="language-outline" size={14} color="#64748B" />
-                                                        <Text style={styles.agencyGuideDetailText}>
-                                                            {Array.isArray(g.languages) ? g.languages.join(', ') : g.languages}
-                                                        </Text>
-                                                    </View>
-                                                )}
-                                            </View>
-                                        </View>
-                                    ))}
-                                </SafeAreaView>
-                            )}
-                            {/* -------------------------------------- */}
 
                         </View>
                     </ScrollView>
@@ -780,6 +765,23 @@ const styles = StyleSheet.create({
     verifiedTag: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 4, backgroundColor: '#ECFDF5', alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
     verifiedText: { fontSize: 11, color: '#059669', fontWeight: '600' },
     sectionTitle: { fontSize: 16, fontWeight: '700', color: TEXT_PRIMARY, marginBottom: 12 },
+    
+    // NEW EXTENSION: Package selection styles
+    packageScroll: { flexDirection: 'row', marginBottom: 20 },
+    packagePill: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: '#F1F5F9', marginRight: 10, borderWidth: 1, borderColor: '#E2E8F0' },
+    packagePillActive: { backgroundColor: '#EFF6FF', borderColor: PRIMARY_COLOR },
+    packagePillText: { fontSize: 14, fontWeight: '600', color: TEXT_SECONDARY },
+    packagePillTextActive: { color: PRIMARY_COLOR },
+    
+    // NEW EXTENSION: Itinerary styles
+    itineraryPreviewBox: { backgroundColor: '#F8FAFC', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 20 },
+    itineraryPreviewTitle: { fontSize: 14, fontWeight: '700', color: TEXT_PRIMARY, marginBottom: 12, borderBottomWidth: 1, borderBottomColor: '#E2E8F0', paddingBottom: 8 },
+    itineraryDayLabel: { fontSize: 13, fontWeight: '800', color: PRIMARY_COLOR, marginBottom: 6 },
+    itineraryActivityRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, paddingLeft: 8 },
+    itineraryActivityTime: { fontSize: 12, color: TEXT_SECONDARY, width: 65 },
+    itineraryActivityDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: PRIMARY_COLOR, marginHorizontal: 8 },
+    itineraryActivityName: { fontSize: 13, fontWeight: '600', color: TEXT_PRIMARY, flex: 1 },
+
     datesRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
     dateBox: { flex: 1, backgroundColor: SURFACE_COLOR, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0' },
     dateLabel: { fontSize: 12, color: TEXT_SECONDARY, marginBottom: 4 },
@@ -819,7 +821,6 @@ const styles = StyleSheet.create({
     receiptDivider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 12 },
     receiptNote: { fontSize: 11, color: PRIMARY_COLOR, fontStyle: 'italic', textAlign: 'right' },
     
-    // --- NEW STYLES FOR REDESIGNED AGENCY GUIDES SECTION ---
     agencyGuideSection: { marginTop: -20, marginBottom: 100 },
     agencyGuideCard: { backgroundColor: SURFACE_COLOR, padding: 16, borderRadius: 16, marginBottom: 12, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 },
     agencyGuideHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
@@ -832,7 +833,6 @@ const styles = StyleSheet.create({
     agencyGuideDetails: { borderTopWidth: 1, borderTopColor: '#F1F5F9', paddingTop: 12, gap: 8 },
     agencyGuideDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     agencyGuideDetailText: { fontSize: 13, color: TEXT_SECONDARY },
-    // -------------------------------------------------------
 
     bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: SURFACE_COLOR, paddingHorizontal: 24, paddingVertical: 16, paddingBottom: 30, borderTopWidth: 1, borderTopColor: '#F1F5F9', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', shadowColor: '#000', shadowOffset: {width:0, height:-2}, shadowOpacity:0.05, shadowRadius:10, elevation:10 },
     bottomLabel: { fontSize: 12, color: TEXT_SECONDARY, fontWeight: '600' },
