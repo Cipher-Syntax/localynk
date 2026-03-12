@@ -20,7 +20,8 @@ const AgencyPaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) 
         agency, startDate, endDate,
         firstName, lastName, email, phoneNumber, country,
         totalPrice: initialConfirmedPrice, 
-        numberOfPeople,
+        downPayment, balanceDue, 
+        numberOfPeople, additionalGuestNames,
         validIdImage, userSelfieImage, isNewKycImage,
         placeId
     } = paymentData || {};
@@ -51,7 +52,6 @@ const AgencyPaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) 
     };
 
     useEffect(() => {
-        // Just use the passed priceFloat from the previous screen without adding any extra guest fees
         setCurrentTotalPrice(priceFloat);
     }, [priceFloat]);
     
@@ -82,6 +82,11 @@ const AgencyPaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) 
         formData.append('check_out', formatLocalDate(endDate));
         formData.append('num_guests', String(numPeople));
         
+        // --- NEW: Add guest names ---
+        if (additionalGuestNames && additionalGuestNames.length > 0) {
+            formData.append('additional_guest_names', JSON.stringify(additionalGuestNames));
+        }
+
         if (agency && agency.id) {
             formData.append('agency', String(agency.id));
         } else {
@@ -153,9 +158,8 @@ const AgencyPaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) 
         </View>
     );
 
-    // Calculate Dynamic Percentage Label
-    const dpPercent = (paymentData.totalPrice > 0 && paymentData.downPayment > 0)
-        ? ((paymentData.downPayment / paymentData.totalPrice) * 100).toFixed(0) 
+    const dpPercent = (currentTotalPrice > 0 && downPayment > 0)
+        ? ((downPayment / currentTotalPrice) * 100).toFixed(0) 
         : "30";
 
     return (
@@ -215,6 +219,19 @@ const AgencyPaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) 
                                     editable={!isPaymentMode} 
                                 />
                             </View>
+
+                            {/* --- NEW: RENDER ADDITIONAL GUEST NAMES --- */}
+                            {additionalGuestNames && additionalGuestNames.length > 0 && (
+                                <View style={{marginTop: 10, padding: 12, backgroundColor: '#F8FAFC', borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0'}}>
+                                    <Text style={{fontSize: 11, color: '#64748B', fontWeight: '700', marginBottom: 6, letterSpacing: 0.5}}>ADDITIONAL GUESTS</Text>
+                                    {additionalGuestNames.map((name, idx) => (
+                                        <Text key={idx} style={{fontSize: 13, color: '#1E293B', fontWeight: '500', marginBottom: 2}}>
+                                            • {name || `Guest ${idx + 2}`}
+                                        </Text>
+                                    ))}
+                                    <Text style={{fontSize: 10, color: '#F59E0B', fontStyle: 'italic', marginTop: 6}}>* Valid ID required upon meetup</Text>
+                                </View>
+                            )}
                         </View>
 
                         <DashedLine />
@@ -236,13 +253,30 @@ const AgencyPaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) 
                         <View style={styles.section}>
                             <Text style={styles.sectionLabel}>PAYMENT BREAKDOWN</Text>
                             
-                            <View style={[styles.billRow, {marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F1F5F9'}]}>
-                                <Text style={[styles.billLabel, {fontWeight: '700', color: TEXT_PRIMARY}]}>Total Amount</Text>
-                                <Text style={[styles.billValue, {fontSize: 16, color: PRIMARY_COLOR}]}>₱ {currentTotalPrice.toLocaleString()}</Text>
+                            <View style={styles.billRow}>
+                                <Text style={styles.billLabel}>Total Trip Cost</Text>
+                                <Text style={styles.billValue}>₱ {currentTotalPrice.toLocaleString()}</Text>
                             </View>
+                            
+                            {downPayment > 0 && (
+                                <>
+                                    <View style={styles.billRow}>
+                                        <Text style={styles.billLabel}>Down Payment ({dpPercent}%)</Text>
+                                        <Text style={[styles.billValue, { color: '#0072FF', fontWeight: '700' }]}>
+                                            ₱ {downPayment?.toLocaleString()}
+                                        </Text>
+                                    </View>
+                                    <View style={styles.billRow}>
+                                        <Text style={styles.billLabel}>Balance (Pay Later)</Text>
+                                        <Text style={[styles.billValue, { color: '#94A3B8' }]}>
+                                            ₱ {balanceDue?.toLocaleString()}
+                                        </Text>
+                                    </View>
+                                </>
+                            )}
 
                             {!isPaymentMode && (
-                                <Text style={{fontSize: 11, color: TEXT_SECONDARY, marginTop: 8, fontStyle: 'italic'}}>
+                                <Text style={{fontSize: 11, color: TEXT_SECONDARY, marginTop: 12, fontStyle: 'italic', borderTopWidth: 1, borderTopColor: '#F1F5F9', paddingTop: 8}}>
                                     * Payment is collected only after the agency accepts your request.
                                 </Text>
                             )}
@@ -262,7 +296,7 @@ const AgencyPaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) 
                                 <>
                                     {isPaymentMode ? <CreditCard size={18} color="#fff" style={{ marginRight: 8 }} /> : <Send size={18} color="#fff" style={{ marginRight: 8 }} />}
                                     <Text style={styles.payButtonText}>
-                                        {isPaymentMode ? "Confirm & Pay" : "Submit Request"}
+                                        {isPaymentMode ? `Pay ₱${downPayment.toLocaleString()}` : "Submit Request"}
                                     </Text>
                                 </>
                             )}

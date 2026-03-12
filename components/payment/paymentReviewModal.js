@@ -1,50 +1,54 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator, AppState, Dimensions, Platform, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator, TextInput, Platform, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Receipt, MapPin, Calendar, CreditCard, User, Mail } from 'lucide-react-native';
+import { Receipt, MapPin, Calendar, CreditCard, User, Mail, Users, AlertCircle } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Linking from 'expo-linking';
-import api from '../../api/api';
-import { useAuth } from "../../context/AuthContext"; 
+import api from '../../api/api'; 
 
 const { height } = Dimensions.get('window');
 
+const PRIMARY_COLOR = '#0072FF';
+const SURFACE_COLOR = '#FFFFFF';
+const TEXT_PRIMARY = '#1E293B';
+const TEXT_SECONDARY = '#64748B';
+
 const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
-    const [showConfirmationScreen, setShowConfirmationScreen] = useState(false);
-    const [isPayment, setIsPayment] = useState(false);
-    
-    const [isLoading, setIsLoading] = useState(false);
-    const [checkoutUrl, setCheckoutUrl] = useState('');
-    const [showPaymentLink, setShowPaymentLink] = useState(false);
-    const [paymentId, setPaymentId] = useState(null);
-    const [activeBookingId, setActiveBookingId] = useState(null);
-    
     const router = useRouter();
-    const { refreshUser } = useAuth();
-    const pollingRef = useRef(null);
-    const appState = useRef(AppState.currentState);
-
     const { 
-        guide, agency, accommodation, accommodationId, tourPackageId,
-        startDate, endDate, 
-        firstName, lastName, phoneNumber, country, email, 
-        basePrice, totalPrice, downPayment, balanceDue,
-        paymentMethod, groupType, numberOfPeople, validIdImage, bookingId,
-        placeId, isNewKycImage, userSelfieImage,
-        tourCost, accomCost, extraPersonFee
+        bookingId, guide, agency, startDate, endDate,
+        firstName, lastName, email, phoneNumber, country,
+        basePrice, serviceFee, totalPrice: initialConfirmedPrice, 
+        downPayment, balanceDue, tourCost, accomCost, extraPersonFee,
+        accommodation, accommodationId, tourPackageId,
+        paymentMethod, groupType, numberOfPeople,
+        validIdImage, userSelfieImage, isNewKycImage,
+        placeId,
+        additionalGuestNames 
     } = paymentData || {};
+    
+    const isPaymentMode = !!bookingId;
+    const [numPeople, setNumPeople] = useState(String(paymentData.numberOfPeople || '1')); 
+    const [currentTotalPrice, setCurrentTotalPrice] = useState(parseFloat(initialConfirmedPrice || '0'));
+    
+    const [showConfirmationScreen, setShowConfirmationScreen] = useState(false);
+    const [isSuccess, setIsSuccess] = useState(false); 
+    const [isLoading, setIsLoading] = useState(false);
+    const [createdBookingId, setCreatedBookingId] = useState(null);
+    const [errorModalVisible, setErrorModalVisible] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
 
-    // --- FIXED: Inclusive Math (+1) for calculating days properly ---
+    const priceFloat = parseFloat(initialConfirmedPrice || '0');
+    const serviceFeeFloat = parseFloat(serviceFee || '0');
+    const accomCostFloat = parseFloat(accomCost || '0');
+    const baseGuideFeeFloat = parseFloat(tourCost || '0');
+    const dpFloat = parseFloat(downPayment || '0');
+    const balFloat = parseFloat(balanceDue || '0');
+    
     const calculateDays = () => {
         if (!startDate || !endDate) return 1;
-        const start = new Date(startDate);
-        const end = new Date(endDate);
         const oneDay = 24 * 60 * 60 * 1000;
-        
-        // Add +1 to make it inclusive (e.g. Mar 10 to Mar 11 = 2 days, not 1)
-        const diffInDays = Math.round(Math.abs((end - start) / oneDay)) + 1;
-        return Math.max(diffInDays, 1);
+        return Math.max(Math.round((endDate - startDate) / oneDay), 1);
     };
     const days = calculateDays();
 
@@ -53,54 +57,25 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     };
 
-    const checkPaymentStatus = useCallback(async (id) => {
-        if (!id) return;
-        try {
-            const statusResp = await api.get(`/api/payments/status/${id}/`);
-            const status = statusResp.data.status;
-            if (status === "succeeded" || status === "paid") {
-                if (pollingRef.current) clearInterval(pollingRef.current);
-                setPaymentId(null);
-                setShowPaymentLink(false);
-                if (refreshUser) refreshUser();
-                setIsPayment(true);
-                setShowConfirmationScreen(true);
-            } else if (status === "failed") {
-                if (pollingRef.current) clearInterval(pollingRef.current);
-                setPaymentId(null);
-                setShowPaymentLink(false);
-                Alert.alert("Payment Failed", "The payment process failed. Please try again.");
-            }
-        } catch (err) {
-            console.error("Check payment status failed:", err);
-        }
-    }, [refreshUser]);
-
-    const startPolling = useCallback((id) => {
-        if (!id) return;
-        if (pollingRef.current) clearInterval(pollingRef.current);
-        checkPaymentStatus(id);
-        pollingRef.current = setInterval(() => {
-            checkPaymentStatus(id);
-        }, 3000); 
-    }, [checkPaymentStatus]);
-
     useEffect(() => {
-        const subscription = AppState.addEventListener('change', nextAppState => {
-            if (appState.current.match(/inactive|background/) && nextAppState === 'active' && paymentId && showPaymentLink) {
-                startPolling(paymentId);
-            }
-            appState.current = nextAppState;
-        });
-        return () => subscription.remove();
-    }, [paymentId, showPaymentLink, startPolling]);
-
-    useEffect(() => {
-        return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
-    }, []);
+        setCurrentTotalPrice(priceFloat);
+    }, [priceFloat]);
+    
+    const handleNumPeopleChange = (value) => {
+        const num = Number(value.replace(/[^0-9]/g, '')) || 1;
+        setNumPeople(num > 0 ? num.toString() : '1');
+    };
+    
+    const showError = (message) => {
+        setErrorMessage(message);
+        setErrorModalVisible(true);
+    };
 
     const createBooking = async () => {
-        console.log("Creating new booking...");
+        if (!placeId) {
+            throw new Error("Missing Destination (Place ID). Please go back and select a destination.");
+        }
+
         const formatLocalDate = (date) => {
             const year = date.getFullYear();
             const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -111,31 +86,38 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         const formData = new FormData();
         formData.append('check_in', formatLocalDate(startDate));
         formData.append('check_out', formatLocalDate(endDate));
-        formData.append('num_guests', String(numberOfPeople || 1));
-        formData.append('first_name', firstName || '');
-        formData.append('last_name', lastName || '');
-        formData.append('phone_number', phoneNumber || '');
-        formData.append('country', country || '');
-        formData.append('email', email || '');
-
-        // --- FIXED: Force backend to use the correct frontend math ---
-        if (totalPrice) formData.append('total_price', String(totalPrice.toFixed(2)));
-        if (downPayment) formData.append('down_payment', String(downPayment.toFixed(2)));
-        if (balanceDue) formData.append('balance_due', String(balanceDue.toFixed(2)));
-
-        if (guide && guide.id) formData.append('guide', String(guide.id));
-        else if (agency && agency.id) formData.append('agency', String(agency.id));
+        formData.append('num_guests', String(numPeople));
         
-        if (accommodationId) formData.append('accommodation', String(accommodationId));
-        if (tourPackageId) formData.append('tour_package_id', String(tourPackageId));
+        // --- NEW: Add guest names ---
+        if (additionalGuestNames && additionalGuestNames.length > 0) {
+            formData.append('additional_guest_names', JSON.stringify(additionalGuestNames));
+        }
+
+        formData.append('total_price', String(currentTotalPrice));
+        formData.append('down_payment', String(dpFloat));
+        formData.append('balance_due', String(balFloat));
         
-        if (placeId) {
-            formData.append('destination', placeId);
+        if (guide && guide.id) {
+            formData.append('guide', String(guide.id));
+        } else if (agency && agency.id) {
+            formData.append('agency', String(agency.id));
+        } else {
+             throw new Error("Guide or Agency information is missing.");
         }
         
+        formData.append('destination', String(placeId));
+
+        if (tourPackageId && tourPackageId !== 'null') {
+            formData.append('tour_package_id', String(tourPackageId));
+        }
+        
+        if (accommodationId) {
+            formData.append('accommodation', String(accommodationId));
+        }
+
         if (validIdImage && isNewKycImage) {
             const uri = validIdImage;
-            const filename = uri.split('/').pop() || 'id_image.jpg';
+            const filename = uri.split('/').pop();
             const match = /\.(\w+)$/.exec(filename);
             const type = match ? `image/${match[1]}` : `image/jpeg`;
             formData.append('tourist_valid_id_image', { uri, name: filename, type });
@@ -143,106 +125,53 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 
         if (userSelfieImage) {
             const uri = userSelfieImage;
-            const filename = uri.split('/').pop() || 'selfie.jpg';
+            const filename = uri.split('/').pop();
             const match = /\.(\w+)$/.exec(filename);
             const type = match ? `image/${match[1]}` : `image/jpeg`;
             formData.append('tourist_selfie_image', { uri, name: filename, type });
         }
 
-        const baseURL = api.defaults.baseURL || 'https://my-friendly-local-guide.onrender.com';
-        const token = api.defaults.headers.common['Authorization']; 
-
-        const fetchHeaders = {
-            'Accept': 'application/json',
-        };
-        if (token) fetchHeaders['Authorization'] = token;
-
-        const response = await fetch(`${baseURL}/api/bookings/`, {
-            method: 'POST',
-            body: formData,
-            headers: fetchHeaders, 
+        const response = await api.post('/api/bookings/', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
         });
-
-        const responseText = await response.text();
-        let data;
-        try {
-            data = JSON.parse(responseText);
-        } catch (e) {
-            console.error("SERVER CRASH:", responseText);
-            throw new Error(`Server Crash (${response.status}): ${responseText.substring(0, 150)}...`);
-        }
-
-        if (!response.ok) {
-            throw { response: { data } }; 
-        }
-
-        return data;
-    };
-
-    const initiatePayment = async (targetBookingId) => {
-        const payload = {
-            payment_type: "Booking", 
-            booking_id: targetBookingId,
-            payment_method: paymentMethod 
-        };
-        const response = await api.post('/api/payments/initiate/', payload, { timeout: 15000 });
-        const { checkout_url, payment_id } = response.data;
-        
-        if (checkout_url) {
-            setCheckoutUrl(checkout_url);
-            setPaymentId(payment_id);
-            setShowPaymentLink(true);
-            await Linking.openURL(checkout_url);
-            startPolling(payment_id);
-        } else {
-            throw new Error("Could not generate payment link.");
-        }
+        return response.data;
     };
 
     const handleConfirm = async () => {
         setIsLoading(true);
-        try {
-            let targetId = bookingId; 
-            if (!targetId) {
-                const newBooking = await createBooking();
-                targetId = newBooking.id;
-                setActiveBookingId(targetId);
-            }
 
-            if (paymentMethod) {
-                await initiatePayment(targetId);
+        try {
+            if (!isPaymentMode) {
+                const newBooking = await createBooking();
+                setCreatedBookingId(newBooking.id);
+                setIsSuccess(true);
+                setShowConfirmationScreen(true);
             } else {
-                setIsPayment(false); 
+                if (!bookingId) {
+                    throw new Error("Missing booking ID for payment.");
+                }
+                const response = await api.post(`/api/payment/checkout/`, {
+                    booking_id: bookingId,
+                    payment_method: paymentMethod || 'card',
+                    amount: dpFloat 
+                });
+                setIsSuccess(true);
                 setShowConfirmationScreen(true);
             }
-
         } catch (error) {
-            console.error("Action failed:", error);
-            if (error.response && error.response.data) {
-                const errorData = error.response.data;
-                const errorMsg = typeof errorData === 'object' 
-                    ? Object.entries(errorData).map(([k, v]) => `${k}: ${v}`).join('\n')
-                    : String(errorData);
-                
-                Alert.alert("Booking Error", errorMsg);
-            } else {
-                Alert.alert("Request Failed", error.message || "Failed to connect to the server.");
-            }
+            console.error('Payment/Booking error:', error);
+            const msg = error.response?.data ? JSON.stringify(error.response.data) : error.message;
+            showError("Transaction Failed: " + msg);
+            setIsSuccess(false);
         } finally {
             setIsLoading(false);
-        }
-    };
-  
-    const handleOpenPaymentLink = async () => {
-        if (checkoutUrl) {
-            try { await Linking.openURL(checkoutUrl); } catch (error) {}
         }
     };
 
     const handleConfirmationDismiss = () => {
         setShowConfirmationScreen(false);
-        setIsModalOpen(false);
-        router.replace('/(protected)/home');
+        if(setIsModalOpen) setIsModalOpen(false);
+        router.replace(isSuccess ? '/(protected)/home' : '/(protected)/bookings');
     };
 
     const DashedLine = () => (
@@ -253,11 +182,12 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         </View>
     );
 
-    // --- FIX: Dynamic percentage calculation ---
-    const dpPercent = totalPrice > 0 ? ((downPayment / totalPrice) * 100).toFixed(0) : "30";
+    const dpPercent = (currentTotalPrice > 0 && dpFloat > 0) 
+        ? ((dpFloat / currentTotalPrice) * 100).toFixed(0) 
+        : "30";
 
     return (
-        <Modal visible={isModalOpen} animationType="fade" transparent={true}>
+        <Modal visible={isModalOpen} animationType="fade" transparent={true} onRequestClose={() => setIsModalOpen(false)}>
             <View style={styles.overlay}>
                 <StatusBar barStyle="light-content" backgroundColor="rgba(0,0,0,0.6)" />
                 
@@ -267,7 +197,9 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                             <View style={styles.headerIconBg}>
                                 <Receipt size={20} color="#0072FF" />
                             </View>
-                            <Text style={styles.receiptTitle}>BOOKING SUMMARY</Text>
+                            <Text style={styles.receiptTitle}>
+                                {isPaymentMode ? "PAYMENT REVIEW" : "BOOKING SUMMARY"}
+                            </Text>
                             <TouchableOpacity style={styles.closeButton} onPress={() => setIsModalOpen(false)}>
                                 <Ionicons name="close" size={20} color="#94A3B8" />
                             </TouchableOpacity>
@@ -278,22 +210,52 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                     <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
                         <View style={styles.section}>
                             <Text style={styles.sectionLabel}>ITINERARY</Text>
-                            
                             <View style={styles.itemRow}>
                                 <View style={styles.itemIcon}><Calendar size={16} color="#64748B" /></View>
                                 <View style={{flex: 1}}>
                                     <Text style={styles.itemTitle}>{formatDate(startDate)} — {formatDate(endDate)}</Text>
-                                    <Text style={styles.itemSub}>{days} Day{days > 1 ? 's' : ''} Duration • {groupType === 'group' ? `${numberOfPeople} Guests` : 'Solo Traveler'}</Text>
+                                    <Text style={styles.itemSub}>{days} Day{days > 1 ? 's' : ''} Duration</Text>
                                 </View>
                             </View>
-
                             <View style={styles.itemRow}>
                                 <View style={styles.itemIcon}><MapPin size={16} color="#64748B" /></View>
                                 <View style={{flex: 1}}>
-                                    <Text style={styles.itemTitle}>{guide ? guide.name : (agency ? agency.name : "Local Tour")}</Text>
-                                    {accommodation && <Text style={styles.itemSub}>+ {accommodation.name}</Text>}
+                                    <Text style={styles.itemTitle}>{guide?.name || agency?.name || 'Selected Guide'}</Text>
+                                    <Text style={styles.itemSub}>{guide ? 'Private Tour Guide' : 'Agency Partner'}</Text>
                                 </View>
                             </View>
+                        </View>
+
+                        <DashedLine />
+
+                        <View style={styles.section}>
+                            <Text style={styles.sectionLabel}>GUEST CONFIGURATION</Text>
+                            <View style={styles.interactiveRow}>
+                                <View style={{flexDirection:'row', alignItems:'center', gap:10}}>
+                                    <View style={styles.itemIcon}><Users size={16} color="#64748B" /></View>
+                                    <Text style={styles.itemText}>Total Guests</Text>
+                                </View>
+                                <TextInput 
+                                    style={styles.smallInput}
+                                    value={numPeople}
+                                    onChangeText={handleNumPeopleChange}
+                                    keyboardType="numeric"
+                                    editable={!isPaymentMode} 
+                                />
+                            </View>
+
+                            {/* --- NEW: RENDER ADDITIONAL GUEST NAMES --- */}
+                            {additionalGuestNames && additionalGuestNames.length > 0 && (
+                                <View style={{marginTop: 10, padding: 12, backgroundColor: '#F8FAFC', borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0'}}>
+                                    <Text style={{fontSize: 11, color: '#64748B', fontWeight: '700', marginBottom: 6, letterSpacing: 0.5}}>ADDITIONAL GUESTS</Text>
+                                    {additionalGuestNames.map((name, idx) => (
+                                        <Text key={idx} style={{fontSize: 13, color: '#1E293B', fontWeight: '500', marginBottom: 2}}>
+                                            • {name || `Guest ${idx + 2}`}
+                                        </Text>
+                                    ))}
+                                    <Text style={{fontSize: 10, color: '#F59E0B', fontStyle: 'italic', marginTop: 6}}>* Valid ID required upon meetup</Text>
+                                </View>
+                            )}
                         </View>
 
                         <DashedLine />
@@ -317,60 +279,52 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                             
                             <View style={styles.billRow}>
                                 <Text style={styles.billLabel}>Total Trip Cost</Text>
-                                <Text style={styles.billValue}>₱ {totalPrice?.toLocaleString()}</Text>
+                                <Text style={styles.billValue}>₱ {currentTotalPrice.toLocaleString()}</Text>
                             </View>
-                            
-                            {downPayment > 0 ? (
+
+                            {dpFloat > 0 && (
                                 <>
                                     <View style={styles.billRow}>
                                         <Text style={styles.billLabel}>Down Payment ({dpPercent}%)</Text>
                                         <Text style={[styles.billValue, { color: '#0072FF', fontWeight: '700' }]}>
-                                            ₱ {downPayment?.toLocaleString()}
+                                            ₱ {dpFloat.toLocaleString()}
                                         </Text>
                                     </View>
                                     <View style={styles.billRow}>
                                         <Text style={styles.billLabel}>Balance (Pay Later)</Text>
                                         <Text style={[styles.billValue, { color: '#94A3B8' }]}>
-                                            ₱ {balanceDue?.toLocaleString()}
+                                            ₱ {balFloat.toLocaleString()}
                                         </Text>
                                     </View>
                                 </>
-                            ) : (
-                                <View style={styles.billRow}>
-                                    <Text style={styles.billLabel}>Due Today</Text>
-                                    <Text style={[styles.billValue, { color: '#0072FF' }]}>₱ {totalPrice?.toLocaleString()}</Text>
-                                </View>
+                            )}
+                            
+                            {!isPaymentMode && (
+                                <Text style={{fontSize: 11, color: TEXT_SECONDARY, marginTop: 12, fontStyle: 'italic', borderTopWidth: 1, borderTopColor: '#F1F5F9', paddingTop: 8}}>
+                                    * Completing this step confirms your booking and securely processes your down payment.
+                                </Text>
                             )}
                         </View>
 
                     </ScrollView>
 
                     <View style={styles.receiptFooter}>
-                        <View style={styles.totalRow}>
-                            <Text style={styles.totalTextLabel}>PAYABLE NOW</Text>
-                            <Text style={styles.totalTextValue}>₱ {downPayment > 0 ? downPayment.toLocaleString() : totalPrice.toLocaleString()}</Text>
-                        </View>
-
-                        {!showPaymentLink ? (
-                            <TouchableOpacity 
-                                style={[styles.payButton, isLoading && { opacity: 0.8 }]} 
-                                onPress={handleConfirm}
-                                disabled={isLoading}
-                            >
-                                {isLoading ? (
-                                    <ActivityIndicator color="#fff" />
-                                ) : (
-                                    <>
-                                        <CreditCard size={18} color="#fff" style={{ marginRight: 8 }} />
-                                        <Text style={styles.payButtonText}>Confirm & Pay</Text>
-                                    </>
-                                )}
-                            </TouchableOpacity>
-                        ) : (
-                            <TouchableOpacity style={[styles.payButton, {backgroundColor: '#059669'}]} onPress={handleOpenPaymentLink}>
-                                <Text style={styles.payButtonText}>Resume Payment</Text>
-                            </TouchableOpacity>
-                        )}
+                        <TouchableOpacity 
+                            style={[styles.payButton, isLoading && { opacity: 0.8 }]} 
+                            onPress={handleConfirm}
+                            disabled={isLoading}
+                        >
+                            {isLoading ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <>
+                                    <CreditCard size={18} color="#fff" style={{ marginRight: 8 }} />
+                                    <Text style={styles.payButtonText}>
+                                        Pay ₱ {dpFloat.toLocaleString()} Now
+                                    </Text>
+                                </>
+                            )}
+                        </TouchableOpacity>
                         <Text style={styles.secureText}>
                             <Ionicons name="lock-closed" size={10} color="#94A3B8" /> Secure 256-bit SSL Encrypted Payment
                         </Text>
@@ -378,30 +332,57 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                 </View>
             </View>
 
-            <Modal visible={showConfirmationScreen} animationType="slide">
-                <SafeAreaView style={styles.successContainer}>
+            <Modal visible={errorModalVisible} transparent={true} animationType="fade">
+                <View style={styles.errorOverlay}>
+                    <View style={styles.errorCard}>
+                        <View style={styles.errorIconBox}>
+                            <AlertCircle size={32} color="#EF4444" />
+                        </View>
+                        <Text style={styles.errorTitle}>Oops!</Text>
+                        <Text style={styles.errorMessage}>{errorMessage}</Text>
+                        <TouchableOpacity style={styles.errorButton} onPress={() => setErrorModalVisible(false)}>
+                            <Text style={styles.errorButtonText}>Okay, Got it</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
+             <Modal visible={showConfirmationScreen} animationType="slide">
+                <SafeAreaView style={[styles.successContainer, !isSuccess && {backgroundColor: '#EF4444'}]}>
                     <View style={styles.successContent}>
                         <View style={styles.successIconCircle}>
-                            <Ionicons name="checkmark" size={60} color="#fff" />
+                            <Ionicons name={isSuccess ? "checkmark" : "close"} size={60} color="#fff" />
                         </View>
-                        <Text style={styles.successTitle}>PAYMENT SUCCESS</Text>
-                        <Text style={styles.successSub}>Your booking has been secured.</Text>
+                        <Text style={styles.successTitle}>
+                            {isSuccess ? "PAYMENT SUCCESS" : "PAYMENT FAILED"}
+                        </Text>
+                        <Text style={styles.successSub}>
+                            {isSuccess ? "Your booking has been secured." : "Please check your details and try again."}
+                        </Text>
                         
-                        <View style={styles.ticketStub}>
-                            <View style={styles.ticketRow}>
-                                <Text style={styles.ticketLabel}>Booking Ref</Text>
-                                <Text style={styles.ticketValue}>#{activeBookingId || "PENDING"}</Text>
+                        {isSuccess && (
+                            <View style={styles.ticketStub}>
+                                <View style={styles.ticketRow}>
+                                    <Text style={styles.ticketLabel}>Ref Number</Text>
+                                    <Text style={styles.ticketValue}>#{bookingId || createdBookingId}</Text>
+                                </View>
+                                <View style={styles.ticketRow}>
+                                    <Text style={styles.ticketLabel}>Amount Paid</Text>
+                                    <Text style={styles.ticketValue}>₱{dpFloat.toLocaleString()}</Text>
+                                </View>
+                                <View style={styles.ticketRow}>
+                                    <Text style={styles.ticketLabel}>Status</Text>
+                                    <Text style={[styles.ticketValue, {color: '#22C55E'}]}>Confirmed</Text>
+                                </View>
+                                <View style={styles.ticketDivider} />
+                                <Text style={styles.ticketNote}>A copy of this receipt has been sent to your email.</Text>
                             </View>
-                            <View style={styles.ticketRow}>
-                                <Text style={styles.ticketLabel}>Amount Paid</Text>
-                                <Text style={styles.ticketValue}>₱ {downPayment.toLocaleString()}</Text>
-                            </View>
-                            <View style={styles.ticketDivider} />
-                            <Text style={styles.ticketNote}>A receipt has been sent to {email}.</Text>
-                        </View>
+                        )}
 
                         <TouchableOpacity style={styles.homeButton} onPress={handleConfirmationDismiss}>
-                            <Text style={styles.homeButtonText}>Go Back To Home</Text>
+                            <Text style={[styles.homeButtonText, !isSuccess && {color: '#EF4444'}]}>
+                                {isSuccess ? "Return Home" : "Try Again"}
+                            </Text>
                         </TouchableOpacity>
                     </View>
                 </SafeAreaView>
@@ -413,154 +394,51 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 export default PaymentReviewModal;
 
 const styles = StyleSheet.create({
-    overlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20
-    },
-    receiptContainer: {
-        width: '100%',
-        maxHeight: height * 0.85,
-        backgroundColor: '#fff',
-        borderRadius: 20,
-        overflow: 'hidden',
-    },
-    receiptHeader: {
-        padding: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F1F5F9',
-        backgroundColor: '#FAFAFA'
-    },
-    headerRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 4
-    },
-    headerIconBg: {
-        width: 32, height: 32, borderRadius: 16, backgroundColor: '#E0F2FE',
-        justifyContent: 'center', alignItems: 'center', marginRight: 10
-    },
-    receiptTitle: {
-        flex: 1, fontSize: 14, fontWeight: '800', color: '#1E293B', letterSpacing: 1
-    },
-    receiptDate: {
-        fontSize: 11, color: '#94A3B8', marginLeft: 42
-    },
-    closeButton: {
-        padding: 5
-    },
-    scrollArea: {
-        padding: 20,
-    },
-    section: {
-        marginBottom: 20,
-    },
-    sectionLabel: {
-        fontSize: 10, fontWeight: '700', color: '#94A3B8', marginBottom: 12, letterSpacing: 1, textTransform: 'uppercase'
-    },
-    itemRow: {
-        flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12
-    },
-    itemIcon: {
-        width: 28, alignItems: 'center', paddingTop: 2
-    },
-    itemTitle: {
-        fontSize: 14, fontWeight: '700', color: '#1E293B', marginBottom: 2
-    },
-    itemSub: {
-        fontSize: 13, color: '#64748B'
-    },
-    itemText: {
-        fontSize: 14, color: '#334155', fontWeight: '500'
-    },
-    dashedLineContainer: {
-        flexDirection: 'row', justifyContent: 'space-between', overflow: 'hidden', marginBottom: 20
-    },
-    dash: {
-        width: 6, height: 1, backgroundColor: '#CBD5E1', marginRight: 4
-    },
-    billRow: {
-        flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8
-    },
-    billLabel: {
-        fontSize: 13, color: '#475569', fontWeight: '500'
-    },
-    billValue: {
-        fontSize: 13, color: '#1E293B', fontWeight: '600', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace'
-    },
-    receiptFooter: {
-        padding: 20,
-        backgroundColor: '#F8FAFC',
-        borderTopWidth: 1,
-        borderTopColor: '#E2E8F0'
-    },
-    totalRow: {
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16
-    },
-    totalTextLabel: {
-        fontSize: 12, fontWeight: '700', color: '#64748B'
-    },
-    totalTextValue: {
-        fontSize: 22, fontWeight: '800', color: '#0072FF'
-    },
-    payButton: {
-        backgroundColor: '#0072FF',
-        paddingVertical: 16,
-        borderRadius: 14,
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        shadowColor: '#0072FF', shadowOffset: {width:0, height:4}, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
-        marginBottom: 10
-    },
-    payButtonText: {
-        color: '#fff', fontSize: 15, fontWeight: '700'
-    },
-    secureText: {
-        textAlign: 'center', fontSize: 10, color: '#94A3B8'
-    },
-    successContainer: {
-        flex: 1, backgroundColor: '#0072FF', justifyContent: 'center', alignItems: 'center'
-    },
-    successContent: {
-        width: '85%', alignItems: 'center'
-    },
-    successIconCircle: {
-        width: 90, height: 90, borderRadius: 45, backgroundColor: 'rgba(255,255,255,0.2)',
-        justifyContent: 'center', alignItems: 'center', marginBottom: 20,
-        borderWidth: 2, borderColor: 'rgba(255,255,255,0.4)'
-    },
-    successTitle: {
-        fontSize: 22, fontWeight: '800', color: '#fff', marginBottom: 8, letterSpacing: 1
-    },
-    successSub: {
-        fontSize: 14, color: 'rgba(255,255,255,0.8)', marginBottom: 30, textAlign: 'center'
-    },
-    ticketStub: {
-        backgroundColor: '#fff', width: '100%', borderRadius: 16, padding: 20, marginBottom: 30,
-        shadowColor: '#000', shadowOffset: {width:0, height:10}, shadowOpacity: 0.2, shadowRadius: 20, elevation: 10
-    },
-    ticketRow: {
-        flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12
-    },
-    ticketLabel: {
-        fontSize: 13, color: '#64748B', fontWeight: '600'
-    },
-    ticketValue: {
-        fontSize: 14, color: '#1E293B', fontWeight: '700'
-    },
-    ticketDivider: {
-        height: 1, backgroundColor: '#E2E8F0', marginVertical: 15, borderStyle: 'dashed', borderWidth: 1, borderColor: '#E2E8F0'
-    },
-    ticketNote: {
-        fontSize: 12, color: '#64748B', textAlign: 'center', fontStyle: 'italic'
-    },
-    homeButton: {
-        backgroundColor: '#fff', paddingVertical: 14, paddingHorizontal: 30, borderRadius: 30
-    },
-    homeButtonText: {
-        color: '#0072FF', fontWeight: '700', fontSize: 14
-    }
+    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+    receiptContainer: { width: '100%', maxHeight: height * 0.85, backgroundColor: '#fff', borderRadius: 20, overflow: 'hidden' },
+    receiptHeader: { padding: 20, borderBottomWidth: 1, borderBottomColor: '#F1F5F9', backgroundColor: '#FAFAFA' },
+    headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+    headerIconBg: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#E0F2FE', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
+    receiptTitle: { flex: 1, fontSize: 14, fontWeight: '800', color: '#1E293B', letterSpacing: 1 },
+    receiptDate: { fontSize: 11, color: '#94A3B8', marginLeft: 42 },
+    closeButton: { padding: 5 },
+    scrollArea: { padding: 20 },
+    section: { marginBottom: 20 },
+    sectionLabel: { fontSize: 10, fontWeight: '700', color: '#94A3B8', marginBottom: 12, letterSpacing: 1, textTransform: 'uppercase' },
+    itemRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 },
+    interactiveRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+    itemIcon: { width: 28, alignItems: 'center', paddingTop: 2 },
+    itemTitle: { fontSize: 14, fontWeight: '700', color: '#1E293B', marginBottom: 2 },
+    itemSub: { fontSize: 13, color: '#64748B' },
+    itemText: { fontSize: 14, color: '#334155', fontWeight: '500' },
+    smallInput: { width: 60, height: 36, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, textAlign: 'center', fontSize: 14, fontWeight: '700', color: '#1E293B', backgroundColor: '#F8FAFC' },
+    dashedLineContainer: { flexDirection: 'row', justifyContent: 'space-between', overflow: 'hidden', marginBottom: 20 },
+    dash: { width: 6, height: 1, backgroundColor: '#CBD5E1', marginRight: 4 },
+    billRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+    billLabel: { fontSize: 13, color: '#475569', fontWeight: '500' },
+    billValue: { fontSize: 13, color: '#1E293B', fontWeight: '600', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+    receiptFooter: { padding: 20, backgroundColor: '#F8FAFC', borderTopWidth: 1, borderTopColor: '#E2E8F0' },
+    payButton: { backgroundColor: '#0072FF', paddingVertical: 16, borderRadius: 14, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', shadowColor: '#0072FF', shadowOffset: {width:0, height:4}, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4, marginBottom: 10 },
+    payButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+    secureText: { textAlign: 'center', fontSize: 10, color: '#94A3B8' },
+    successContainer: { flex: 1, backgroundColor: '#0072FF', justifyContent: 'center', alignItems: 'center' },
+    successContent: { width: '85%', alignItems: 'center' },
+    successIconCircle: { width: 90, height: 90, borderRadius: 45, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: 20, borderWidth: 2, borderColor: 'rgba(255,255,255,0.4)' },
+    successTitle: { fontSize: 22, fontWeight: '800', color: '#fff', marginBottom: 8, letterSpacing: 1 },
+    successSub: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginBottom: 30, textAlign: 'center' },
+    ticketStub: { backgroundColor: '#fff', width: '100%', borderRadius: 16, padding: 20, marginBottom: 30, shadowColor: '#000', shadowOffset: {width:0, height:10}, shadowOpacity: 0.2, shadowRadius: 20, elevation: 10 },
+    ticketRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+    ticketLabel: { fontSize: 13, color: '#64748B', fontWeight: '600' },
+    ticketValue: { fontSize: 14, color: '#1E293B', fontWeight: '700' },
+    ticketDivider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 15, borderStyle: 'dashed', borderWidth: 1, borderColor: '#E2E8F0' },
+    ticketNote: { fontSize: 12, color: '#64748B', textAlign: 'center', fontStyle: 'italic' },
+    homeButton: { backgroundColor: '#fff', paddingVertical: 14, paddingHorizontal: 30, borderRadius: 30 },
+    homeButtonText: { color: '#0072FF', fontWeight: '700', fontSize: 14 },
+    errorOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
+    errorCard: { width: '85%', backgroundColor: SURFACE_COLOR, borderRadius: 24, padding: 24, alignItems: 'center', elevation: 10 },
+    errorIconBox: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#FEF2F2', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+    errorTitle: { fontSize: 20, fontWeight: '800', color: TEXT_PRIMARY, marginBottom: 8 },
+    errorMessage: { fontSize: 14, color: TEXT_SECONDARY, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
+    errorButton: { backgroundColor: '#EF4444', paddingVertical: 12, width: '100%', alignItems: 'center', borderRadius: 12 },
+    errorButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });

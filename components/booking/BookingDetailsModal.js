@@ -140,7 +140,22 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
                                     <Text style={styles.manifestLabelDetail}>Total Pax:</Text>
                                     <Text style={styles.manifestValueDetail}>{booking.num_guests} People</Text>
                                 </View>
-                                <View style={styles.manifestRowDetail}>
+                                
+                                {/* --- NEW: DISPLAY ADDITIONAL GUESTS ON ITINERARY --- */}
+                                {booking.additional_guest_names && booking.additional_guest_names.length > 0 && (
+                                    <View style={[styles.manifestRowDetail, {flexDirection: 'column', alignItems: 'flex-start', marginTop: 4}]}>
+                                        <Text style={styles.manifestLabelDetail}>Additional Guests:</Text>
+                                        <View style={{marginTop: 4}}>
+                                            {booking.additional_guest_names.map((name, idx) => (
+                                                <Text key={idx} style={[styles.manifestValueDetail, {fontWeight: '500', color: '#475569', marginBottom: 2}]}>
+                                                    • {name || `Guest ${idx + 2}`}
+                                                </Text>
+                                            ))}
+                                        </View>
+                                    </View>
+                                )}
+                                
+                                <View style={[styles.manifestRowDetail, {marginTop: 8}]}>
                                     <Text style={styles.manifestLabelDetail}>Schedule:</Text>
                                     <Text style={styles.manifestValueDetail}>{booking.check_in} to {booking.check_out}</Text>
                                 </View>
@@ -181,7 +196,6 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
                                 <Text style={styles.priceValue}>₱ {total.toLocaleString()}</Text>
                             </View>
 
-                            {/* --- REVISION 12: CHRONOLOGICAL TIMELINE UI --- */}
                             <View style={styles.ledgerContainer}>
                                 {booking.downpayment_paid_at && (
                                     <View style={styles.ledgerRow}>
@@ -225,7 +239,6 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
                                     </View>
                                 </View>
                             </View>
-                            {/* --- END REVISION 12 --- */}
 
                             <View style={[
                                 styles.balanceContainer, 
@@ -347,7 +360,6 @@ const styles = StyleSheet.create({
     priceLabel: { fontSize: 14, color: '#4B5563', fontWeight: '600' },
     priceValue: { fontSize: 15, fontWeight: '800', color: '#1F2937' },
 
-    // --- NEW: LEDGER TIMELINE STYLES ---
     ledgerContainer: { backgroundColor: '#F8FAFC', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 10 },
     ledgerRow: { flexDirection: 'row', minHeight: 50 },
     ledgerTimeline: { width: 24, alignItems: 'center' },
@@ -359,10 +371,9 @@ const styles = StyleSheet.create({
     ledgerDesc: { fontSize: 14, color: '#1E293B', fontWeight: '500' },
     ledgerAmount: { fontSize: 14, color: '#1E293B', fontWeight: '700' },
     ledgerPendingText: { fontSize: 11, color: '#F59E0B', fontStyle: 'italic', marginTop: 4 },
-    // ----------------------------------
     
-    balanceContainer: { marginTop: 10, padding: 15, backgroundColor: '#FEF3C7', borderRadius: 12, borderLeftWidth: 4, borderLeftColor: '#F59E0B', marginBottom: 30 },
-    balanceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', },
+    balanceContainer: { marginTop: 10, padding: 15, backgroundColor: '#FEF3C7', borderRadius: 12, borderLeftWidth: 4, borderLeftColor: '#F59E0B' },
+    balanceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     balanceLabel: { fontSize: 16, fontWeight: '800', color: '#92400E' },
     balanceValue: { fontSize: 18, fontWeight: '800', color: '#92400E' },
     balanceNote: { fontSize: 11, color: '#B45309', marginTop: 6, fontStyle: 'italic' },

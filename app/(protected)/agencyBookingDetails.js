@@ -44,6 +44,9 @@ const AgencyBookingDetails = () => {
 
     const [selectedOption, setSelectedOption] = useState('solo');
     const [numPeople, setNumPeople] = useState('1');
+    
+    // --- NEW STATE: Additional Guest Names Array ---
+    const [guestNames, setGuestNames] = useState([]);
 
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
@@ -60,10 +63,22 @@ const AgencyBookingDetails = () => {
 
     const [dynamicDpRate, setDynamicDpRate] = useState(agencyDownPayment ? (parseFloat(agencyDownPayment) / 100) : 0.30);
 
-    // --- NEW: Manifest Modal State ---
     const [concurrentBookings, setConcurrentBookings] = useState([]);
     const [loadingConcurrent, setLoadingConcurrent] = useState(false);
     const [manifestModalVisible, setManifestModalVisible] = useState(false);
+
+    useEffect(() => {
+        const count = parseInt(numPeople) || 1;
+        if (count > 1) {
+            setGuestNames(prev => {
+                const newArray = [...prev];
+                while (newArray.length < count - 1) newArray.push('');
+                return newArray.slice(0, count - 1);
+            });
+        } else {
+            setGuestNames([]);
+        }
+    }, [numPeople]);
 
     useEffect(() => {
         const fetchAgencyRate = async () => {
@@ -86,7 +101,6 @@ const AgencyBookingDetails = () => {
         }
     }, [agencyId, agencyDownPayment]);
 
-    // --- NEW: Fetch concurrent agency bookings dynamically ---
     useEffect(() => {
         const fetchConcurrentBookings = async () => {
             if (!agencyId) return;
@@ -267,6 +281,14 @@ const AgencyBookingDetails = () => {
             return;
         }
         
+        if (selectedOption === 'group' && parseInt(numPeople) > 1) {
+            const hasEmptyName = guestNames.some(name => name.trim() === '');
+            if (hasEmptyName) {
+                showError("Please provide the full names of all additional guests.");
+                return;
+            }
+        }
+        
         if (!isPaymentMode) {
             if (!validIdImage) {
                 showError("Please upload a valid government ID for verification.");
@@ -347,7 +369,7 @@ const AgencyBookingDetails = () => {
 
                                 {selectedOption === 'group' && (
                                     <View style={styles.inputGroup}>
-                                        <Text style={styles.inputLabel}>Number of Guests</Text>
+                                        <Text style={styles.inputLabel}>Total Number of Guests</Text>
                                         <TextInput
                                             style={styles.modernInput}
                                             value={numPeople}
@@ -355,6 +377,32 @@ const AgencyBookingDetails = () => {
                                             keyboardType="numeric"
                                             editable={!isPaymentMode}
                                         />
+
+                                        {parseInt(numPeople) > 1 && (
+                                            <View style={styles.guestNamesContainer}>
+                                                <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 4}}>
+                                                    <Ionicons name="people-circle-outline" size={18} color={PRIMARY_COLOR} />
+                                                    <Text style={[styles.inputLabel, {marginBottom: 0, marginLeft: 6}]}>Additional Guest Names</Text>
+                                                </View>
+                                                <Text style={{fontSize: 11, color: '#B45309', fontStyle: 'italic', marginBottom: 12}}>
+                                                    * Please ensure all guests provide a valid ID upon meetup.
+                                                </Text>
+                                                {guestNames.map((name, index) => (
+                                                    <TextInput
+                                                        key={`guest-${index}`}
+                                                        style={[styles.modernInput, {marginBottom: 8}]}
+                                                        placeholder={`Guest ${index + 2} Full Name`}
+                                                        value={name}
+                                                        onChangeText={(text) => {
+                                                            const newNames = [...guestNames];
+                                                            newNames[index] = text;
+                                                            setGuestNames(newNames);
+                                                        }}
+                                                        editable={!isPaymentMode}
+                                                    />
+                                                ))}
+                                            </View>
+                                        )}
                                     </View>
                                 )}
                             </View>
@@ -431,7 +479,6 @@ const AgencyBookingDetails = () => {
                                 </Text>
                             </View>
 
-                            {/* --- NEW: BUTTON TO OPEN CONCURRENT BOOKINGS MODAL --- */}
                             <TouchableOpacity 
                                 style={styles.viewManifestButton}
                                 onPress={() => setManifestModalVisible(true)}
@@ -461,7 +508,6 @@ const AgencyBookingDetails = () => {
                     </TouchableOpacity>
                 </SafeAreaView>
 
-                {/* --- NEW: MANIFEST MODAL --- */}
                 <Modal visible={manifestModalVisible} transparent={true} animationType="slide">
                     <View style={styles.manifestModalOverlay}>
                         <View style={styles.manifestModalContainer}>
@@ -508,7 +554,6 @@ const AgencyBookingDetails = () => {
                     </View>
                 </Modal>
 
-                {/* OTHER MODALS */}
                 <Modal visible={isCalendarVisible} transparent={true} animationType="slide">
                     <View style={styles.modalOverlay}>
                         <View style={styles.calendarCard}>
@@ -571,6 +616,7 @@ const AgencyBookingDetails = () => {
                             paymentMethod: null, 
                             groupType: selectedOption,
                             numberOfPeople: selectedOption === 'group' ? (parseInt(numPeople) < 2 ? 2 : parseInt(numPeople)) : 1,
+                            additionalGuestNames: guestNames,
                             validIdImage: validIdImage,
                             userSelfieImage: userSelfieImage, 
                             isNewKycImage: validIdImage && validIdImage.startsWith('file://')
@@ -617,6 +663,9 @@ const styles = StyleSheet.create({
     inputRow: { flexDirection: 'row', marginBottom: 10 },
     inputGroup: { marginBottom: 20 },
     inputLabel: { fontSize: 13, fontWeight: '600', color: TEXT_SECONDARY, marginBottom: 8 },
+    
+    guestNamesContainer: { marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: '#E2E8F0' },
+
     kycRow: { flexDirection: 'row', gap: 12 },
     kycCard: { flex: 1, height: 120, backgroundColor: '#F8FAFC', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
     kycCardDone: { borderStyle: 'solid', borderColor: '#22C55E' },
@@ -651,8 +700,7 @@ const styles = StyleSheet.create({
     errorButton: { backgroundColor: '#EF4444', paddingVertical: 12, width: '100%', alignItems: 'center', borderRadius: 12 },
     errorButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 
-    // --- NEW MODAL & BUTTON STYLES ---
-    viewManifestButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#EFF6FF', paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#BFDBFE', marginBottom: 50 },
+    viewManifestButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#EFF6FF', paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#BFDBFE', marginBottom: 20 },
     viewManifestButtonText: { color: PRIMARY_COLOR, fontSize: 14, fontWeight: '700', marginLeft: 8 },
     manifestModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
     manifestModalContainer: { backgroundColor: SURFACE_COLOR, borderTopLeftRadius: 24, borderTopRightRadius: 24, height: '70%', padding: 20 },

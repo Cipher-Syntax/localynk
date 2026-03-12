@@ -171,6 +171,9 @@ const Payment = () => {
     
     const [validIdImage, setValidIdImage] = useState(null);
     const [userSelfieImage, setUserSelfieImage] = useState(null);
+    
+    // --- NEW STATE: Additional Guest Names Array ---
+    const [guestNames, setGuestNames] = useState([]);
 
     const [totalPrice, setTotalPrice] = useState(0);
     const [currentGuideFee, setCurrentGuideFee] = useState(0);
@@ -184,6 +187,20 @@ const Payment = () => {
         { key: 'card', name: 'Card', icon: 'card-outline' },
     ];
 
+    // --- NEW EFFECT: Dynamically resize the guestNames array when numPeople changes ---
+    useEffect(() => {
+        const count = parseInt(numPeople) || 1;
+        if (count > 1) {
+            setGuestNames(prev => {
+                const newArray = [...prev];
+                while (newArray.length < count - 1) newArray.push('');
+                return newArray.slice(0, count - 1);
+            });
+        } else {
+            setGuestNames([]);
+        }
+    }, [numPeople]);
+
     useEffect(() => {
         if (fetchedBooking) {
             if (fetchedBooking.check_in) setStartDate(new Date(fetchedBooking.check_in));
@@ -191,6 +208,9 @@ const Payment = () => {
             if (fetchedBooking.num_guests) {
                 setNumPeople(String(fetchedBooking.num_guests));
                 setSelectedOption(fetchedBooking.num_guests > 1 ? 'group' : 'solo');
+            }
+            if (fetchedBooking.additional_guest_names) {
+                setGuestNames(fetchedBooking.additional_guest_names);
             }
         }
     }, [fetchedBooking]);
@@ -214,7 +234,6 @@ const Payment = () => {
         }
     }, [activeDuration, startDate, isPayable, isConfirmed]);
 
-    // --- FIX: Only fetch concurrent bookings if it's an Agency, skipping useless API calls for solo guides ---
     useEffect(() => {
         if (!isAgency || !resolvedId) return; 
 
@@ -427,6 +446,16 @@ const Payment = () => {
         const endStr = formatDateForCalendar(endDate);
         if (startStr === endStr && activeDuration > 1) { showError("Multi-day packages cannot start and end on the same day."); return; }
         if (startDate > endDate) { showError("End date cannot be before start date."); return; }
+        
+        // Ensure guest names are filled out
+        if (selectedOption === 'group' && parseInt(numPeople) > 1) {
+            const hasEmptyName = guestNames.some(name => name.trim() === '');
+            if (hasEmptyName) {
+                showError("Please provide the full names of all additional guests.");
+                return;
+            }
+        }
+        
         if (!validIdImage && !isPayable) { showError("Please upload a valid government ID to proceed."); return; }
         if (!userSelfieImage && !isPayable) { showError("Please take a selfie for identity verification."); return; }
         
@@ -652,7 +681,7 @@ const Payment = () => {
 
                                 {selectedOption === 'group' && (
                                     <View style={styles.inputGroup}>
-                                        <Text style={styles.inputLabel}>Number of Guests</Text>
+                                        <Text style={styles.inputLabel}>Total Number of Guests</Text>
                                         <TextInput
                                             style={styles.modernInput}
                                             value={numPeople}
@@ -660,6 +689,33 @@ const Payment = () => {
                                             keyboardType="numeric"
                                             editable={!isPayable}
                                         />
+
+                                        {/* --- NEW: RENDER ADDITIONAL GUEST NAME INPUTS DYNAMICALLY --- */}
+                                        {parseInt(numPeople) > 1 && (
+                                            <View style={styles.guestNamesContainer}>
+                                                <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 4}}>
+                                                    <Ionicons name="people-circle-outline" size={18} color={PRIMARY_COLOR} />
+                                                    <Text style={[styles.inputLabel, {marginBottom: 0, marginLeft: 6}]}>Additional Guest Names</Text>
+                                                </View>
+                                                <Text style={{fontSize: 11, color: '#B45309', fontStyle: 'italic', marginBottom: 12}}>
+                                                    * Please ensure all guests provide a valid ID upon meetup.
+                                                </Text>
+                                                {guestNames.map((name, index) => (
+                                                    <TextInput
+                                                        key={`guest-${index}`}
+                                                        style={[styles.modernInput, {marginBottom: 8}]}
+                                                        placeholder={`Guest ${index + 2} Full Name`}
+                                                        value={name}
+                                                        onChangeText={(text) => {
+                                                            const newNames = [...guestNames];
+                                                            newNames[index] = text;
+                                                            setGuestNames(newNames);
+                                                        }}
+                                                        editable={!isPayable}
+                                                    />
+                                                ))}
+                                            </View>
+                                        )}
                                     </View>
                                 )}
                             </View>
@@ -804,7 +860,6 @@ const Payment = () => {
                                 </View>
                             </SafeAreaView>
 
-                            {/* --- ONLY RENDER CONCURRENT MANIFEST IF IT IS AN AGENCY --- */}
                             {isAgency && (
                                 <TouchableOpacity 
                                     style={styles.viewManifestButton}
@@ -841,7 +896,6 @@ const Payment = () => {
                     </SafeAreaView>
                 )}
 
-                {/* --- AGENCY ONLY MANIFEST MODAL --- */}
                 {isAgency && (
                     <Modal visible={manifestModalVisible} transparent={true} animationType="slide">
                         <View style={styles.manifestModalOverlay}>
@@ -941,6 +995,7 @@ const Payment = () => {
                             totalPrice, downPayment, balanceDue, bookingId, placeId,
                             paymentMethod: selectedPaymentMethod, groupType: selectedOption,
                             numberOfPeople: selectedOption === 'group' ? (parseInt(numPeople) < 2 ? 2 : parseInt(numPeople)) : 1,
+                            additionalGuestNames: guestNames, 
                             validIdImage, userSelfieImage, isNewKycImage: validIdImage && validIdImage.startsWith('file://'),
                             tourCost: currentGuideFee, accomCost, extraPersonFee,
                             status: currentStatus 
@@ -1012,6 +1067,9 @@ const styles = StyleSheet.create({
     inputRow: { flexDirection: 'row' },
     inputGroup: { marginBottom: 20 },
     inputLabel: { fontSize: 13, fontWeight: '600', color: TEXT_SECONDARY, marginBottom: 8 },
+    
+    guestNamesContainer: { marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: '#E2E8F0' },
+
     kycRow: { flexDirection: 'row', gap: 12 },
     kycCard: { flex: 1, height: 120, backgroundColor: '#F8FAFC', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
     kycCardDone: { borderStyle: 'solid', borderColor: '#22C55E' },
