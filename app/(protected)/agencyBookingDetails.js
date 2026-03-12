@@ -22,7 +22,8 @@ const AgencyBookingDetails = () => {
     const { user } = useAuth();
     
     // bookingId present = Request Accepted = Time to Pay
-    const { agencyName, agencyId, placeName, bookingId, placeId } = params;
+    // NEW: Capture agencyDownPayment passed from the previous screen
+    const { agencyName, agencyId, placeName, bookingId, placeId, agencyDownPayment } = params;
     const isPaymentMode = !!bookingId;
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -57,6 +58,11 @@ const AgencyBookingDetails = () => {
     const [totalPrice, setTotalPrice] = useState(agency.basePrice);
     const [downPayment, setDownPayment] = useState(0);
     const [balanceDue, setBalanceDue] = useState(0);
+
+    // --- NEW: Dynamic Downpayment Calculation ---
+    // Safely parse the agency downpayment, fallback to 30% if undefined
+    const dynamicDpRate = agencyDownPayment ? (parseFloat(agencyDownPayment) / 100) : 0.30;
+    const dynamicDpDisplay = (dynamicDpRate * 100).toFixed(0); // Display as a whole number (e.g., "30")
 
     const formatDateForCalendar = (date) => {
         const year = date.getFullYear();
@@ -94,17 +100,16 @@ const AgencyBookingDetails = () => {
         let groupSize = parseInt(numPeople) || 0;
         let multiplier = selectedOption === 'solo' ? 1 : (groupSize < 2 ? 2 : groupSize);
         
-        // Removed Service Fee
         const baseCost = (diffDays * agency.basePrice * multiplier);
         
         setTotalPrice(baseCost);
         
-        // 30% Down Payment
-        const dp = baseCost * 0.30;
+        // --- NEW: Apply dynamic down payment rate here ---
+        const dp = baseCost * dynamicDpRate;
         setDownPayment(dp);
         setBalanceDue(baseCost - dp);
 
-    }, [startDate, endDate, selectedOption, numPeople]);
+    }, [startDate, endDate, selectedOption, numPeople, dynamicDpRate]);
 
     const getMarkedDates = useMemo(() => {
         const marked = {};
@@ -254,7 +259,6 @@ const AgencyBookingDetails = () => {
                                 </View>
                             </View>
 
-                            {/* Trip Config - Disabled if Payment Mode */}
                             <View style={[isPaymentMode && {opacity: 0.7}]}>
                                 <Text style={styles.sectionTitle}>Trip Details</Text>
                                 <View style={styles.datesRow}>
@@ -344,7 +348,7 @@ const AgencyBookingDetails = () => {
                                 </>
                             )}
 
-                             {/* PAYMENT SUMMARY - No Platform Fee */}
+                             {/* PAYMENT SUMMARY */}
                             <View style={styles.receiptCard}>
                                 <View style={styles.receiptHeader}>
                                     <Text style={styles.receiptTitle}>Payment Summary</Text>
@@ -360,7 +364,8 @@ const AgencyBookingDetails = () => {
                                 </View>
                                 <View style={styles.receiptDivider} />
                                 <View style={styles.receiptRow}>
-                                    <Text style={[styles.receiptLabel, {color: TEXT_PRIMARY, fontWeight:'700'}]}>Down Payment (30%)</Text>
+                                    {/* --- NEW: Dynamic Text Render --- */}
+                                    <Text style={[styles.receiptLabel, {color: TEXT_PRIMARY, fontWeight:'700'}]}>Down Payment ({dynamicDpDisplay}%)</Text>
                                     <Text style={[styles.receiptTotal, {color: PRIMARY_COLOR}]}>₱ {downPayment.toLocaleString()}</Text>
                                 </View>
                                 <Text style={styles.receiptNote}>
@@ -371,7 +376,7 @@ const AgencyBookingDetails = () => {
                     </ScrollView>
                 </KeyboardAvoidingView>
 
-                {/* BOTTOM BAR: ALWAYS SHOWS PAYMENT/REQUEST BUTTON */}
+                {/* BOTTOM BAR */}
                 <SafeAreaView style={styles.bottomBar}>
                     <View>
                         <Text style={styles.bottomLabel}>
@@ -443,6 +448,9 @@ const AgencyBookingDetails = () => {
                             email: email,
                             basePrice: agency.basePrice,
                             totalPrice: totalPrice,
+                            // --- NEW: Pass these to your custom Agency Modal so it sends right amounts to DB
+                            downPayment: downPayment,
+                            balanceDue: balanceDue,
                             bookingId: params.bookingId,
                             placeId: placeId,
                             paymentMethod: null, 

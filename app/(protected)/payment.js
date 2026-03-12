@@ -27,7 +27,8 @@ const Payment = () => {
     const {
         entityName, guideName, placeName, bookingId, entityId, guideId, bookingType,
         assignedGuides, basePrice, soloPrice, accommodationPrice, accommodationId,
-        accommodationName, additionalFee, placeId, tourPackageId, itineraryTimeline, packageDuration: paramPackageDuration
+        accommodationName, additionalFee, placeId, tourPackageId, itineraryTimeline, packageDuration: paramPackageDuration,
+        agencyDownPayment // NEW PARAMETER FOR DYNAMIC MATH
     } = params;
 
     const [fetchedBooking, setFetchedBooking] = useState(null);
@@ -378,6 +379,14 @@ const Payment = () => {
     };
 
     useEffect(() => {
+        // --- If the booking ALREADY exists, respect the database's EXACT calculated values! ---
+        if (fetchedBooking && fetchedBooking.total_price) {
+            setTotalPrice(parseFloat(fetchedBooking.total_price));
+            setDownPayment(parseFloat(fetchedBooking.down_payment));
+            setBalanceDue(parseFloat(fetchedBooking.balance_due));
+            return; // Stop local calculation entirely
+        }
+
         const oneDay = 24 * 60 * 60 * 1000;
         let numDays = 1;
         
@@ -398,10 +407,8 @@ const Payment = () => {
             extraFees = 0;
         } else {
             if (groupSize < 2) groupSize = 2;
-            // FIXED: Use the standard Price Per Day (tourCostGroup) for group bookings
             guideFee = tourCostGroup; 
             
-            // Assuming the base price covers the 1st person, add extra fee for the 2nd person onwards
             const extraPeople = Math.max(0, groupSize - 1);
             extraFees = extraPeople * extraPersonFee;
         }
@@ -411,13 +418,17 @@ const Payment = () => {
         const dailyTotal = guideFee + extraFees + accomCost;
         const grandTotal = dailyTotal * numDays;
         
-        const calculatedDownPayment = grandTotal * 0.30; 
+        // --- DYNAMIC DOWNPAYMENT LOGIC ---
+        // If it's a new booking, apply the passed agency rate, otherwise fallback to 30%
+        const dynamicDpRate = agencyDownPayment ? (parseFloat(agencyDownPayment) / 100) : 0.30;
+        
+        const calculatedDownPayment = grandTotal * dynamicDpRate; 
         const calculatedBalance = grandTotal - calculatedDownPayment;
 
         setTotalPrice(grandTotal);
         setDownPayment(calculatedDownPayment);
         setBalanceDue(calculatedBalance);
-    }, [startDate, endDate, selectedOption, numPeople, tourCostGroup, tourCostSolo, accomCost, extraPersonFee, activeDuration]);
+    }, [startDate, endDate, selectedOption, numPeople, tourCostGroup, tourCostSolo, accomCost, extraPersonFee, activeDuration, fetchedBooking, agencyDownPayment]);
 
     const profileImageSource = useMemo(() => {
         if (!isAgency && guideAvailability && guideAvailability.profile_picture) {
@@ -433,6 +444,8 @@ const Payment = () => {
             </View>
         );
     }
+
+    const dpDisplayPercentage = agencyDownPayment ? parseFloat(agencyDownPayment).toFixed(0) : "30";
 
     return (
         <View style={{ flex: 1, backgroundColor: BACKGROUND_COLOR }}>
@@ -662,7 +675,9 @@ const Payment = () => {
                                 </View>
                                 <View style={styles.receiptDivider} />
                                 <View style={styles.receiptRow}>
-                                    <Text style={[styles.receiptLabel, {color: TEXT_PRIMARY, fontWeight:'700'}]}>Down Payment (30%)</Text>
+                                    <Text style={[styles.receiptLabel, {color: TEXT_PRIMARY, fontWeight:'700'}]}>
+                                        Down Payment ({fetchedBooking ? ((downPayment/totalPrice)*100).toFixed(0) : dpDisplayPercentage}%)
+                                    </Text>
                                     <Text style={[styles.receiptTotal, {color: PRIMARY_COLOR}]}>₱ {downPayment.toLocaleString()}</Text>
                                 </View>
                                 <Text style={styles.receiptNote}>{isConfirmed ? "Paid Successfully" : "Payable now to secure dates"}</Text>
