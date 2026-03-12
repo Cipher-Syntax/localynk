@@ -105,8 +105,28 @@ const ReviewModal = () => {
 
         } catch (error) {
             console.error('Failed to submit review:', error.response?.data || error.message);
-            const errorMessage = error.response?.data?.destination || error.response?.data?.reviewed_user || 'An error occurred.';
-            setToast({ visible: true, message: `Submission failed. ${errorMessage}`, type: 'error' });
+            
+            // --- UPDATED: Robust error parsing to catch Profanity validation from the backend ---
+            let errorMessage = 'An error occurred. Please try again.';
+            const errData = error.response?.data;
+            
+            if (errData) {
+                if (errData.comment) {
+                    errorMessage = Array.isArray(errData.comment) ? errData.comment[0] : errData.comment;
+                } else if (errData.booking) {
+                    errorMessage = Array.isArray(errData.booking) ? errData.booking[0] : errData.booking;
+                } else if (errData.non_field_errors) {
+                    errorMessage = Array.isArray(errData.non_field_errors) ? errData.non_field_errors[0] : errData.non_field_errors;
+                } else if (errData.destination) {
+                    errorMessage = "Destination error: " + (Array.isArray(errData.destination) ? errData.destination[0] : errData.destination);
+                } else if (errData.reviewed_user) {
+                    errorMessage = "User error: " + (Array.isArray(errData.reviewed_user) ? errData.reviewed_user[0] : errData.reviewed_user);
+                }
+            }
+            
+            setToast({ visible: true, message: errorMessage, type: 'error' });
+            // ----------------------------------------------------------------------------------
+
         } finally {
             setSubmitting(false);
         }
