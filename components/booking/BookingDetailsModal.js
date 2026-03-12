@@ -38,7 +38,6 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
     const downPayment = Number(booking.down_payment || 0);
     const currentBalanceDue = Number(booking.balance_due || 0);
     
-    // --- FIX: Calculate the original balance to display after it's paid ---
     const originalBalance = total - downPayment;
     const isFullyPaidOnline = originalBalance <= 0;
     const isBalanceReceived = currentBalanceDue === 0 && !isFullyPaidOnline;
@@ -175,19 +174,59 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
                         <View style={styles.divider} />
 
                         <View style={styles.priceSection}>
-                            <Text style={styles.sectionHeader}>Payment Breakdown</Text>
+                            <Text style={styles.sectionHeader}>Payment Breakdown & Ledger</Text>
                             
                             <View style={styles.priceRow}>
-                                <Text style={styles.priceLabel}>Total Price</Text>
+                                <Text style={styles.priceLabel}>Total Trip Price</Text>
                                 <Text style={styles.priceValue}>₱ {total.toLocaleString()}</Text>
                             </View>
 
-                            <View style={styles.priceRow}>
-                                <Text style={[styles.priceLabel, {color: '#22C55E'}]}>Down Payment Paid ({dpPercent}%)</Text>
-                                <Text style={[styles.priceValue, {color: '#22C55E'}]}>- ₱ {downPayment.toLocaleString()}</Text>
-                            </View>
+                            {/* --- REVISION 12: CHRONOLOGICAL TIMELINE UI --- */}
+                            <View style={styles.ledgerContainer}>
+                                {booking.downpayment_paid_at && (
+                                    <View style={styles.ledgerRow}>
+                                        <View style={styles.ledgerTimeline}>
+                                            <View style={styles.ledgerDot} />
+                                            <View style={styles.ledgerLine} />
+                                        </View>
+                                        <View style={styles.ledgerContent}>
+                                            <Text style={styles.ledgerDate}>
+                                                {new Date(booking.downpayment_paid_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                            </Text>
+                                            <View style={styles.ledgerDetails}>
+                                                <Text style={styles.ledgerDesc}>Down Payment ({dpPercent}%)</Text>
+                                                <Text style={styles.ledgerAmount}>₱ {downPayment.toLocaleString()}</Text>
+                                            </View>
+                                        </View>
+                                    </View>
+                                )}
 
-                            {/* --- FIX: Dynamic styling based on whether it is pending or received --- */}
+                                <View style={styles.ledgerRow}>
+                                    <View style={styles.ledgerTimeline}>
+                                        <View style={[styles.ledgerDot, !isBalanceReceived && !isFullyPaidOnline && { backgroundColor: '#CBD5E1', borderColor: '#94A3B8' }]} />
+                                    </View>
+                                    <View style={styles.ledgerContent}>
+                                        {booking.balance_paid_at && (
+                                            <Text style={styles.ledgerDate}>
+                                                {new Date(booking.balance_paid_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                            </Text>
+                                        )}
+                                        <View style={styles.ledgerDetails}>
+                                            <Text style={[styles.ledgerDesc, !isBalanceReceived && !isFullyPaidOnline && { color: '#64748B' }]}>
+                                                {isFullyPaidOnline ? 'Fully Paid Upfront' : 'Remaining Balance'}
+                                            </Text>
+                                            <Text style={[styles.ledgerAmount, !isBalanceReceived && !isFullyPaidOnline && { color: '#64748B' }]}>
+                                                ₱ {originalBalance.toLocaleString()}
+                                            </Text>
+                                        </View>
+                                        {!isBalanceReceived && !isFullyPaidOnline && (
+                                            <Text style={styles.ledgerPendingText}>Pending Collection</Text>
+                                        )}
+                                    </View>
+                                </View>
+                            </View>
+                            {/* --- END REVISION 12 --- */}
+
                             <View style={[
                                 styles.balanceContainer, 
                                 isBalanceReceived && { backgroundColor: '#DCFCE7', borderLeftColor: '#22C55E' },
@@ -206,7 +245,7 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
                                         isBalanceReceived && { color: '#166534' },
                                         isFullyPaidOnline && { color: '#4B5563' }
                                     ]}>
-                                        ₱ {originalBalance.toLocaleString()}
+                                        ₱ {isBalanceReceived ? '0.00' : currentBalanceDue.toLocaleString()}
                                     </Text>
                                 </View>
                                 <Text style={[
@@ -304,12 +343,26 @@ const styles = StyleSheet.create({
     manifestDivider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 12, borderStyle: 'dashed', borderWidth: 1, borderColor: '#CBD5E1' },
 
     priceSection: { marginTop: 0 },
-    priceRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
-    priceLabel: { fontSize: 14, color: '#4B5563' },
-    priceValue: { fontSize: 14, fontWeight: '600', color: '#1F2937' },
+    priceRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
+    priceLabel: { fontSize: 14, color: '#4B5563', fontWeight: '600' },
+    priceValue: { fontSize: 15, fontWeight: '800', color: '#1F2937' },
+
+    // --- NEW: LEDGER TIMELINE STYLES ---
+    ledgerContainer: { backgroundColor: '#F8FAFC', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 10 },
+    ledgerRow: { flexDirection: 'row', minHeight: 50 },
+    ledgerTimeline: { width: 24, alignItems: 'center' },
+    ledgerDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#0072FF', borderWidth: 2, borderColor: '#fff', zIndex: 2 },
+    ledgerLine: { width: 2, flex: 1, backgroundColor: '#E2E8F0', marginTop: -2, marginBottom: -2 },
+    ledgerContent: { flex: 1, paddingBottom: 20, paddingLeft: 8 },
+    ledgerDate: { fontSize: 11, color: '#94A3B8', fontWeight: '600', marginBottom: 4, textTransform: 'uppercase' },
+    ledgerDetails: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    ledgerDesc: { fontSize: 14, color: '#1E293B', fontWeight: '500' },
+    ledgerAmount: { fontSize: 14, color: '#1E293B', fontWeight: '700' },
+    ledgerPendingText: { fontSize: 11, color: '#F59E0B', fontStyle: 'italic', marginTop: 4 },
+    // ----------------------------------
     
-    balanceContainer: { marginTop: 10, padding: 15, backgroundColor: '#FEF3C7', borderRadius: 12, borderLeftWidth: 4, borderLeftColor: '#F59E0B' },
-    balanceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    balanceContainer: { marginTop: 10, padding: 15, backgroundColor: '#FEF3C7', borderRadius: 12, borderLeftWidth: 4, borderLeftColor: '#F59E0B', marginBottom: 30 },
+    balanceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', },
     balanceLabel: { fontSize: 16, fontWeight: '800', color: '#92400E' },
     balanceValue: { fontSize: 18, fontWeight: '800', color: '#92400E' },
     balanceNote: { fontSize: 11, color: '#B45309', marginTop: 6, fontStyle: 'italic' },
