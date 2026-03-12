@@ -53,7 +53,7 @@ const AddTour = () => {
         name: '',
         description: '',
         duration: '',
-        durationDays: '1', // NEW: Package integer length
+        durationDays: '1', 
         maxGroupSize: '',
         whatToBring: '',
         pricePerDay: '',
@@ -188,7 +188,6 @@ const AddTour = () => {
             activityId = accom.id;
         }
 
-        // Include the currentDayTab in the payload to support multi-day
         const newRow = { day: currentDayTab, startTime, endTime, activityName, type, refId: activityId };
         setTimeline([...timeline, newRow]);
         setTempTimelineRow(prev => ({ ...prev, selectedActivityIndex: '' })); 
@@ -236,7 +235,7 @@ const AddTour = () => {
             data.append('name', formData.name);
             data.append('description', formData.description);
             data.append('duration', formData.duration);
-            data.append('duration_days', parseInt(formData.durationDays) || 1); // Append new multi-day flag
+            data.append('duration_days', parseInt(formData.durationDays) || 1); 
             data.append('max_group_size', formData.maxGroupSize);
             data.append('what_to_bring', formData.whatToBring);
             data.append('price_per_day', formData.pricePerDay);
@@ -417,7 +416,6 @@ const AddTour = () => {
         const durationNum = parseInt(formData.durationDays) || 1;
         const dayTabs = Array.from({length: durationNum}, (_, i) => i + 1);
         
-        // Filter timeline by currently selected Day Tab, fallback to day 1 if missing for old items
         const filteredTimeline = timeline.filter(r => r.day === currentDayTab || (!r.day && currentDayTab === 1));
 
         return (
@@ -428,7 +426,7 @@ const AddTour = () => {
                 <View style={styles.pricingCard}>
                     <View style={styles.row}>
                         <View style={{ flex: 1, marginRight: 10 }}>
-                            <Text style={styles.labelSmall}>Group Price</Text>
+                            <Text style={styles.labelSmall}>Price Per Day (₱) *</Text>
                             <View style={styles.priceInputRow}>
                                 <Text style={styles.currency}>₱</Text>
                                 <TextInput
@@ -442,7 +440,7 @@ const AddTour = () => {
                             </View>
                         </View>
                         <View style={{ flex: 1 }}>
-                            <Text style={styles.labelSmall}>Solo Price</Text>
+                            <Text style={styles.labelSmall}>Solo Price/Day</Text>
                             <View style={styles.priceInputRow}>
                                 <Text style={styles.currency}>₱</Text>
                                 <TextInput
@@ -454,6 +452,21 @@ const AddTour = () => {
                                     onChangeText={(t) => setFormData({ ...formData, soloPricePerDay: t })}
                                 />
                             </View>
+                        </View>
+                    </View>
+
+                    <View style={{ marginTop: 15 }}>
+                        <Text style={styles.labelSmall}>Additional Fee per Extra Pax</Text>
+                        <View style={styles.priceInputRow}>
+                            <Text style={styles.currency}>₱</Text>
+                            <TextInput
+                                style={styles.priceInput}
+                                placeholder="0"
+                                placeholderTextColor="#9CA3AF"
+                                keyboardType="numeric"
+                                value={formData.additionalPerHeadPerDay}
+                                onChangeText={(t) => setFormData({ ...formData, additionalPerHeadPerDay: t })}
+                            />
                         </View>
                     </View>
                 </View>

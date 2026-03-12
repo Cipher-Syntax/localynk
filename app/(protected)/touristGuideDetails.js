@@ -21,12 +21,13 @@ const TouristGuideDetails = () => {
     const router = useRouter();
     const params = useLocalSearchParams();
     const { guideId, placeId } = params;
+    
+    const [selectedTour, setSelectedTour] = useState(null);
 
     useFocusEffect(
         useCallback(() => {
             const fetchData = async () => {
                 if (!guideId || !placeId) return;
-                
                 try {
                     const [guideRes, destRes, toursRes, accomRes, blockedRes] = await Promise.all([
                         api.get(`/api/guides/${guideId}/`),
@@ -42,8 +43,9 @@ const TouristGuideDetails = () => {
                     
                     const allAccoms = Array.isArray(accomRes.data) ? accomRes.data : (accomRes.data.results || []);
                     const guidesTours = toursRes.data.filter(tour => tour.guide === parseInt(guideId));
+                    setTourPackages(guidesTours);
+                    if(guidesTours.length > 0) setSelectedTour(guidesTours[0]);
                     
-                    // Filter accommodations relevant to the itinerary
                     const itineraryAccomIds = new Set();
                     guidesTours.forEach(tour => {
                         let timeline = [];
@@ -61,13 +63,11 @@ const TouristGuideDetails = () => {
                         }
                     });
                     
-                    // If no specific accoms in timeline, show all guide's accoms
                     const relevantAccoms = itineraryAccomIds.size > 0 
                         ? allAccoms.filter(acc => itineraryAccomIds.has(acc.id))
                         : allAccoms;
 
                     setAccommodations(relevantAccoms);
-                    setTourPackages(guidesTours);
 
                 } catch (error) {
                     console.error('Failed to fetch page data:', error);
@@ -75,7 +75,6 @@ const TouristGuideDetails = () => {
                     setLoading(false);
                 }
             };
-
             fetchData();
         }, [guideId, placeId])
     );
@@ -87,51 +86,57 @@ const TouristGuideDetails = () => {
         return `${base}${imgPath}`;
     };
 
-    const renderTimeline = (rawTimeline, tourContext) => {
-         if (!rawTimeline) return null;
+    const renderSequentialItinerary = () => {
+         if (!selectedTour || !selectedTour.itinerary_timeline) return <Text style={styles.emptyText}>No detailed timeline available.</Text>;
+         
          let timelineData = [];
-         try { timelineData = typeof rawTimeline === 'string' ? JSON.parse(rawTimeline) : rawTimeline; } catch (e) { return null; }
-         if (!Array.isArray(timelineData) || timelineData.length === 0) return null;
+         try {
+             timelineData = typeof selectedTour.itinerary_timeline === 'string' ? JSON.parse(selectedTour.itinerary_timeline) : selectedTour.itinerary_timeline;
+         } catch(e) { return <Text style={styles.emptyText}>No detailed timeline available.</Text>; }
+
+         if (timelineData.length === 0) return <Text style={styles.emptyText}>No detailed timeline available.</Text>;
+
+         // Group exactly how payment.js does
+         const grouped = timelineData.reduce((acc, item) => {
+             const d = parseInt(item.day) || 1;
+             if (!acc[d]) acc[d] = [];
+             acc[d].push(item);
+             return acc;
+         }, {});
 
          return (
              <View style={styles.timelineContainer}>
-                 {timelineData.map((item, index) => {
-                     let imageUrl = null;
-                     // Logic to find image for the timeline item
-                     if (item.type === 'stop' && tourContext?.stops) {
-                         // Fallback logic to match stop name or ID if available
-                         // Note: The backend might not send 'stops' array in the same structure, 
-                         // so we rely on what is available or show placeholder.
-                     } else if (item.type === 'accom') {
-                          const acc = accommodations.find(a => a.id === parseInt(item.refId));
-                          if (acc) imageUrl = getImageUrl(acc.photo);
-                     }
-                     return (
-                         <View key={index} style={styles.timelineItem}>
-                             <View style={styles.timeColumn}>
-                                 <Text style={styles.timeText}>{item.startTime}</Text>
-                                 <View style={styles.timeConnector} />
-                             </View>
-                             <View style={styles.activityCard}>
-                                 <View style={styles.activityHeader}>
-                                     <View style={[
-                                         styles.activityDot, 
-                                         { backgroundColor: item.type === 'accom' ? '#8E44AD' : '#00A8FF' }
-                                     ]} />
-                                     <Text style={styles.activityTitle}>{item.activityName}</Text>
+                 {Object.keys(grouped).sort((a,b)=>a-b).map(day => (
+                     <View key={`seq-day-${day}`} style={{marginBottom: 20}}>
+                         <Text style={styles.seqDayLabel}>Day {day}</Text>
+                         
+                         {grouped[day].map((item, index) => {
+                             return (
+                                 <View key={index} style={styles.timelineItem}>
+                                     <View style={styles.timeColumn}>
+                                         <Text style={styles.timeText}>{item.startTime}</Text>
+                                         {item.endTime && <Text style={styles.timeSubText}>{item.endTime}</Text>}
+                                         <View style={styles.timeConnector} />
+                                     </View>
+                                     <View style={styles.activityCard}>
+                                         <View style={styles.activityHeader}>
+                                             <View style={[
+                                                 styles.activityDot, 
+                                                 { backgroundColor: item.type === 'accom' ? '#8E44AD' : '#00A8FF' }
+                                             ]} />
+                                             <Text style={styles.activityTitle}>{item.activityName}</Text>
+                                         </View>
+                                         <View style={styles.typeBadge}>
+                                             <Text style={styles.typeText}>
+                                                 {item.type === 'accom' ? 'Accommodation' : 'Stop / Activity'}
+                                             </Text>
+                                         </View>
+                                     </View>
                                  </View>
-                                 <Text style={styles.activityDuration}>
-                                     {item.startTime} - {item.endTime}
-                                 </Text>
-                                 <View style={styles.typeBadge}>
-                                     <Text style={styles.typeText}>
-                                         {item.type === 'accom' ? 'Accommodation' : 'Stop / Activity'}
-                                     </Text>
-                                 </View>
-                             </View>
-                         </View>
-                     );
-                 })}
+                             );
+                         })}
+                     </View>
+                 ))}
              </View>
          );
     };
@@ -164,31 +169,13 @@ const TouristGuideDetails = () => {
                 <View style={{ height: 120, backgroundColor: '#E0E6ED', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 }} />
                 <View style={{ padding: 16 }}>
                     <View style={{ backgroundColor: '#F5F7FA', borderRadius: 15, padding: 16, borderWidth: 1, borderColor: '#E0E6ED' }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
-                            <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: '#E0E6ED' }} />
-                            <View style={{ flex: 1, marginLeft: 12, gap: 8 }}>
-                                <View style={{ height: 20, width: 150, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
-                                <View style={{ height: 14, width: 100, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
-                            </View>
-                        </View>
-                        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
-                            <View style={{ flex: 1, height: 40, backgroundColor: '#E0E6ED', borderRadius: 8 }} />
-                            <View style={{ flex: 1, height: 40, backgroundColor: '#E0E6ED', borderRadius: 8 }} />
-                        </View>
-                        <View style={{ width: '100%', height: 200, backgroundColor: '#E0E6ED', borderRadius: 12, marginBottom: 20 }} />
-                        <View style={{ height: 24, width: 120, backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 12 }} />
-                        <View style={{ height: 16, width: '100%', backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 8 }} />
-                        <View style={{ height: 16, width: '80%', backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                        <ActivityIndicator size="large" color="#00A8FF" style={{marginTop: 50}}/>
                     </View>
                 </View>
             </View>
         );
     }
     
-    // Select the main tour package (usually the first one for this destination)
-    const selectedTour = tourPackages.length > 0 ? tourPackages[0] : null;
-    
-    // Determine Inclusions
     let safeInclusions = ["Standard Guide Services"];
     if (selectedTour) {
         if (Array.isArray(selectedTour.inclusions) && selectedTour.inclusions.length > 0) safeInclusions = selectedTour.inclusions;
@@ -218,7 +205,6 @@ const TouristGuideDetails = () => {
 
                 <View style={styles.contentContainer}>
                     <View style={styles.guideCard}>
-                        {/* Profile Info */}
                         <View style={styles.cardProfileSection}>
                             <View style={styles.iconWrapper}>
                                 {guide.profile_picture ? <Image source={{ uri: getImageUrl(guide.profile_picture) }} style={styles.profilePicture} /> : <User size={40} color="#fff" />}
@@ -230,7 +216,6 @@ const TouristGuideDetails = () => {
                             </View>
                         </View>
 
-                        {/* Buttons */}
                         <View style={styles.buttonRow}>
                             <TouchableOpacity style={styles.actionButton} onPress={() => router.push({ pathname: "/profile", params: { userId: guide.id, placeId: placeId } })}>
                                 <Ionicons name="person" size={14} color="#fff" />
@@ -252,40 +237,53 @@ const TouristGuideDetails = () => {
                             </TouchableOpacity>
                         </View>
 
-                        {/* Destination Image */}
                         <View style={styles.destinationImageContainer}>
                             {finalImage ? <Image source={{uri: getImageUrl(finalImage)}} style={styles.destinationImage} /> : <View style={[styles.destinationImage, {backgroundColor: '#ccc'}]} />}
                             <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.imageOverlay}/>
                             <Text style={styles.destinationName}>{destination?.name || "Loading..."}</Text>
                         </View>
                         
-                        {/* --- NEW: TOUR DETAILS SECTION --- */}
                         <View style={styles.detailsSection}>
                             <View style={styles.sectionHeader}>
                                 <Map size={18} color="#1A2332" />
-                                <Text style={styles.detailsHeader}>
-                                    {selectedTour ? selectedTour.name : "Guide's Plan"}
-                                </Text>
+                                <Text style={styles.detailsHeader}>Available Tour Packages</Text>
                             </View>
+
+                            {/* --- MULTI-PACKAGE DYNAMIC SELECTION --- */}
+                            {tourPackages.length > 0 && (
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.packageScroll}>
+                                    {tourPackages.map((pkg) => {
+                                        const isSelected = selectedTour?.id === pkg.id;
+                                        const duration = parseInt(pkg.duration_days) || 1;
+                                        return (
+                                            <TouchableOpacity 
+                                                key={pkg.id} 
+                                                style={[styles.packagePill, isSelected && styles.packagePillActive]}
+                                                onPress={() => setSelectedTour(pkg)}
+                                            >
+                                                <Text style={[styles.packagePillText, isSelected && styles.packagePillTextActive]}>
+                                                    {duration} Day Package
+                                                </Text>
+                                            </TouchableOpacity>
+                                        )
+                                    })}
+                                </ScrollView>
+                            )}
                             
-                            {/* Description */}
+                            <Text style={[styles.detailsHeader, {marginTop: 10, marginBottom: 5}]}>
+                                {selectedTour ? selectedTour.name : "Guide's Plan"}
+                            </Text>
                             <Text style={styles.bodyText}>
                                 {selectedTour ? selectedTour.description : "No specific tour details available."}
                             </Text>
 
                             <View style={styles.divider} />
 
-                            {/* Timeline */}
                             <Text style={styles.subHeader}>Itinerary Schedule</Text>
-                            {selectedTour && selectedTour.itinerary_timeline ? (
-                                renderTimeline(selectedTour.itinerary_timeline, selectedTour)
-                            ) : (
-                                <Text style={styles.emptyText}>No detailed timeline available.</Text>
-                            )}
+                            {renderSequentialItinerary()}
 
                             <View style={styles.divider} />
                             
-                            {/* Inclusions */}
                             <Text style={styles.subHeader}>Inclusions & Requirements</Text>
                             <View style={styles.inclusionsContainer}>
                                 {safeInclusions.map((item, index) => (
@@ -297,7 +295,6 @@ const TouristGuideDetails = () => {
                             </View>
                         </View>
 
-                        {/* --- NEW: ACCOMMODATIONS SECTION --- */}
                         {accommodations.length > 0 && (
                             <View style={[styles.detailsSection, {borderTopWidth: 0, marginTop: 0}]}>
                                 <View style={styles.sectionHeader}>
@@ -322,7 +319,6 @@ const TouristGuideDetails = () => {
                             </View>
                         )}
 
-                        {/* Calendar */}
                         <View style={styles.detailsSection}>
                             <View style={styles.sectionHeader}>
                                 <CalendarIcon size={18} color="#1A2332" />
@@ -399,6 +395,11 @@ const TouristGuideDetails = () => {
                                         additionalFee: extraFee,
                                         tourPackageId: selectedTour ? selectedTour.id : null,
                                         placeId: placeId,
+                                        
+                                        itineraryTimeline: selectedTour && selectedTour.itinerary_timeline 
+                                            ? (typeof selectedTour.itinerary_timeline === 'string' ? selectedTour.itinerary_timeline : JSON.stringify(selectedTour.itinerary_timeline))
+                                            : null,
+                                        packageDuration: selectedTour ? (selectedTour.duration_days || 1) : 1
                                     } 
                                 });
                             }}
@@ -449,22 +450,28 @@ const styles = StyleSheet.create({
     sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
     detailsHeader: { fontSize: 16, fontWeight: '700', color: '#1A2332', marginLeft: 8 },
     
-    // NEW & UPDATED STYLES FOR ITINERARY
+    packageScroll: { flexDirection: 'row', marginBottom: 10, marginTop: 5 },
+    packagePill: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: '#fff', marginRight: 10, borderWidth: 1, borderColor: '#E2E8F0' },
+    packagePillActive: { backgroundColor: '#EFF6FF', borderColor: '#00A8FF' },
+    packagePillText: { fontSize: 14, fontWeight: '600', color: '#64748B' },
+    packagePillTextActive: { color: '#00A8FF' },
+
     bodyText: { fontSize: 14, color: '#555', lineHeight: 22 },
     subHeader: { fontSize: 13, fontWeight: '700', color: '#333', marginBottom: 8, marginTop: 10 },
     divider: { height: 1, backgroundColor: '#eee', marginVertical: 12 },
-    emptyText: { fontSize: 13, color: '#888', fontStyle: 'italic' },
-    
+    emptyText: { fontSize: 13, color: '#888', fontStyle: 'italic', marginBottom: 10 },
+
+    seqDayLabel: { fontSize: 15, fontWeight: '800', color: '#00A8FF', marginBottom: 10 },
     timelineContainer: { marginTop: 10 },
     timelineItem: { flexDirection: 'row', marginBottom: 15 },
-    timeColumn: { width: 70, alignItems: 'center', paddingRight: 10 },
+    timeColumn: { width: 85, alignItems: 'center', paddingRight: 10 },
     timeText: { fontSize: 12, fontWeight: '700', color: '#1A2332' },
+    timeSubText: { fontSize: 10, color: '#888', marginTop: 2 },
     timeConnector: { flex: 1, width: 1, backgroundColor: '#E0E6ED', marginTop: 4 },
     activityCard: { flex: 1, backgroundColor: '#fff', borderRadius: 8, padding: 10, borderWidth: 1, borderColor: '#E0E6ED' },
-    activityHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+    activityHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
     activityDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
     activityTitle: { fontSize: 14, fontWeight: '700', color: '#333' },
-    activityDuration: { fontSize: 11, color: '#888', marginBottom: 6 },
     typeBadge: { alignSelf: 'flex-start', backgroundColor: '#F5F7FA', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: '#eee' },
     typeText: { fontSize: 10, color: '#666', fontWeight: '600' },
 
@@ -472,7 +479,6 @@ const styles = StyleSheet.create({
     inclusionTag: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FFF4', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, gap: 4, borderWidth: 1, borderColor: '#C3E6CB' },
     inclusionText: { fontSize: 11, color: '#155724', fontWeight: '600' },
 
-    // Accommodations
     accScroll: { marginTop: 5 },
     accCard: { width: 140, marginRight: 12, backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#eee', overflow: 'hidden', position: 'relative', height: 100 },
     accImage: { width: '100%', height: '100%' },

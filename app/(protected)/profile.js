@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, StatusBar, Image, Text, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, ScrollView, StyleSheet, StatusBar, Image, Text, TouchableOpacity, ActivityIndicator, Dimensions, Alert } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
-import { User, Calendar as CalendarIcon, Map, Star, Compass, Clock, Languages, Package, MapPin, Bed, Wifi, Car, Coffee } from "lucide-react-native";
+import { User, Calendar as CalendarIcon, Map, Star, Compass, Clock, Languages, Package, MapPin, Bed, Wifi, Car, Coffee, CheckCircle } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router'; 
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,15 +14,21 @@ const { width } = Dimensions.get('window');
 
 const GuideProfile = () => {
     const { user } = useAuth(); 
-
-    const [guide, setGuide] = useState(null);
-    const [destination, setDestination] = useState(null);
-    const [tourPackage, setTourPackage] = useState(null);
-    const [accommodations, setAccommodations] = useState([]); 
-    const [loading, setLoading] = useState(true);
     const router = useRouter();
     const params = useLocalSearchParams();
     const { userId, placeId } = params;
+
+    const [guide, setGuide] = useState(null);
+    const [destination, setDestination] = useState(null);
+    const [accommodations, setAccommodations] = useState([]); 
+    const [loading, setLoading] = useState(true);
+
+    // --- MULTI-PACKAGE DYNAMIC STATE ---
+    const [tourPackages, setTourPackages] = useState([]);
+    const [selectedTour, setSelectedTour] = useState(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    const isOwnProfile = user && user.id === parseInt(userId);
 
     const getImageUrl = (imgPath) => {
         if (!imgPath) return 'https://via.placeholder.com/300';
@@ -46,15 +52,22 @@ const GuideProfile = () => {
                     api.get(`/api/guides/${userId}/`),
                     api.get(`/api/destinations/${placeId}/`),
                     api.get(`/api/destinations/${placeId}/tours/`),
-                    api.get('/api/accommodations/list/') 
+                    // FIX: Target the guide's accommodations explicitly using host_id
+                    api.get('/api/accommodations/', { params: { host_id: userId } }) 
                 ]);
 
                 setGuide(guideRes.data);
                 setDestination(destRes.data);
-                setAccommodations(accomRes.data);
                 
-                const specificTour = toursRes.data.find(tour => tour.guide === parseInt(userId)); 
-                setTourPackage(specificTour);
+                // Safely handle array or paginated response
+                const fetchedAccoms = Array.isArray(accomRes.data) ? accomRes.data : (accomRes.data.results || []);
+                setAccommodations(fetchedAccoms);
+                
+                const guidesTours = toursRes.data.filter(tour => tour.guide === parseInt(userId));
+                setTourPackages(guidesTours);
+                if (guidesTours.length > 0) {
+                    setSelectedTour(guidesTours[0]);
+                }
 
             } catch (error) {
                 console.error('Failed to fetch page data for profile:', error);
@@ -64,9 +77,96 @@ const GuideProfile = () => {
         };
 
         fetchData();
-        
-
     }, [userId, placeId, user]); 
+
+    // --- DELETE & EDIT LOGIC ---
+    const handleDeleteTour = () => {
+        Alert.alert(
+            "Delete Tour Package",
+            `Are you sure you want to delete "${selectedTour.name}"? This action cannot be undone.`,
+            [
+                { text: "Cancel", style: "cancel" },
+                { 
+                    text: "Delete", 
+                    style: "destructive", 
+                    onPress: async () => {
+                        try {
+                            setIsDeleting(true);
+                            await api.delete(`/api/tours/${selectedTour.id}/`);
+                            const updatedTours = tourPackages.filter(t => t.id !== selectedTour.id);
+                            setTourPackages(updatedTours);
+                            setSelectedTour(updatedTours.length > 0 ? updatedTours[0] : null);
+                            Alert.alert("Success", "Tour package deleted successfully.");
+                        } catch (error) {
+                            Alert.alert("Error", "Failed to delete tour package. Please try again.");
+                        } finally {
+                            setIsDeleting(false);
+                        }
+                    } 
+                }
+            ]
+        );
+    };
+
+    const handleEditTour = () => {
+        router.push({ pathname: '/(protected)/addTour', params: { editTourId: selectedTour.id } });
+    };
+
+    // --- BULLETPROOF MULTI-DAY CALCULATION ---
+    const timelineData = useMemo(() => {
+        if (!selectedTour || !selectedTour.itinerary_timeline) return [];
+        try {
+            const raw = selectedTour.itinerary_timeline;
+            return typeof raw === 'string' ? JSON.parse(raw) : raw;
+        } catch(e) { return []; }
+    }, [selectedTour]);
+
+    const renderSequentialItinerary = () => {
+         if (timelineData.length === 0) return <Text style={styles.emptyText}>No detailed timeline available.</Text>;
+
+         const grouped = timelineData.reduce((acc, item) => {
+             const d = parseInt(item.day) || 1;
+             if (!acc[d]) acc[d] = [];
+             acc[d].push(item);
+             return acc;
+         }, {});
+
+         return (
+             <View style={styles.timelineContainer}>
+                 {Object.keys(grouped).sort((a,b)=>a-b).map(day => (
+                     <View key={`seq-day-${day}`} style={{marginBottom: 20}}>
+                         <Text style={styles.seqDayLabel}>Day {day}</Text>
+                         
+                         {grouped[day].map((item, index) => {
+                             return (
+                                 <View key={index} style={styles.timelineItem}>
+                                     <View style={styles.timeColumn}>
+                                         <Text style={styles.timeText}>{item.startTime}</Text>
+                                         {item.endTime && <Text style={styles.timeSubText}>{item.endTime}</Text>}
+                                         <View style={styles.timeConnector} />
+                                     </View>
+                                     <View style={styles.activityCard}>
+                                         <View style={styles.activityHeader}>
+                                             <View style={[
+                                                 styles.activityDot, 
+                                                 { backgroundColor: item.type === 'accom' ? '#8E44AD' : '#00A8FF' }
+                                             ]} />
+                                             <Text style={styles.activityTitle}>{item.activityName}</Text>
+                                         </View>
+                                         <View style={styles.typeBadge}>
+                                             <Text style={styles.typeText}>
+                                                 {item.type === 'accom' ? 'Accommodation' : 'Stop / Activity'}
+                                             </Text>
+                                         </View>
+                                     </View>
+                                 </View>
+                             );
+                         })}
+                     </View>
+                 ))}
+             </View>
+         );
+    };
 
     const renderAvailability = (guideDays) => {
         const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -111,11 +211,20 @@ const GuideProfile = () => {
         return acc;
     }, {});
 
+    let safeInclusions = ["Standard Guide Services"];
+    if (selectedTour) {
+        if (Array.isArray(selectedTour.inclusions) && selectedTour.inclusions.length > 0) safeInclusions = selectedTour.inclusions;
+        else if (selectedTour.what_to_bring) {
+             if (Array.isArray(selectedTour.what_to_bring)) safeInclusions = selectedTour.what_to_bring;
+             else if (typeof selectedTour.what_to_bring === 'string') safeInclusions = [selectedTour.what_to_bring];
+        }
+    }
+
     let finalImage = null;
     if (destination?.images?.length > 0) {
         finalImage = destination.images[0].image;
-    } else if (tourPackage?.stops?.length > 0) {
-        finalImage = tourPackage.stops[0].image;
+    } else if (selectedTour?.stops?.length > 0) {
+        finalImage = selectedTour.stops[0].image;
     }
 
     return (
@@ -127,7 +236,6 @@ const GuideProfile = () => {
                     <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} />
                     <LinearGradient colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)', 'transparent']} style={styles.overlay} />
                     
-                    {/* Added Back Button */}
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                          <Ionicons name="arrow-back" size={24} color="#fff" />
                     </TouchableOpacity>
@@ -176,38 +284,88 @@ const GuideProfile = () => {
                             <Text style={styles.destinationName}>{destination?.name || "Loading..."}</Text>
                         </View>
                         
-                        {tourPackage && (
+                        {tourPackages.length > 0 && (
                              <View style={styles.detailsSection}>
                                 <View style={styles.sectionHeader}>
                                    <Package size={18} color="#1A2332" />
-                                   <Text style={styles.detailsHeader}>Tour Package: {tourPackage.name}</Text>
+                                   <Text style={styles.detailsHeader}>Available Tour Packages</Text>
                                 </View>
-                                <Text style={styles.itineraryText}>{tourPackage.description}</Text>
 
-                                <View style={styles.packageDetailsGrid}>
-                                    <View style={styles.packageDetailItem}>
-                                        <Clock size={14} color="#8B98A8"/>
-                                        <Text style={styles.packageDetailText}>{tourPackage.duration}</Text>
-                                    </View>
-                                     <View style={styles.packageDetailItem}>
-                                        <User size={14} color="#8B98A8"/>
-                                        <Text style={styles.packageDetailText}>Max {tourPackage.max_group_size} people</Text>
-                                    </View>
+                                {/* Package Selection Pills */}
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.packageScroll}>
+                                    {tourPackages.map(pkg => {
+                                        const isSelected = selectedTour?.id === pkg.id;
+                                        const duration = parseInt(pkg.duration_days) || 1;
+                                        return (
+                                            <TouchableOpacity 
+                                                key={pkg.id} 
+                                                style={[styles.packagePill, isSelected && styles.packagePillActive]}
+                                                onPress={() => setSelectedTour(pkg)}
+                                            >
+                                                <Text style={[styles.packagePillText, isSelected && styles.packagePillTextActive]}>
+                                                    {duration} Day Package
+                                                </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </ScrollView>
+
+                                {/* Selected Tour Details Header & Action Buttons */}
+                                <View style={styles.tourTitleRow}>
+                                    <Text style={styles.selectedTourTitle}>{selectedTour?.name || "Custom Plan"}</Text>
+                                    
+                                    {isOwnProfile && selectedTour && (
+                                        <View style={styles.actionIconsRow}>
+                                            <TouchableOpacity onPress={handleEditTour} style={styles.iconBtn}>
+                                                <Ionicons name="pencil" size={18} color="#00A8FF" />
+                                            </TouchableOpacity>
+                                            <TouchableOpacity onPress={handleDeleteTour} style={[styles.iconBtn, {backgroundColor: '#fee2e2'}]} disabled={isDeleting}>
+                                                {isDeleting ? <ActivityIndicator size="small" color="#ef4444"/> : <Ionicons name="trash" size={18} color="#ef4444" />}
+                                            </TouchableOpacity>
+                                        </View>
+                                    )}
                                 </View>
-                                
-                                <Text style={styles.subHeader}>What to Bring:</Text>
-                                <Text style={styles.itineraryText}>{tourPackage.what_to_bring}</Text>
+
+                                <Text style={styles.itineraryText}>{selectedTour?.description || "No description provided."}</Text>
+
+                                {selectedTour && (
+                                    <View style={styles.packageDetailsGrid}>
+                                        <View style={styles.packageDetailItem}>
+                                            <Clock size={14} color="#8B98A8"/>
+                                            <Text style={styles.packageDetailText}>{selectedTour.duration}</Text>
+                                        </View>
+                                        <View style={styles.packageDetailItem}>
+                                            <User size={14} color="#8B98A8"/>
+                                            <Text style={styles.packageDetailText}>Max {selectedTour.max_group_size} people</Text>
+                                        </View>
+                                    </View>
+                                )}
+
+                                <View style={styles.divider} />
+                                <Text style={styles.subHeader}>Itinerary Schedule</Text>
+                                {renderSequentialItinerary()}
+
+                                <View style={styles.divider} />
+                                <Text style={styles.subHeader}>Inclusions & Requirements</Text>
+                                <View style={styles.inclusionsContainer}>
+                                    {safeInclusions.map((item, index) => (
+                                        <View key={index} style={styles.inclusionTag}>
+                                            <CheckCircle size={12} color="#28A745" />
+                                            <Text style={styles.inclusionText}>{item}</Text>
+                                        </View>
+                                    ))}
+                                </View>
                             </View>
                         )}
 
-                        {tourPackage?.stops && tourPackage.stops.length > 0 && (
+                        {selectedTour?.stops && selectedTour.stops.length > 0 && (
                             <View style={styles.detailsSection}>
                                  <View style={styles.sectionHeader}>
                                    <MapPin size={18} color="#1A2332" />
-                                   <Text style={styles.detailsHeader}>Tour Stops</Text>
+                                   <Text style={styles.detailsHeader}>Tour Stops Preview</Text>
                                 </View>
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.stopsScrollView}>
-                                    {tourPackage.stops.map(stop => (
+                                    {selectedTour.stops.map(stop => (
                                         <View key={stop.id} style={styles.stopCard}>
                                             <Image source={{uri: getImageUrl(stop.image)}} style={styles.stopImage} />
                                             <Text style={styles.stopName}>{stop.name}</Text>
@@ -295,7 +453,7 @@ const GuideProfile = () => {
                             <View style={styles.infoItem}><Clock size={16} color="#1A2332" /><Text style={styles.detailText}><Text style={styles.detailLabel}>Experience: </Text>{guide.experience_years} years</Text></View>
                         </View>
 
-                        <View style={styles.detailsSection}>
+                        <SafeAreaView style={styles.detailsSection}>
                             <View style={styles.sectionHeader}>
                                 <CalendarIcon size={18} color="#1A2332" />
                                 <Text style={styles.detailsHeader}>Availability</Text>
@@ -335,7 +493,7 @@ const GuideProfile = () => {
                                     </View>
                                 </View>
                             </View>
-                        </View>
+                        </SafeAreaView>
                         
                     </View>
                 </View>
@@ -351,7 +509,6 @@ const styles = StyleSheet.create({
     headerImage: { width: '100%', height: '100%', resizeMode: 'cover', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     
-    // Added backButton style
     backButton: { position: 'absolute', top: 20, left: 20, padding: 5, zIndex: 10 },
     
     headerTitle: { position: 'absolute', bottom: 15, left: 20, color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 1 },
@@ -382,7 +539,39 @@ const styles = StyleSheet.create({
     detailsSection: { marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: '#E0E6ED' },
     sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
     detailsHeader: { fontSize: 16, fontWeight: '700', color: '#1A2332', marginLeft: 8 },
+
+    // Edit/Delete styles
+    tourTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, marginTop: 5 },
+    selectedTourTitle: { fontSize: 16, fontWeight: '700', color: '#1A2332', flex: 1, paddingRight: 10 },
+    actionIconsRow: { flexDirection: 'row', gap: 8 },
+    iconBtn: { padding: 6, backgroundColor: '#EBF6FF', borderRadius: 6 },
+
+    packageScroll: { flexDirection: 'row', marginBottom: 10, marginTop: 5 },
+    packagePill: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: '#fff', marginRight: 10, borderWidth: 1, borderColor: '#E2E8F0' },
+    packagePillActive: { backgroundColor: '#EFF6FF', borderColor: '#00A8FF' },
+    packagePillText: { fontSize: 14, fontWeight: '600', color: '#64748B' },
+    packagePillTextActive: { color: '#00A8FF' },
+    
+    seqDayLabel: { fontSize: 15, fontWeight: '800', color: '#00A8FF', marginBottom: 10 },
+    timelineContainer: { marginTop: 10 },
+    timelineItem: { flexDirection: 'row', marginBottom: 15 },
+    timeColumn: { width: 85, alignItems: 'center', paddingRight: 10 },
+    timeText: { fontSize: 12, fontWeight: '700', color: '#1A2332' },
+    timeSubText: { fontSize: 10, color: '#888', marginTop: 2 },
+    timeConnector: { flex: 1, width: 1, backgroundColor: '#E0E6ED', marginTop: 4 },
+    activityCard: { flex: 1, backgroundColor: '#fff', borderRadius: 8, padding: 10, borderWidth: 1, borderColor: '#E0E6ED' },
+    activityHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+    activityDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
+    activityTitle: { fontSize: 14, fontWeight: '700', color: '#333' },
+    typeBadge: { alignSelf: 'flex-start', backgroundColor: '#F5F7FA', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: '#eee' },
+    typeText: { fontSize: 10, color: '#666', fontWeight: '600' },
+    inclusionsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    inclusionTag: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FFF4', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, gap: 4, borderWidth: 1, borderColor: '#C3E6CB' },
+    inclusionText: { fontSize: 11, color: '#155724', fontWeight: '600' },
+    emptyText: { fontSize: 13, color: '#888', fontStyle: 'italic', marginBottom: 10 },
+
     subHeader: { fontSize: 14, fontWeight: '600', color: '#1A2332', marginTop: 10, marginBottom: 5 },
+    divider: { height: 1, backgroundColor: '#eee', marginVertical: 12 },
     packageDetailsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 15, marginVertical: 10 },
     packageDetailItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     packageDetailText: { fontSize: 13, color: '#1A2332' },

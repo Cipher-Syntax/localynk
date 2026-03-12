@@ -35,10 +35,16 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         tourCost, accomCost, extraPersonFee
     } = paymentData || {};
 
+    // --- FIXED: Inclusive Math (+1) for calculating days properly ---
     const calculateDays = () => {
         if (!startDate || !endDate) return 1;
+        const start = new Date(startDate);
+        const end = new Date(endDate);
         const oneDay = 24 * 60 * 60 * 1000;
-        return Math.max(Math.round((endDate - startDate) / oneDay), 1);
+        
+        // Add +1 to make it inclusive (e.g. Mar 10 to Mar 11 = 2 days, not 1)
+        const diffInDays = Math.round(Math.abs((end - start) / oneDay)) + 1;
+        return Math.max(diffInDays, 1);
     };
     const days = calculateDays();
 
@@ -112,6 +118,11 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         formData.append('country', country || '');
         formData.append('email', email || '');
 
+        // --- FIXED: Force backend to use the correct frontend math ---
+        if (totalPrice) formData.append('total_price', String(totalPrice.toFixed(2)));
+        if (downPayment) formData.append('down_payment', String(downPayment.toFixed(2)));
+        if (balanceDue) formData.append('balance_due', String(balanceDue.toFixed(2)));
+
         if (guide && guide.id) formData.append('guide', String(guide.id));
         else if (agency && agency.id) formData.append('agency', String(agency.id));
         
@@ -149,10 +160,9 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         const response = await fetch(`${baseURL}/api/bookings/`, {
             method: 'POST',
             body: formData,
-            headers: fetchHeaders, // Native fetch creates perfect boundary string dynamically
+            headers: fetchHeaders, 
         });
 
-        // First, extract raw text so if Django returns a 500 HTML page, we catch it!
         const responseText = await response.text();
         let data;
         try {
@@ -163,7 +173,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         }
 
         if (!response.ok) {
-            // Package into response.data format to mimic Axios for the catch block
             throw { response: { data } }; 
         }
 
@@ -172,7 +181,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 
     const initiatePayment = async (targetBookingId) => {
         const payload = {
-            payment_type: "Booking", // Explicitly define payment type to prevent backend 400 errors
+            payment_type: "Booking", 
             booking_id: targetBookingId,
             payment_method: paymentMethod 
         };
@@ -209,7 +218,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 
         } catch (error) {
             console.error("Action failed:", error);
-            // Enhanced Error Output to show EXACT backend message
             if (error.response && error.response.data) {
                 const errorData = error.response.data;
                 const errorMsg = typeof errorData === 'object' 
@@ -218,7 +226,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                 
                 Alert.alert("Booking Error", errorMsg);
             } else {
-                // Now displays the TRUE network/fetch error instead of generic "Something went wrong"
                 Alert.alert("Request Failed", error.message || "Failed to connect to the server.");
             }
         } finally {
@@ -251,10 +258,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
             <View style={styles.overlay}>
                 <StatusBar barStyle="light-content" backgroundColor="rgba(0,0,0,0.6)" />
                 
-                {/* --- MAIN RECEIPT CARD --- */}
                 <View style={styles.receiptContainer}>
-                    
-                    {/* Header: "Tear off" look */}
                     <View style={styles.receiptHeader}>
                         <View style={styles.headerRow}>
                             <View style={styles.headerIconBg}>
@@ -269,7 +273,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                     </View>
 
                     <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
-                        {/* 1. Service Details */}
                         <View style={styles.section}>
                             <Text style={styles.sectionLabel}>ITINERARY</Text>
                             
@@ -292,7 +295,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 
                         <DashedLine />
 
-                        {/* 2. Customer */}
                         <View style={styles.section}>
                             <Text style={styles.sectionLabel}>BILLED TO</Text>
                             <View style={styles.itemRow}>
@@ -307,7 +309,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 
                         <DashedLine />
 
-                        {/* 3. Billing Breakdown */}
                         <View style={styles.section}>
                             <Text style={styles.sectionLabel}>PAYMENT BREAKDOWN</Text>
                             
@@ -341,7 +342,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 
                     </ScrollView>
 
-                    {/* Footer: Total & Action */}
                     <View style={styles.receiptFooter}>
                         <View style={styles.totalRow}>
                             <Text style={styles.totalTextLabel}>PAYABLE NOW</Text>
@@ -375,7 +375,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                 </View>
             </View>
 
-            {/* --- CONFIRMATION SCREEN --- */}
             <Modal visible={showConfirmationScreen} animationType="slide">
                 <SafeAreaView style={styles.successContainer}>
                     <View style={styles.successContent}>
@@ -399,7 +398,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                         </View>
 
                         <TouchableOpacity style={styles.homeButton} onPress={handleConfirmationDismiss}>
-                            <Text style={styles.homeButtonText}>View My Bookings</Text>
+                            <Text style={styles.homeButtonText}>Go Back To Home</Text>
                         </TouchableOpacity>
                     </View>
                 </SafeAreaView>

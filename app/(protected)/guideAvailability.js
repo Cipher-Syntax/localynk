@@ -15,9 +15,12 @@ const GuideAvailability = () => {
     const { placeId, placeName, guideId } = params;
 
     const [guide, setGuide] = useState(null);
-    const [tourPackage, setTourPackage] = useState(null);
     const [blockedDates, setBlockedDates] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    // --- MULTI-PACKAGE DYNAMIC STATE ---
+    const [tourPackages, setTourPackages] = useState([]); 
+    const [selectedTour, setSelectedTour] = useState(null);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -32,8 +35,10 @@ const GuideAvailability = () => {
                 setGuide(guideRes.data);
                 setBlockedDates(blockedRes.data || []); 
                 
-                const specificTour = toursRes.data.find(tour => tour.guide === parseInt(guideId));
-                setTourPackage(specificTour);
+                const guidesTours = toursRes.data.filter(tour => tour.guide === parseInt(guideId));
+                setTourPackages(guidesTours);
+                if(guidesTours.length > 0) setSelectedTour(guidesTours[0]);
+
             } catch (error) {
                 console.error('Failed to fetch guide availability data:', error);
             } finally {
@@ -51,18 +56,18 @@ const GuideAvailability = () => {
     };
 
     const getInclusions = () => {
-        if (!tourPackage) return ["Standard Guide Services"];
-        if (Array.isArray(tourPackage.inclusions) && tourPackage.inclusions.length > 0) return tourPackage.inclusions;
-        if (tourPackage.what_to_bring) {
-            if (Array.isArray(tourPackage.what_to_bring)) return tourPackage.what_to_bring;
-            if (typeof tourPackage.what_to_bring === 'string') return [tourPackage.what_to_bring];
+        if (!selectedTour) return ["Standard Guide Services"];
+        if (Array.isArray(selectedTour.inclusions) && selectedTour.inclusions.length > 0) return selectedTour.inclusions;
+        if (selectedTour.what_to_bring) {
+            if (Array.isArray(selectedTour.what_to_bring)) return selectedTour.what_to_bring;
+            if (typeof selectedTour.what_to_bring === 'string') return [selectedTour.what_to_bring];
         }
         return ["Standard Guide Services"];
     };
     const safeInclusions = getInclusions();
 
     const accommodations = useMemo(() => {
-        if (tourPackage && Array.isArray(tourPackage.accommodations) && tourPackage.accommodations.length > 0) return tourPackage.accommodations;
+        if (selectedTour && Array.isArray(selectedTour.accommodations) && selectedTour.accommodations.length > 0) return selectedTour.accommodations;
         if (params.accommodations && params.accommodations !== "null") {
             try {
                 const parsed = JSON.parse(params.accommodations);
@@ -70,84 +75,72 @@ const GuideAvailability = () => {
             } catch (e) { return []; }
         }
         return [];
-    }, [tourPackage, params.accommodations]);
+    }, [selectedTour, params.accommodations]);
 
     const markedDates = useMemo(() => {
         if (!guide) return {};
 
         const marked = {};
-
-        // 1. Mark available dates (Blue)
         if (guide.specific_available_dates) {
             guide.specific_available_dates.forEach(date => {
-                marked[date] = { 
-                    selected: true, 
-                    marked: true, 
-                    selectedColor: '#00A8FF',
-                    disabled: true, 
-                    disableTouchEvent: true 
-                };
+                marked[date] = { selected: true, marked: true, selectedColor: '#00A8FF', disabled: true, disableTouchEvent: true };
             });
         }
-
-        // 2. Mark BLOCKED dates (Red)
         blockedDates.forEach(date => {
-            marked[date] = { 
-                selected: true, 
-                selectedColor: '#FFEBEE', 
-                marked: true, 
-                dotColor: '#D32F2F',      
-                textColor: '#D32F2F',    
-                disabled: true, 
-                disableTouchEvent: true 
-            };
+            marked[date] = { selected: true, selectedColor: '#FFEBEE', marked: true, dotColor: '#D32F2F', textColor: '#D32F2F', disabled: true, disableTouchEvent: true };
         });
 
         return marked;
     }, [guide, blockedDates]);
 
-    const timelineData = useMemo(() => {
-        if (!tourPackage || !tourPackage.itinerary_timeline) return [];
+    const renderSequentialItinerary = () => {
+        if (!selectedTour || !selectedTour.itinerary_timeline) return <Text style={styles.emptyText}>No timeline available.</Text>;
+        
+        let timelineData = [];
         try {
-            const raw = tourPackage.itinerary_timeline;
-            return typeof raw === 'string' ? JSON.parse(raw) : raw;
-        } 
-        catch (e) {
-            console.error("Error parsing timeline:", e);
-            return [];
-        }
-    }, [tourPackage]);
+            timelineData = typeof selectedTour.itinerary_timeline === 'string' ? JSON.parse(selectedTour.itinerary_timeline) : selectedTour.itinerary_timeline;
+        } catch (e) { return <Text style={styles.emptyText}>No timeline available.</Text>; }
 
-    const renderTimeline = () => {
         if (timelineData.length === 0) return <Text style={styles.emptyText}>No timeline available.</Text>;
+
+        const grouped = timelineData.reduce((acc, item) => {
+            const d = parseInt(item.day) || 1;
+            if (!acc[d]) acc[d] = [];
+            acc[d].push(item);
+            return acc;
+        }, {});
 
         return (
             <View style={styles.timelineContainer}>
-                {timelineData.map((item, index) => (
-                    <View key={index} style={styles.timelineItem}>
-                        <View style={styles.timeColumn}>
-                            <Text style={styles.timeText}>{item.startTime}</Text>
-                            <View style={styles.timeConnector} />
-                        </View>
+                {Object.keys(grouped).sort((a,b)=>a-b).map(day => (
+                    <View key={`seq-day-${day}`} style={{marginBottom: 20}}>
+                        <Text style={styles.seqDayLabel}>Day {day}</Text>
+                        
+                        {grouped[day].map((item, index) => (
+                            <View key={index} style={styles.timelineItem}>
+                                <View style={styles.timeColumn}>
+                                    <Text style={styles.timeText}>{item.startTime}</Text>
+                                    {item.endTime && <Text style={styles.timeSubText}>{item.endTime}</Text>}
+                                    <View style={styles.timeConnector} />
+                                </View>
 
-                        <View style={styles.activityCard}>
-                            <View style={styles.activityHeader}>
-                                <View style={[
-                                    styles.activityDot, 
-                                    { backgroundColor: item.type === 'accom' ? '#8E44AD' : '#00A8FF' }
-                                ]} />
-                                <Text style={styles.activityTitle}>{item.activityName}</Text>
+                                <View style={styles.activityCard}>
+                                    <View style={styles.activityHeader}>
+                                        <View style={[
+                                            styles.activityDot, 
+                                            { backgroundColor: item.type === 'accom' ? '#8E44AD' : '#00A8FF' }
+                                        ]} />
+                                        <Text style={styles.activityTitle}>{item.activityName}</Text>
+                                    </View>
+                                    
+                                    <View style={styles.typeBadge}>
+                                        <Text style={styles.typeText}>
+                                            {item.type === 'accom' ? 'Accommodation' : 'Stop / Activity'}
+                                        </Text>
+                                    </View>
+                                </View>
                             </View>
-                            <Text style={styles.activityDuration}>
-                                {item.startTime} - {item.endTime}
-                            </Text>
-                            
-                            <View style={styles.typeBadge}>
-                                <Text style={styles.typeText}>
-                                    {item.type === 'accom' ? 'Accommodation' : 'Stop / Activity'}
-                                </Text>
-                            </View>
-                        </View>
+                        ))}
                     </View>
                 ))}
             </View>
@@ -177,8 +170,6 @@ const GuideAvailability = () => {
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                 <View style={styles.introContainer}>
                     <Text style={styles.sectionTitle}>Availability & Plans</Text>
-                    
-                    {/* UPDATED: Added Profile Picture Logic */}
                     <View style={styles.profileRow}>
                         <View style={styles.profilePicWrapper}>
                             {guide.profile_picture ? (
@@ -237,19 +228,42 @@ const GuideAvailability = () => {
                 <View style={styles.cardContainer}>
                     <View style={styles.sectionHeader}>
                         <Map size={18} color="#1A2332" />
-                        <Text style={styles.cardTitle}>
-                            Proposed Itinerary: {tourPackage ? tourPackage.name : "Custom Plan"}
-                        </Text>
+                        <Text style={styles.cardTitle}>Available Tour Packages</Text>
                     </View>
                     
+                    {/* --- MULTI-PACKAGE DYNAMIC SELECTION --- */}
+                    {tourPackages.length > 0 && (
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.packageScroll}>
+                            {tourPackages.map((pkg) => {
+                                const isSelected = selectedTour?.id === pkg.id;
+                                const duration = parseInt(pkg.duration_days) || 1;
+                                return (
+                                    <TouchableOpacity 
+                                        key={pkg.id} 
+                                        style={[styles.packagePill, isSelected && styles.packagePillActive]}
+                                        onPress={() => setSelectedTour(pkg)}
+                                    >
+                                        <Text style={[styles.packagePillText, isSelected && styles.packagePillTextActive]}>
+                                            {duration} Day Package
+                                        </Text>
+                                    </TouchableOpacity>
+                                )
+                            })}
+                        </ScrollView>
+                    )}
+
+                    <Text style={[styles.cardTitle, {marginTop: 10, marginBottom: 5}]}>
+                        {selectedTour ? selectedTour.name : "Custom Plan"}
+                    </Text>
+
                     <Text style={styles.bodyText}>
-                        {tourPackage ? tourPackage.description : (params.itinerary || "No itinerary details available.")}
+                        {selectedTour ? selectedTour.description : (params.itinerary || "No itinerary details available.")}
                     </Text>
 
                     <View style={styles.divider} />
 
                     <Text style={styles.subHeader}>Schedule</Text>
-                    {renderTimeline()}
+                    {renderSequentialItinerary()}
 
                     <View style={styles.divider} />
                     
@@ -321,12 +335,11 @@ const styles = StyleSheet.create({
     introContainer: { marginBottom: 20 },
     sectionTitle: { fontSize: 20, fontWeight: '700', color: '#1A2332' },
     
-    // NEW STYLES
     profileRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
     profilePicWrapper: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#ccc', marginRight: 10, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
     profilePic: { width: '100%', height: '100%' },
-    
     subText: { fontSize: 14, color: '#8B98A8' },
+    
     cardContainer: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 16, elevation: 1 },
     sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
     cardTitle: { fontSize: 16, fontWeight: '700', color: '#333', marginLeft: 10 },
@@ -335,6 +348,13 @@ const styles = StyleSheet.create({
     legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     dot: { width: 10, height: 10, borderRadius: 5 },
     legendText: { fontSize: 12, color: '#666' },
+
+    packageScroll: { flexDirection: 'row', marginBottom: 10, marginTop: 5 },
+    packagePill: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: '#fff', marginRight: 10, borderWidth: 1, borderColor: '#E2E8F0' },
+    packagePillActive: { backgroundColor: '#EFF6FF', borderColor: '#00A8FF' },
+    packagePillText: { fontSize: 14, fontWeight: '600', color: '#64748B' },
+    packagePillTextActive: { color: '#00A8FF' },
+
     bodyText: { fontSize: 14, color: '#555', lineHeight: 22 },
     subHeader: { fontSize: 13, fontWeight: '700', color: '#333', marginBottom: 8, marginTop: 10 },
     highlightText: { fontSize: 12, color: '#00A8FF', fontStyle: 'italic', marginBottom: 10, fontWeight: '600' },
@@ -355,20 +375,21 @@ const styles = StyleSheet.create({
     footerSub: { fontSize: 12, color: '#888' },
     proceedBtn: { backgroundColor: '#00A8FF', flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 30, gap: 8 },
     proceedText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-    
+
+    seqDayLabel: { fontSize: 15, fontWeight: '800', color: '#00A8FF', marginBottom: 10 },
     timelineContainer: { marginTop: 10 },
     timelineItem: { flexDirection: 'row', marginBottom: 15 },
-    timeColumn: { width: 70, alignItems: 'center', paddingRight: 10 },
+    timeColumn: { width: 85, alignItems: 'center', paddingRight: 10 },
     timeText: { fontSize: 12, fontWeight: '700', color: '#1A2332' },
+    timeSubText: { fontSize: 10, color: '#888', marginTop: 2 },
     timeConnector: { flex: 1, width: 1, backgroundColor: '#E0E6ED', marginTop: 4 },
     
     activityCard: { flex: 1, backgroundColor: '#F5F7FA', borderRadius: 8, padding: 10, borderWidth: 1, borderColor: '#E0E6ED' },
-    activityHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+    activityHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
     activityDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
     activityTitle: { fontSize: 14, fontWeight: '700', color: '#333' },
-    activityDuration: { fontSize: 11, color: '#888', marginBottom: 6 },
     
     typeBadge: { alignSelf: 'flex-start', backgroundColor: '#fff', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: '#eee' },
     typeText: { fontSize: 10, color: '#666', fontWeight: '600' },
-    emptyText: { fontSize: 13, color: '#888', fontStyle: 'italic' }
+    emptyText: { fontSize: 13, color: '#888', fontStyle: 'italic', marginBottom: 10 }
 });

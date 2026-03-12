@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, StatusBar, StyleSheet, Image, TextInput, TouchableOpacity, ActivityIndicator, Alert, Modal, Dimensions, Platform, KeyboardAvoidingView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { User, AlertCircle, CheckCircle2, UploadCloud, Calendar as CalendarIcon, ShieldCheck, CreditCard } from 'lucide-react-native'; 
+import { User, AlertCircle, CheckCircle2, UploadCloud, Calendar as CalendarIcon, ShieldCheck } from 'lucide-react-native'; 
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -27,36 +27,18 @@ const Payment = () => {
     const {
         entityName, guideName, placeName, bookingId, entityId, guideId, bookingType,
         assignedGuides, basePrice, soloPrice, accommodationPrice, accommodationId,
-        accommodationName, additionalFee, placeId, tourPackageId, itineraryTimeline 
+        accommodationName, additionalFee, placeId, tourPackageId, itineraryTimeline, packageDuration: paramPackageDuration
     } = params;
 
     const [fetchedBooking, setFetchedBooking] = useState(null);
     const [loadingBooking, setLoadingBooking] = useState(!!bookingId);
 
-    // NEW EXTENSION: Multi-day package state configuration
-    const [packageDuration, setPackageDuration] = useState(1);
-    const packageOptions = [
-        { label: '1 Day', value: 1 },
-        { label: '2 Days', value: 2 },
-        { label: '3 Days', value: 3 },
-        { label: '1 Week', value: 7 },
-    ];
-
-    // Safe parse of incoming itineraries
-    const parsedItinerary = useMemo(() => {
-        try { return itineraryTimeline ? JSON.parse(itineraryTimeline) : []; } 
-        catch (e) { return []; }
-    }, [itineraryTimeline]);
-
-    const groupedItinerary = useMemo(() => {
-        const groups = {};
-        parsedItinerary.forEach(item => {
-            const day = item.day || 1; // Fallback to Day 1 for legacy setups
-            if (!groups[day]) groups[day] = [];
-            groups[day].push(item);
-        });
-        return groups;
-    }, [parsedItinerary]);
+    const [guideAvailability, setGuideAvailability] = useState(null);
+    const [blockedDates, setBlockedDates] = useState([]); 
+    
+    // --- MULTI-PACKAGE DYNAMIC STATE ---
+    const [guidePackages, setGuidePackages] = useState([]);
+    const [selectedPackage, setSelectedPackage] = useState(null);
 
     useEffect(() => {
         const fetchBookingDetails = async () => {
@@ -64,7 +46,7 @@ const Payment = () => {
             try {
                 const response = await api.get(`/api/bookings/${bookingId}/`);
                 setFetchedBooking(response.data);
-            } catch (error) { console.error("Failed to fetch booking:", error); } 
+            } catch (error) { console.error("Failed to fetch booking details:", error); } 
             finally { setLoadingBooking(false); }
         };
         fetchBookingDetails();
@@ -79,27 +61,61 @@ const Payment = () => {
     const resolvedName = fetchedBooking?.guide_detail?.username || fetchedBooking?.agency_detail?.username || entityName || guideName || (isAgency ? "Selected Agency" : "Selected Guide");
     const resolvedId = fetchedBooking?.guide || fetchedBooking?.agency || entityId || guideId;
 
-    const [guideAvailability, setGuideAvailability] = useState(null);
-    const [blockedDates, setBlockedDates] = useState([]); 
-    
-    const [assignedGuidesList, setAssignedGuidesList] = useState(() => {
-        try { return assignedGuides && typeof assignedGuides === 'string' ? JSON.parse(assignedGuides) : []; } catch (e) { return []; }
-    });
+    useEffect(() => {
+        const fetchAvailabilityAndPackages = async () => {
+            if (!isAgency && resolvedId) {
+                try {
+                    const [availRes, blockedRes, toursRes] = await Promise.all([
+                        api.get(`/api/guides/${resolvedId}/`),
+                        api.get(`/api/bookings/guide_blocked_dates/`, { params: { guide_id: resolvedId } }),
+                        placeId ? api.get(`/api/destinations/${placeId}/tours/`) : { data: [] }
+                    ]);
+                    
+                    setGuideAvailability(availRes.data);
+                    setBlockedDates(blockedRes.data || []);
+                    
+                    if (placeId && toursRes.data) {
+                        const myTours = toursRes.data.filter(t => t.guide === parseInt(resolvedId));
+                        setGuidePackages(myTours);
+                        if (myTours.length > 0) {
+                            const defaultTour = myTours.find(t => t.id === parseInt(tourPackageId)) || myTours[0];
+                            setSelectedPackage(defaultTour);
+                        }
+                    }
+                } catch (error) { console.error("Failed to fetch guide data:", error); }
+            }
+        };
+        fetchAvailabilityAndPackages();
+    }, [resolvedId, isAgency, placeId, tourPackageId]);
 
-    const [assignedAgencyGuidesList, setAssignedAgencyGuidesList] = useState([]);
+    const activeDuration = selectedPackage ? (parseInt(selectedPackage.duration_days) || 1) : (parseInt(paramPackageDuration) || 1);
+    const activeItinerary = selectedPackage ? selectedPackage.itinerary_timeline : itineraryTimeline;
+    const tourCostGroup = selectedPackage ? parseFloat(selectedPackage.price_per_day) : (basePrice ? parseFloat(basePrice) : 500);
+    const tourCostSolo = selectedPackage ? parseFloat(selectedPackage.solo_price) : (soloPrice ? parseFloat(soloPrice) : tourCostGroup);
+    const extraPersonFee = selectedPackage ? parseFloat(selectedPackage.additional_fee_per_head || 0) : (additionalFee ? parseFloat(additionalFee) : 0);
+    const accomCost = accommodationPrice ? parseFloat(accommodationPrice) : 0; 
+    
+    const parsedItinerary = useMemo(() => {
+        try { return activeItinerary ? (typeof activeItinerary === 'string' ? JSON.parse(activeItinerary) : activeItinerary) : []; } 
+        catch (e) { return []; }
+    }, [activeItinerary]);
+
+    const groupedItinerary = useMemo(() => {
+        return parsedItinerary.reduce((acc, item) => {
+            const d = parseInt(item.day) || 1;
+            if (!acc[d]) acc[d] = [];
+            acc[d].push(item);
+            return acc;
+        }, {});
+    }, [parsedItinerary]);
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isCalendarVisible, setCalendarVisible] = useState(false);
     const [selectingType, setSelectingType] = useState('start');
     const [isLoadingImage, setIsLoadingImage] = useState(false);
-    
     const [errorModalVisible, setErrorModalVisible] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
 
-    const tourCostGroup = basePrice ? parseFloat(basePrice) : 500;
-    const tourCostSolo = soloPrice ? parseFloat(soloPrice) : tourCostGroup;
-    const accomCost = accommodationPrice ? parseFloat(accommodationPrice) : 0; 
-    const extraPersonFee = additionalFee ? parseFloat(additionalFee) : 0;
-    
     const bookingEntity = {
         id: resolvedId,
         name: resolvedName,
@@ -157,8 +173,6 @@ const Payment = () => {
                 setNumPeople(String(fetchedBooking.num_guests));
                 setSelectedOption(fetchedBooking.num_guests > 1 ? 'group' : 'solo');
             }
-            if (fetchedBooking.assigned_guides_detail) setAssignedGuidesList(fetchedBooking.assigned_guides_detail);
-            if (fetchedBooking.assigned_agency_guides_detail) setAssignedAgencyGuidesList(fetchedBooking.assigned_agency_guides_detail);
         }
     }, [fetchedBooking]);
 
@@ -174,29 +188,12 @@ const Payment = () => {
     }, [user]);
 
     useEffect(() => {
-        const fetchAvailabilityData = async () => {
-            if (!isAgency && resolvedId) {
-                try {
-                    const [availRes, blockedRes] = await Promise.all([
-                        api.get(`/api/guides/${resolvedId}/`),
-                        api.get(`/api/bookings/guide_blocked_dates/`, { params: { guide_id: resolvedId } })
-                    ]);
-                    setGuideAvailability(availRes.data);
-                    setBlockedDates(blockedRes.data || []);
-                } catch (error) { console.error("Failed to fetch guide data:", error); }
-            }
-        };
-        fetchAvailabilityData();
-    }, [resolvedId, isAgency]);
-
-    // Update End Date automatically when Package Duration or Start Date Changes
-    useEffect(() => {
         if (!isPayable && !isConfirmed) {
             const newEndDate = new Date(startDate);
-            newEndDate.setDate(newEndDate.getDate() + (packageDuration - 1));
+            newEndDate.setDate(newEndDate.getDate() + (activeDuration - 1));
             setEndDate(newEndDate);
         }
-    }, [packageDuration, startDate, isPayable, isConfirmed]);
+    }, [activeDuration, startDate, isPayable, isConfirmed]);
 
     const getMarkedDates = useMemo(() => {
         const marked = {};
@@ -264,8 +261,8 @@ const Payment = () => {
     }, [guideAvailability, startDate, endDate, isAgency, blockedDates]);
 
     const openCalendar = (type) => { 
-        if (type === 'end' && packageDuration > 1) {
-            showError("End date is locked based on the multi-day package you selected.");
+        if (type === 'end' && activeDuration > 1) {
+            showError(`End date is locked based on the ${activeDuration}-day package you selected.`);
             return;
         }
         setSelectingType(type); 
@@ -324,7 +321,7 @@ const Payment = () => {
 
         if (selectingType === 'start') {
             const futureEnd = new Date(selectedDate);
-            futureEnd.setDate(futureEnd.getDate() + (packageDuration - 1));
+            futureEnd.setDate(futureEnd.getDate() + (activeDuration - 1));
             
             if(checkDateBlockages(selectedDate, futureEnd)) return;
             
@@ -372,7 +369,7 @@ const Payment = () => {
     const handleReviewPress = () => {
         const startStr = formatDateForCalendar(startDate);
         const endStr = formatDateForCalendar(endDate);
-        if (startStr === endStr && packageDuration > 1) { showError("Multi-day packages cannot start and end on the same day."); return; }
+        if (startStr === endStr && activeDuration > 1) { showError("Multi-day packages cannot start and end on the same day."); return; }
         if (startDate > endDate) { showError("End date cannot be before start date."); return; }
         if (!validIdImage && !isPayable) { showError("Please upload a valid government ID to proceed."); return; }
         if (!userSelfieImage && !isPayable) { showError("Please take a selfie for identity verification."); return; }
@@ -384,9 +381,9 @@ const Payment = () => {
         const oneDay = 24 * 60 * 60 * 1000;
         let numDays = 1;
         
-        if (packageDuration > 1 && startDate.getTime() !== endDate.getTime()) {
+        if (activeDuration > 1 && startDate.getTime() !== endDate.getTime()) {
             numDays = Math.round(Math.abs((endDate - startDate) / oneDay)) + 1;
-        } else if (packageDuration === 1 && startDate.getTime() !== endDate.getTime()) {
+        } else if (activeDuration === 1 && startDate.getTime() !== endDate.getTime()) {
             numDays = Math.max(Math.round(Math.abs((endDate - startDate) / oneDay)), 1);
         }
 
@@ -395,13 +392,20 @@ const Payment = () => {
         let extraFees = 0;
 
         if (selectedOption === 'solo') {
-            groupSize = 1; guideFee = tourCostSolo; extraFees = 0;
+            groupSize = 1; 
+            // If solo price is 0 or not set, fallback to the standard price per day
+            guideFee = tourCostSolo > 0 ? tourCostSolo : tourCostGroup; 
+            extraFees = 0;
         } else {
             if (groupSize < 2) groupSize = 2;
-            guideFee = tourCostSolo;
+            // FIXED: Use the standard Price Per Day (tourCostGroup) for group bookings
+            guideFee = tourCostGroup; 
+            
+            // Assuming the base price covers the 1st person, add extra fee for the 2nd person onwards
             const extraPeople = Math.max(0, groupSize - 1);
             extraFees = extraPeople * extraPersonFee;
         }
+        
         setCurrentGuideFee(guideFee);
         
         const dailyTotal = guideFee + extraFees + accomCost;
@@ -413,7 +417,7 @@ const Payment = () => {
         setTotalPrice(grandTotal);
         setDownPayment(calculatedDownPayment);
         setBalanceDue(calculatedBalance);
-    }, [startDate, endDate, selectedOption, numPeople, tourCostGroup, tourCostSolo, accomCost, extraPersonFee, packageDuration]);
+    }, [startDate, endDate, selectedOption, numPeople, tourCostGroup, tourCostSolo, accomCost, extraPersonFee, activeDuration]);
 
     const profileImageSource = useMemo(() => {
         if (!isAgency && guideAvailability && guideAvailability.profile_picture) {
@@ -424,26 +428,8 @@ const Payment = () => {
 
     if (loadingBooking) {
         return (
-            <View style={{ flex: 1, backgroundColor: BACKGROUND_COLOR }}>
-                <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-                <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-                    <View style={styles.container}>
-                        <View style={styles.header}>
-                            <View style={[styles.headerImage, { backgroundColor: '#E0E6ED', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }]} />
-                        </View>
-                        <View style={styles.contentContainer}>
-                            <View style={styles.card}>
-                                <View style={styles.guideHeader}>
-                                    <View style={[styles.avatarContainer, { backgroundColor: '#E0E6ED' }]} />
-                                    <View style={styles.guideInfo}>
-                                        <View style={{ height: 18, width: 150, backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 8 }} />
-                                        <View style={{ height: 14, width: 100, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
-                                    </View>
-                                </View>
-                            </View>
-                        </View>
-                    </View>
-                </SafeAreaView>
+            <View style={styles.loaderFallback}>
+                <ActivityIndicator size="large" color={PRIMARY_COLOR} />
             </View>
         );
     }
@@ -482,35 +468,43 @@ const Payment = () => {
                                     <View style={styles.guideInfo}>
                                         <Text style={styles.guideName}>{bookingEntity.name}</Text>
                                         <Text style={styles.guideSub}>{bookingEntity.purpose}</Text>
-                                        {isAgency && (
-                                            <View style={styles.verifiedTag}>
-                                                <ShieldCheck size={12} color="#059669" />
-                                                <Text style={styles.verifiedText}>Verified Partner</Text>
-                                            </View>
-                                        )}
                                     </View>
                                 </View>
                             </View>
 
                             <View style={[isPayable && {opacity: 0.7}]}>
                                 
-                                {/* NEW EXTENSION: Package Options Selection */}
-                                {!isPayable && !isConfirmed && (
+                                {!isPayable && !isConfirmed && guidePackages.length > 0 && (
                                     <>
-                                        <Text style={styles.sectionTitle}>Select Package Duration</Text>
+                                        <Text style={styles.sectionTitle}>Select Package</Text>
                                         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.packageScroll}>
-                                            {packageOptions.map((opt) => (
-                                                <TouchableOpacity 
-                                                    key={opt.value} 
-                                                    style={[styles.packagePill, packageDuration === opt.value && styles.packagePillActive]}
-                                                    onPress={() => setPackageDuration(opt.value)}
-                                                >
-                                                    <Text style={[styles.packagePillText, packageDuration === opt.value && styles.packagePillTextActive]}>
-                                                        {opt.label}
-                                                    </Text>
-                                                </TouchableOpacity>
-                                            ))}
+                                            {guidePackages.map((pkg) => {
+                                                const isSelected = selectedPackage?.id === pkg.id;
+                                                const duration = parseInt(pkg.duration_days) || 1;
+                                                return (
+                                                    <TouchableOpacity 
+                                                        key={pkg.id} 
+                                                        style={[styles.packagePill, isSelected && styles.packagePillActive]}
+                                                        onPress={() => setSelectedPackage(pkg)}
+                                                    >
+                                                        <Text style={[styles.packagePillText, isSelected && styles.packagePillTextActive]}>
+                                                            {duration} Day Package
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                )
+                                            })}
                                         </ScrollView>
+                                    </>
+                                )}
+                                
+                                {!isPayable && !isConfirmed && guidePackages.length === 0 && (
+                                    <>
+                                        <Text style={styles.sectionTitle}>Selected Package</Text>
+                                        <View style={{flexDirection: 'row', marginBottom: 20}}>
+                                            <View style={[styles.packagePill, styles.packagePillActive]}>
+                                                <Text style={[styles.packagePillText, styles.packagePillTextActive]}>{activeDuration} Day Package</Text>
+                                            </View>
+                                        </View>
                                     </>
                                 )}
 
@@ -525,34 +519,53 @@ const Payment = () => {
                                     </TouchableOpacity>
                                     <View style={styles.connector} />
                                     <TouchableOpacity 
-                                        style={[styles.dateBox, packageDuration > 1 && { backgroundColor: '#F1F5F9' }]} 
+                                        style={[styles.dateBox, activeDuration > 1 && { backgroundColor: '#F1F5F9' }]} 
                                         onPress={() => !isPayable && openCalendar('end')} 
-                                        disabled={isPayable || packageDuration > 1}
+                                        disabled={isPayable || activeDuration > 1}
                                     >
-                                        <Text style={styles.dateLabel}>{packageDuration > 1 ? "Auto-Locked End" : "End Date"}</Text>
+                                        <Text style={styles.dateLabel}>{activeDuration > 1 ? "Locked End" : "End Date"}</Text>
                                         <View style={styles.dateValueRow}>
-                                            <CalendarIcon size={18} color={packageDuration > 1 ? '#94A3B8' : PRIMARY_COLOR} />
-                                            <Text style={[styles.dateValue, packageDuration > 1 && { color: '#64748B' }]}>{endDate.toLocaleDateString()}</Text>
+                                            <CalendarIcon size={18} color={activeDuration > 1 ? '#94A3B8' : PRIMARY_COLOR} />
+                                            <Text style={[styles.dateValue, activeDuration > 1 && { color: '#64748B' }]}>{endDate.toLocaleDateString()}</Text>
                                         </View>
                                     </TouchableOpacity>
                                 </View>
 
-                                {/* NEW EXTENSION: Daily Itinerary Preview */}
+                                {/* --- MATCHED ITINERARY SCHEDULE --- */}
                                 {Object.keys(groupedItinerary).length > 0 && (
-                                    <View style={styles.itineraryPreviewBox}>
-                                        <Text style={styles.itineraryPreviewTitle}>Included Itinerary Preview</Text>
-                                        {Object.keys(groupedItinerary).map(day => (
-                                            <View key={`day-${day}`} style={{ marginBottom: 12 }}>
-                                                <Text style={styles.itineraryDayLabel}>Day {day}</Text>
-                                                {groupedItinerary[day].map((act, idx) => (
-                                                    <View key={idx} style={styles.itineraryActivityRow}>
-                                                        <Text style={styles.itineraryActivityTime}>{act.startTime}</Text>
-                                                        <View style={styles.itineraryActivityDot} />
-                                                        <Text style={styles.itineraryActivityName}>{act.activityName}</Text>
-                                                    </View>
-                                                ))}
-                                            </View>
-                                        ))}
+                                    <View style={{ marginBottom: 20 }}>
+                                        <Text style={styles.sectionTitle}>Itinerary Schedule</Text>
+                                        <View style={styles.timelineContainer}>
+                                            {Object.keys(groupedItinerary).sort((a,b)=>a-b).map(day => (
+                                                <View key={`seq-day-${day}`} style={{marginBottom: 20}}>
+                                                    <Text style={styles.seqDayLabel}>Day {day}</Text>
+                                                    
+                                                    {groupedItinerary[day].map((act, idx) => (
+                                                        <View key={idx} style={styles.timelineItem}>
+                                                            <View style={styles.timeColumn}>
+                                                                <Text style={styles.timeText}>{act.startTime}</Text>
+                                                                {act.endTime && <Text style={styles.timeSubText}>{act.endTime}</Text>}
+                                                                <View style={styles.timeConnector} />
+                                                            </View>
+                                                            <View style={styles.activityCard}>
+                                                                <View style={styles.activityHeader}>
+                                                                    <View style={[
+                                                                        styles.activityDot, 
+                                                                        { backgroundColor: act.type === 'accom' ? '#8E44AD' : PRIMARY_COLOR }
+                                                                    ]} />
+                                                                    <Text style={styles.activityTitle}>{act.activityName}</Text>
+                                                                </View>
+                                                                <View style={styles.typeBadge}>
+                                                                    <Text style={styles.typeText}>
+                                                                        {act.type === 'accom' ? 'Accommodation' : 'Stop / Activity'}
+                                                                    </Text>
+                                                                </View>
+                                                            </View>
+                                                        </View>
+                                                    ))}
+                                                </View>
+                                            ))}
+                                        </View>
                                     </View>
                                 )}
 
@@ -727,7 +740,8 @@ const Payment = () => {
                         setIsModalOpen={setIsModalOpen}
                         paymentData={{
                             [isAgency ? 'agency' : 'guide']: bookingEntity,
-                            accommodation: accomEntity, accommodationId, tourPackageId,
+                            accommodation: accomEntity, accommodationId, 
+                            tourPackageId: selectedPackage ? selectedPackage.id : tourPackageId,
                             startDate, endDate, firstName, lastName, phoneNumber, country, email,
                             basePrice: bookingEntity.basePrice, serviceFee: bookingEntity.serviceFee,
                             totalPrice, downPayment, balanceDue, bookingId, placeId,
@@ -748,6 +762,7 @@ export default Payment;
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
+    loaderFallback: { flex: 1, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' },
     header: { height: 100, position: 'relative', marginBottom: 20 },
     headerImage: { width: '100%', height: '100%', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
     overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
@@ -766,22 +781,29 @@ const styles = StyleSheet.create({
     verifiedText: { fontSize: 11, color: '#059669', fontWeight: '600' },
     sectionTitle: { fontSize: 16, fontWeight: '700', color: TEXT_PRIMARY, marginBottom: 12 },
     
-    // NEW EXTENSION: Package selection styles
     packageScroll: { flexDirection: 'row', marginBottom: 20 },
     packagePill: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: '#F1F5F9', marginRight: 10, borderWidth: 1, borderColor: '#E2E8F0' },
     packagePillActive: { backgroundColor: '#EFF6FF', borderColor: PRIMARY_COLOR },
     packagePillText: { fontSize: 14, fontWeight: '600', color: TEXT_SECONDARY },
     packagePillTextActive: { color: PRIMARY_COLOR },
     
-    // NEW EXTENSION: Itinerary styles
-    itineraryPreviewBox: { backgroundColor: '#F8FAFC', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 20 },
-    itineraryPreviewTitle: { fontSize: 14, fontWeight: '700', color: TEXT_PRIMARY, marginBottom: 12, borderBottomWidth: 1, borderBottomColor: '#E2E8F0', paddingBottom: 8 },
-    itineraryDayLabel: { fontSize: 13, fontWeight: '800', color: PRIMARY_COLOR, marginBottom: 6 },
-    itineraryActivityRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, paddingLeft: 8 },
-    itineraryActivityTime: { fontSize: 12, color: TEXT_SECONDARY, width: 65 },
-    itineraryActivityDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: PRIMARY_COLOR, marginHorizontal: 8 },
-    itineraryActivityName: { fontSize: 13, fontWeight: '600', color: TEXT_PRIMARY, flex: 1 },
-
+    // --- EXACT MATCH ITINERARY STYLES ---
+    seqDayLabel: { fontSize: 15, fontWeight: '800', color: PRIMARY_COLOR, marginBottom: 10 },
+    timelineContainer: { marginTop: 10 },
+    timelineItem: { flexDirection: 'row', marginBottom: 15 },
+    timeColumn: { width: 85, alignItems: 'center', paddingRight: 10 },
+    timeText: { fontSize: 12, fontWeight: '700', color: TEXT_PRIMARY },
+    timeSubText: { fontSize: 10, color: TEXT_SECONDARY, marginTop: 2 },
+    timeConnector: { flex: 1, width: 1, backgroundColor: '#E2E8F0', marginTop: 4 },
+    
+    activityCard: { flex: 1, backgroundColor: '#F8FAFC', borderRadius: 8, padding: 10, borderWidth: 1, borderColor: '#E2E8F0' },
+    activityHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+    activityDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
+    activityTitle: { fontSize: 14, fontWeight: '700', color: TEXT_PRIMARY },
+    
+    typeBadge: { alignSelf: 'flex-start', backgroundColor: '#FFFFFF', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: '#E2E8F0' },
+    typeText: { fontSize: 10, color: TEXT_SECONDARY, fontWeight: '600' },
+    
     datesRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
     dateBox: { flex: 1, backgroundColor: SURFACE_COLOR, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0' },
     dateLabel: { fontSize: 12, color: TEXT_SECONDARY, marginBottom: 4 },
@@ -821,19 +843,6 @@ const styles = StyleSheet.create({
     receiptDivider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 12 },
     receiptNote: { fontSize: 11, color: PRIMARY_COLOR, fontStyle: 'italic', textAlign: 'right' },
     
-    agencyGuideSection: { marginTop: -20, marginBottom: 100 },
-    agencyGuideCard: { backgroundColor: SURFACE_COLOR, padding: 16, borderRadius: 16, marginBottom: 12, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 },
-    agencyGuideHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-    agencyGuideAvatar: { width: 48, height: 48, borderRadius: 24, marginRight: 12, backgroundColor: '#E2E8F0' },
-    agencyGuideAvatarFallback: { backgroundColor: PRIMARY_COLOR, justifyContent: 'center', alignItems: 'center' },
-    agencyGuideAvatarText: { color: '#FFF', fontSize: 20, fontWeight: '700' },
-    agencyGuideInfo: { flex: 1 },
-    agencyGuideName: { fontSize: 16, fontWeight: '700', color: TEXT_PRIMARY },
-    agencyGuideRole: { fontSize: 12, color: PRIMARY_COLOR, fontWeight: '600', marginTop: 2 },
-    agencyGuideDetails: { borderTopWidth: 1, borderTopColor: '#F1F5F9', paddingTop: 12, gap: 8 },
-    agencyGuideDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    agencyGuideDetailText: { fontSize: 13, color: TEXT_SECONDARY },
-
     bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: SURFACE_COLOR, paddingHorizontal: 24, paddingVertical: 16, paddingBottom: 30, borderTopWidth: 1, borderTopColor: '#F1F5F9', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', shadowColor: '#000', shadowOffset: {width:0, height:-2}, shadowOpacity:0.05, shadowRadius:10, elevation:10 },
     bottomLabel: { fontSize: 12, color: TEXT_SECONDARY, fontWeight: '600' },
     bottomPrice: { fontSize: 20, color: TEXT_PRIMARY, fontWeight: '800' },
