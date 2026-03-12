@@ -123,7 +123,7 @@ const Earnings = () => {
                     </View>
                 </View>
                 <View style={styles.transactionRight}>
-                    <Text style={styles.transAmount}>+ ₱{payoutAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
+                    <Text style={styles.transAmount}>+ {payoutAmount.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}</Text>
                     <View style={[styles.statusBadge, isSettled ? styles.badgeSettled : styles.badgePending]}>
                         <Text style={[styles.statusText, isSettled ? styles.textSettled : styles.textPending]}>
                             {isSettled ? "Settled" : "Processing"}
@@ -172,7 +172,7 @@ const Earnings = () => {
                         >
                             <View>
                                 <Text style={styles.totalLabel}>Total Lifetime Earnings</Text>
-                                <Text style={styles.totalAmount}>₱{totalEarnings.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
+                                <Text style={styles.totalAmount}>{totalEarnings.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}</Text>
                             </View>
                             <View style={styles.totalIconBg}>
                                 <Ionicons name="wallet" size={24} color="#fff" />
@@ -183,13 +183,13 @@ const Earnings = () => {
                         <View style={styles.statsRow}>
                             <View style={[styles.statBox, { backgroundColor: '#FEF3C7' }]}>
                                 <Text style={[styles.statLabel, { color: '#D97706' }]}>Pending Payout</Text>
-                                <Text style={[styles.statValue, { color: '#B45309' }]}>₱{pendingPayout.toLocaleString()}</Text>
+                                <Text style={[styles.statValue, { color: '#B45309' }]}>{pendingPayout.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}</Text>
                                 <Text style={styles.statSub}>From App Admin</Text>
                             </View>
                             
                             <View style={[styles.statBox, { backgroundColor: '#D1FAE5' }]}>
                                 <Text style={[styles.statLabel, { color: '#059669' }]}>Settled / Paid</Text>
-                                <Text style={[styles.statValue, { color: '#047857' }]}>₱{settledPayout.toLocaleString()}</Text>
+                                <Text style={[styles.statValue, { color: '#047857' }]}>{settledPayout.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}</Text>
                                 <Text style={styles.statSub}>Received</Text>
                             </View>
                         </View>
