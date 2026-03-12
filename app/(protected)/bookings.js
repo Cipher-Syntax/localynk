@@ -282,7 +282,13 @@ const MyBookings = () => {
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#00A8FF"]} />}
             />
 
-            <BookingDetailsModal booking={selectedBooking} visible={detailsModalVisible} onClose={handleCloseModal} />
+            {/* --- FIX: We feed ALL bookings into the Modal so it can show Concurrent Users dynamically --- */}
+            <BookingDetailsModal 
+                booking={selectedBooking} 
+                visible={detailsModalVisible} 
+                onClose={handleCloseModal} 
+                allBookings={bookings} 
+            />
 
             <ConfirmationModal 
                 visible={confirmVisible}

@@ -9,7 +9,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../context/AuthContext'; 
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AgencyPaymentReviewModal from './agencyPaymentReviewModal'; 
-import api from '../../api/api'; // <-- IMPORT API TO FETCH AGENCY SETTINGS
+import api from '../../api/api'; 
 
 const PRIMARY_COLOR = '#0072FF';
 const SURFACE_COLOR = '#FFFFFF';
@@ -58,16 +58,17 @@ const AgencyBookingDetails = () => {
     const [downPayment, setDownPayment] = useState(0);
     const [balanceDue, setBalanceDue] = useState(0);
 
-    // --- NEW: Dynamic Downpayment State ---
-    // Start with route param if available, otherwise default to 0.30 while fetching
     const [dynamicDpRate, setDynamicDpRate] = useState(agencyDownPayment ? (parseFloat(agencyDownPayment) / 100) : 0.30);
 
-    // --- NEW: Fetch exact agency configuration from database ---
+    // --- NEW: Manifest Modal State ---
+    const [concurrentBookings, setConcurrentBookings] = useState([]);
+    const [loadingConcurrent, setLoadingConcurrent] = useState(false);
+    const [manifestModalVisible, setManifestModalVisible] = useState(false);
+
     useEffect(() => {
         const fetchAgencyRate = async () => {
-            if (agencyDownPayment) return; // If passed directly, skip fetch
+            if (agencyDownPayment) return; 
             try {
-                // Fetch the list of agencies to find the configuration for THIS agency
                 const res = await api.get('/api/agencies/'); 
                 const agenciesList = res.data.results || res.data;
                 const matchedAgency = agenciesList.find(a => String(a.id) === String(agencyId) || String(a.user) === String(agencyId));
@@ -84,6 +85,42 @@ const AgencyBookingDetails = () => {
             fetchAgencyRate();
         }
     }, [agencyId, agencyDownPayment]);
+
+    // --- NEW: Fetch concurrent agency bookings dynamically ---
+    useEffect(() => {
+        const fetchConcurrentBookings = async () => {
+            if (!agencyId) return;
+            setLoadingConcurrent(true);
+            try {
+                const res = await api.get('/api/bookings/');
+                const relevant = (res.data || []).filter(b => {
+                    if (bookingId && b.id === parseInt(bookingId)) return false; 
+                    
+                    const isSameProvider = (b.agency === parseInt(agencyId) || b.agency_detail?.id === parseInt(agencyId));
+                    if (!isSameProvider) return false;
+                    
+                    const bStart = new Date(b.check_in);
+                    const bEnd = new Date(b.check_out || b.check_in);
+                    bStart.setHours(0,0,0,0); bEnd.setHours(0,0,0,0);
+                    
+                    const selStart = new Date(startDate);
+                    const selEnd = new Date(endDate);
+                    selStart.setHours(0,0,0,0); selEnd.setHours(0,0,0,0);
+                    
+                    const overlaps = (bStart <= selEnd && bEnd >= selStart);
+                    const isConfirmedStatus = ['confirmed', 'completed', 'pending_payment', 'accepted'].includes((b.status || '').toLowerCase());
+                    
+                    return overlaps && isConfirmedStatus;
+                });
+                setConcurrentBookings(relevant);
+            } catch (e) {
+                console.error("Failed to fetch concurrent bookings", e);
+            } finally {
+                setLoadingConcurrent(false);
+            }
+        };
+        fetchConcurrentBookings();
+    }, [startDate, endDate, agencyId, bookingId]);
 
     const formatDateForCalendar = (date) => {
         const year = date.getFullYear();
@@ -113,7 +150,6 @@ const AgencyBookingDetails = () => {
         }
     }, [user]);
 
-    // --- UPDATED: Pricing calculation now depends on dynamicDpRate ---
     useEffect(() => {
         const oneDay = 24 * 60 * 60 * 1000;
         const diffTime = endDate - startDate;
@@ -126,7 +162,6 @@ const AgencyBookingDetails = () => {
         
         setTotalPrice(baseCost);
         
-        // Use the dynamically fetched rate
         const dp = baseCost * dynamicDpRate;
         setDownPayment(dp);
         setBalanceDue(baseCost - dp);
@@ -386,7 +421,6 @@ const AgencyBookingDetails = () => {
                                 </View>
                                 <View style={styles.receiptDivider} />
                                 <View style={styles.receiptRow}>
-                                    {/* --- FIX: Display the dynamically fetched percentage in text --- */}
                                     <Text style={[styles.receiptLabel, {color: TEXT_PRIMARY, fontWeight:'700'}]}>
                                         Down Payment ({(dynamicDpRate * 100).toFixed(0)}%)
                                     </Text>
@@ -396,6 +430,17 @@ const AgencyBookingDetails = () => {
                                     {isPaymentMode ? "Due now to confirm booking" : "Payable after agency approval"}
                                 </Text>
                             </View>
+
+                            {/* --- NEW: BUTTON TO OPEN CONCURRENT BOOKINGS MODAL --- */}
+                            <TouchableOpacity 
+                                style={styles.viewManifestButton}
+                                onPress={() => setManifestModalVisible(true)}
+                            >
+                                <Ionicons name="people" size={20} color={PRIMARY_COLOR} />
+                                <Text style={styles.viewManifestButtonText}>See other people on these dates</Text>
+                            </TouchableOpacity>
+
+                            <View style={{height: 40}} />
                         </View>
                     </ScrollView>
                 </KeyboardAvoidingView>
@@ -416,7 +461,54 @@ const AgencyBookingDetails = () => {
                     </TouchableOpacity>
                 </SafeAreaView>
 
-                {/* MODALS */}
+                {/* --- NEW: MANIFEST MODAL --- */}
+                <Modal visible={manifestModalVisible} transparent={true} animationType="slide">
+                    <View style={styles.manifestModalOverlay}>
+                        <View style={styles.manifestModalContainer}>
+                            <View style={styles.manifestModalHeader}>
+                                <Text style={styles.manifestModalTitle}>Daily Manifest</Text>
+                                <TouchableOpacity onPress={() => setManifestModalVisible(false)} style={styles.closeBtn}>
+                                    <Ionicons name="close" size={24} color="#333" />
+                                </TouchableOpacity>
+                            </View>
+                            <ScrollView showsVerticalScrollIndicator={false}>
+                                {loadingConcurrent ? (
+                                    <ActivityIndicator size="small" color={PRIMARY_COLOR} style={{marginVertical: 20}} />
+                                ) : concurrentBookings.length === 0 ? (
+                                    <View style={styles.emptyManifest}>
+                                        <Ionicons name="calendar-outline" size={32} color="#CBD5E1" />
+                                        <Text style={styles.emptyManifestText}>No other tourists scheduled for these dates.</Text>
+                                    </View>
+                                ) : (
+                                    concurrentBookings.map((b, i) => (
+                                        <View key={b.id || i} style={styles.manifestCard}>
+                                            <View style={styles.manifestHeader}>
+                                                <Ionicons name="person-circle" size={24} color={PRIMARY_COLOR} />
+                                                <Text style={styles.manifestGuest}>{b.tourist_username || b.tourist_detail?.username || "Guest"}</Text>
+                                                <View style={styles.manifestPaxBadge}>
+                                                    <Text style={styles.manifestPaxText}>{b.num_guests} Pax</Text>
+                                                </View>
+                                            </View>
+                                            <View style={styles.manifestRow}>
+                                                <Text style={styles.manifestLabel}>Dates:</Text>
+                                                <Text style={styles.manifestValue}>{b.check_in} to {b.check_out}</Text>
+                                            </View>
+                                            {b.meetup_location && (
+                                                <View style={styles.manifestRow}>
+                                                    <Text style={styles.manifestLabel}>Pickup:</Text>
+                                                    <Text style={styles.manifestValue}>{b.meetup_location}</Text>
+                                                </View>
+                                            )}
+                                        </View>
+                                    ))
+                                )}
+                                <View style={{height: 20}} />
+                            </ScrollView>
+                        </View>
+                    </View>
+                </Modal>
+
+                {/* OTHER MODALS */}
                 <Modal visible={isCalendarVisible} transparent={true} animationType="slide">
                     <View style={styles.modalOverlay}>
                         <View style={styles.calendarCard}>
@@ -532,7 +624,7 @@ const styles = StyleSheet.create({
     kycText: { fontSize: 13, fontWeight: '600', color: TEXT_SECONDARY },
     kycImage: { width: '100%', height: '100%' },
     checkBubble: { position: 'absolute', top: 8, right: 8, backgroundColor: '#22C55E', borderRadius: 12, padding: 2 },
-    receiptCard: { backgroundColor: SURFACE_COLOR, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed', marginBottom: 100, marginTop: 24 },
+    receiptCard: { backgroundColor: SURFACE_COLOR, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed', marginBottom: 20, marginTop: 24 },
     receiptHeader: { alignItems: 'center', marginBottom: 16 },
     receiptTitle: { fontSize: 14, fontWeight: '700', color: TEXT_SECONDARY, textTransform: 'uppercase', letterSpacing: 1 },
     receiptRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
@@ -558,4 +650,23 @@ const styles = StyleSheet.create({
     errorMessage: { fontSize: 14, color: TEXT_SECONDARY, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
     errorButton: { backgroundColor: '#EF4444', paddingVertical: 12, width: '100%', alignItems: 'center', borderRadius: 12 },
     errorButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+
+    // --- NEW MODAL & BUTTON STYLES ---
+    viewManifestButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#EFF6FF', paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#BFDBFE', marginBottom: 50 },
+    viewManifestButtonText: { color: PRIMARY_COLOR, fontSize: 14, fontWeight: '700', marginLeft: 8 },
+    manifestModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+    manifestModalContainer: { backgroundColor: SURFACE_COLOR, borderTopLeftRadius: 24, borderTopRightRadius: 24, height: '70%', padding: 20 },
+    manifestModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    manifestModalTitle: { fontSize: 18, fontWeight: '800', color: TEXT_PRIMARY },
+
+    manifestCard: { backgroundColor: '#F8FAFC', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 12 },
+    manifestHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+    manifestGuest: { flex: 1, fontSize: 15, fontWeight: '700', color: '#1E293B', marginLeft: 8 },
+    manifestPaxBadge: { backgroundColor: '#DBEAFE', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+    manifestPaxText: { color: '#1D4ED8', fontWeight: '800', fontSize: 12 },
+    manifestRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
+    manifestLabel: { fontSize: 13, color: '#64748B', width: 60 },
+    manifestValue: { fontSize: 13, color: '#1E293B', fontWeight: '600', flex: 1, textAlign: 'right' },
+    emptyManifest: { padding: 30, backgroundColor: '#F8FAFC', borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed', marginTop: 20 },
+    emptyManifestText: { color: '#64748B', fontStyle: 'italic', marginTop: 10, fontSize: 13 },
 });

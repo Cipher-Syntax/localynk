@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-const BookingDetailsModal = ({ booking, visible, onClose }) => {
+const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) => {
     if (!booking) return null;
 
     const hasDestination = !!booking.destination_detail;
@@ -34,7 +34,6 @@ const BookingDetailsModal = ({ booking, visible, onClose }) => {
         }
     };
 
-// --- FIX: Calculate actual percentage dynamically from database amounts ---
     const total = Number(booking.total_price || 0);
     const downPayment = Number(booking.down_payment || 0);
     const balance = Number(booking.balance_due || 0);
@@ -57,6 +56,34 @@ const BookingDetailsModal = ({ booking, visible, onClose }) => {
         return timeStr;
     };
 
+    // --- FIX: Check if it's an Agency Booking ---
+    const isAgencyBooking = !!booking.agency || !!booking.agency_detail;
+
+    // --- FIX: Only calculate overlapping bookings if it is an Agency ---
+    const concurrentBookings = useMemo(() => {
+        if (!isAgencyBooking || !booking || !allBookings || allBookings.length === 0) return [];
+        return allBookings.filter(b => {
+            if (b.id === booking.id) return false;
+            
+            const isSameProvider = (b.agency === booking.agency || b.agency_detail?.id === booking.agency_detail?.id);
+                
+            if (!isSameProvider) return false;
+            
+            const bStart = new Date(b.check_in);
+            const bEnd = new Date(b.check_out || b.check_in);
+            bStart.setHours(0,0,0,0); bEnd.setHours(0,0,0,0);
+            
+            const selStart = new Date(booking.check_in);
+            const selEnd = new Date(booking.check_out || booking.check_in);
+            selStart.setHours(0,0,0,0); selEnd.setHours(0,0,0,0);
+            
+            const overlaps = (bStart <= selEnd && bEnd >= selStart);
+            const isConfirmedStatus = ['confirmed', 'completed', 'pending_payment', 'accepted'].includes((b.status || '').toLowerCase());
+            
+            return overlaps && isConfirmedStatus;
+        });
+    }, [booking, allBookings, isAgencyBooking]);
+
     return (
         <Modal animationType="slide" transparent={true} visible={visible} onRequestClose={onClose}>
             <View style={styles.centeredView}>
@@ -70,7 +97,7 @@ const BookingDetailsModal = ({ booking, visible, onClose }) => {
                                 <Ionicons name="images-outline" size={50} color="#fff" />
                             </View>
                         )}
-                        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(booking.status) }]}>
+                        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(booking.status) }]} >
                             <Text style={styles.statusText}>{booking.status}</Text>
                         </View>
                         <TouchableOpacity style={styles.closeButton} onPress={onClose}>
@@ -96,60 +123,51 @@ const BookingDetailsModal = ({ booking, visible, onClose }) => {
                         </View>
 
                         <View style={styles.section}>
-                            <Text style={styles.sectionHeader}>Trip Details</Text>
-                            <View style={styles.gridRow}>
-                                <View style={styles.gridItem}>
-                                    <Text style={styles.label}>Check In</Text>
-                                    <Text style={styles.value}>{booking.check_in}</Text>
+                            <Text style={styles.sectionHeader}>Your Guest Roster</Text>
+                            
+                            <View style={styles.manifestCardOverview}>
+                                <View style={styles.manifestHeaderTitle}>
+                                    <Ionicons name="people" size={20} color="#0072FF" />
+                                    <Text style={styles.manifestHeaderText}>Lead Roster Details</Text>
                                 </View>
-                                <View style={styles.gridItem}>
-                                    <Text style={styles.label}>Check Out</Text>
-                                    <Text style={styles.value}>{booking.check_out}</Text>
+                                <View style={styles.manifestRowDetail}>
+                                    <Text style={styles.manifestLabelDetail}>Lead Guest:</Text>
+                                    <Text style={styles.manifestValueDetail}>{booking.tourist_username || "N/A"}</Text>
                                 </View>
-                                <View style={styles.gridItem}>
-                                    <Text style={styles.label}>Guests</Text>
-                                    <Text style={styles.value}>{booking.num_guests}</Text>
+                                <View style={styles.manifestRowDetail}>
+                                    <Text style={styles.manifestLabelDetail}>Total Pax:</Text>
+                                    <Text style={styles.manifestValueDetail}>{booking.num_guests} People</Text>
                                 </View>
+                                <View style={styles.manifestRowDetail}>
+                                    <Text style={styles.manifestLabelDetail}>Schedule:</Text>
+                                    <Text style={styles.manifestValueDetail}>{booking.check_in} to {booking.check_out}</Text>
+                                </View>
+
+                                {booking.meetup_location && (
+                                    <>
+                                        <View style={styles.manifestDivider} />
+                                        <View style={styles.manifestHeaderTitle}>
+                                            <Ionicons name="navigate" size={20} color="#F59E0B" />
+                                            <Text style={[styles.manifestHeaderText, {color: '#B45309'}]}>Pickup & Coordination</Text>
+                                        </View>
+                                        <View style={styles.manifestRowDetail}>
+                                            <Text style={styles.manifestLabelDetail}>Location:</Text>
+                                            <Text style={styles.manifestValueDetail}>{booking.meetup_location}</Text>
+                                        </View>
+                                        <View style={styles.manifestRowDetail}>
+                                            <Text style={styles.manifestLabelDetail}>Time:</Text>
+                                            <Text style={styles.manifestValueDetail}>{formatTime(booking.meetup_time)}</Text>
+                                        </View>
+                                        {booking.meetup_instructions && (
+                                            <View style={[styles.manifestRowDetail, {flexDirection: 'column', alignItems: 'flex-start'}]}>
+                                                <Text style={styles.manifestLabelDetail}>Special Instructions:</Text>
+                                                <Text style={[styles.manifestValueDetail, {marginTop: 4, fontStyle: 'italic'}]}>{booking.meetup_instructions}</Text>
+                                            </View>
+                                        )}
+                                    </>
+                                )}
                             </View>
                         </View>
-
-                        {booking.meetup_location && (
-                            <>
-                                <View style={styles.divider} />
-                                <View style={styles.section}>
-                                    <Text style={styles.sectionHeader}>Meetup & Coordination</Text>
-                                    <View style={styles.meetupCard}>
-                                        <View style={styles.meetupRow}>
-                                            <View style={styles.meetupIconBox}><Ionicons name="location" size={18} color="#0072FF" /></View>
-                                            <View style={{flex: 1}}>
-                                                <Text style={styles.meetupLabel}>Location</Text>
-                                                <Text style={styles.meetupValue}>{booking.meetup_location}</Text>
-                                            </View>
-                                        </View>
-                                        
-                                        {booking.meetup_time && (
-                                            <View style={styles.meetupRow}>
-                                                <View style={styles.meetupIconBox}><Ionicons name="time" size={18} color="#0072FF" /></View>
-                                                <View style={{flex: 1}}>
-                                                    <Text style={styles.meetupLabel}>Time</Text>
-                                                    <Text style={styles.meetupValue}>{formatTime(booking.meetup_time)}</Text>
-                                                </View>
-                                            </View>
-                                        )}
-                                        
-                                        {booking.meetup_instructions && (
-                                            <View style={[styles.meetupRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
-                                                <View style={styles.meetupIconBox}><Ionicons name="information-circle" size={18} color="#0072FF" /></View>
-                                                <View style={{flex: 1}}>
-                                                    <Text style={styles.meetupLabel}>Instructions</Text>
-                                                    <Text style={styles.meetupValue}>{booking.meetup_instructions}</Text>
-                                                </View>
-                                            </View>
-                                        )}
-                                    </View>
-                                </View>
-                            </>
-                        )}
 
                         <View style={styles.divider} />
 
@@ -176,6 +194,44 @@ const BookingDetailsModal = ({ booking, visible, onClose }) => {
                                 </Text>
                             </View>
                         </View>
+
+                        {/* --- ONLY SHOW CONCURRENT BOOKINGS IF IT'S AN AGENCY --- */}
+                        {isAgencyBooking && (
+                            <>
+                                <View style={styles.divider} />
+                                <View style={{ marginTop: 10, marginBottom: 20 }}>
+                                    <Text style={styles.sectionHeader}>Other Bookings on these Dates</Text>
+                                    {concurrentBookings.length === 0 ? (
+                                        <View style={styles.emptyManifest}>
+                                            <Ionicons name="calendar-outline" size={32} color="#CBD5E1" />
+                                            <Text style={styles.emptyManifestText}>No other tourists scheduled for these dates.</Text>
+                                        </View>
+                                    ) : (
+                                        concurrentBookings.map((b, i) => (
+                                            <View key={b.id || i} style={styles.manifestCard}>
+                                                <View style={styles.manifestHeader}>
+                                                    <Ionicons name="person-circle" size={24} color="#0072FF" />
+                                                    <Text style={styles.manifestGuest}>{b.tourist_username || b.tourist_detail?.username || "Guest"}</Text>
+                                                    <View style={styles.manifestPaxBadge}>
+                                                        <Text style={styles.manifestPaxText}>{b.num_guests} Pax</Text>
+                                                    </View>
+                                                </View>
+                                                <View style={styles.manifestRow}>
+                                                    <Text style={styles.manifestLabel}>Dates:</Text>
+                                                    <Text style={styles.manifestValue}>{b.check_in} to {b.check_out}</Text>
+                                                </View>
+                                                {b.meetup_location && (
+                                                    <View style={styles.manifestRow}>
+                                                        <Text style={styles.manifestLabel}>Pickup:</Text>
+                                                        <Text style={styles.manifestValue}>{b.meetup_location}</Text>
+                                                    </View>
+                                                )}
+                                            </View>
+                                        ))
+                                    )}
+                                </View>
+                            </>
+                        )}
 
                         <View style={{height: 30}} />
                     </ScrollView>
@@ -210,16 +266,13 @@ const styles = StyleSheet.create({
     providerName: { fontSize: 16, fontWeight: '600', color: '#1F2937' },
     providerRole: { fontSize: 12, color: '#6B7280' },
 
-    gridRow: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#F9FAFB', padding: 15, borderRadius: 12 },
-    gridItem: { alignItems: 'flex-start' },
-    label: { fontSize: 11, color: '#9CA3AF', marginBottom: 4, fontWeight: '600' },
-    value: { fontSize: 14, color: '#1F2937', fontWeight: '600' },
-
-    meetupCard: { backgroundColor: '#EFF6FF', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#BFDBFE' },
-    meetupRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#D1E8FF' },
-    meetupIconBox: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-    meetupLabel: { fontSize: 11, color: '#60A5FA', fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 },
-    meetupValue: { fontSize: 14, color: '#1E3A8A', fontWeight: '600' },
+    manifestCardOverview: { backgroundColor: '#F8FAFC', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#E2E8F0' },
+    manifestHeaderTitle: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 },
+    manifestHeaderText: { fontSize: 14, fontWeight: '800', color: '#1E3A8A', textTransform: 'uppercase' },
+    manifestRowDetail: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+    manifestLabelDetail: { fontSize: 13, color: '#64748B', fontWeight: '500' },
+    manifestValueDetail: { fontSize: 13, color: '#0F172A', fontWeight: '700' },
+    manifestDivider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 12, borderStyle: 'dashed', borderWidth: 1, borderColor: '#CBD5E1' },
 
     priceSection: { marginTop: 0 },
     priceRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
@@ -230,7 +283,18 @@ const styles = StyleSheet.create({
     balanceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     balanceLabel: { fontSize: 16, fontWeight: '800', color: '#92400E' },
     balanceValue: { fontSize: 18, fontWeight: '800', color: '#92400E' },
-    balanceNote: { fontSize: 11, color: '#B45309', marginTop: 6, fontStyle: 'italic' }
+    balanceNote: { fontSize: 11, color: '#B45309', marginTop: 6, fontStyle: 'italic' },
+
+    manifestCard: { backgroundColor: '#F8FAFC', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 12 },
+    manifestHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+    manifestGuest: { flex: 1, fontSize: 15, fontWeight: '700', color: '#1E293B', marginLeft: 8 },
+    manifestPaxBadge: { backgroundColor: '#DBEAFE', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+    manifestPaxText: { color: '#1D4ED8', fontWeight: '800', fontSize: 12 },
+    manifestRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
+    manifestLabel: { fontSize: 13, color: '#64748B', width: 60 },
+    manifestValue: { fontSize: 13, color: '#1E293B', fontWeight: '600', flex: 1, textAlign: 'right' },
+    emptyManifest: { padding: 30, backgroundColor: '#F8FAFC', borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed', marginTop: 20 },
+    emptyManifestText: { color: '#64748B', fontStyle: 'italic', marginTop: 10, fontSize: 13 },
 });
 
 export default BookingDetailsModal;

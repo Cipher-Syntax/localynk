@@ -57,9 +57,18 @@ export default function Message() {
     const handleSendMessage = async () => {
         if (inputText.trim() === "" || !partnerId) return;
         
+        const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+        const phoneRegex = /(\+?\d[- .]*){10,11}/g;
+
+        let processedText = inputText.replace(emailRegex, '[REDACTED]').replace(phoneRegex, '[REDACTED]');
+
+        if (processedText !== inputText) {
+            setToast({ visible: true, message: "Contact info is not allowed. Message redacted.", type: 'error' });
+        }
+
         const optimisticMessage = {
             id: `temp-${Date.now()}`,
-            content: inputText,
+            content: processedText,
             sender: user.id,
             receiver: partnerId,
             timestamp: new Date().toISOString(),
