@@ -59,7 +59,7 @@ const Earnings = () => {
                 let netPayout = parseFloat(booking.guide_payout_amount || 0);
                 
                 if (netPayout === 0 && downPayment > 0) {
-                    const commission = totalBookingPrice * 0.02;
+                    const commission = booking.platform_fee ? parseFloat(booking.platform_fee) : (totalBookingPrice * 0.02);
                     netPayout = downPayment - commission;
                 }
 
@@ -96,11 +96,12 @@ const Earnings = () => {
 
         const downPayment = parseFloat(item.down_payment || 0);
         const totalBookingPrice = parseFloat(item.total_price || 0);
+        const commission = parseFloat(item.platform_fee || (totalBookingPrice * 0.02));
+        
         let payoutAmount = parseFloat(item.guide_payout_amount || 0);
         
         // Fallback calculation if backend is 0
         if (payoutAmount === 0) {
-            const commission = totalBookingPrice * 0.02;
             payoutAmount = downPayment - commission;
         }
 
@@ -112,22 +113,47 @@ const Earnings = () => {
 
         return (
             <View style={styles.transactionCard}>
-                <View style={styles.transactionLeft}>
-                    <View style={[styles.iconBox, isSettled ? styles.iconSettled : styles.iconPending]}>
-                        <Ionicons name={isSettled ? "checkmark" : "time"} size={18} color={isSettled ? "#059669" : "#D97706"} />
+                {/* Top Section */}
+                <View style={styles.transactionHeader}>
+                    <View style={styles.transactionLeft}>
+                        <View style={[styles.iconBox, isSettled ? styles.iconSettled : styles.iconPending]}>
+                            <Ionicons name={isSettled ? "checkmark" : "time"} size={18} color={isSettled ? "#059669" : "#D97706"} />
+                        </View>
+                        <View>
+                            <Text style={styles.transTitle}>{item.accommodation_detail?.title || item.destination_detail?.name || "Tour Service"}</Text>
+                            <Text style={styles.transSubtitle}>{touristName} • {date}</Text>
+                            <Text style={styles.transId}>ID: #{item.id}</Text>
+                        </View>
                     </View>
-                    <View>
-                        <Text style={styles.transTitle}>{item.accommodation_detail?.title || item.destination_detail?.name || "Tour Service"}</Text>
-                        <Text style={styles.transSubtitle}>{touristName} • {date}</Text>
-                        <Text style={styles.transId}>ID: #{item.id}</Text>
+                    <View style={styles.transactionRight}>
+                        <View style={[styles.statusBadge, isSettled ? styles.badgeSettled : styles.badgePending]}>
+                            <Text style={[styles.statusText, isSettled ? styles.textSettled : styles.textPending]}>
+                                {isSettled ? "Settled" : "Processing"}
+                            </Text>
+                        </View>
                     </View>
                 </View>
-                <View style={styles.transactionRight}>
-                    <Text style={styles.transAmount}>+ {payoutAmount.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}</Text>
-                    <View style={[styles.statusBadge, isSettled ? styles.badgeSettled : styles.badgePending]}>
-                        <Text style={[styles.statusText, isSettled ? styles.textSettled : styles.textPending]}>
-                            {isSettled ? "Settled" : "Processing"}
-                        </Text>
+
+                <View style={styles.divider} />
+
+                {/* PAYOUT BREAKDOWN SECTION */}
+                <View style={styles.breakdownContainer}>
+                    <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabel}>Total Trip Price</Text>
+                        <Text style={styles.breakdownValue}>₱{totalBookingPrice.toLocaleString()}</Text>
+                    </View>
+                    <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabel}>Downpayment (Paid)</Text>
+                        <Text style={styles.breakdownValue}>₱{downPayment.toLocaleString()}</Text>
+                    </View>
+                    <View style={styles.breakdownRow}>
+                        <Text style={[styles.breakdownLabel, { color: '#EF4444' }]}>Less: App Fee (2%)</Text>
+                        <Text style={[styles.breakdownValue, { color: '#EF4444' }]}>- ₱{commission.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
+                    </View>
+                    
+                    <View style={styles.netPayoutRow}>
+                        <Text style={styles.netPayoutLabel}>Net Payout ({isSettled ? "Received" : "Incoming"})</Text>
+                        <Text style={styles.netPayoutValue}>+ ₱{payoutAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
                     </View>
                 </View>
             </View>
@@ -236,24 +262,35 @@ const styles = StyleSheet.create({
     sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1E293B', marginBottom: 4 },
     sectionDesc: { fontSize: 13, color: '#64748B', marginBottom: 15 },
 
-    transactionCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', padding: 16, borderRadius: 16, marginBottom: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 2 },
-    transactionLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+    transactionCard: { backgroundColor: '#fff', padding: 16, borderRadius: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 2 },
+    transactionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+    transactionLeft: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, flex: 1 },
     iconBox: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
     iconSettled: { backgroundColor: '#D1FAE5' },
     iconPending: { backgroundColor: '#FEF3C7' },
     
-    transTitle: { fontSize: 14, fontWeight: '700', color: '#1E293B' },
-    transSubtitle: { fontSize: 12, color: '#64748B', marginTop: 2 },
-    transId: { fontSize: 10, color: '#94A3B8', marginTop: 2 },
+    transTitle: { fontSize: 15, fontWeight: '700', color: '#1E293B', marginBottom: 2 },
+    transSubtitle: { fontSize: 12, color: '#64748B' },
+    transId: { fontSize: 10, color: '#94A3B8', marginTop: 4 },
 
     transactionRight: { alignItems: 'flex-end' },
-    transAmount: { fontSize: 15, fontWeight: '700', color: '#00A8FF', marginBottom: 4 },
-    statusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+    statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
     badgeSettled: { backgroundColor: '#ECFDF5' },
     badgePending: { backgroundColor: '#FFFBEB' },
-    statusText: { fontSize: 10, fontWeight: '700' },
+    statusText: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
     textSettled: { color: '#059669' },
     textPending: { color: '#D97706' },
+
+    divider: { height: 1, backgroundColor: '#F1F5F9', marginVertical: 12, borderStyle: 'dashed', borderWidth: 1, borderColor: '#E2E8F0' },
+    
+    breakdownContainer: { paddingHorizontal: 4 },
+    breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+    breakdownLabel: { fontSize: 12, color: '#64748B', fontWeight: '500' },
+    breakdownValue: { fontSize: 12, color: '#334155', fontWeight: '600' },
+    
+    netPayoutRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
+    netPayoutLabel: { fontSize: 13, color: '#00A8FF', fontWeight: '700', textTransform: 'uppercase' },
+    netPayoutValue: { fontSize: 16, color: '#00A8FF', fontWeight: '800' },
 
     emptyContainer: { alignItems: 'center', marginTop: 40, opacity: 0.5 },
     emptyText: { marginTop: 10, fontSize: 14, color: '#64748B' }

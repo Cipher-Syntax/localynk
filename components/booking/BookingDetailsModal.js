@@ -36,7 +36,12 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
 
     const total = Number(booking.total_price || 0);
     const downPayment = Number(booking.down_payment || 0);
-    const balance = Number(booking.balance_due || 0);
+    const currentBalanceDue = Number(booking.balance_due || 0);
+    
+    // --- FIX: Calculate the original balance to display after it's paid ---
+    const originalBalance = total - downPayment;
+    const isFullyPaidOnline = originalBalance <= 0;
+    const isBalanceReceived = currentBalanceDue === 0 && !isFullyPaidOnline;
     
     const dpPercent = total > 0 && downPayment > 0 
         ? ((downPayment / total) * 100).toFixed(0) 
@@ -56,10 +61,8 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
         return timeStr;
     };
 
-    // --- FIX: Check if it's an Agency Booking ---
     const isAgencyBooking = !!booking.agency || !!booking.agency_detail;
 
-    // --- FIX: Only calculate overlapping bookings if it is an Agency ---
     const concurrentBookings = useMemo(() => {
         if (!isAgencyBooking || !booking || !allBookings || allBookings.length === 0) return [];
         return allBookings.filter(b => {
@@ -184,18 +187,44 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
                                 <Text style={[styles.priceValue, {color: '#22C55E'}]}>- ₱ {downPayment.toLocaleString()}</Text>
                             </View>
 
-                            <View style={styles.balanceContainer}>
+                            {/* --- FIX: Dynamic styling based on whether it is pending or received --- */}
+                            <View style={[
+                                styles.balanceContainer, 
+                                isBalanceReceived && { backgroundColor: '#DCFCE7', borderLeftColor: '#22C55E' },
+                                isFullyPaidOnline && { backgroundColor: '#F3F4F6', borderLeftColor: '#9CA3AF' }
+                            ]}>
                                 <View style={styles.balanceRow}>
-                                    <Text style={styles.balanceLabel}>Balance Due</Text>
-                                    <Text style={styles.balanceValue}>₱ {balance.toLocaleString()}</Text>
+                                    <Text style={[
+                                        styles.balanceLabel, 
+                                        isBalanceReceived && { color: '#166534' },
+                                        isFullyPaidOnline && { color: '#4B5563' }
+                                    ]}>
+                                        {isFullyPaidOnline ? 'Balance' : (isBalanceReceived ? 'Balance Received' : 'Balance Due')}
+                                    </Text>
+                                    <Text style={[
+                                        styles.balanceValue, 
+                                        isBalanceReceived && { color: '#166534' },
+                                        isFullyPaidOnline && { color: '#4B5563' }
+                                    ]}>
+                                        ₱ {originalBalance.toLocaleString()}
+                                    </Text>
                                 </View>
-                                <Text style={styles.balanceNote}>
-                                    * Payable directly to the {providerRole} upon arrival.
+                                <Text style={[
+                                    styles.balanceNote, 
+                                    isBalanceReceived && { color: '#15803D' },
+                                    isFullyPaidOnline && { color: '#6B7280' }
+                                ]}>
+                                    {isFullyPaidOnline 
+                                        ? '* 100% paid online upfront.' 
+                                        : (isBalanceReceived 
+                                            ? `* Collected face-to-face by the ${providerRole}.` 
+                                            : `* Payable directly to the ${providerRole} upon arrival.`
+                                        )
+                                    }
                                 </Text>
                             </View>
                         </View>
 
-                        {/* --- ONLY SHOW CONCURRENT BOOKINGS IF IT'S AN AGENCY --- */}
                         {isAgencyBooking && (
                             <>
                                 <View style={styles.divider} />

@@ -121,13 +121,38 @@ const MyBookings = () => {
         const isMyTrip = item.tourist_id === user?.id; 
         const isMyClient = !isMyTrip; 
 
+        // Calculation variables
         const total = Number(item.total_price || 0);
         const down = Number(item.down_payment || 0);
-        const commission = total * 0.02; 
-        const netPayout = down - commission;
+        const commission = item.platform_fee ? Number(item.platform_fee) : (total * 0.02); 
+        
+        let netPayout = item.guide_payout_amount ? Number(item.guide_payout_amount) : (item.agency_payout_amount ? Number(item.agency_payout_amount) : 0);
+        if (netPayout === 0 && down > 0) {
+            netPayout = down - commission;
+        }
+
+        // --- FIX: Dynamic Display of Balance Due vs Balance Received ---
+        const currentBalanceDue = Number(item.balance_due || 0);
+        const originalBalance = total - down;
+        
+        let balanceDisplayColor = '#B45309'; 
+        let balanceIconColor = '#F59E0B'; 
+        let balanceText = `Collect Balance: ₱${currentBalanceDue.toLocaleString()}`;
+
+        if (originalBalance <= 0) {
+            // They paid 100% upfront
+            balanceText = "100% Paid Online";
+            balanceDisplayColor = '#4B5563';
+            balanceIconColor = '#6B7280';
+        } else if (currentBalanceDue === 0) {
+            // It has been marked as paid face-to-face
+            balanceText = `Balance Received: ₱${originalBalance.toLocaleString()}`;
+            balanceDisplayColor = '#15803D';
+            balanceIconColor = '#22C55E';
+        }
 
         const canCancel = isMyTrip && ['confirmed', 'pending_payment'].includes(item.status.toLowerCase());
-        const canMarkPaid = isMyClient && item.status === 'Confirmed';
+        const canMarkPaid = isMyClient && item.status === 'Confirmed' && currentBalanceDue > 0;
         const canReview = isMyTrip && item.status.toLowerCase() === 'completed'; 
 
         const titleName = item.destination_detail?.name || item.accommodation_detail?.title || 'Custom Booking';
@@ -174,16 +199,21 @@ const MyBookings = () => {
                                 </Text>
                             </View>
 
+                            {/* --- FIX: Applies the dynamic Balance UI --- */}
                             <View style={styles.detailRow}>
-                                <Ionicons name="wallet" size={16} color={item.balance_due > 0 ? "#F59E0B" : "#22C55E"} style={styles.iconWidth} />
-                                <Text style={[styles.detailText, { fontWeight: '600', color: item.balance_due > 0 ? '#B45309' : '#15803D' }]}>
-                                    {item.balance_due > 0 ? `Collect Balance: ₱${Number(item.balance_due).toLocaleString()}` : "Fully Paid"}
+                                <Ionicons name="wallet" size={16} color={balanceIconColor} style={styles.iconWidth} />
+                                <Text style={[styles.detailText, { fontWeight: '600', color: balanceDisplayColor }]}>
+                                    {balanceText}
                                 </Text>
                             </View>
                             
+                            {/* Payout Breakdown */}
                             {isMyClient && (
                                 <View style={styles.financialBox}>
-                                    <Text style={styles.finHeader}>PAYOUT BREAKDOWN</Text>
+                                    <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}>
+                                        <Text style={styles.finHeader}>PAYOUT BREAKDOWN</Text>
+                                        <Text style={{fontSize: 10, color: '#059669', fontWeight: '700', fontStyle: 'italic'}}>{item.is_payout_settled ? "Paid" : "Pending"}</Text>
+                                    </View>
                                     
                                     <View style={styles.finRow}>
                                         <Text style={styles.finLabel}>Total Price</Text>
@@ -196,14 +226,14 @@ const MyBookings = () => {
                                     </View>
 
                                     <View style={styles.finRow}>
-                                        <Text style={[styles.finLabel, {color: '#EF4444'}]}>Less: App Commission (2%)</Text>
+                                        <Text style={[styles.finLabel, {color: '#EF4444'}]}>Less: App Fee (2%)</Text>
                                         <Text style={[styles.finValue, {color: '#EF4444'}]}>- ₱{commission.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
                                     </View>
 
                                     <View style={styles.finDivider} />
 
                                     <View style={styles.finRow}>
-                                        <Text style={[styles.finLabel, {fontWeight:'700', color:'#059669'}]}>Net Payout (Incoming via Admin)</Text>
+                                        <Text style={[styles.finLabel, {fontWeight:'700', color:'#059669'}]}>Net Payout ({item.is_payout_settled ? 'Received' : 'Incoming'})</Text>
                                         <Text style={[styles.finValue, {fontWeight:'800', color:'#059669'}]}>₱{netPayout.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
                                     </View>
                                 </View>
@@ -282,7 +312,6 @@ const MyBookings = () => {
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#00A8FF"]} />}
             />
 
-            {/* --- FIX: We feed ALL bookings into the Modal so it can show Concurrent Users dynamically --- */}
             <BookingDetailsModal 
                 booking={selectedBooking} 
                 visible={detailsModalVisible} 
@@ -356,12 +385,14 @@ const styles = StyleSheet.create({
     detailRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     iconWidth: { width: 16, textAlign: 'center' },
     detailText: { fontSize: 13, color: '#4B5563' },
+    
     financialBox: { backgroundColor: '#F0FDF4', borderRadius: 8, padding: 12, marginTop: 12, borderWidth: 1, borderColor: '#BBF7D0' },
-    finHeader: { fontSize: 10, fontWeight: '800', color: '#15803D', marginBottom: 8, letterSpacing: 0.5, textTransform:'uppercase' },
+    finHeader: { fontSize: 10, fontWeight: '800', color: '#15803D', letterSpacing: 0.5, textTransform:'uppercase' },
     finRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
     finLabel: { fontSize: 12, color: '#374151' },
     finValue: { fontSize: 12, fontWeight: '600', color: '#111827' },
     finDivider: { height: 1, backgroundColor: '#DCFCE7', marginVertical: 6 },
+    
     cardFooter: { marginTop: 16, flexDirection: 'row', justifyContent: 'flex-end', gap: 10 },
     cancelButton: { paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#FEF2F2', borderRadius: 8, borderWidth: 1, borderColor: '#FECACA' },
     cancelButtonText: { color: '#DC2626', fontSize: 12, fontWeight: '700' },
