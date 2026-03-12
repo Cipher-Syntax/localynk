@@ -29,7 +29,7 @@ const Profile = () => {
     // --- MODAL STATES ---
     const [deactivateModalVisible, setDeactivateModalVisible] = useState(false);
     const [successModalVisible, setSuccessModalVisible] = useState(false); 
-    const [logoutModalVisible, setLogoutModalVisible] = useState(false); // Added logout modal state
+    const [logoutModalVisible, setLogoutModalVisible] = useState(false);
     
     const { user, logout, refreshUser } = useAuth(); 
     const params = useLocalSearchParams();
@@ -380,6 +380,7 @@ const Profile = () => {
                 </View>
             </Modal>
 
+            {/* UPDATED: Deactivate Confirmation Modal */}
             <Modal
                 animationType="fade"
                 transparent={true}
@@ -397,9 +398,9 @@ const Profile = () => {
                         <Text style={styles.modalMessage}>
                             Are you sure you want to deactivate?
                             {"\n\n"}
-                            Your account will be <Text style={{fontWeight: '700'}}>scheduled for deletion in 60 days</Text>. 
+                            Your account will be <Text style={{fontWeight: '700'}}>scheduled for deletion in 365 days</Text>. 
                             {"\n\n"}
-                            You can reactive it anytime during the first 30 days by simply logging in.
+                            You can reactive it anytime before deletion by simply logging back in.
                         </Text>
                         <View style={styles.modalButtons}>
                             <TouchableOpacity style={styles.cancelButton} onPress={() => setDeactivateModalVisible(false)}>
@@ -413,6 +414,7 @@ const Profile = () => {
                 </View>
             </Modal>
 
+            {/* UPDATED: Deactivate Success Modal */}
             <Modal
                 animationType="fade"
                 transparent={true}
@@ -432,7 +434,7 @@ const Profile = () => {
                         <Text style={styles.modalMessage}>
                             Your account has been deactivated.
                             {"\n\n"}
-                            It will be permanently deleted in <Text style={{fontWeight: '700', color:'#10B981'}}>60 days</Text>.
+                            It will be permanently deleted in <Text style={{fontWeight: '700', color:'#10B981'}}>365 days</Text>.
                             {"\n\n"}
                             You will now be logged out.
                         </Text>
