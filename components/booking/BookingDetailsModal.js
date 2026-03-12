@@ -25,7 +25,6 @@ const BookingDetailsModal = ({ booking, visible, onClose }) => {
         
     const providerRole = hasDestination || !hasAccommodation ? 'Local Guide' : 'Host';
 
-    // Status Colors
     const getStatusColor = (status) => {
         switch(status?.toLowerCase()) {
             case 'confirmed': return '#22C55E';
@@ -35,17 +34,34 @@ const BookingDetailsModal = ({ booking, visible, onClose }) => {
         }
     };
 
-    // --- Financials ---
+// --- FIX: Calculate actual percentage dynamically from database amounts ---
     const total = Number(booking.total_price || 0);
     const downPayment = Number(booking.down_payment || 0);
     const balance = Number(booking.balance_due || 0);
+    
+    const dpPercent = total > 0 && downPayment > 0 
+        ? ((downPayment / total) * 100).toFixed(0) 
+        : "30";
+        
+    const formatTime = (timeStr) => {
+        if (!timeStr) return '';
+        const parts = timeStr.split(':');
+        if (parts.length >= 2) {
+            let hours = parseInt(parts[0], 10);
+            const mins = parts[1];
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12;
+            return `${hours}:${mins} ${ampm}`;
+        }
+        return timeStr;
+    };
 
     return (
         <Modal animationType="slide" transparent={true} visible={visible} onRequestClose={onClose}>
             <View style={styles.centeredView}>
                 <View style={styles.modalView}>
                     
-                    {/* Header Image */}
                     <View style={styles.imageContainer}>
                         {heroImage ? (
                             <Image source={heroImage} style={styles.heroImage} resizeMode="cover" />
@@ -68,7 +84,6 @@ const BookingDetailsModal = ({ booking, visible, onClose }) => {
 
                         <View style={styles.divider} />
 
-                        {/* Provider Section */}
                         <View style={styles.section}>
                             <Text style={styles.sectionHeader}>Service Provider</Text>
                             <View style={styles.providerRow}>
@@ -80,7 +95,6 @@ const BookingDetailsModal = ({ booking, visible, onClose }) => {
                             </View>
                         </View>
 
-                        {/* Dates & Guests */}
                         <View style={styles.section}>
                             <Text style={styles.sectionHeader}>Trip Details</Text>
                             <View style={styles.gridRow}>
@@ -99,9 +113,46 @@ const BookingDetailsModal = ({ booking, visible, onClose }) => {
                             </View>
                         </View>
 
+                        {booking.meetup_location && (
+                            <>
+                                <View style={styles.divider} />
+                                <View style={styles.section}>
+                                    <Text style={styles.sectionHeader}>Meetup & Coordination</Text>
+                                    <View style={styles.meetupCard}>
+                                        <View style={styles.meetupRow}>
+                                            <View style={styles.meetupIconBox}><Ionicons name="location" size={18} color="#0072FF" /></View>
+                                            <View style={{flex: 1}}>
+                                                <Text style={styles.meetupLabel}>Location</Text>
+                                                <Text style={styles.meetupValue}>{booking.meetup_location}</Text>
+                                            </View>
+                                        </View>
+                                        
+                                        {booking.meetup_time && (
+                                            <View style={styles.meetupRow}>
+                                                <View style={styles.meetupIconBox}><Ionicons name="time" size={18} color="#0072FF" /></View>
+                                                <View style={{flex: 1}}>
+                                                    <Text style={styles.meetupLabel}>Time</Text>
+                                                    <Text style={styles.meetupValue}>{formatTime(booking.meetup_time)}</Text>
+                                                </View>
+                                            </View>
+                                        )}
+                                        
+                                        {booking.meetup_instructions && (
+                                            <View style={[styles.meetupRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+                                                <View style={styles.meetupIconBox}><Ionicons name="information-circle" size={18} color="#0072FF" /></View>
+                                                <View style={{flex: 1}}>
+                                                    <Text style={styles.meetupLabel}>Instructions</Text>
+                                                    <Text style={styles.meetupValue}>{booking.meetup_instructions}</Text>
+                                                </View>
+                                            </View>
+                                        )}
+                                    </View>
+                                </View>
+                            </>
+                        )}
+
                         <View style={styles.divider} />
 
-                        {/* --- FINANCIAL BREAKDOWN SECTION --- */}
                         <View style={styles.priceSection}>
                             <Text style={styles.sectionHeader}>Payment Breakdown</Text>
                             
@@ -111,7 +162,7 @@ const BookingDetailsModal = ({ booking, visible, onClose }) => {
                             </View>
 
                             <View style={styles.priceRow}>
-                                <Text style={[styles.priceLabel, {color: '#22C55E'}]}>Down Payment Paid (30%)</Text>
+                                <Text style={[styles.priceLabel, {color: '#22C55E'}]}>Down Payment Paid ({dpPercent}%)</Text>
                                 <Text style={[styles.priceValue, {color: '#22C55E'}]}>- ₱ {downPayment.toLocaleString()}</Text>
                             </View>
 
@@ -163,6 +214,12 @@ const styles = StyleSheet.create({
     gridItem: { alignItems: 'flex-start' },
     label: { fontSize: 11, color: '#9CA3AF', marginBottom: 4, fontWeight: '600' },
     value: { fontSize: 14, color: '#1F2937', fontWeight: '600' },
+
+    meetupCard: { backgroundColor: '#EFF6FF', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#BFDBFE' },
+    meetupRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#D1E8FF' },
+    meetupIconBox: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+    meetupLabel: { fontSize: 11, color: '#60A5FA', fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 },
+    meetupValue: { fontSize: 14, color: '#1E3A8A', fontWeight: '600' },
 
     priceSection: { marginTop: 0 },
     priceRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },

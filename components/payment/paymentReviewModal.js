@@ -253,6 +253,9 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         </View>
     );
 
+    // --- FIX: Dynamic percentage calculation ---
+    const dpPercent = totalPrice > 0 ? ((downPayment / totalPrice) * 100).toFixed(0) : "30";
+
     return (
         <Modal visible={isModalOpen} animationType="fade" transparent={true}>
             <View style={styles.overlay}>
@@ -320,7 +323,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                             {downPayment > 0 ? (
                                 <>
                                     <View style={styles.billRow}>
-                                        <Text style={styles.billLabel}>Down Payment (30%)</Text>
+                                        <Text style={styles.billLabel}>Down Payment ({dpPercent}%)</Text>
                                         <Text style={[styles.billValue, { color: '#0072FF', fontWeight: '700' }]}>
                                             ₱ {downPayment?.toLocaleString()}
                                         </Text>

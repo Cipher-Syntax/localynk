@@ -9,6 +9,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../context/AuthContext'; 
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AgencyPaymentReviewModal from './agencyPaymentReviewModal'; 
+import api from '../../api/api'; // <-- IMPORT API TO FETCH AGENCY SETTINGS
 
 const PRIMARY_COLOR = '#0072FF';
 const SURFACE_COLOR = '#FFFFFF';
@@ -21,8 +22,6 @@ const AgencyBookingDetails = () => {
     const router = useRouter();
     const { user } = useAuth();
     
-    // bookingId present = Request Accepted = Time to Pay
-    // NEW: Capture agencyDownPayment passed from the previous screen
     const { agencyName, agencyId, placeName, bookingId, placeId, agencyDownPayment } = params;
     const isPaymentMode = !!bookingId;
 
@@ -59,10 +58,32 @@ const AgencyBookingDetails = () => {
     const [downPayment, setDownPayment] = useState(0);
     const [balanceDue, setBalanceDue] = useState(0);
 
-    // --- NEW: Dynamic Downpayment Calculation ---
-    // Safely parse the agency downpayment, fallback to 30% if undefined
-    const dynamicDpRate = agencyDownPayment ? (parseFloat(agencyDownPayment) / 100) : 0.30;
-    const dynamicDpDisplay = (dynamicDpRate * 100).toFixed(0); // Display as a whole number (e.g., "30")
+    // --- NEW: Dynamic Downpayment State ---
+    // Start with route param if available, otherwise default to 0.30 while fetching
+    const [dynamicDpRate, setDynamicDpRate] = useState(agencyDownPayment ? (parseFloat(agencyDownPayment) / 100) : 0.30);
+
+    // --- NEW: Fetch exact agency configuration from database ---
+    useEffect(() => {
+        const fetchAgencyRate = async () => {
+            if (agencyDownPayment) return; // If passed directly, skip fetch
+            try {
+                // Fetch the list of agencies to find the configuration for THIS agency
+                const res = await api.get('/api/agencies/'); 
+                const agenciesList = res.data.results || res.data;
+                const matchedAgency = agenciesList.find(a => String(a.id) === String(agencyId) || String(a.user) === String(agencyId));
+                
+                if (matchedAgency && matchedAgency.down_payment_percentage) {
+                    setDynamicDpRate(parseFloat(matchedAgency.down_payment_percentage) / 100);
+                }
+            } catch (error) {
+                console.log("Could not fetch explicit agency rate, falling back to default.", error);
+            }
+        };
+        
+        if (agencyId) {
+            fetchAgencyRate();
+        }
+    }, [agencyId, agencyDownPayment]);
 
     const formatDateForCalendar = (date) => {
         const year = date.getFullYear();
@@ -92,6 +113,7 @@ const AgencyBookingDetails = () => {
         }
     }, [user]);
 
+    // --- UPDATED: Pricing calculation now depends on dynamicDpRate ---
     useEffect(() => {
         const oneDay = 24 * 60 * 60 * 1000;
         const diffTime = endDate - startDate;
@@ -104,7 +126,7 @@ const AgencyBookingDetails = () => {
         
         setTotalPrice(baseCost);
         
-        // --- NEW: Apply dynamic down payment rate here ---
+        // Use the dynamically fetched rate
         const dp = baseCost * dynamicDpRate;
         setDownPayment(dp);
         setBalanceDue(baseCost - dp);
@@ -364,8 +386,10 @@ const AgencyBookingDetails = () => {
                                 </View>
                                 <View style={styles.receiptDivider} />
                                 <View style={styles.receiptRow}>
-                                    {/* --- NEW: Dynamic Text Render --- */}
-                                    <Text style={[styles.receiptLabel, {color: TEXT_PRIMARY, fontWeight:'700'}]}>Down Payment ({dynamicDpDisplay}%)</Text>
+                                    {/* --- FIX: Display the dynamically fetched percentage in text --- */}
+                                    <Text style={[styles.receiptLabel, {color: TEXT_PRIMARY, fontWeight:'700'}]}>
+                                        Down Payment ({(dynamicDpRate * 100).toFixed(0)}%)
+                                    </Text>
                                     <Text style={[styles.receiptTotal, {color: PRIMARY_COLOR}]}>₱ {downPayment.toLocaleString()}</Text>
                                 </View>
                                 <Text style={styles.receiptNote}>
@@ -448,7 +472,6 @@ const AgencyBookingDetails = () => {
                             email: email,
                             basePrice: agency.basePrice,
                             totalPrice: totalPrice,
-                            // --- NEW: Pass these to your custom Agency Modal so it sends right amounts to DB
                             downPayment: downPayment,
                             balanceDue: balanceDue,
                             bookingId: params.bookingId,

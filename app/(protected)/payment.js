@@ -28,7 +28,7 @@ const Payment = () => {
         entityName, guideName, placeName, bookingId, entityId, guideId, bookingType,
         assignedGuides, basePrice, soloPrice, accommodationPrice, accommodationId,
         accommodationName, additionalFee, placeId, tourPackageId, itineraryTimeline, packageDuration: paramPackageDuration,
-        agencyDownPayment // NEW PARAMETER FOR DYNAMIC MATH
+        agencyDownPayment 
     } = params;
 
     const [fetchedBooking, setFetchedBooking] = useState(null);
@@ -37,7 +37,6 @@ const Payment = () => {
     const [guideAvailability, setGuideAvailability] = useState(null);
     const [blockedDates, setBlockedDates] = useState([]); 
     
-    // --- MULTI-PACKAGE DYNAMIC STATE ---
     const [guidePackages, setGuidePackages] = useState([]);
     const [selectedPackage, setSelectedPackage] = useState(null);
 
@@ -133,6 +132,20 @@ const Payment = () => {
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
+    };
+
+    const formatTime = (timeStr) => {
+        if (!timeStr) return '';
+        const parts = timeStr.split(':');
+        if (parts.length >= 2) {
+            let hours = parseInt(parts[0], 10);
+            const mins = parts[1];
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12;
+            return `${hours}:${mins} ${ampm}`;
+        }
+        return timeStr;
     };
 
     const getImageUrl = (imgPath) => {
@@ -379,12 +392,11 @@ const Payment = () => {
     };
 
     useEffect(() => {
-        // --- If the booking ALREADY exists, respect the database's EXACT calculated values! ---
         if (fetchedBooking && fetchedBooking.total_price) {
             setTotalPrice(parseFloat(fetchedBooking.total_price));
             setDownPayment(parseFloat(fetchedBooking.down_payment));
             setBalanceDue(parseFloat(fetchedBooking.balance_due));
-            return; // Stop local calculation entirely
+            return; 
         }
 
         const oneDay = 24 * 60 * 60 * 1000;
@@ -402,13 +414,11 @@ const Payment = () => {
 
         if (selectedOption === 'solo') {
             groupSize = 1; 
-            // If solo price is 0 or not set, fallback to the standard price per day
             guideFee = tourCostSolo > 0 ? tourCostSolo : tourCostGroup; 
             extraFees = 0;
         } else {
             if (groupSize < 2) groupSize = 2;
             guideFee = tourCostGroup; 
-            
             const extraPeople = Math.max(0, groupSize - 1);
             extraFees = extraPeople * extraPersonFee;
         }
@@ -418,8 +428,6 @@ const Payment = () => {
         const dailyTotal = guideFee + extraFees + accomCost;
         const grandTotal = dailyTotal * numDays;
         
-        // --- DYNAMIC DOWNPAYMENT LOGIC ---
-        // If it's a new booking, apply the passed agency rate, otherwise fallback to 30%
         const dynamicDpRate = agencyDownPayment ? (parseFloat(agencyDownPayment) / 100) : 0.30;
         
         const calculatedDownPayment = grandTotal * dynamicDpRate; 
@@ -437,6 +445,22 @@ const Payment = () => {
         return null;
     }, [isAgency, guideAvailability]);
 
+    // --- FIX: Robust dynamic percentage text label calculation ---
+    // --- FIX: Robust dynamic percentage text label calculation ---
+    const displayDpPercentage = useMemo(() => {
+        if (fetchedBooking && parseFloat(fetchedBooking.total_price) > 0) {
+            return ((parseFloat(fetchedBooking.down_payment) / parseFloat(fetchedBooking.total_price)) * 100).toFixed(0);
+        }
+        // Trust the calculated math first!
+        if (totalPrice > 0 && downPayment > 0) {
+            return ((downPayment / totalPrice) * 100).toFixed(0);
+        }
+        if (agencyDownPayment) return parseFloat(agencyDownPayment).toFixed(0);
+        
+        return "30"; // Only fall back if all calculations fail
+    }, [fetchedBooking, agencyDownPayment, totalPrice, downPayment]);
+
+
     if (loadingBooking) {
         return (
             <View style={styles.loaderFallback}>
@@ -444,8 +468,6 @@ const Payment = () => {
             </View>
         );
     }
-
-    const dpDisplayPercentage = agencyDownPayment ? parseFloat(agencyDownPayment).toFixed(0) : "30";
 
     return (
         <View style={{ flex: 1, backgroundColor: BACKGROUND_COLOR }}>
@@ -544,7 +566,6 @@ const Payment = () => {
                                     </TouchableOpacity>
                                 </View>
 
-                                {/* --- MATCHED ITINERARY SCHEDULE --- */}
                                 {Object.keys(groupedItinerary).length > 0 && (
                                     <View style={{ marginBottom: 20 }}>
                                         <Text style={styles.sectionTitle}>Itinerary Schedule</Text>
@@ -604,6 +625,64 @@ const Payment = () => {
                                     </View>
                                 )}
                             </View>
+
+                            {/* --- NEW: ASSIGNED GUIDES DISPLAY --- */}
+                            {fetchedBooking?.assigned_agency_guides_detail && fetchedBooking.assigned_agency_guides_detail.length > 0 && (
+                                <View style={{ marginTop: 24 }}>
+                                    <Text style={styles.sectionTitle}>Assigned Guide Team</Text>
+                                    {fetchedBooking.assigned_agency_guides_detail.map((guide, index) => (
+                                        <View key={guide.id || index} style={styles.assignedGuideCard}>
+                                            <View style={styles.assignedGuideAvatar}>
+                                                {guide.profile_picture ? (
+                                                    <Image source={{ uri: getImageUrl(guide.profile_picture) }} style={styles.guideAvatarImage} />
+                                                ) : (
+                                                    <User size={20} color="#64748B" />
+                                                )}
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.assignedGuideName}>{guide.full_name}</Text>
+                                                <Text style={styles.assignedGuideRole}>{index === 0 ? 'Lead Guide' : 'Support Guide'}</Text>
+                                            </View>
+                                        </View>
+                                    ))}
+                                </View>
+                            )}
+
+                            {/* --- NEW: MEETUP DETAILS SECTION --- */}
+                            {fetchedBooking?.meetup_location && (
+                                <>
+                                    <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Meetup & Coordination</Text>
+                                    <View style={styles.meetupCard}>
+                                        <View style={styles.meetupRow}>
+                                            <View style={styles.meetupIconBox}><Ionicons name="location" size={18} color="#0072FF" /></View>
+                                            <View style={{flex: 1}}>
+                                                <Text style={styles.meetupLabel}>Location</Text>
+                                                <Text style={styles.meetupValue}>{fetchedBooking.meetup_location}</Text>
+                                            </View>
+                                        </View>
+                                        
+                                        {fetchedBooking.meetup_time && (
+                                            <View style={styles.meetupRow}>
+                                                <View style={styles.meetupIconBox}><Ionicons name="time" size={18} color="#0072FF" /></View>
+                                                <View style={{flex: 1}}>
+                                                    <Text style={styles.meetupLabel}>Time</Text>
+                                                    <Text style={styles.meetupValue}>{formatTime(fetchedBooking.meetup_time)}</Text>
+                                                </View>
+                                            </View>
+                                        )}
+                                        
+                                        {fetchedBooking.meetup_instructions && (
+                                            <View style={[styles.meetupRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+                                                <View style={styles.meetupIconBox}><Ionicons name="information-circle" size={18} color="#0072FF" /></View>
+                                                <View style={{flex: 1}}>
+                                                    <Text style={styles.meetupLabel}>Instructions</Text>
+                                                    <Text style={styles.meetupValue}>{fetchedBooking.meetup_instructions}</Text>
+                                                </View>
+                                            </View>
+                                        )}
+                                    </View>
+                                </>
+                            )}
 
                             {!isPayable && (
                                 <>
@@ -675,8 +754,9 @@ const Payment = () => {
                                 </View>
                                 <View style={styles.receiptDivider} />
                                 <View style={styles.receiptRow}>
+                                    {/* --- FIX: Display dynamic calculated percentage --- */}
                                     <Text style={[styles.receiptLabel, {color: TEXT_PRIMARY, fontWeight:'700'}]}>
-                                        Down Payment ({fetchedBooking ? ((downPayment/totalPrice)*100).toFixed(0) : dpDisplayPercentage}%)
+                                        Down Payment ({displayDpPercentage}%)
                                     </Text>
                                     <Text style={[styles.receiptTotal, {color: PRIMARY_COLOR}]}>₱ {downPayment.toLocaleString()}</Text>
                                 </View>
@@ -802,7 +882,6 @@ const styles = StyleSheet.create({
     packagePillText: { fontSize: 14, fontWeight: '600', color: TEXT_SECONDARY },
     packagePillTextActive: { color: PRIMARY_COLOR },
     
-    // --- EXACT MATCH ITINERARY STYLES ---
     seqDayLabel: { fontSize: 15, fontWeight: '800', color: PRIMARY_COLOR, marginBottom: 10 },
     timelineContainer: { marginTop: 10 },
     timelineItem: { flexDirection: 'row', marginBottom: 15 },
@@ -875,4 +954,17 @@ const styles = StyleSheet.create({
     errorMessage: { fontSize: 14, color: TEXT_SECONDARY, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
     errorButton: { backgroundColor: '#EF4444', paddingVertical: 12, width: '100%', alignItems: 'center', borderRadius: 12 },
     errorButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+
+    // --- NEW ASSIGNED GUIDES & MEETUP STYLES ---
+    assignedGuideCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 8 },
+    assignedGuideAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#E2E8F0', justifyContent: 'center', alignItems: 'center', marginRight: 12, overflow: 'hidden' },
+    guideAvatarImage: { width: '100%', height: '100%' },
+    assignedGuideName: { fontSize: 14, fontWeight: '700', color: TEXT_PRIMARY },
+    assignedGuideRole: { fontSize: 12, color: '#0072FF', fontWeight: '600', marginTop: 2 },
+    
+    meetupCard: { backgroundColor: '#EFF6FF', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#BFDBFE', marginBottom: 8 },
+    meetupRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#D1E8FF' },
+    meetupIconBox: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+    meetupLabel: { fontSize: 11, color: '#60A5FA', fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 },
+    meetupValue: { fontSize: 14, color: '#1E3A8A', fontWeight: '600' },
 });

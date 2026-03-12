@@ -153,6 +153,11 @@ const AgencyPaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) 
         </View>
     );
 
+    // Calculate Dynamic Percentage Label
+    const dpPercent = (paymentData.totalPrice > 0 && paymentData.downPayment > 0)
+        ? ((paymentData.downPayment / paymentData.totalPrice) * 100).toFixed(0) 
+        : "30";
+
     return (
         <Modal visible={isModalOpen} animationType="fade" transparent={true} onRequestClose={() => setIsModalOpen(false)}>
             <View style={styles.overlay}>
