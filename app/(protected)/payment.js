@@ -88,6 +88,7 @@ const Payment = () => {
     const isRequestMode = !bookingId;
 
     const isAgency = bookingType === 'agency';
+    const isAgencyRequestMode = isAgency && !bookingId;
     const resolvedName = fetchedBooking?.guide_detail?.username || fetchedBooking?.agency_detail?.username || entityName || guideName || (isAgency ? "Selected Agency" : "Selected Guide");
     const resolvedId = fetchedBooking?.guide || fetchedBooking?.agency || entityId || guideId;
     const selectedDestinationId = useMemo(() => {
@@ -868,7 +869,7 @@ const Payment = () => {
                                 </>
                             )}
 
-                            {(isRequestMode || isPayable || isConfirmed) && (
+                            {((!isAgencyRequestMode && isRequestMode) || isPayable || isConfirmed) && (
                                 <>
                                     <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Payment Method</Text>
                                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.paymentScroll}>
@@ -934,7 +935,9 @@ const Payment = () => {
                             <Text style={styles.bottomPrice}>₱{downPayment.toLocaleString()}</Text>
                         </View>
                         <TouchableOpacity style={styles.payButton} onPress={handleReviewPress}>
-                            <Text style={styles.payButtonText}>{isPayable ? "Confirm Payment" : "Pay & Book"}</Text>
+                            <Text style={styles.payButtonText}>
+                                {isPayable ? "Confirm Payment" : (isAgencyRequestMode ? "Submit Request" : "Pay & Book")}
+                            </Text>
                             <Ionicons name="arrow-forward" size={18} color="#fff" />
                         </TouchableOpacity>
                     </SafeAreaView>

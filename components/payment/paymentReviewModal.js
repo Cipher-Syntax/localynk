@@ -28,6 +28,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
     } = paymentData || {};
     
     const isPaymentMode = !!bookingId;
+    const isAgencyRequestMode = !isPaymentMode && !!agency && !guide;
     const [numPeople, setNumPeople] = useState(String(paymentData.numberOfPeople || '1')); 
     const [currentTotalPrice, setCurrentTotalPrice] = useState(parseFloat(initialConfirmedPrice || '0'));
     
@@ -177,46 +178,54 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         return response.data;
     };
 
+    const initiateDownPayment = async (targetBookingId, amountToPay) => {
+        const response = await api.post(`/api/payments/initiate/`, {
+            payment_type: "Booking",
+            booking_id: targetBookingId,
+            payment_method: paymentMethod || 'gcash',
+            final_amount: amountToPay,
+        });
+
+        if (response.data && response.data.checkout_url) {
+            const id = response.data.payment_id;
+            if (id) {
+                setPaymentId(id);
+                setIsAwaitingExternalPayment(true);
+                startPollingPaymentStatus(id);
+            }
+
+            await Linking.openURL(response.data.checkout_url);
+            return;
+        }
+
+        throw new Error('No checkout URL was returned for this payment.');
+    };
+
     const handleConfirm = async () => {
         setIsLoading(true);
 
         try {
             if (!isPaymentMode) {
-                // If this is the initial booking creation
+                // First create the booking for both guide and agency flows.
                 const newBooking = await createBooking();
                 setCreatedBookingId(newBooking.id);
-                setIsSuccess(true);
-                setShowConfirmationScreen(true);
+
+                // Agency flow: request submission only (no immediate checkout).
+                if (isAgencyRequestMode) {
+                    setIsSuccess(true);
+                    setShowConfirmationScreen(true);
+                } else {
+                    // Guide flow: immediately open down payment checkout.
+                    const payableNow = parseFloat(newBooking.down_payment || dpFloat || 0);
+                    await initiateDownPayment(newBooking.id, payableNow);
+                }
             } else {
-                // If they are paying for an already accepted booking
+                // Existing booking payment flow.
                 if (!bookingId) {
                     throw new Error("Missing booking ID for payment.");
                 }
-                
-                // Backend mounts payment routes under /api/payments/
-                const response = await api.post(`/api/payments/initiate/`, {
-                    payment_type: "Booking",
-                    booking_id: bookingId,
-                    payment_method: paymentMethod || 'gcash', 
-                    final_amount: dpFloat 
-                });
-                
-                // Check if PayMongo successfully returned the Checkout link
-                if (response.data && response.data.checkout_url) {
-                    const id = response.data.payment_id;
-                    if (id) {
-                        setPaymentId(id);
-                        setIsAwaitingExternalPayment(true);
-                        startPollingPaymentStatus(id);
-                    }
 
-                    // Open the PayMongo link in the mobile browser
-                    await Linking.openURL(response.data.checkout_url);
-                } else {
-                    // Fallback just in case
-                    setIsSuccess(true);
-                    setShowConfirmationScreen(true);
-                }
+                await initiateDownPayment(bookingId, dpFloat);
             }
         } catch (error) {
             console.error('Payment/Booking error:', error);
@@ -364,7 +373,9 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                             
                             {!isPaymentMode && (
                                 <Text style={{fontSize: 11, color: TEXT_SECONDARY, marginTop: 12, fontStyle: 'italic', borderTopWidth: 1, borderTopColor: '#F1F5F9', paddingTop: 8}}>
-                                    * Completing this step confirms your booking and securely processes your down payment.
+                                    {isAgencyRequestMode
+                                        ? '* Completing this step submits your request to the agency for approval.'
+                                        : '* Completing this step confirms your booking and securely processes your down payment.'}
                                 </Text>
                             )}
                         </View>
@@ -394,7 +405,11 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                                 <>
                                     <CreditCard size={18} color="#fff" style={{ marginRight: 8 }} />
                                     <Text style={styles.payButtonText}>
-                                        {isAwaitingExternalPayment ? 'Processing Payment...' : `Pay ₱ ${dpFloat.toLocaleString()} Now`}
+                                        {isAwaitingExternalPayment
+                                            ? 'Processing Payment...'
+                                            : (isAgencyRequestMode
+                                                ? 'Submit Request'
+                                                : `Pay ₱ ${dpFloat.toLocaleString()} Now`)}
                                     </Text>
                                 </>
                             )}
@@ -428,10 +443,16 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                             <Ionicons name={isSuccess ? "checkmark" : "close"} size={60} color="#fff" />
                         </View>
                         <Text style={styles.successTitle}>
-                            {isSuccess ? "PAYMENT SUCCESS" : "PAYMENT FAILED"}
+                            {isSuccess
+                                ? (isAgencyRequestMode ? "REQUEST SUBMITTED" : "PAYMENT SUCCESS")
+                                : "PAYMENT FAILED"}
                         </Text>
                         <Text style={styles.successSub}>
-                            {isSuccess ? "Your booking has been secured." : "Please check your details and try again."}
+                            {isSuccess
+                                ? (isAgencyRequestMode
+                                    ? "Your agency booking request has been sent successfully."
+                                    : "Your booking has been secured.")
+                                : "Please check your details and try again."}
                         </Text>
                         
                         {isSuccess && (
@@ -442,11 +463,15 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                                 </View>
                                 <View style={styles.ticketRow}>
                                     <Text style={styles.ticketLabel}>Amount Paid</Text>
-                                    <Text style={styles.ticketValue}>₱{dpFloat.toLocaleString()}</Text>
+                                    <Text style={styles.ticketValue}>
+                                        {isAgencyRequestMode ? "Pending agency approval" : `₱${dpFloat.toLocaleString()}`}
+                                    </Text>
                                 </View>
                                 <View style={styles.ticketRow}>
                                     <Text style={styles.ticketLabel}>Status</Text>
-                                    <Text style={[styles.ticketValue, {color: '#22C55E'}]}>Confirmed</Text>
+                                    <Text style={[styles.ticketValue, {color: '#22C55E'}]}>
+                                        {isAgencyRequestMode ? 'Requested' : 'Confirmed'}
+                                    </Text>
                                 </View>
                                 <View style={styles.ticketDivider} />
                                 <Text style={styles.ticketNote}>A copy of this receipt has been sent to your email.</Text>
