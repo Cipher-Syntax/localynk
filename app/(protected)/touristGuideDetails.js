@@ -24,6 +24,31 @@ const TouristGuideDetails = () => {
     
     const [selectedTour, setSelectedTour] = useState(null);
 
+    const getPackageDurationDays = (pkg) => {
+        if (!pkg) return 1;
+        const raw = parseInt(pkg.duration_days);
+        let inferred = Number.isFinite(raw) && raw > 0 ? raw : 0;
+
+        let timeline = [];
+        try {
+            timeline = typeof pkg.itinerary_timeline === 'string'
+                ? JSON.parse(pkg.itinerary_timeline)
+                : (pkg.itinerary_timeline || []);
+        } catch (e) {
+            timeline = [];
+        }
+
+        if (Array.isArray(timeline) && timeline.length > 0) {
+            const maxDay = timeline.reduce((max, item) => {
+                const dayNum = parseInt(item?.day);
+                return Number.isFinite(dayNum) && dayNum > max ? dayNum : max;
+            }, 1);
+            inferred = Math.max(inferred, maxDay);
+        }
+
+        return inferred > 0 ? inferred : 1;
+    };
+
     useFocusEffect(
         useCallback(() => {
             const fetchData = async () => {
@@ -42,7 +67,8 @@ const TouristGuideDetails = () => {
                     setBlockedDates(blockedRes.data || []);
                     
                     const allAccoms = Array.isArray(accomRes.data) ? accomRes.data : (accomRes.data.results || []);
-                    const guidesTours = toursRes.data.filter(tour => tour.guide === parseInt(guideId));
+                    const toursData = Array.isArray(toursRes.data) ? toursRes.data : (toursRes.data?.results || []);
+                    const guidesTours = toursData.filter(tour => Number(tour.guide) === Number(guideId));
                     setTourPackages(guidesTours);
                     if(guidesTours.length > 0) setSelectedTour(guidesTours[0]);
                     
@@ -254,7 +280,7 @@ const TouristGuideDetails = () => {
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.packageScroll}>
                                     {tourPackages.map((pkg) => {
                                         const isSelected = selectedTour?.id === pkg.id;
-                                        const duration = parseInt(pkg.duration_days) || 1;
+                                        const duration = getPackageDurationDays(pkg);
                                         return (
                                             <TouchableOpacity 
                                                 key={pkg.id} 
@@ -399,7 +425,7 @@ const TouristGuideDetails = () => {
                                         itineraryTimeline: selectedTour && selectedTour.itinerary_timeline 
                                             ? (typeof selectedTour.itinerary_timeline === 'string' ? selectedTour.itinerary_timeline : JSON.stringify(selectedTour.itinerary_timeline))
                                             : null,
-                                        packageDuration: selectedTour ? (selectedTour.duration_days || 1) : 1
+                                        packageDuration: selectedTour ? getPackageDurationDays(selectedTour) : 1
                                     } 
                                 });
                             }}

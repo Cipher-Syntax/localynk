@@ -40,6 +40,31 @@ const Payment = () => {
     const [guidePackages, setGuidePackages] = useState([]);
     const [selectedPackage, setSelectedPackage] = useState(null);
 
+    const getPackageDurationDays = (pkg) => {
+        if (!pkg) return 1;
+        const raw = parseInt(pkg.duration_days);
+        let inferred = Number.isFinite(raw) && raw > 0 ? raw : 0;
+
+        let timeline = [];
+        try {
+            timeline = typeof pkg.itinerary_timeline === 'string'
+                ? JSON.parse(pkg.itinerary_timeline)
+                : (pkg.itinerary_timeline || []);
+        } catch (e) {
+            timeline = [];
+        }
+
+        if (Array.isArray(timeline) && timeline.length > 0) {
+            const maxDay = timeline.reduce((max, item) => {
+                const dayNum = parseInt(item?.day);
+                return Number.isFinite(dayNum) && dayNum > max ? dayNum : max;
+            }, 1);
+            inferred = Math.max(inferred, maxDay);
+        }
+
+        return inferred > 0 ? inferred : 1;
+    };
+
     const [concurrentBookings, setConcurrentBookings] = useState([]);
     const [loadingConcurrent, setLoadingConcurrent] = useState(false);
     
@@ -90,10 +115,11 @@ const Payment = () => {
                     setBlockedDates(blockedRes.data || []);
                     
                     if (placeId && toursRes.data) {
-                        const myTours = toursRes.data.filter(t => t.guide === parseInt(resolvedId));
+                        const toursData = Array.isArray(toursRes.data) ? toursRes.data : (toursRes.data?.results || []);
+                        const myTours = toursData.filter(t => Number(t.guide) === Number(resolvedId));
                         setGuidePackages(myTours);
                         if (myTours.length > 0) {
-                            const defaultTour = myTours.find(t => t.id === parseInt(tourPackageId)) || myTours[0];
+                            const defaultTour = myTours.find(t => Number(t.id) === Number(tourPackageId)) || myTours[0];
                             setSelectedPackage(defaultTour);
                         }
                     }
@@ -103,7 +129,7 @@ const Payment = () => {
         fetchAvailabilityAndPackages();
     }, [resolvedId, isAgency, placeId, tourPackageId]);
 
-    const activeDuration = selectedPackage ? (parseInt(selectedPackage.duration_days) || 1) : (parseInt(paramPackageDuration) || 1);
+    const activeDuration = selectedPackage ? getPackageDurationDays(selectedPackage) : (parseInt(paramPackageDuration) || 1);
     const activeItinerary = selectedPackage ? selectedPackage.itinerary_timeline : itineraryTimeline;
     const tourCostGroup = selectedPackage ? parseFloat(selectedPackage.price_per_day) : (basePrice ? parseFloat(basePrice) : 500);
     const tourCostSolo = selectedPackage ? parseFloat(selectedPackage.solo_price) : (soloPrice ? parseFloat(soloPrice) : tourCostGroup);
@@ -606,7 +632,7 @@ const Payment = () => {
                                         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.packageScroll}>
                                             {guidePackages.map((pkg) => {
                                                 const isSelected = selectedPackage?.id === pkg.id;
-                                                const duration = parseInt(pkg.duration_days) || 1;
+                                                const duration = getPackageDurationDays(pkg);
                                                 return (
                                                     <TouchableOpacity 
                                                         key={pkg.id} 
@@ -627,7 +653,8 @@ const Payment = () => {
                                     <>
                                         <Text style={styles.sectionTitle}>Selected Package</Text>
                                         <View style={{flexDirection: 'row', marginBottom: 20}}>
-                                            <View style={[styles.packagePill, styles.packagePillActive]}>
+                                            <View style={[styles.
+                                                Pill, styles.packagePillActive]}>
                                                 <Text style={[styles.packagePillText, styles.packagePillTextActive]}>{activeDuration} Day Package</Text>
                                             </View>
                                         </View>
