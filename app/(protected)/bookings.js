@@ -85,7 +85,7 @@ const MyBookings = () => {
         try {
             const res = await api.post(`/api/bookings/${bookingIdToMarkPaid}/mark_paid/`);
             setBookings(prev => prev.map(b => 
-                b.id === bookingIdToMarkPaid ? { ...b, status: 'Completed', balance_due: 0 } : b
+                b.id === bookingIdToMarkPaid ? { ...b, status: 'Completed', balance_due: 0, balance_paid_at: new Date().toISOString() } : b
             ));
             showToast("Booking marked as Paid & Completed!", "success");
         } catch (error) {
@@ -131,7 +131,6 @@ const MyBookings = () => {
             netPayout = down - commission;
         }
 
-        // --- FIX: Dynamic Display of Balance Due vs Balance Received ---
         const currentBalanceDue = Number(item.balance_due || 0);
         const originalBalance = total - down;
         
@@ -140,20 +139,35 @@ const MyBookings = () => {
         let balanceText = `Collect Balance: ₱${currentBalanceDue.toLocaleString()}`;
 
         if (originalBalance <= 0) {
-            // They paid 100% upfront
             balanceText = "100% Paid Online";
             balanceDisplayColor = '#4B5563';
             balanceIconColor = '#6B7280';
         } else if (currentBalanceDue === 0) {
-            // It has been marked as paid face-to-face
             balanceText = `Balance Received: ₱${originalBalance.toLocaleString()}`;
             balanceDisplayColor = '#15803D';
             balanceIconColor = '#22C55E';
         }
 
-        const canCancel = isMyTrip && ['confirmed', 'pending_payment'].includes(item.status.toLowerCase());
+        // --- NEW FIX: CHECK IF DATE HAS PASSED ---
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const checkInDate = new Date(item.check_in);
+        checkInDate.setHours(0, 0, 0, 0);
+        const hasTripStartedOrPassed = today >= checkInDate;
+
+        const normalizedStatus = String(item.status || '').toLowerCase();
+
+        // Allow cancellation for both tourist and provider sides before trip start.
+        // Providers can also cancel "accepted" requests that are not yet paid/started.
+        const cancellableStatuses = isMyTrip
+            ? ['confirmed', 'pending_payment']
+            : ['accepted', 'confirmed', 'pending_payment'];
+        const canCancel = cancellableStatuses.includes(normalizedStatus) && !hasTripStartedOrPassed;
+        
         const canMarkPaid = isMyClient && item.status === 'Confirmed' && currentBalanceDue > 0;
-        const canReview = isMyTrip && item.status.toLowerCase() === 'completed'; 
+        const canReview = isMyTrip && normalizedStatus === 'completed'; 
+
+        const isAgencyBooking = !!item.agency || !!item.agency_detail;
 
         const titleName = item.destination_detail?.name || item.accommodation_detail?.title || 'Custom Booking';
         const typeLabel = item.destination_detail ? 'Tour' : (item.accommodation_detail ? 'Stay' : 'Tour');
@@ -199,7 +213,6 @@ const MyBookings = () => {
                                 </Text>
                             </View>
 
-                            {/* --- FIX: Applies the dynamic Balance UI --- */}
                             <View style={styles.detailRow}>
                                 <Ionicons name="wallet" size={16} color={balanceIconColor} style={styles.iconWidth} />
                                 <Text style={[styles.detailText, { fontWeight: '600', color: balanceDisplayColor }]}>
@@ -207,7 +220,6 @@ const MyBookings = () => {
                                 </Text>
                             </View>
                             
-                            {/* Payout Breakdown */}
                             {isMyClient && (
                                 <View style={styles.financialBox}>
                                     <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}>
@@ -235,6 +247,36 @@ const MyBookings = () => {
                                     <View style={styles.finRow}>
                                         <Text style={[styles.finLabel, {fontWeight:'700', color:'#059669'}]}>Net Payout ({item.is_payout_settled ? 'Received' : 'Incoming'})</Text>
                                         <Text style={[styles.finValue, {fontWeight:'800', color:'#059669'}]}>₱{netPayout.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
+                                    </View>
+                                </View>
+                            )}
+
+                            {isMyTrip && isAgencyBooking && (
+                                <View style={styles.financialBoxTourist}>
+                                    <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}>
+                                        <Text style={styles.finHeaderTourist}>PAYMENT BREAKDOWN</Text>
+                                        <Text style={{fontSize: 10, color: '#1D4ED8', fontWeight: '700', fontStyle: 'italic'}}>
+                                            {currentBalanceDue > 0 ? 'Balance Pending' : 'Paid'}
+                                        </Text>
+                                    </View>
+
+                                    <View style={styles.finRow}>
+                                        <Text style={styles.finLabel}>Total Price</Text>
+                                        <Text style={styles.finValue}>₱{total.toLocaleString()}</Text>
+                                    </View>
+
+                                    <View style={styles.finRow}>
+                                        <Text style={styles.finLabel}>Down Payment (Paid Online)</Text>
+                                        <Text style={styles.finValue}>₱{down.toLocaleString()}</Text>
+                                    </View>
+
+                                    <View style={styles.finDivider} />
+
+                                    <View style={styles.finRow}>
+                                        <Text style={[styles.finLabel, {fontWeight:'700', color:'#B45309'}]}>Remaining Balance</Text>
+                                        <Text style={[styles.finValue, {fontWeight:'800', color:'#B45309'}]}>
+                                            ₱{Math.max(0, currentBalanceDue).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                        </Text>
                                     </View>
                                 </View>
                             )}
@@ -387,7 +429,9 @@ const styles = StyleSheet.create({
     detailText: { fontSize: 13, color: '#4B5563' },
     
     financialBox: { backgroundColor: '#F0FDF4', borderRadius: 8, padding: 12, marginTop: 12, borderWidth: 1, borderColor: '#BBF7D0' },
+    financialBoxTourist: { backgroundColor: '#EFF6FF', borderRadius: 8, padding: 12, marginTop: 12, borderWidth: 1, borderColor: '#BFDBFE' },
     finHeader: { fontSize: 10, fontWeight: '800', color: '#15803D', letterSpacing: 0.5, textTransform:'uppercase' },
+    finHeaderTourist: { fontSize: 10, fontWeight: '800', color: '#1D4ED8', letterSpacing: 0.5, textTransform:'uppercase' },
     finRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
     finLabel: { fontSize: 12, color: '#374151' },
     finValue: { fontSize: 12, fontWeight: '600', color: '#111827' },

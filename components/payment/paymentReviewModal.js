@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator, TextInput, Platform, Dimensions } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator, TextInput, Platform, Dimensions, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Receipt, MapPin, Calendar, CreditCard, User, Mail, Users, AlertCircle } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -35,8 +35,11 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
     const [isSuccess, setIsSuccess] = useState(false); 
     const [isLoading, setIsLoading] = useState(false);
     const [createdBookingId, setCreatedBookingId] = useState(null);
+    const [paymentId, setPaymentId] = useState(null);
+    const [isAwaitingExternalPayment, setIsAwaitingExternalPayment] = useState(false);
     const [errorModalVisible, setErrorModalVisible] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
+    const pollingRef = useRef(null);
 
     const priceFloat = parseFloat(initialConfirmedPrice || '0');
     const serviceFeeFloat = parseFloat(serviceFee || '0');
@@ -71,6 +74,44 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         setErrorModalVisible(true);
     };
 
+    const stopPolling = () => {
+        if (pollingRef.current) {
+            clearInterval(pollingRef.current);
+            pollingRef.current = null;
+        }
+    };
+
+    const startPollingPaymentStatus = (id) => {
+        stopPolling();
+
+        pollingRef.current = setInterval(async () => {
+            try {
+                const statusResp = await api.get(`/api/payments/status/${id}/`);
+                const status = statusResp.data?.status;
+
+                if (status === 'succeeded') {
+                    stopPolling();
+                    setIsAwaitingExternalPayment(false);
+                    setIsSuccess(true);
+                    setShowConfirmationScreen(true);
+                } else if (status === 'failed' || status === 'refund_required') {
+                    stopPolling();
+                    setIsAwaitingExternalPayment(false);
+                    setIsSuccess(false);
+                    showError('Transaction Failed: The payment could not be completed.');
+                }
+            } catch (err) {
+                console.error('Payment status polling failed:', err);
+            }
+        }, 3000);
+    };
+
+    useEffect(() => {
+        return () => {
+            stopPolling();
+        };
+    }, []);
+
     const createBooking = async () => {
         if (!placeId) {
             throw new Error("Missing Destination (Place ID). Please go back and select a destination.");
@@ -88,7 +129,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         formData.append('check_out', formatLocalDate(endDate));
         formData.append('num_guests', String(numPeople));
         
-        // --- NEW: Add guest names ---
         if (additionalGuestNames && additionalGuestNames.length > 0) {
             formData.append('additional_guest_names', JSON.stringify(additionalGuestNames));
         }
@@ -142,25 +182,48 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 
         try {
             if (!isPaymentMode) {
+                // If this is the initial booking creation
                 const newBooking = await createBooking();
                 setCreatedBookingId(newBooking.id);
                 setIsSuccess(true);
                 setShowConfirmationScreen(true);
             } else {
+                // If they are paying for an already accepted booking
                 if (!bookingId) {
                     throw new Error("Missing booking ID for payment.");
                 }
-                const response = await api.post(`/api/payment/checkout/`, {
+                
+                // Backend mounts payment routes under /api/payments/
+                const response = await api.post(`/api/payments/initiate/`, {
+                    payment_type: "Booking",
                     booking_id: bookingId,
-                    payment_method: paymentMethod || 'card',
-                    amount: dpFloat 
+                    payment_method: paymentMethod || 'gcash', 
+                    final_amount: dpFloat 
                 });
-                setIsSuccess(true);
-                setShowConfirmationScreen(true);
+                
+                // Check if PayMongo successfully returned the Checkout link
+                if (response.data && response.data.checkout_url) {
+                    const id = response.data.payment_id;
+                    if (id) {
+                        setPaymentId(id);
+                        setIsAwaitingExternalPayment(true);
+                        startPollingPaymentStatus(id);
+                    }
+
+                    // Open the PayMongo link in the mobile browser
+                    await Linking.openURL(response.data.checkout_url);
+                } else {
+                    // Fallback just in case
+                    setIsSuccess(true);
+                    setShowConfirmationScreen(true);
+                }
             }
         } catch (error) {
             console.error('Payment/Booking error:', error);
-            const msg = error.response?.data ? JSON.stringify(error.response.data) : error.message;
+            // Better error extraction for Django DRF responses
+            const msg = error.response?.data?.detail 
+                        || error.response?.data?.message 
+                        || (error.response?.data ? JSON.stringify(error.response.data) : error.message);
             showError("Transaction Failed: " + msg);
             setIsSuccess(false);
         } finally {
@@ -169,6 +232,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
     };
 
     const handleConfirmationDismiss = () => {
+        stopPolling();
         setShowConfirmationScreen(false);
         if(setIsModalOpen) setIsModalOpen(false);
         router.replace(isSuccess ? '/(protected)/home' : '/(protected)/bookings');
@@ -244,7 +308,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                                 />
                             </View>
 
-                            {/* --- NEW: RENDER ADDITIONAL GUEST NAMES --- */}
                             {additionalGuestNames && additionalGuestNames.length > 0 && (
                                 <View style={{marginTop: 10, padding: 12, backgroundColor: '#F8FAFC', borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0'}}>
                                     <Text style={{fontSize: 11, color: '#64748B', fontWeight: '700', marginBottom: 6, letterSpacing: 0.5}}>ADDITIONAL GUESTS</Text>
@@ -309,10 +372,21 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                     </ScrollView>
 
                     <View style={styles.receiptFooter}>
+                        {isAwaitingExternalPayment && (
+                            <View style={styles.pendingInfoBox}>
+                                <Text style={styles.pendingInfoTitle}>Waiting for payment confirmation...</Text>
+                                <Text style={styles.pendingInfoText}>
+                                    Return to this app after paying in PayMongo. We will auto-update this screen once the payment is verified.
+                                </Text>
+                                {paymentId && (
+                                    <Text style={styles.pendingInfoRef}>Payment Ref: #{paymentId}</Text>
+                                )}
+                            </View>
+                        )}
                         <TouchableOpacity 
                             style={[styles.payButton, isLoading && { opacity: 0.8 }]} 
                             onPress={handleConfirm}
-                            disabled={isLoading}
+                            disabled={isLoading || isAwaitingExternalPayment}
                         >
                             {isLoading ? (
                                 <ActivityIndicator color="#fff" />
@@ -320,7 +394,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                                 <>
                                     <CreditCard size={18} color="#fff" style={{ marginRight: 8 }} />
                                     <Text style={styles.payButtonText}>
-                                        Pay ₱ {dpFloat.toLocaleString()} Now
+                                        {isAwaitingExternalPayment ? 'Processing Payment...' : `Pay ₱ ${dpFloat.toLocaleString()} Now`}
                                     </Text>
                                 </>
                             )}
@@ -418,6 +492,10 @@ const styles = StyleSheet.create({
     billLabel: { fontSize: 13, color: '#475569', fontWeight: '500' },
     billValue: { fontSize: 13, color: '#1E293B', fontWeight: '600', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
     receiptFooter: { padding: 20, backgroundColor: '#F8FAFC', borderTopWidth: 1, borderTopColor: '#E2E8F0' },
+    pendingInfoBox: { backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE', borderRadius: 12, padding: 12, marginBottom: 10 },
+    pendingInfoTitle: { fontSize: 12, fontWeight: '700', color: '#1D4ED8', marginBottom: 4 },
+    pendingInfoText: { fontSize: 11, color: '#1E3A8A', lineHeight: 16 },
+    pendingInfoRef: { marginTop: 6, fontSize: 11, color: '#1E40AF', fontWeight: '700' },
     payButton: { backgroundColor: '#0072FF', paddingVertical: 16, borderRadius: 14, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', shadowColor: '#0072FF', shadowOffset: {width:0, height:4}, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4, marginBottom: 10 },
     payButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
     secureText: { textAlign: 'center', fontSize: 10, color: '#94A3B8' },

@@ -86,6 +86,10 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
         });
     }, [booking, allBookings, isAgencyBooking]);
 
+    const assignedGuides = Array.isArray(booking.assigned_agency_guides_detail) 
+        ? booking.assigned_agency_guides_detail 
+        : (booking.assigned_agency_guides_detail ? [booking.assigned_agency_guides_detail] : []);
+
     return (
         <Modal animationType="slide" transparent={true} visible={visible} onRequestClose={onClose}>
             <View style={styles.centeredView}>
@@ -124,6 +128,56 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
                             </View>
                         </View>
 
+                        {/* --- ASSIGNED AGENCY GUIDES SECTION --- */}
+                        {isAgencyBooking && assignedGuides.length > 0 && (
+                            <View style={styles.section}>
+                                <Text style={styles.sectionHeader}>Assigned Tour Guide/s</Text>
+                                {assignedGuides.map((guide, idx) => {
+                                    const gFullName = guide.full_name || "Assigned Guide";
+                                    const gPhone = guide.contact_number || "N/A";
+                                    const gEmail = guide.email || "N/A";
+                                    
+                                    // Properly format arrays into comma-separated strings
+                                    const rawSpecialty = guide.specialization;
+                                    const gSpecialty = Array.isArray(rawSpecialty) ? rawSpecialty.join(', ') : (rawSpecialty || "General Tour");
+                                    
+                                    const rawLanguages = guide.languages;
+                                    const gLanguages = Array.isArray(rawLanguages) ? rawLanguages.join(', ') : (rawLanguages || "English");
+
+                                    return (
+                                        <View key={idx} style={[styles.manifestCardOverview, {marginBottom: 10, borderColor: '#BFDBFE', backgroundColor: '#EFF6FF'}]}>
+                                            <View style={styles.manifestHeaderTitle}>
+                                                <Ionicons name="id-card" size={20} color="#0072FF" />
+                                                <Text style={styles.manifestHeaderText}>{gFullName}</Text>
+                                            </View>
+                                            
+                                            <View style={styles.manifestRowDetail}>
+                                                <Text style={styles.manifestLabelDetail}>Specialty:</Text>
+                                                <Text style={styles.manifestValueDetail}>{gSpecialty}</Text>
+                                            </View>
+
+                                            <View style={styles.manifestRowDetail}>
+                                                <Text style={styles.manifestLabelDetail}>Languages:</Text>
+                                                <Text style={styles.manifestValueDetail}>{gLanguages}</Text>
+                                            </View>
+
+                                            <View style={[styles.manifestDivider, {borderColor: '#93C5FD'}]} />
+
+                                            <View style={styles.manifestRowDetail}>
+                                                <Text style={styles.manifestLabelDetail}>Contact Number:</Text>
+                                                <Text style={styles.manifestValueDetail}>{gPhone}</Text>
+                                            </View>
+
+                                            <View style={styles.manifestRowDetail}>
+                                                <Text style={styles.manifestLabelDetail}>Email Address:</Text>
+                                                <Text style={[styles.manifestValueDetail, {textTransform: 'none'}]}>{gEmail}</Text>
+                                            </View>
+                                        </View>
+                                    );
+                                })}
+                            </View>
+                        )}
+
                         <View style={styles.section}>
                             <Text style={styles.sectionHeader}>Your Guest Roster</Text>
                             
@@ -136,12 +190,19 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
                                     <Text style={styles.manifestLabelDetail}>Lead Guest:</Text>
                                     <Text style={styles.manifestValueDetail}>{booking.tourist_username || "N/A"}</Text>
                                 </View>
+                                
+                                <View style={styles.manifestRowDetail}>
+                                    <Text style={styles.manifestLabelDetail}>Contact Email:</Text>
+                                    <Text style={[styles.manifestValueDetail, {textTransform: 'none'}]}>
+                                        {booking.tourist_email || booking.tourist_detail?.email || "N/A"}
+                                    </Text>
+                                </View>
+
                                 <View style={styles.manifestRowDetail}>
                                     <Text style={styles.manifestLabelDetail}>Total Pax:</Text>
                                     <Text style={styles.manifestValueDetail}>{booking.num_guests} People</Text>
                                 </View>
                                 
-                                {/* --- NEW: DISPLAY ADDITIONAL GUESTS ON ITINERARY --- */}
                                 {booking.additional_guest_names && booking.additional_guest_names.length > 0 && (
                                     <View style={[styles.manifestRowDetail, {flexDirection: 'column', alignItems: 'flex-start', marginTop: 4}]}>
                                         <Text style={styles.manifestLabelDetail}>Additional Guests:</Text>
@@ -188,92 +249,78 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
 
                         <View style={styles.divider} />
 
+                        {/* --- PAYMENT SUMMARY --- */}
                         <View style={styles.priceSection}>
-                            <Text style={styles.sectionHeader}>Payment Breakdown & Ledger</Text>
+                            <Text style={styles.sectionHeader}>Payment Summary</Text>
                             
-                            <View style={styles.priceRow}>
-                                <Text style={styles.priceLabel}>Total Trip Price</Text>
-                                <Text style={styles.priceValue}>₱ {total.toLocaleString()}</Text>
-                            </View>
-
-                            <View style={styles.ledgerContainer}>
-                                {booking.downpayment_paid_at && (
-                                    <View style={styles.ledgerRow}>
-                                        <View style={styles.ledgerTimeline}>
-                                            <View style={styles.ledgerDot} />
-                                            <View style={styles.ledgerLine} />
-                                        </View>
-                                        <View style={styles.ledgerContent}>
-                                            <Text style={styles.ledgerDate}>
-                                                {new Date(booking.downpayment_paid_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                            </Text>
-                                            <View style={styles.ledgerDetails}>
-                                                <Text style={styles.ledgerDesc}>Down Payment ({dpPercent}%)</Text>
-                                                <Text style={styles.ledgerAmount}>₱ {downPayment.toLocaleString()}</Text>
-                                            </View>
-                                        </View>
-                                    </View>
-                                )}
-
-                                <View style={styles.ledgerRow}>
-                                    <View style={styles.ledgerTimeline}>
-                                        <View style={[styles.ledgerDot, !isBalanceReceived && !isFullyPaidOnline && { backgroundColor: '#CBD5E1', borderColor: '#94A3B8' }]} />
-                                    </View>
-                                    <View style={styles.ledgerContent}>
-                                        {booking.balance_paid_at && (
-                                            <Text style={styles.ledgerDate}>
-                                                {new Date(booking.balance_paid_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            <View style={styles.summaryCard}>
+                                <View style={styles.summaryRow}>
+                                    <Text style={styles.summaryLabel}>Total Trip Price</Text>
+                                    <Text style={styles.summaryValue}>₱ {total.toLocaleString()}</Text>
+                                </View>
+                                
+                                <View style={styles.summaryRow}>
+                                    <View>
+                                        <Text style={styles.summaryLabel}>Down Payment ({dpPercent}%)</Text>
+                                        {booking.downpayment_paid_at && (
+                                            <Text style={styles.summaryDate}>
+                                                Paid {new Date(booking.downpayment_paid_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                             </Text>
                                         )}
-                                        <View style={styles.ledgerDetails}>
-                                            <Text style={[styles.ledgerDesc, !isBalanceReceived && !isFullyPaidOnline && { color: '#64748B' }]}>
-                                                {isFullyPaidOnline ? 'Fully Paid Upfront' : 'Remaining Balance'}
-                                            </Text>
-                                            <Text style={[styles.ledgerAmount, !isBalanceReceived && !isFullyPaidOnline && { color: '#64748B' }]}>
-                                                ₱ {originalBalance.toLocaleString()}
-                                            </Text>
-                                        </View>
-                                        {!isBalanceReceived && !isFullyPaidOnline && (
-                                            <Text style={styles.ledgerPendingText}>Pending Collection</Text>
-                                        )}
                                     </View>
+                                    <Text style={styles.summaryValue}>₱ {downPayment.toLocaleString()}</Text>
                                 </View>
-                            </View>
 
-                            <View style={[
-                                styles.balanceContainer, 
-                                isBalanceReceived && { backgroundColor: '#DCFCE7', borderLeftColor: '#22C55E' },
-                                isFullyPaidOnline && { backgroundColor: '#F3F4F6', borderLeftColor: '#9CA3AF' }
-                            ]}>
-                                <View style={styles.balanceRow}>
-                                    <Text style={[
-                                        styles.balanceLabel, 
-                                        isBalanceReceived && { color: '#166534' },
-                                        isFullyPaidOnline && { color: '#4B5563' }
-                                    ]}>
-                                        {isFullyPaidOnline ? 'Balance' : (isBalanceReceived ? 'Balance Received' : 'Balance Due')}
-                                    </Text>
-                                    <Text style={[
-                                        styles.balanceValue, 
-                                        isBalanceReceived && { color: '#166534' },
-                                        isFullyPaidOnline && { color: '#4B5563' }
-                                    ]}>
-                                        ₱ {isBalanceReceived ? '0.00' : currentBalanceDue.toLocaleString()}
-                                    </Text>
-                                </View>
-                                <Text style={[
-                                    styles.balanceNote, 
-                                    isBalanceReceived && { color: '#15803D' },
-                                    isFullyPaidOnline && { color: '#6B7280' }
+                                <View style={styles.summaryDivider} />
+
+                                <View style={[
+                                    styles.balanceHighlight,
+                                    isBalanceReceived && { backgroundColor: '#DCFCE7', borderColor: '#86EFAC' },
+                                    isFullyPaidOnline && { backgroundColor: '#F3F4F6', borderColor: '#D1D5DB' },
+                                    !isBalanceReceived && !isFullyPaidOnline && { backgroundColor: '#FEF3C7', borderColor: '#FCD34D' }
                                 ]}>
-                                    {isFullyPaidOnline 
-                                        ? '* 100% paid online upfront.' 
-                                        : (isBalanceReceived 
-                                            ? `* Collected face-to-face by the ${providerRole}.` 
-                                            : `* Payable directly to the ${providerRole} upon arrival.`
-                                        )
-                                    }
-                                </Text>
+                                    <View style={styles.balanceHighlightRow}>
+                                        <View>
+                                            <Text style={[
+                                                styles.balanceHighlightLabel,
+                                                isBalanceReceived && { color: '#166534' },
+                                                isFullyPaidOnline && { color: '#4B5563' },
+                                                !isBalanceReceived && !isFullyPaidOnline && { color: '#92400E' }
+                                            ]}>
+                                                {isFullyPaidOnline ? 'Balance' : (isBalanceReceived ? 'Balance Received' : 'Balance Due')}
+                                            </Text>
+                                            {isBalanceReceived && (
+                                                <Text style={{ fontSize: 12, color: '#15803D', marginTop: 2, fontWeight: '700' }}>
+                                                    On {booking.balance_paid_at 
+                                                        ? new Date(booking.balance_paid_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                                                        : new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                </Text>
+                                            )}
+                                        </View>
+                                        <Text style={[
+                                            styles.balanceHighlightValue,
+                                            isBalanceReceived && { color: '#166534' },
+                                            isFullyPaidOnline && { color: '#4B5563' },
+                                            !isBalanceReceived && !isFullyPaidOnline && { color: '#92400E' }
+                                        ]}>
+                                            ₱ {isFullyPaidOnline ? '0.00' : (isBalanceReceived ? originalBalance.toLocaleString() : currentBalanceDue.toLocaleString())}
+                                        </Text>
+                                    </View>
+                                    <Text style={[
+                                        styles.balanceNote,
+                                        isBalanceReceived && { color: '#15803D' },
+                                        isFullyPaidOnline && { color: '#6B7280' },
+                                        !isBalanceReceived && !isFullyPaidOnline && { color: '#B45309' }
+                                    ]}>
+                                        {isFullyPaidOnline 
+                                            ? '* 100% paid online upfront.' 
+                                            : (isBalanceReceived 
+                                                ? `* Collected face-to-face by the ${providerRole}.` 
+                                                : `* Payable directly to the ${providerRole} upon arrival.`
+                                            )
+                                        }
+                                    </Text>
+                                </View>
                             </View>
                         </View>
 
@@ -356,27 +403,19 @@ const styles = StyleSheet.create({
     manifestDivider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 12, borderStyle: 'dashed', borderWidth: 1, borderColor: '#CBD5E1' },
 
     priceSection: { marginTop: 0 },
-    priceRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
-    priceLabel: { fontSize: 14, color: '#4B5563', fontWeight: '600' },
-    priceValue: { fontSize: 15, fontWeight: '800', color: '#1F2937' },
-
-    ledgerContainer: { backgroundColor: '#F8FAFC', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 10 },
-    ledgerRow: { flexDirection: 'row', minHeight: 50 },
-    ledgerTimeline: { width: 24, alignItems: 'center' },
-    ledgerDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#0072FF', borderWidth: 2, borderColor: '#fff', zIndex: 2 },
-    ledgerLine: { width: 2, flex: 1, backgroundColor: '#E2E8F0', marginTop: -2, marginBottom: -2 },
-    ledgerContent: { flex: 1, paddingBottom: 20, paddingLeft: 8 },
-    ledgerDate: { fontSize: 11, color: '#94A3B8', fontWeight: '600', marginBottom: 4, textTransform: 'uppercase' },
-    ledgerDetails: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    ledgerDesc: { fontSize: 14, color: '#1E293B', fontWeight: '500' },
-    ledgerAmount: { fontSize: 14, color: '#1E293B', fontWeight: '700' },
-    ledgerPendingText: { fontSize: 11, color: '#F59E0B', fontStyle: 'italic', marginTop: 4 },
     
-    balanceContainer: { marginTop: 10, padding: 15, backgroundColor: '#FEF3C7', borderRadius: 12, borderLeftWidth: 4, borderLeftColor: '#F59E0B' },
-    balanceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    balanceLabel: { fontSize: 16, fontWeight: '800', color: '#92400E' },
-    balanceValue: { fontSize: 18, fontWeight: '800', color: '#92400E' },
-    balanceNote: { fontSize: 11, color: '#B45309', marginTop: 6, fontStyle: 'italic' },
+    summaryCard: { backgroundColor: '#F8FAFC', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 10 },
+    summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+    summaryLabel: { fontSize: 14, color: '#475569', fontWeight: '500' },
+    summaryValue: { fontSize: 15, color: '#0F172A', fontWeight: '700' },
+    summaryDate: { fontSize: 11, color: '#94A3B8', marginTop: 2 },
+    summaryDivider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 8 },
+    
+    balanceHighlight: { marginTop: 8, padding: 12, borderRadius: 8, borderWidth: 1 },
+    balanceHighlightRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    balanceHighlightLabel: { fontSize: 16, fontWeight: '800' },
+    balanceHighlightValue: { fontSize: 18, fontWeight: '800' },
+    balanceNote: { fontSize: 11, marginTop: 6, fontStyle: 'italic' },
 
     manifestCard: { backgroundColor: '#F8FAFC', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 12 },
     manifestHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },

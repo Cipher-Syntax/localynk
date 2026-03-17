@@ -65,6 +65,16 @@ const Payment = () => {
     const isAgency = bookingType === 'agency';
     const resolvedName = fetchedBooking?.guide_detail?.username || fetchedBooking?.agency_detail?.username || entityName || guideName || (isAgency ? "Selected Agency" : "Selected Guide");
     const resolvedId = fetchedBooking?.guide || fetchedBooking?.agency || entityId || guideId;
+    const selectedDestinationId = useMemo(() => {
+        const rawId = fetchedBooking?.destination || fetchedBooking?.destination_detail?.id || placeId;
+        const parsed = Number(rawId);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    }, [fetchedBooking, placeId]);
+
+    const selectedDestinationName = useMemo(() => {
+        const rawName = fetchedBooking?.destination_detail?.name || placeName || '';
+        return String(rawName).trim().toLowerCase();
+    }, [fetchedBooking, placeName]);
 
     useEffect(() => {
         const fetchAvailabilityAndPackages = async () => {
@@ -246,6 +256,20 @@ const Payment = () => {
                     
                     const isSameProvider = b.agency === parseInt(resolvedId) || b.agency_detail?.id === parseInt(resolvedId);
                     if (!isSameProvider) return false;
+
+                    // Show only tourists tied to the same destination by ID or by name.
+                    const bookingDestinationId = Number(b.destination || b.destination_detail?.id || 0);
+                    const bookingDestinationName = String(b.destination_detail?.name || '').trim().toLowerCase();
+
+                    const hasDestinationContext = !!selectedDestinationId || !!selectedDestinationName;
+                    if (hasDestinationContext) {
+                        const idMatches = selectedDestinationId ? bookingDestinationId === selectedDestinationId : false;
+                        const nameMatches = selectedDestinationName ? bookingDestinationName === selectedDestinationName : false;
+                        if (!idMatches && !nameMatches) return false;
+                    } else if (isRequestMode) {
+                        // In pre-booking flow, do not show mixed destination data when destination is unknown.
+                        return false;
+                    }
                     
                     const bStart = new Date(b.check_in);
                     const bEnd = new Date(b.check_out || b.check_in);
@@ -268,7 +292,7 @@ const Payment = () => {
             }
         };
         fetchConcurrentBookings();
-    }, [startDate, endDate, resolvedId, isAgency, bookingId]);
+    }, [startDate, endDate, resolvedId, isAgency, bookingId, selectedDestinationId, selectedDestinationName, isRequestMode]);
 
     const getMarkedDates = useMemo(() => {
         const marked = {};
