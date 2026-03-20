@@ -19,7 +19,14 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../../context/AuthContext";
 import api from "../../../api/api";
-import { getLatestBookingTimestamp, hasUnseenBookings, setSeenBookingTimestamp } from "../../../utils/bookingNotifications";
+import {
+    getLatestBookingTimestamp,
+    hasUnseenBookings,
+    setSeenBookingTimestamp,
+    getLatestEarningsTimestamp,
+    hasUnseenEarnings,
+    setSeenEarningsTimestamp,
+} from "../../../utils/bookingNotifications";
 
 const { width } = Dimensions.get('window');
 
@@ -39,7 +46,9 @@ const Profile = () => {
     const [pendingCount, setPendingCount] = useState(0);
     const [completedCount, setCompletedCount] = useState(0);
     const [hasNewBookingDot, setHasNewBookingDot] = useState(false);
+    const [hasNewEarningsDot, setHasNewEarningsDot] = useState(false);
     const [latestBookingTs, setLatestBookingTs] = useState(0);
+    const [latestEarningsTs, setLatestEarningsTs] = useState(0);
     
     const router = useRouter();
 
@@ -86,19 +95,29 @@ const Profile = () => {
             const latestTs = getLatestBookingTimestamp(bookingsList);
             setLatestBookingTs(latestTs);
 
+            const earningsTs = getLatestEarningsTimestamp(bookingsList, user.id);
+            setLatestEarningsTs(earningsTs);
+
             if (markSeen) {
                 if (latestTs > 0) {
                     await setSeenBookingTimestamp(user.id, latestTs);
                 }
                 setHasNewBookingDot(false);
+                if (earningsTs > 0) {
+                    await setSeenEarningsTimestamp(user.id, earningsTs);
+                }
+                setHasNewEarningsDot(false);
             } else {
                 const unseen = await hasUnseenBookings(user.id, bookingsList);
                 setHasNewBookingDot(unseen);
+                const unseenEarnings = await hasUnseenEarnings(user.id, bookingsList);
+                setHasNewEarningsDot(unseenEarnings);
             }
         } catch (error) {
             setPendingCount(0);
             setCompletedCount(0);
             setHasNewBookingDot(false);
+            setHasNewEarningsDot(false);
         }
     }, [profile?.id, profile?.is_local_guide, user?.id]);
 
@@ -111,7 +130,7 @@ const Profile = () => {
             const loadInitialData = async () => {
                 if (!profile) setLoading(true);
                 await fetchProfileData();
-                await fetchBookingStats({ markSeen: true });
+                await fetchBookingStats({ markSeen: false });
                 setLoading(false);
             };
             loadInitialData();
@@ -121,8 +140,9 @@ const Profile = () => {
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
         await fetchProfileData();
+        await fetchBookingStats({ markSeen: false });
         setRefreshing(false);
-    }, [userId]);
+    }, [userId, fetchBookingStats]);
 
     const handleDeactivate = () => {
         setDeactivateModalVisible(true);
@@ -237,6 +257,13 @@ const Profile = () => {
                 await setSeenBookingTimestamp(user.id, latestBookingTs);
             }
             setHasNewBookingDot(false);
+        }
+
+        if (item.label === 'Earnings & Payments' && user?.id) {
+            if (latestEarningsTs > 0) {
+                await setSeenEarningsTimestamp(user.id, latestEarningsTs);
+            }
+            setHasNewEarningsDot(false);
         }
 
         router.push(item.route);
@@ -361,6 +388,7 @@ const Profile = () => {
                                             </View>
                                             <Text style={styles.menuLabel}>{item.label}</Text>
                                             {item.label === 'My Bookings' && hasNewBookingDot && <View style={styles.menuBadgeDot} />}
+                                            {item.label === 'Earnings & Payments' && hasNewEarningsDot && <View style={styles.menuBadgeDot} />}
                                             <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
                                         </TouchableOpacity>
                                     ))}

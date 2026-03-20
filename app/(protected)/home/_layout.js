@@ -6,7 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { useAuth } from "../../../context/AuthContext";
 import api from "../../../api/api";
-import { getLatestBookingTimestamp, getSeenBookingTimestamp, setSeenBookingTimestamp } from "../../../utils/bookingNotifications";
+import { getLatestBookingTimestamp, getSeenBookingTimestamp } from "../../../utils/bookingNotifications";
 
 const HomeLayout = () => {
     const { role, user } = useAuth();
@@ -87,8 +87,7 @@ const HomeLayout = () => {
                         name={tab.name}
                         listeners={{
                             tabPress: () => {
-                                if (tab.name === 'profile' && user?.id && latestBookingTs > 0) {
-                                    setSeenBookingTimestamp(user.id, latestBookingTs).catch(() => {});
+                                if (tab.name === 'profile') {
                                     setHasNewBookingDot(false);
                                 }
                             },
