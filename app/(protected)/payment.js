@@ -840,7 +840,7 @@ const Payment = () => {
                                     </View>
                                     <TextInput style={[styles.modernInput, {marginTop: 10}]} placeholder="Phone Number" keyboardType="phone-pad" value={phoneNumber} onChangeText={setPhoneNumber} />
 
-                                    <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Identity Verification</Text>
+                                    <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Identity Verification (ID & Selfie)</Text>
                                     <View style={styles.kycRow}>
                                         <TouchableOpacity style={[styles.kycCard, validIdImage && styles.kycCardDone]} onPress={pickImage}>
                                             {validIdImage ? (
