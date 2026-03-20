@@ -1,11 +1,17 @@
 import { Tabs } from "expo-router";
+import { useCallback, useState } from "react";
 import { User, Map, Home } from "lucide-react-native";
 import { View, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect } from "expo-router";
 import { useAuth } from "../../../context/AuthContext";
+import api from "../../../api/api";
+import { getLatestBookingTimestamp, getSeenBookingTimestamp, setSeenBookingTimestamp } from "../../../utils/bookingNotifications";
 
 const HomeLayout = () => {
-    const { role } = useAuth();
+    const { role, user } = useAuth();
+    const [hasNewBookingDot, setHasNewBookingDot] = useState(false);
+    const [latestBookingTs, setLatestBookingTs] = useState(0);
 
     const guideTabTitle = role === 'guide' ? "Dashboard" : "Apply";
 
@@ -21,6 +27,35 @@ const HomeLayout = () => {
         activeTint: "#FFFFFF",
         inactiveTint: "#9CA3AF",
     };
+
+    const refreshBookingBadge = useCallback(async () => {
+        if (!user?.id) {
+            setHasNewBookingDot(false);
+            setLatestBookingTs(0);
+            return;
+        }
+
+        try {
+            const response = await api.get('/api/bookings/');
+            const bookings = Array.isArray(response.data)
+                ? response.data
+                : (Array.isArray(response.data?.results) ? response.data.results : []);
+
+            const latestTs = getLatestBookingTimestamp(bookings);
+            setLatestBookingTs(latestTs);
+
+            const seenTs = await getSeenBookingTimestamp(user.id);
+            setHasNewBookingDot(latestTs > seenTs);
+        } catch (error) {
+            setHasNewBookingDot(false);
+        }
+    }, [user?.id]);
+
+    useFocusEffect(
+        useCallback(() => {
+            refreshBookingBadge();
+        }, [refreshBookingBadge])
+    );
 
     return (
         <SafeAreaView style={{flex: 1}}>
@@ -50,6 +85,14 @@ const HomeLayout = () => {
                     <Tabs.Screen
                         key={tab.name}
                         name={tab.name}
+                        listeners={{
+                            tabPress: () => {
+                                if (tab.name === 'profile' && user?.id && latestBookingTs > 0) {
+                                    setSeenBookingTimestamp(user.id, latestBookingTs).catch(() => {});
+                                    setHasNewBookingDot(false);
+                                }
+                            },
+                        }}
                         options={{
                             title: tab.title,
                             tabBarIcon: ({ color, focused }) => {
@@ -74,6 +117,19 @@ const HomeLayout = () => {
                                             size={22} 
                                             fill={focused ? color : "transparent"}
                                         />
+                                        {tab.name === 'profile' && hasNewBookingDot && !focused && (
+                                            <View
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: 8,
+                                                    right: 8,
+                                                    width: 10,
+                                                    height: 10,
+                                                    borderRadius: 5,
+                                                    backgroundColor: '#EF4444',
+                                                }}
+                                            />
+                                        )}
                                     </View>
                                 );
                             },

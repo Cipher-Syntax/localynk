@@ -9,6 +9,7 @@ import api from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
 import BookingDetailsModal from '../../components/booking/BookingDetailsModal';
 import ConfirmationModal from '../../components/ConfirmationModal';
+import { getBookingSortTimestamp, getLatestBookingTimestamp, setSeenBookingTimestamp } from '../../utils/bookingNotifications';
 
 const MyBookings = () => {
     const { user } = useAuth();
@@ -50,7 +51,15 @@ const MyBookings = () => {
     const fetchBookings = async () => {
         try {
             const response = await api.get('/api/bookings/');
-            setBookings(response.data || []);
+            const incoming = Array.isArray(response.data) ? response.data : [];
+            const sorted = [...incoming].sort((a, b) => getBookingSortTimestamp(b) - getBookingSortTimestamp(a));
+            setBookings(sorted);
+
+            // Opening Bookings means user has seen latest booking update.
+            const latestTs = getLatestBookingTimestamp(sorted);
+            if (user?.id && latestTs > 0) {
+                await setSeenBookingTimestamp(user.id, latestTs);
+            }
         } catch (error) {
             console.error('Failed to fetch bookings:', error);
         } finally {
@@ -284,20 +293,6 @@ const MyBookings = () => {
         if (diffDays === 0) return String(checkIn);
         return `${checkIn} — ${checkOut}`;
     };
-
-    function getBookingSortTimestamp(booking) {
-        const createdAt = booking?.created_at ? new Date(booking.created_at).getTime() : 0;
-        const updatedAt = booking?.updated_at ? new Date(booking.updated_at).getTime() : 0;
-        const checkInAt = booking?.check_in ? new Date(booking.check_in).getTime() : 0;
-        const idFallback = Number(booking?.id || 0);
-
-        return Math.max(
-            Number.isFinite(createdAt) ? createdAt : 0,
-            Number.isFinite(updatedAt) ? updatedAt : 0,
-            Number.isFinite(checkInAt) ? checkInAt : 0,
-            idFallback
-        );
-    }
 
     const getDestinationGroupImageSource = (group) => {
         if (!group?.bookings?.length) return null;

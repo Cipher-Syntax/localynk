@@ -19,6 +19,7 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../../context/AuthContext";
 import api from "../../../api/api";
+import { getLatestBookingTimestamp, hasUnseenBookings, setSeenBookingTimestamp } from "../../../utils/bookingNotifications";
 
 const { width } = Dimensions.get('window');
 
@@ -37,6 +38,8 @@ const Profile = () => {
     
     const [pendingCount, setPendingCount] = useState(0);
     const [completedCount, setCompletedCount] = useState(0);
+    const [hasNewBookingDot, setHasNewBookingDot] = useState(false);
+    const [latestBookingTs, setLatestBookingTs] = useState(0);
     
     const router = useRouter();
 
@@ -59,39 +62,60 @@ const Profile = () => {
         }
     }, [user, userId]);
 
-    useEffect(() => {
-        const fetchBookingStats = async () => {
-            if (profile && profile.is_local_guide && profile.id) {
-                try {
-                    const response = await api.get('api/bookings/');
-                    let bookingsList = [];
-                    if (Array.isArray(response.data)) {
-                        bookingsList = response.data;
-                    } else if (response.data.results) {
-                        bookingsList = response.data.results;
-                    }
-                    const pending = bookingsList.filter(booking => booking.status === 'Pending');
-                    setPendingCount(pending.length);
-                    const completed = bookingsList.filter(booking => booking.status === 'Completed');
-                    setCompletedCount(completed.length);
-                } catch (error) {
-                    setPendingCount(0);
-                    setCompletedCount(0);
-                }
+    const fetchBookingStats = useCallback(async ({ markSeen = false } = {}) => {
+        if (!user?.id) return;
+        try {
+            const response = await api.get('api/bookings/');
+            let bookingsList = [];
+            if (Array.isArray(response.data)) {
+                bookingsList = response.data;
+            } else if (response.data.results) {
+                bookingsList = response.data.results;
             }
-        };
+
+            if (profile?.is_local_guide && profile?.id) {
+                const pending = bookingsList.filter(booking => String(booking.status || '').toLowerCase() === 'pending_payment');
+                setPendingCount(pending.length);
+                const completed = bookingsList.filter(booking => String(booking.status || '').toLowerCase() === 'completed');
+                setCompletedCount(completed.length);
+            } else {
+                setPendingCount(0);
+                setCompletedCount(0);
+            }
+
+            const latestTs = getLatestBookingTimestamp(bookingsList);
+            setLatestBookingTs(latestTs);
+
+            if (markSeen) {
+                if (latestTs > 0) {
+                    await setSeenBookingTimestamp(user.id, latestTs);
+                }
+                setHasNewBookingDot(false);
+            } else {
+                const unseen = await hasUnseenBookings(user.id, bookingsList);
+                setHasNewBookingDot(unseen);
+            }
+        } catch (error) {
+            setPendingCount(0);
+            setCompletedCount(0);
+            setHasNewBookingDot(false);
+        }
+    }, [profile?.id, profile?.is_local_guide, user?.id]);
+
+    useEffect(() => {
         fetchBookingStats();
-    }, [profile]);
+    }, [fetchBookingStats]);
 
     useFocusEffect(
         useCallback(() => {
             const loadInitialData = async () => {
                 if (!profile) setLoading(true);
                 await fetchProfileData();
+                await fetchBookingStats({ markSeen: true });
                 setLoading(false);
             };
             loadInitialData();
-        }, [userId])
+        }, [userId, fetchBookingStats, profile])
     );
 
     const onRefresh = useCallback(async () => {
@@ -205,6 +229,19 @@ const Profile = () => {
 
     const menuItems = isGuide ? guideSettingsItems : touristSettingsItems;
 
+    const handleMenuPress = async (item) => {
+        if (!item.route) return;
+
+        if (item.label === 'My Bookings' && user?.id) {
+            if (latestBookingTs > 0) {
+                await setSeenBookingTimestamp(user.id, latestBookingTs);
+            }
+            setHasNewBookingDot(false);
+        }
+
+        router.push(item.route);
+    };
+
     return (
         <View style={{flex: 1}}>
             <ScrollView 
@@ -317,12 +354,13 @@ const Profile = () => {
                                         <TouchableOpacity 
                                             key={item.id} 
                                             style={[styles.menuItem, index === menuItems.length - 1 && styles.menuItemLast]}
-                                            onPress={() => item.route && router.push(item.route)}
+                                            onPress={() => handleMenuPress(item)}
                                         >
                                             <View style={[styles.menuIconBox, { backgroundColor: isGuide ? '#EFF6FF' : '#ECFDF5' }]}>
                                                 <Ionicons name={item.icon} size={20} color={isGuide ? '#0072FF' : '#10B981'} />
                                             </View>
                                             <Text style={styles.menuLabel}>{item.label}</Text>
+                                            {item.label === 'My Bookings' && hasNewBookingDot && <View style={styles.menuBadgeDot} />}
                                             <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
                                         </TouchableOpacity>
                                     ))}
@@ -491,6 +529,7 @@ const styles = StyleSheet.create({
     menuItemLast: { borderBottomWidth: 0 },
     menuIconBox: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 15 },
     menuLabel: { flex: 1, fontSize: 15, fontWeight: '600', color: '#334155' },
+    menuBadgeDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#EF4444', marginRight: 8 },
     logoutButton: { marginTop: 30, marginBottom: 10, alignItems: 'center', justifyContent: 'center', paddingVertical: 15, borderRadius: 16, backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA' },
     logoutText: { color: '#EF4444', fontWeight: '700', fontSize: 15 },
     versionText: { textAlign: 'center', color: '#CBD5E1', fontSize: 12, marginTop: 10 },
