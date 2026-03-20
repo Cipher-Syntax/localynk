@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, StatusBar, TouchableOpacity, RefreshControl, Image, Animated } from 'react-native';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList, StatusBar, TouchableOpacity, RefreshControl, Image, Animated, ScrollView, Modal, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient'; 
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -27,12 +27,22 @@ const MyBookings = () => {
     
     const [paidConfirmVisible, setPaidConfirmVisible] = useState(false);
     const [bookingIdToMarkPaid, setBookingIdToMarkPaid] = useState(null);
+    const [activeTab, setActiveTab] = useState('my_trip');
+    const [statusFilter, setStatusFilter] = useState('all');
+    const [dateFilter, setDateFilter] = useState('all');
+    const [destinationSearch, setDestinationSearch] = useState('');
+    const [destinationModalVisible, setDestinationModalVisible] = useState(false);
+    const [selectedDestinationGroup, setSelectedDestinationGroup] = useState(null);
+    const [modalStatusFilter, setModalStatusFilter] = useState('all');
+    const [modalDateFilter, setModalDateFilter] = useState('all');
+    const [modalSearchFilter, setModalSearchFilter] = useState('');
 
     const showToast = (message, type = 'success') => {
         setToast({ show: true, message, type });
         Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
         setTimeout(() => hideToast(), 3000);
     };
+    
     const hideToast = () => {
         Animated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => setToast(prev => ({ ...prev, show: false })));
     };
@@ -43,7 +53,6 @@ const MyBookings = () => {
             setBookings(response.data || []);
         } catch (error) {
             console.error('Failed to fetch bookings:', error);
-            showToast("Failed to fetch bookings.", "error");
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -58,14 +67,34 @@ const MyBookings = () => {
         setConfirmVisible(true);
     };
 
+    // FIXED: Synchronizes all states (Main List, Destination Modal, Details Modal) instantly
     const confirmCancellation = async () => {
         setConfirmVisible(false);
         if (!bookingIdToCancel) return;
 
         try {
             await api.patch(`/api/bookings/${bookingIdToCancel}/status/`, { status: 'Cancelled' });
+            
+            // 1. Update Main Bookings List
             setBookings(prev => prev.map(b => b.id === bookingIdToCancel ? { ...b, status: 'Cancelled' } : b));
+            
+            // 2. Update Destination Modal if it is open
+            if (selectedDestinationGroup) {
+                setSelectedDestinationGroup(prev => ({
+                    ...prev,
+                    bookings: prev.bookings.map(b => b.id === bookingIdToCancel ? { ...b, status: 'Cancelled' } : b)
+                }));
+            }
+            
+            // 3. Update Details Modal if it is open
+            if (selectedBooking && selectedBooking.id === bookingIdToCancel) {
+                setSelectedBooking(prev => ({ ...prev, status: 'Cancelled' }));
+            }
+
             showToast("Booking cancelled successfully.", "success");
+            
+            // 4. Background sync to guarantee database alignment
+            fetchBookings();
         } catch (error) {
             console.error('Failed to cancel:', error);
             showToast("Could not cancel. Try again.", "error");
@@ -79,15 +108,34 @@ const MyBookings = () => {
         setPaidConfirmVisible(true);
     };
 
+    // FIXED: Synchronizes all states instantly for payments too
     const confirmMarkAsPaid = async () => {
         setPaidConfirmVisible(false);
         if (!bookingIdToMarkPaid) return;
+        
         try {
-            const res = await api.post(`/api/bookings/${bookingIdToMarkPaid}/mark_paid/`);
-            setBookings(prev => prev.map(b => 
-                b.id === bookingIdToMarkPaid ? { ...b, status: 'Completed', balance_due: 0, balance_paid_at: new Date().toISOString() } : b
-            ));
+            await api.post(`/api/bookings/${bookingIdToMarkPaid}/mark_paid/`);
+            
+            const updates = { status: 'Completed', balance_due: 0, balance_paid_at: new Date().toISOString() };
+            
+            // 1. Update Main List
+            setBookings(prev => prev.map(b => b.id === bookingIdToMarkPaid ? { ...b, ...updates } : b));
+            
+            // 2. Update Destination Modal
+            if (selectedDestinationGroup) {
+                setSelectedDestinationGroup(prev => ({
+                    ...prev,
+                    bookings: prev.bookings.map(b => b.id === bookingIdToMarkPaid ? { ...b, ...updates } : b)
+                }));
+            }
+            
+            // 3. Update Details Modal
+            if (selectedBooking && selectedBooking.id === bookingIdToMarkPaid) {
+                setSelectedBooking(prev => ({ ...prev, ...updates }));
+            }
+
             showToast("Booking marked as Paid & Completed!", "success");
+            fetchBookings();
         } catch (error) {
             console.error("Mark paid failed", error);
             showToast("Failed to update booking.", "error");
@@ -98,6 +146,110 @@ const MyBookings = () => {
 
     const handleOpenModal = (booking) => { setSelectedBooking(booking); setDetailsModalVisible(true); };
     const handleCloseModal = () => { setDetailsModalVisible(false); setSelectedBooking(null); };
+
+    const isMyTripBooking = useCallback((booking) => booking.tourist_id === user?.id, [user?.id]);
+
+    const getBookingTitle = useCallback((booking) => {
+        return booking.destination_detail?.name || booking.accommodation_detail?.title || 'Custom Booking';
+    }, []);
+
+    const matchesDatePreset = useCallback((booking, preset) => {
+        if (preset === 'all') return true;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const checkInDate = new Date(booking.check_in);
+        checkInDate.setHours(0, 0, 0, 0);
+        if (preset === 'upcoming') return checkInDate >= today;
+        if (preset === 'past') return checkInDate < today;
+        return true;
+    }, []);
+
+    const tabBookings = useMemo(() => {
+        return bookings.filter((booking) => {
+            const mine = isMyTripBooking(booking);
+            return activeTab === 'my_trip' ? mine : !mine;
+        });
+    }, [bookings, activeTab, isMyTripBooking]);
+
+    const filteredBookings = useMemo(() => {
+        return tabBookings.filter((booking) => {
+            const normalizedStatus = String(booking.status || '').toLowerCase();
+            const statusPass = statusFilter === 'all' ? true : normalizedStatus === statusFilter;
+            const datePass = matchesDatePreset(booking, dateFilter);
+            return statusPass && datePass;
+        });
+    }, [tabBookings, statusFilter, dateFilter, matchesDatePreset]);
+
+    const groupedBookings = useMemo(() => {
+        const groupedMap = filteredBookings.reduce((acc, booking) => {
+            const title = getBookingTitle(booking);
+            const key = String(title).trim().toLowerCase();
+            if (!acc[key]) {
+                acc[key] = {
+                    key,
+                    title,
+                    bookings: [],
+                };
+            }
+            acc[key].bookings.push(booking);
+            return acc;
+        }, {});
+
+        const groups = Object.values(groupedMap)
+            .map((group) => {
+                const sortedBookings = [...group.bookings].sort((a, b) => getBookingSortTimestamp(b) - getBookingSortTimestamp(a));
+                const latestBooking = sortedBookings[0] || null;
+
+                return {
+                    ...group,
+                    bookings: sortedBookings,
+                    latestBooking,
+                    latestTimestamp: latestBooking ? getBookingSortTimestamp(latestBooking) : 0,
+                };
+            })
+            .sort((a, b) => {
+                if (b.latestTimestamp !== a.latestTimestamp) return b.latestTimestamp - a.latestTimestamp;
+                return a.title.localeCompare(b.title);
+            });
+
+        const normalizedSearch = destinationSearch.trim().toLowerCase();
+        if (!normalizedSearch) return groups;
+
+        return groups.filter((group) => String(group.title).toLowerCase().includes(normalizedSearch));
+    }, [filteredBookings, getBookingTitle, destinationSearch]);
+
+    const openDestinationModal = (group) => {
+        setSelectedDestinationGroup(group);
+        setModalStatusFilter('all');
+        setModalDateFilter('all');
+        setModalSearchFilter('');
+        setDestinationModalVisible(true);
+    };
+
+    const closeDestinationModal = () => {
+        setDestinationModalVisible(false);
+        setSelectedDestinationGroup(null);
+        setModalStatusFilter('all');
+        setModalDateFilter('all');
+        setModalSearchFilter('');
+    };
+
+    const modalFilteredBookings = useMemo(() => {
+        const source = selectedDestinationGroup?.bookings || [];
+        const normalizedSearch = modalSearchFilter.trim().toLowerCase();
+
+        return source.filter((booking) => {
+            const normalizedStatus = String(booking.status || '').toLowerCase();
+            const title = String(getBookingTitle(booking)).toLowerCase();
+            const touristName = String(booking.tourist_username || '').toLowerCase();
+
+            const statusPass = modalStatusFilter === 'all' ? true : normalizedStatus === modalStatusFilter;
+            const datePass = matchesDatePreset(booking, modalDateFilter);
+            const textPass = !normalizedSearch || title.includes(normalizedSearch) || touristName.includes(normalizedSearch);
+
+            return statusPass && datePass && textPass;
+        }).sort((a, b) => getBookingSortTimestamp(b) - getBookingSortTimestamp(a));
+    }, [selectedDestinationGroup, modalSearchFilter, modalStatusFilter, modalDateFilter, matchesDatePreset, getBookingTitle]);
 
     const getStatusStyle = (status) => {
         const normalized = String(status || '').toLowerCase();
@@ -115,13 +267,59 @@ const MyBookings = () => {
         }
     };
 
-    const renderBookingItem = ({ item }) => {
+    const getBookingDateDisplay = (checkIn, checkOut) => {
+        if (!checkIn) return '';
+        if (!checkOut) return String(checkIn);
+
+        const start = new Date(checkIn);
+        const end = new Date(checkOut);
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+            return `${checkIn} — ${checkOut}`;
+        }
+
+        start.setHours(0, 0, 0, 0);
+        end.setHours(0, 0, 0, 0);
+        const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 0) return String(checkIn);
+        return `${checkIn} — ${checkOut}`;
+    };
+
+    function getBookingSortTimestamp(booking) {
+        const createdAt = booking?.created_at ? new Date(booking.created_at).getTime() : 0;
+        const updatedAt = booking?.updated_at ? new Date(booking.updated_at).getTime() : 0;
+        const checkInAt = booking?.check_in ? new Date(booking.check_in).getTime() : 0;
+        const idFallback = Number(booking?.id || 0);
+
+        return Math.max(
+            Number.isFinite(createdAt) ? createdAt : 0,
+            Number.isFinite(updatedAt) ? updatedAt : 0,
+            Number.isFinite(checkInAt) ? checkInAt : 0,
+            idFallback
+        );
+    }
+
+    const getDestinationGroupImageSource = (group) => {
+        if (!group?.bookings?.length) return null;
+        const firstWithDestination = group.bookings.find((booking) => booking?.destination_detail);
+        const firstWithAccommodation = group.bookings.find((booking) => booking?.accommodation_detail);
+
+        const destinationImage = firstWithDestination?.destination_detail?.image
+            || firstWithDestination?.destination_detail?.images?.[0]?.image;
+        if (destinationImage) return { uri: destinationImage };
+
+        const accommodationImage = firstWithAccommodation?.accommodation_detail?.photo;
+        if (accommodationImage) return { uri: accommodationImage };
+
+        return null;
+    };
+
+    const renderBookingItem = (item) => {
         const { badge, text, icon } = getStatusStyle(item.status);
         
         const isMyTrip = item.tourist_id === user?.id; 
         const isMyClient = !isMyTrip; 
 
-        // Calculation variables
         const total = Number(item.total_price || 0);
         const down = Number(item.down_payment || 0);
         const commission = item.platform_fee ? Number(item.platform_fee) : (total * 0.02); 
@@ -148,7 +346,6 @@ const MyBookings = () => {
             balanceIconColor = '#22C55E';
         }
 
-        // --- NEW FIX: CHECK IF DATE HAS PASSED ---
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const checkInDate = new Date(item.check_in);
@@ -157,8 +354,6 @@ const MyBookings = () => {
 
         const normalizedStatus = String(item.status || '').toLowerCase();
 
-        // Allow cancellation for both tourist and provider sides before trip start.
-        // Providers can also cancel "accepted" requests that are not yet paid/started.
         const cancellableStatuses = isMyTrip
             ? ['confirmed', 'pending_payment']
             : ['accepted', 'confirmed', 'pending_payment'];
@@ -167,9 +362,7 @@ const MyBookings = () => {
         const canMarkPaid = isMyClient && item.status === 'Confirmed' && currentBalanceDue > 0;
         const canReview = isMyTrip && normalizedStatus === 'completed'; 
 
-        const isAgencyBooking = !!item.agency || !!item.agency_detail;
-
-        const titleName = item.destination_detail?.name || item.accommodation_detail?.title || 'Custom Booking';
+        const titleName = getBookingTitle(item);
         const typeLabel = item.destination_detail ? 'Tour' : (item.accommodation_detail ? 'Stay' : 'Tour');
         
         let otherPartyName = "Unknown";
@@ -209,7 +402,7 @@ const MyBookings = () => {
                             <View style={styles.detailRow}>
                                 <Ionicons name="calendar" size={16} color="#3B82F6" style={styles.iconWidth} />
                                 <Text style={styles.detailText}>
-                                    {item.check_in} {item.check_out ? `— ${item.check_out}` : ''}
+                                    {getBookingDateDisplay(item.check_in, item.check_out)}
                                 </Text>
                             </View>
 
@@ -251,7 +444,7 @@ const MyBookings = () => {
                                 </View>
                             )}
 
-                            {isMyTrip && isAgencyBooking && (
+                            {isMyTrip && (
                                 <View style={styles.financialBoxTourist}>
                                     <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}>
                                         <Text style={styles.finHeaderTourist}>PAYMENT BREAKDOWN</Text>
@@ -312,6 +505,59 @@ const MyBookings = () => {
         );
     };
 
+    const renderGroupItem = ({ item }) => {
+        const completedCount = item.bookings.filter((booking) => String(booking.status || '').toLowerCase() === 'completed').length;
+        const pendingCount = item.bookings.filter((booking) => String(booking.status || '').toLowerCase() === 'pending_payment').length;
+        const confirmedCount = item.bookings.filter((booking) => String(booking.status || '').toLowerCase() === 'confirmed').length;
+        const groupImageSource = getDestinationGroupImageSource(item);
+
+        return (
+            <View style={styles.groupContainer}>
+                <View style={styles.groupHeaderCard}>
+                    <View style={styles.groupImageWrap}>
+                        {groupImageSource ? (
+                            <Image source={groupImageSource} style={styles.groupImage} resizeMode="cover" />
+                        ) : (
+                            <View style={styles.groupImageFallback}>
+                                <Ionicons name="image-outline" size={24} color="#D6D3D1" />
+                            </View>
+                        )}
+                        <LinearGradient
+                            colors={['transparent', 'rgba(0,0,0,0.45)']}
+                            style={styles.groupImageOverlay}
+                        />
+                        <View style={styles.groupImageBadge}>
+                            <Text style={styles.groupImageBadgeText}>{item.bookings.length} bookings</Text>
+                        </View>
+                    </View>
+
+                    <View style={styles.groupHeaderTop}>
+                        <View style={styles.groupTitleWrap}>
+                            <Ionicons name="location" size={18} color="#A16207" />
+                            <Text style={styles.groupTitle}>{item.title}</Text>
+                        </View>
+                    </View>
+
+                    <View style={styles.groupMetaRow}>
+                        <Text style={styles.groupMetaTextStrong}>
+                            Latest booking: {item.latestBooking ? getBookingDateDisplay(item.latestBooking.check_in, item.latestBooking.check_out) : 'N/A'}
+                        </Text>
+                        <Text style={styles.groupMetaText}>Confirmed: {confirmedCount}</Text>
+                        <Text style={styles.groupMetaText}>Completed: {completedCount}</Text>
+                        <Text style={styles.groupMetaText}>Pending Payment: {pendingCount}</Text>
+                    </View>
+
+                    <TouchableOpacity style={styles.expandButton} onPress={() => openDestinationModal(item)}>
+                        <Text style={styles.expandButtonText}>
+                            View all bookings for this place
+                        </Text>
+                        <Ionicons name={'arrow-forward-circle'} size={18} color="#92400E" />
+                    </TouchableOpacity>
+                </View>
+            </View>
+        );
+    };
+
     if (loading) {
         return (
             <SafeAreaView style={styles.mainContainer}>
@@ -331,24 +577,103 @@ const MyBookings = () => {
         <SafeAreaView style={styles.mainContainer}>
             <StatusBar barStyle="dark-content" />
             <FlatList
-                data={bookings}
-                renderItem={renderBookingItem}
-                keyExtractor={(item) => item.id.toString()}
+                data={groupedBookings}
+                renderItem={renderGroupItem}
+                keyExtractor={(item) => item.key}
                 contentContainerStyle={styles.listContainer}
                 ListHeaderComponent={
-                    <View style={styles.header}>
-                        <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} />
-                        <LinearGradient colors={['rgba(0,0,0,0.6)', 'transparent']} style={styles.overlay} />
-                        <View style={styles.headerContent}>
-                            <Text style={styles.headerTitle}>BOOKINGS MANAGER</Text>
-                            <Text style={styles.headerSubtitle}>Your Trips & Client Requests</Text>
+                    <View>
+                        <View style={styles.header}>
+                            <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} />
+                            <LinearGradient colors={['rgba(0,0,0,0.6)', 'transparent']} style={styles.overlay} />
+                            <View style={styles.headerContent}>
+                                <Text style={styles.headerTitle}>BOOKINGS MANAGER</Text>
+                                <Text style={styles.headerSubtitle}>Your Trips & Client Requests</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.topControlsContainer}>
+                            <View style={styles.tabSwitcher}>
+                                <TouchableOpacity
+                                    style={[styles.tabButton, activeTab === 'my_trip' && styles.tabButtonActive]}
+                                    onPress={() => setActiveTab('my_trip')}
+                                >
+                                    <Text style={[styles.tabButtonText, activeTab === 'my_trip' && styles.tabButtonTextActive]}>MY TRIP</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.tabButton, activeTab === 'client_booking' && styles.tabButtonActiveClient]}
+                                    onPress={() => setActiveTab('client_booking')}
+                                >
+                                    <Text style={[styles.tabButtonText, activeTab === 'client_booking' && styles.tabButtonTextActive]}>CLIENT BOOKING</Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            <Text style={styles.filterLabel}>Status Filter</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+                                {[
+                                    { value: 'all', label: 'All' },
+                                    { value: 'confirmed', label: 'Confirmed' },
+                                    { value: 'pending_payment', label: 'Pending Payment' },
+                                    { value: 'completed', label: 'Completed' },
+                                    { value: 'cancelled', label: 'Cancelled' },
+                                ].map((option) => (
+                                    <TouchableOpacity
+                                        key={option.value}
+                                        style={[styles.filterChip, statusFilter === option.value && styles.filterChipActive]}
+                                        onPress={() => setStatusFilter(option.value)}
+                                    >
+                                        <Text style={[styles.filterChipText, statusFilter === option.value && styles.filterChipTextActive]}>{option.label}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+
+                            <Text style={styles.filterLabel}>Date Filter</Text>
+                            <View style={styles.filterRowWrap}>
+                                {[
+                                    { value: 'all', label: 'All Dates' },
+                                    { value: 'upcoming', label: 'Upcoming' },
+                                    { value: 'past', label: 'Past' },
+                                ].map((option) => (
+                                    <TouchableOpacity
+                                        key={option.value}
+                                        style={[styles.filterChip, dateFilter === option.value && styles.filterChipActive]}
+                                        onPress={() => setDateFilter(option.value)}
+                                    >
+                                        <Text style={[styles.filterChipText, dateFilter === option.value && styles.filterChipTextActive]}>{option.label}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+
+                            <Text style={styles.filterLabel}>Find Destination</Text>
+                            <View style={styles.searchContainer}>
+                                <Ionicons name="search" size={16} color="#64748B" style={styles.searchIcon} />
+                                <TextInput
+                                    value={destinationSearch}
+                                    onChangeText={setDestinationSearch}
+                                    placeholder="Search by destination name"
+                                    placeholderTextColor="#94A3B8"
+                                    style={styles.searchInput}
+                                />
+                                {!!destinationSearch && (
+                                    <TouchableOpacity onPress={() => setDestinationSearch('')} style={styles.searchClearButton}>
+                                        <Ionicons name="close-circle" size={18} color="#64748B" />
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+
+                            <Text style={styles.sectionSummaryText}>
+                                Showing {filteredBookings.length} booking{filteredBookings.length === 1 ? '' : 's'} in {groupedBookings.length} place{groupedBookings.length === 1 ? '' : 's'}
+                            </Text>
+                            <Text style={styles.sortHintText}>Sorted by newest booking first.</Text>
                         </View>
                     </View>
                 }
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Ionicons name="folder-open-outline" size={60} color="#ccc" />
-                        <Text style={styles.emptyText}>No bookings found.</Text>
+                        <Text style={styles.emptyText}>
+                            No {activeTab === 'my_trip' ? 'My Trip' : 'Client Booking'} records found for the selected filters.
+                        </Text>
                     </View>
                 }
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#00A8FF"]} />}
@@ -360,6 +685,97 @@ const MyBookings = () => {
                 onClose={handleCloseModal} 
                 allBookings={bookings} 
             />
+
+            <Modal
+                visible={destinationModalVisible}
+                transparent
+                animationType="slide"
+                onRequestClose={closeDestinationModal}
+            >
+                <View style={styles.destinationModalBackdrop}>
+                    <View style={styles.destinationModalCard}>
+                        <View style={styles.destinationModalHeader}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.destinationModalTitle} numberOfLines={2}>
+                                    {selectedDestinationGroup?.title || 'Destination'}
+                                </Text>
+                                <Text style={styles.destinationModalSubtitle}>
+                                    {modalFilteredBookings.length} of {selectedDestinationGroup?.bookings?.length || 0} booking{(selectedDestinationGroup?.bookings?.length || 0) === 1 ? '' : 's'}
+                                </Text>
+                            </View>
+                            <TouchableOpacity onPress={closeDestinationModal} style={styles.destinationCloseButton}>
+                                <Ionicons name="close" size={18} color="#0F172A" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.destinationFiltersWrap}>
+                            <Text style={styles.modalFilterLabel}>Status</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modalFilterRow}>
+                                {[
+                                    { value: 'all', label: 'All' },
+                                    { value: 'confirmed', label: 'Confirmed' },
+                                    { value: 'pending_payment', label: 'Pending Payment' },
+                                    { value: 'completed', label: 'Completed' },
+                                    { value: 'cancelled', label: 'Cancelled' },
+                                ].map((option) => (
+                                    <TouchableOpacity
+                                        key={option.value}
+                                        style={[styles.modalFilterChip, modalStatusFilter === option.value && styles.modalFilterChipActive]}
+                                        onPress={() => setModalStatusFilter(option.value)}
+                                    >
+                                        <Text style={[styles.modalFilterChipText, modalStatusFilter === option.value && styles.modalFilterChipTextActive]}>{option.label}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+
+                            <Text style={styles.modalFilterLabel}>Date</Text>
+                            <View style={styles.modalFilterRowWrap}>
+                                {[
+                                    { value: 'all', label: 'All Dates' },
+                                    { value: 'upcoming', label: 'Upcoming' },
+                                    { value: 'past', label: 'Past' },
+                                ].map((option) => (
+                                    <TouchableOpacity
+                                        key={option.value}
+                                        style={[styles.modalFilterChip, modalDateFilter === option.value && styles.modalFilterChipActive]}
+                                        onPress={() => setModalDateFilter(option.value)}
+                                    >
+                                        <Text style={[styles.modalFilterChipText, modalDateFilter === option.value && styles.modalFilterChipTextActive]}>{option.label}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+
+                            <View style={styles.modalSearchContainer}>
+                                <Ionicons name="search" size={15} color="#64748B" style={styles.searchIcon} />
+                                <TextInput
+                                    value={modalSearchFilter}
+                                    onChangeText={setModalSearchFilter}
+                                    placeholder="Search guest or booking"
+                                    placeholderTextColor="#94A3B8"
+                                    style={styles.modalSearchInput}
+                                />
+                                {!!modalSearchFilter && (
+                                    <TouchableOpacity onPress={() => setModalSearchFilter('')} style={styles.searchClearButton}>
+                                        <Ionicons name="close-circle" size={17} color="#64748B" />
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        </View>
+
+                        <FlatList
+                            data={modalFilteredBookings}
+                            keyExtractor={(item) => String(item.id)}
+                            renderItem={({ item }) => renderBookingItem(item)}
+                            contentContainerStyle={styles.destinationModalList}
+                            ListEmptyComponent={
+                                <View style={styles.emptyModalContainer}>
+                                    <Text style={styles.emptyModalText}>No bookings match your modal filters.</Text>
+                                </View>
+                            }
+                        />
+                    </View>
+                </View>
+            </Modal>
 
             <ConfirmationModal 
                 visible={confirmVisible}
@@ -403,7 +819,131 @@ const styles = StyleSheet.create({
     headerContent: { position: 'absolute', bottom: 15, left: 20 },
     headerTitle: { color: '#fff', fontSize: 22, fontWeight: '800' },
     headerSubtitle: { color: '#e0e0e0', fontSize: 13 },
+    topControlsContainer: {
+        marginHorizontal: 16,
+        marginBottom: 16,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 14,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        shadowColor: '#0F172A',
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        elevation: 3,
+    },
+    tabSwitcher: { flexDirection: 'row', backgroundColor: '#EEF2FF', borderRadius: 12, padding: 4, marginBottom: 12 },
+    tabButton: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 10 },
+    tabButtonActive: { backgroundColor: '#0EA5E9' },
+    tabButtonActiveClient: { backgroundColor: '#F97316' },
+    tabButtonText: { fontSize: 12, fontWeight: '800', color: '#475569' },
+    tabButtonTextActive: { color: '#FFFFFF' },
+    filterLabel: { fontSize: 11, fontWeight: '800', color: '#475569', marginBottom: 8, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.6 },
+    filterRow: { paddingBottom: 4, paddingRight: 8 },
+    filterRowWrap: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 2 },
+    filterChip: {
+        paddingHorizontal: 12,
+        paddingVertical: 7,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: '#CBD5E1',
+        backgroundColor: '#F8FAFC',
+        marginRight: 8,
+        marginBottom: 8,
+    },
+    filterChipActive: { backgroundColor: '#E0F2FE', borderColor: '#0EA5E9' },
+    filterChipText: { fontSize: 12, fontWeight: '600', color: '#334155' },
+    filterChipTextActive: { color: '#0369A1', fontWeight: '800' },
+    searchContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#CBD5E1',
+        backgroundColor: '#F8FAFC',
+        borderRadius: 12,
+        paddingHorizontal: 10,
+        marginTop: 2,
+        marginBottom: 6,
+    },
+    searchIcon: { marginRight: 6 },
+    searchInput: {
+        flex: 1,
+        fontSize: 13,
+        color: '#0F172A',
+        paddingVertical: 10,
+    },
+    searchClearButton: { paddingLeft: 8, paddingVertical: 4 },
+    sectionSummaryText: { fontSize: 12, color: '#0F172A', fontWeight: '600', marginTop: 4 },
+    sortHintText: { fontSize: 11, color: '#64748B', fontWeight: '600', marginTop: 4 },
     listContainer: { paddingBottom: 40 },
+    groupContainer: { marginBottom: 10 },
+    groupHeaderCard: {
+        marginHorizontal: 16,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: '#E7E5E4',
+        backgroundColor: '#FFFBF5',
+        padding: 10,
+        shadowColor: '#000',
+        shadowOpacity: 0.08,
+        shadowRadius: 10,
+        elevation: 3,
+    },
+    groupImageWrap: {
+        height: 128,
+        borderRadius: 14,
+        overflow: 'hidden',
+        marginBottom: 10,
+        backgroundColor: '#E7E5E4',
+    },
+    groupImage: {
+        width: '100%',
+        height: '100%',
+    },
+    groupImageFallback: {
+        width: '100%',
+        height: '100%',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#F5F5F4',
+    },
+    groupImageOverlay: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    groupImageBadge: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        backgroundColor: 'rgba(28,25,23,0.72)',
+        borderRadius: 999,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+    },
+    groupImageBadgeText: {
+        color: '#F5F5F4',
+        fontSize: 11,
+        fontWeight: '700',
+    },
+    groupHeaderTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    groupTitleWrap: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 8 },
+    groupTitle: { fontSize: 17, fontWeight: '800', color: '#0F172A', flexShrink: 1 },
+    groupMetaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, flexWrap: 'wrap', gap: 8 },
+    groupMetaTextStrong: { color: '#7C2D12', fontSize: 12, fontWeight: '800', width: '100%' },
+    groupMetaText: { color: '#57534E', fontSize: 12, fontWeight: '600' },
+    expandButton: {
+        marginTop: 10,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#E7E5E4',
+        backgroundColor: '#FFF7ED',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+    },
+    expandButtonText: { fontSize: 12, fontWeight: '700', color: '#92400E' },
+    groupBookingsWrap: { marginTop: 10 },
     cardContainer: { paddingHorizontal: 16, marginBottom: 16 },
     bookingCard: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 16, shadowColor: '#000', shadowOpacity: 0.05, elevation: 3, overflow: 'hidden' },
     statusStrip: { width: 6, height: '100%' },
@@ -446,6 +986,98 @@ const styles = StyleSheet.create({
     reviewButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
     emptyContainer: { alignItems: 'center', marginTop: 60 },
     emptyText: { fontSize: 18, fontWeight: '700', color: '#374151', marginTop: 10 },
+    destinationModalBackdrop: {
+        flex: 1,
+        backgroundColor: 'rgba(15, 23, 42, 0.35)',
+        justifyContent: 'flex-end',
+    },
+    destinationModalCard: {
+        backgroundColor: '#F8FAFC',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        maxHeight: '88%',
+        minHeight: '55%',
+        paddingTop: 8,
+        paddingBottom: 12,
+    },
+    destinationModalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderBottomWidth: 1,
+        borderBottomColor: '#E2E8F0',
+        paddingHorizontal: 16,
+        paddingBottom: 12,
+        marginBottom: 6,
+    },
+    destinationModalTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: '#0F172A',
+    },
+    destinationModalSubtitle: {
+        fontSize: 12,
+        color: '#475569',
+        marginTop: 4,
+        fontWeight: '600',
+    },
+    destinationCloseButton: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#E2E8F0',
+        marginLeft: 12,
+    },
+    destinationModalList: { paddingTop: 8, paddingBottom: 22 },
+    destinationFiltersWrap: {
+        paddingHorizontal: 16,
+        paddingBottom: 4,
+    },
+    modalFilterLabel: {
+        fontSize: 11,
+        fontWeight: '800',
+        color: '#475569',
+        marginBottom: 8,
+        marginTop: 4,
+        textTransform: 'uppercase',
+        letterSpacing: 0.6,
+    },
+    modalFilterRow: { paddingBottom: 4, paddingRight: 8 },
+    modalFilterRowWrap: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 2 },
+    modalFilterChip: {
+        paddingHorizontal: 12,
+        paddingVertical: 7,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: '#CBD5E1',
+        backgroundColor: '#F8FAFC',
+        marginRight: 8,
+        marginBottom: 8,
+    },
+    modalFilterChipActive: { backgroundColor: '#E0F2FE', borderColor: '#0EA5E9' },
+    modalFilterChipText: { fontSize: 12, fontWeight: '600', color: '#334155' },
+    modalFilterChipTextActive: { color: '#0369A1', fontWeight: '800' },
+    modalSearchContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#CBD5E1',
+        backgroundColor: '#F8FAFC',
+        borderRadius: 12,
+        paddingHorizontal: 10,
+        marginTop: 2,
+        marginBottom: 6,
+    },
+    modalSearchInput: {
+        flex: 1,
+        fontSize: 13,
+        color: '#0F172A',
+        paddingVertical: 10,
+    },
+    emptyModalContainer: { alignItems: 'center', paddingVertical: 30 },
+    emptyModalText: { fontSize: 14, color: '#64748B', fontWeight: '600' },
     toastContainer: { position: 'absolute', top: 50, alignSelf: 'center', backgroundColor: '#1F2937', flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, width: '90%', shadowOpacity: 0.2, elevation: 5 },
     toastSuccess: { borderLeftWidth: 4, borderLeftColor: '#22C55E' },
     toastError: { borderLeftWidth: 4, borderLeftColor: '#EF4444' },

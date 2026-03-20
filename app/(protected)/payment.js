@@ -176,6 +176,16 @@ const Payment = () => {
         return `${year}-${month}-${day}`;
     };
 
+    // FIXED OFFSET MATH:
+    // A 1-day package adds 0 days (checkin and checkout are the same date).
+    // A 2-day package adds 1 day (e.g. Mar 21 to Mar 22).
+    const getComputedEndDate = (start, durationDays) => {
+        const computed = new Date(start);
+        const offsetDays = durationDays > 0 ? (durationDays - 1) : 0; 
+        computed.setDate(computed.getDate() + offsetDays);
+        return computed;
+    };
+
     const formatTime = (timeStr) => {
         if (!timeStr) return '';
         const parts = timeStr.split(':');
@@ -196,8 +206,20 @@ const Payment = () => {
         return `${base}${imgPath}`;
     };
 
-    const [startDate, setStartDate] = useState(new Date());
-    const [endDate, setEndDate] = useState(new Date());
+    const [startDate, setStartDate] = useState(() => {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        d.setDate(d.getDate() + 1);
+        return d;
+    });
+    
+    const [endDate, setEndDate] = useState(() => {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        d.setDate(d.getDate() + 1); // Defaults to same day as start, updated immediately by useEffect.
+        return d;
+    });
+
     const [selectedOption, setSelectedOption] = useState('solo');
     const [numPeople, setNumPeople] = useState('1');
     const [firstName, setFirstName] = useState('');
@@ -208,8 +230,6 @@ const Payment = () => {
     
     const [validIdImage, setValidIdImage] = useState(null);
     const [userSelfieImage, setUserSelfieImage] = useState(null);
-    
-    // --- NEW STATE: Additional Guest Names Array ---
     const [guestNames, setGuestNames] = useState([]);
 
     const [totalPrice, setTotalPrice] = useState(0);
@@ -224,7 +244,6 @@ const Payment = () => {
         { key: 'card', name: 'Card', icon: 'card-outline' },
     ];
 
-    // --- NEW EFFECT: Dynamically resize the guestNames array when numPeople changes ---
     useEffect(() => {
         const count = parseInt(numPeople) || 1;
         if (count > 1) {
@@ -242,6 +261,7 @@ const Payment = () => {
         if (fetchedBooking) {
             if (fetchedBooking.check_in) setStartDate(new Date(fetchedBooking.check_in));
             if (fetchedBooking.check_out) setEndDate(new Date(fetchedBooking.check_out));
+            else if (fetchedBooking.check_in) setEndDate(getComputedEndDate(new Date(fetchedBooking.check_in), parseInt(paramPackageDuration) || 1));
             if (fetchedBooking.num_guests) {
                 setNumPeople(String(fetchedBooking.num_guests));
                 setSelectedOption(fetchedBooking.num_guests > 1 ? 'group' : 'solo');
@@ -253,6 +273,64 @@ const Payment = () => {
     }, [fetchedBooking]);
 
     useEffect(() => {
+        if (isPayable || isConfirmed || fetchedBooking) return;
+
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const specificDates = guideAvailability?.specific_available_dates || [];
+        const recurringDays = guideAvailability?.available_days || [];
+
+        const isDateSelectable = (dateObj) => {
+            const dateStr = formatDateForCalendar(dateObj);
+            if (blockedDates.includes(dateStr)) return false;
+            if (isAgency) return true;
+
+            const dayName = dayNames[dateObj.getDay()];
+            const isSpecific = specificDates.includes(dateStr);
+            const isRecurring = recurringDays.includes('All') || recurringDays.includes(dayName);
+            return specificDates.length > 0 ? isSpecific : isRecurring;
+        };
+
+        const tomorrow = new Date();
+        tomorrow.setHours(0, 0, 0, 0);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const currentStart = new Date(startDate);
+        currentStart.setHours(0, 0, 0, 0);
+
+        if (currentStart >= tomorrow && isDateSelectable(currentStart)) return;
+
+        const candidate = new Date(tomorrow);
+        const limit = new Date(tomorrow);
+        limit.setFullYear(limit.getFullYear() + 1);
+
+        while (candidate <= limit && !isDateSelectable(candidate)) {
+            candidate.setDate(candidate.getDate() + 1);
+        }
+
+        if (candidate <= limit) {
+            const newStart = new Date(candidate);
+            const newEnd = getComputedEndDate(candidate, activeDuration);
+            setStartDate(newStart);
+            setEndDate(newEnd);
+        }
+    }, [
+        isPayable,
+        isConfirmed,
+        fetchedBooking,
+        isAgency,
+        guideAvailability,
+        blockedDates,
+        startDate,
+        activeDuration,
+    ]);
+
+    useEffect(() => {
+        if (!isPayable && !isConfirmed) {
+            setEndDate(getComputedEndDate(startDate, activeDuration));
+        }
+    }, [activeDuration, startDate, isPayable, isConfirmed]);
+
+    useEffect(() => {
         if (user) {
             setFirstName(user.first_name || '');
             setLastName(user.last_name || '');
@@ -262,14 +340,6 @@ const Payment = () => {
             if (user.valid_id_image) setValidIdImage(getImageUrl(user.valid_id_image));
         }
     }, [user]);
-
-    useEffect(() => {
-        if (!isPayable && !isConfirmed) {
-            const newEndDate = new Date(startDate);
-            newEndDate.setDate(newEndDate.getDate() + (activeDuration - 1));
-            setEndDate(newEndDate);
-        }
-    }, [activeDuration, startDate, isPayable, isConfirmed]);
 
     useEffect(() => {
         if (!isAgency || !resolvedId) return; 
@@ -284,7 +354,6 @@ const Payment = () => {
                     const isSameProvider = b.agency === parseInt(resolvedId) || b.agency_detail?.id === parseInt(resolvedId);
                     if (!isSameProvider) return false;
 
-                    // Show only tourists tied to the same destination by ID or by name.
                     const bookingDestinationId = Number(b.destination || b.destination_detail?.id || 0);
                     const bookingDestinationName = String(b.destination_detail?.name || '').trim().toLowerCase();
 
@@ -294,7 +363,6 @@ const Payment = () => {
                         const nameMatches = selectedDestinationName ? bookingDestinationName === selectedDestinationName : false;
                         if (!idMatches && !nameMatches) return false;
                     } else if (isRequestMode) {
-                        // In pre-booking flow, do not show mixed destination data when destination is unknown.
                         return false;
                     }
                     
@@ -337,10 +405,11 @@ const Payment = () => {
             const day = String(d.getDate()).padStart(2, '0');
             const dateStr = `${year}-${month}-${day}`;
 
-            const today = new Date();
-            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const minBookableStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2,'0')}-${String(tomorrow.getDate()).padStart(2,'0')}`;
             
-            if (dateStr < todayStr) {
+            if (dateStr < minBookableStr) {
                 marked[dateStr] = { disabled: true, disableTouchEvent: true, textColor: '#d9d9d9' };
                 continue;
             }
@@ -369,22 +438,25 @@ const Payment = () => {
         if (marked[startStr] && !marked[startStr].disabled) {
             marked[startStr] = { ...marked[startStr], selected: true, selectedColor: PRIMARY_COLOR, textColor: '#fff' };
         }
-        if (marked[endStr] && !marked[endStr].disabled) {
-            marked[endStr] = { ...marked[endStr], selected: true, selectedColor: PRIMARY_COLOR, textColor: '#fff' };
-        }
-        
-        let curr = new Date(startDate);
-        curr.setDate(curr.getDate() + 1);
-        while (curr < endDate) {
-             const str = formatDateForCalendar(curr);
-             if (marked[str] && !marked[str].disabled && !marked[str].color?.includes('FFEBEE')) {
-                 marked[str] = { ...marked[str], selected: true, selectedColor: '#E0F2FE', textColor: PRIMARY_COLOR };
-             }
-             curr.setDate(curr.getDate() + 1);
+
+        if (activeDuration > 1) {
+            if (marked[endStr] && !marked[endStr].disabled) {
+                marked[endStr] = { ...marked[endStr], selected: true, selectedColor: PRIMARY_COLOR, textColor: '#fff' };
+            }
+
+            let curr = new Date(startDate);
+            curr.setDate(curr.getDate() + 1);
+            while (curr < endDate) {
+                const str = formatDateForCalendar(curr);
+                if (marked[str] && !marked[str].disabled && !marked[str].color?.includes('FFEBEE')) {
+                    marked[str] = { ...marked[str], selected: true, selectedColor: '#E0F2FE', textColor: PRIMARY_COLOR };
+                }
+                curr.setDate(curr.getDate() + 1);
+            }
         }
         
         return marked;
-    }, [guideAvailability, startDate, endDate, isAgency, blockedDates]);
+    }, [guideAvailability, startDate, endDate, isAgency, blockedDates, activeDuration]);
 
     const openCalendar = (type) => { 
         if (type === 'end' && activeDuration > 1) {
@@ -440,14 +512,20 @@ const Payment = () => {
 
     const onDayPress = (day) => {
         const selectedDate = new Date(day.dateString);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (selectedDate <= today) {
+            showError("Booking for today is not allowed. Please choose tomorrow or later.");
+            return;
+        }
+
         if (blockedDates.includes(day.dateString)) { 
             showError("This date has already been booked by another traveler."); 
             return; 
         }
 
         if (selectingType === 'start') {
-            const futureEnd = new Date(selectedDate);
-            futureEnd.setDate(futureEnd.getDate() + (activeDuration - 1));
+            const futureEnd = getComputedEndDate(selectedDate, activeDuration);
             
             if(checkDateBlockages(selectedDate, futureEnd)) return;
             
@@ -455,9 +533,9 @@ const Payment = () => {
             setCalendarVisible(false);
         } else {
             const startDateString = formatDateForCalendar(startDate);
-            if (day.dateString === startDateString) {
+            if (day.dateString === startDateString && activeDuration > 1) {
                 setCalendarVisible(false);
-                setTimeout(() => showError("You cannot book start and end date on the same day."), 300); 
+                setTimeout(() => showError("Multi-day packages cannot start and end on the same day."), 300); 
                 return;
             }
             if (selectedDate < startDate) {
@@ -498,7 +576,6 @@ const Payment = () => {
         if (startStr === endStr && activeDuration > 1) { showError("Multi-day packages cannot start and end on the same day."); return; }
         if (startDate > endDate) { showError("End date cannot be before start date."); return; }
         
-        // Ensure guest names are filled out
         if (selectedOption === 'group' && parseInt(numPeople) > 1) {
             const hasEmptyName = guestNames.some(name => name.trim() === '');
             if (hasEmptyName) {
@@ -524,10 +601,11 @@ const Payment = () => {
         const oneDay = 24 * 60 * 60 * 1000;
         let numDays = 1;
         
-        if (activeDuration > 1 && startDate.getTime() !== endDate.getTime()) {
+        // Exact day calculation ensuring same-day is treated as 1 trip day
+        if (startDate.getTime() === endDate.getTime()) {
+            numDays = 1;
+        } else {
             numDays = Math.round(Math.abs((endDate - startDate) / oneDay)) + 1;
-        } else if (activeDuration === 1 && startDate.getTime() !== endDate.getTime()) {
-            numDays = Math.max(Math.round(Math.abs((endDate - startDate) / oneDay)), 1);
         }
 
         let groupSize = parseInt(numPeople) || 1;
@@ -654,8 +732,7 @@ const Payment = () => {
                                     <>
                                         <Text style={styles.sectionTitle}>Selected Package</Text>
                                         <View style={{flexDirection: 'row', marginBottom: 20}}>
-                                            <View style={[styles.
-                                                Pill, styles.packagePillActive]}>
+                                            <View style={[styles.packagePill, styles.packagePillActive]}>
                                                 <Text style={[styles.packagePillText, styles.packagePillTextActive]}>{activeDuration} Day Package</Text>
                                             </View>
                                         </View>
@@ -663,27 +740,42 @@ const Payment = () => {
                                 )}
 
                                 <Text style={styles.sectionTitle}>Trip Details</Text>
-                                <View style={styles.datesRow}>
-                                    <TouchableOpacity style={styles.dateBox} onPress={() => !isPayable && openCalendar('start')} disabled={isPayable}>
-                                        <Text style={styles.dateLabel}>Start Date</Text>
-                                        <View style={styles.dateValueRow}>
-                                            <CalendarIcon size={18} color={PRIMARY_COLOR} />
-                                            <Text style={styles.dateValue}>{startDate.toLocaleDateString()}</Text>
+                                {activeDuration === 1 ? (
+                                    <View>
+                                        <View style={styles.oneDayTripCard}>
+                                            <TouchableOpacity style={[styles.dateBox, { flex: 1 }]} onPress={() => !isPayable && openCalendar('start')} disabled={isPayable}>
+                                                <Text style={styles.dateLabel}>Trip Date</Text>
+                                                <View style={styles.dateValueRow}>
+                                                    <CalendarIcon size={18} color={PRIMARY_COLOR} />
+                                                    <Text style={styles.dateValue}>{startDate.toLocaleDateString()}</Text>
+                                                </View>
+                                            </TouchableOpacity>
                                         </View>
-                                    </TouchableOpacity>
-                                    <View style={styles.connector} />
-                                    <TouchableOpacity 
-                                        style={[styles.dateBox, activeDuration > 1 && { backgroundColor: '#F1F5F9' }]} 
-                                        onPress={() => !isPayable && openCalendar('end')} 
-                                        disabled={isPayable || activeDuration > 1}
-                                    >
-                                        <Text style={styles.dateLabel}>{activeDuration > 1 ? "Locked End" : "End Date"}</Text>
-                                        <View style={styles.dateValueRow}>
-                                            <CalendarIcon size={18} color={activeDuration > 1 ? '#94A3B8' : PRIMARY_COLOR} />
-                                            <Text style={[styles.dateValue, activeDuration > 1 && { color: '#64748B' }]}>{endDate.toLocaleDateString()}</Text>
-                                        </View>
-                                    </TouchableOpacity>
-                                </View>
+                                        <Text style={styles.oneDayNote}>1-day package selected.</Text>
+                                    </View>
+                                ) : (
+                                    <View style={styles.datesRow}>
+                                        <TouchableOpacity style={styles.dateBox} onPress={() => !isPayable && openCalendar('start')} disabled={isPayable}>
+                                            <Text style={styles.dateLabel}>Start Date</Text>
+                                            <View style={styles.dateValueRow}>
+                                                <CalendarIcon size={18} color={PRIMARY_COLOR} />
+                                                <Text style={styles.dateValue}>{startDate.toLocaleDateString()}</Text>
+                                            </View>
+                                        </TouchableOpacity>
+                                        <View style={styles.connector} />
+                                        <TouchableOpacity 
+                                            style={[styles.dateBox, activeDuration > 1 && { backgroundColor: '#F1F5F9' }]} 
+                                            onPress={() => !isPayable && openCalendar('end')} 
+                                            disabled={isPayable || activeDuration > 1}
+                                        >
+                                            <Text style={styles.dateLabel}>{activeDuration > 1 ? "Locked End" : "End Date"}</Text>
+                                            <View style={styles.dateValueRow}>
+                                                <CalendarIcon size={18} color={activeDuration > 1 ? '#94A3B8' : PRIMARY_COLOR} />
+                                                <Text style={[styles.dateValue, activeDuration > 1 && { color: '#64748B' }]}>{endDate.toLocaleDateString()}</Text>
+                                            </View>
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
 
                                 {Object.keys(groupedItinerary).length > 0 && (
                                     <View style={{ marginBottom: 20 }}>
@@ -742,7 +834,6 @@ const Payment = () => {
                                             editable={!isPayable}
                                         />
 
-                                        {/* --- NEW: RENDER ADDITIONAL GUEST NAME INPUTS DYNAMICALLY --- */}
                                         {parseInt(numPeople) > 1 && (
                                             <View style={styles.guestNamesContainer}>
                                                 <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 4}}>
@@ -772,7 +863,6 @@ const Payment = () => {
                                 )}
                             </View>
 
-                            {/* --- ASSIGNED GUIDES DISPLAY --- */}
                             {fetchedBooking?.assigned_agency_guides_detail && fetchedBooking.assigned_agency_guides_detail.length > 0 && (
                                 <View style={{ marginTop: 24 }}>
                                     <Text style={styles.sectionTitle}>Assigned Guide Team</Text>
@@ -794,7 +884,6 @@ const Payment = () => {
                                 </View>
                             )}
 
-                            {/* --- MEETUP DETAILS SECTION --- */}
                             {fetchedBooking?.meetup_location && (
                                 <>
                                     <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Meetup & Coordination</Text>
@@ -1008,8 +1097,16 @@ const Payment = () => {
                                 </TouchableOpacity>
                             </View>
                             <Calendar
-                                current={new Date().toISOString().split('T')[0]}
-                                minDate={new Date().toISOString().split('T')[0]}
+                                current={(() => {
+                                    const d = new Date();
+                                    d.setDate(d.getDate() + 1);
+                                    return d.toISOString().split('T')[0];
+                                })()}
+                                minDate={(() => {
+                                    const d = new Date();
+                                    d.setDate(d.getDate() + 1);
+                                    return d.toISOString().split('T')[0];
+                                })()}
                                 markedDates={getMarkedDates}
                                 onDayPress={onDayPress}
                                 theme={{ 
@@ -1052,6 +1149,7 @@ const Payment = () => {
                             additionalGuestNames: guestNames, 
                             validIdImage, userSelfieImage, isNewKycImage: validIdImage && validIdImage.startsWith('file://'),
                             tourCost: currentGuideFee, accomCost, extraPersonFee,
+                            packageDurationDays: activeDuration,
                             status: currentStatus 
                         }}
                     />
@@ -1107,6 +1205,8 @@ const styles = StyleSheet.create({
     typeText: { fontSize: 10, color: TEXT_SECONDARY, fontWeight: '600' },
     
     datesRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+    oneDayTripCard: { marginBottom: 6 },
+    oneDayNote: { fontSize: 12, color: '#64748B', marginBottom: 20, fontStyle: 'italic' },
     dateBox: { flex: 1, backgroundColor: SURFACE_COLOR, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0' },
     dateLabel: { fontSize: 12, color: TEXT_SECONDARY, marginBottom: 4 },
     dateValueRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },

@@ -60,6 +60,25 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
         return timeStr;
     };
 
+    const getBookingDateDisplay = (checkIn, checkOut) => {
+        if (!checkIn) return '';
+        if (!checkOut) return String(checkIn);
+
+        const start = new Date(checkIn);
+        const end = new Date(checkOut);
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+            return `${checkIn} to ${checkOut}`;
+        }
+
+        start.setHours(0, 0, 0, 0);
+        end.setHours(0, 0, 0, 0);
+        const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24));
+
+        // FIXED: Only hide the end date if the start and end are on the exact same day.
+        if (diffDays === 0) return String(checkIn);
+        return `${checkIn} to ${checkOut}`;
+    };
+
     const isAgencyBooking = !!booking.agency || !!booking.agency_detail;
 
     const concurrentBookings = useMemo(() => {
@@ -89,6 +108,27 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
     const assignedGuides = Array.isArray(booking.assigned_agency_guides_detail) 
         ? booking.assigned_agency_guides_detail 
         : (booking.assigned_agency_guides_detail ? [booking.assigned_agency_guides_detail] : []);
+
+    const tourItineraryByDay = useMemo(() => {
+        let timeline = booking?.tour_package_detail?.itinerary_timeline;
+        
+        if (typeof timeline === 'string') {
+            try {
+                timeline = JSON.parse(timeline);
+            } catch (e) {
+                timeline = [];
+            }
+        }
+
+        if (!Array.isArray(timeline) || timeline.length === 0) return null;
+
+        return timeline.reduce((acc, stop) => {
+            const dayNum = Number.parseInt(stop?.day, 10) || 1;
+            if (!acc[dayNum]) acc[dayNum] = [];
+            acc[dayNum].push(stop);
+            return acc;
+        }, {});
+    }, [booking]);
 
     return (
         <Modal animationType="slide" transparent={true} visible={visible} onRequestClose={onClose}>
@@ -137,7 +177,6 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
                                     const gPhone = guide.contact_number || "N/A";
                                     const gEmail = guide.email || "N/A";
                                     
-                                    // Properly format arrays into comma-separated strings
                                     const rawSpecialty = guide.specialization;
                                     const gSpecialty = Array.isArray(rawSpecialty) ? rawSpecialty.join(', ') : (rawSpecialty || "General Tour");
                                     
@@ -218,7 +257,7 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
                                 
                                 <View style={[styles.manifestRowDetail, {marginTop: 8}]}>
                                     <Text style={styles.manifestLabelDetail}>Schedule:</Text>
-                                    <Text style={styles.manifestValueDetail}>{booking.check_in} to {booking.check_out}</Text>
+                                    <Text style={styles.manifestValueDetail}>{getBookingDateDisplay(booking.check_in, booking.check_out)}</Text>
                                 </View>
 
                                 {booking.meetup_location && (
@@ -246,6 +285,42 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
                                 )}
                             </View>
                         </View>
+
+                        {/* EXPLICITLY HIDDEN FOR AGENCIES: Render Itinerary ONLY if not an agency booking */}
+                        {(!isAgencyBooking && (hasDestination || !!booking?.tour_package_detail)) && (
+                            <View style={styles.section}>
+                                <Text style={styles.sectionHeader}>Booked Itinerary Schedule</Text>
+                                {!!tourItineraryByDay ? (
+                                    Object.keys(tourItineraryByDay)
+                                        .sort((a, b) => Number(a) - Number(b))
+                                        .map((dayKey) => (
+                                            <View key={`day-${dayKey}`} style={styles.itineraryDayBlock}>
+                                                <Text style={styles.itineraryDayTitle}>Day {dayKey}</Text>
+                                                {tourItineraryByDay[dayKey].map((stop, idx) => (
+                                                    <View key={`stop-${dayKey}-${idx}`} style={styles.itineraryStopItem}>
+                                                        <View style={styles.itineraryStopDot} />
+                                                        <View style={{ flex: 1 }}>
+                                                            <Text style={styles.itineraryStopName}>{stop?.activityName || stop?.name || 'Activity Stop'}</Text>
+                                                            {!!stop?.startTime && (
+                                                                <Text style={styles.itineraryStopMeta}>
+                                                                    {stop.startTime}{stop?.endTime ? ` - ${stop.endTime}` : ''}
+                                                                </Text>
+                                                            )}
+                                                            {!!stop?.type && <Text style={styles.itineraryStopMeta}>{String(stop.type)}</Text>}
+                                                        </View>
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        ))
+                                ) : (
+                                    <View style={styles.itineraryEmptyBox}>
+                                        <Text style={styles.itineraryEmptyText}>
+                                            No itinerary is linked to this booking yet.
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+                        )}
 
                         <View style={styles.divider} />
 
@@ -346,7 +421,7 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
                                                 </View>
                                                 <View style={styles.manifestRow}>
                                                     <Text style={styles.manifestLabel}>Dates:</Text>
-                                                    <Text style={styles.manifestValue}>{b.check_in} to {b.check_out}</Text>
+                                                    <Text style={styles.manifestValue}>{getBookingDateDisplay(b.check_in, b.check_out)}</Text>
                                                 </View>
                                                 {b.meetup_location && (
                                                     <View style={styles.manifestRow}>
@@ -400,6 +475,56 @@ const styles = StyleSheet.create({
     manifestRowDetail: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
     manifestLabelDetail: { fontSize: 13, color: '#64748B', fontWeight: '500' },
     manifestValueDetail: { fontSize: 13, color: '#0F172A', fontWeight: '700' },
+    itineraryDayBlock: {
+        backgroundColor: '#F8FAFC',
+        borderRadius: 12,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        marginBottom: 10,
+    },
+    itineraryDayTitle: {
+        fontSize: 14,
+        fontWeight: '800',
+        color: '#1D4ED8',
+        marginBottom: 8,
+    },
+    itineraryStopItem: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginBottom: 8,
+        gap: 8,
+    },
+    itineraryStopDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#3B82F6',
+        marginTop: 6,
+    },
+    itineraryStopName: {
+        fontSize: 13,
+        color: '#0F172A',
+        fontWeight: '700',
+    },
+    itineraryStopMeta: {
+        marginTop: 2,
+        fontSize: 12,
+        color: '#64748B',
+        fontWeight: '500',
+    },
+    itineraryEmptyBox: {
+        backgroundColor: '#F8FAFC',
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        padding: 12,
+    },
+    itineraryEmptyText: {
+        fontSize: 12,
+        color: '#64748B',
+        fontWeight: '600',
+    },
     manifestDivider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 12, borderStyle: 'dashed', borderWidth: 1, borderColor: '#CBD5E1' },
 
     priceSection: { marginTop: 0 },

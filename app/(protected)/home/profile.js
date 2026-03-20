@@ -26,7 +26,6 @@ const Profile = () => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     
-    // --- MODAL STATES ---
     const [deactivateModalVisible, setDeactivateModalVisible] = useState(false);
     const [successModalVisible, setSuccessModalVisible] = useState(false); 
     const [logoutModalVisible, setLogoutModalVisible] = useState(false);
@@ -177,6 +176,7 @@ const Profile = () => {
         name: profile.first_name && profile.last_name 
             ? `${profile.first_name} ${profile.last_name}` 
             : profile.username || "User",
+        email: profile.email || "Email not linked (Log out and log in to fix)", // Fallback added here
         image: profile.profile_picture || null, 
         stats: isGuide ? { 
             tours: pendingCount, 
@@ -256,6 +256,13 @@ const Profile = () => {
 
                         <View style={styles.infoSection}>
                             <Text style={styles.profileName}>{profileData.name}</Text>
+                            
+                            {/* --- EMAIL RENDERED HERE --- */}
+                            <View style={[styles.detailItem, { marginBottom: 6, marginTop: 2 }]}>
+                                <Ionicons name="mail" size={14} color="#94A3B8" />
+                                <Text style={styles.detailText}>{profileData.email}</Text>
+                            </View>
+
                             {(profile.location || profile.phone_number) && (
                                 <View style={styles.detailRow}>
                                     {profile.location && (
@@ -350,7 +357,6 @@ const Profile = () => {
                 </View>
             </ScrollView>
 
-            {/* Logout Confirmation Modal */}
             <Modal
                 animationType="fade"
                 transparent={true}
@@ -380,7 +386,6 @@ const Profile = () => {
                 </View>
             </Modal>
 
-            {/* UPDATED: Deactivate Confirmation Modal */}
             <Modal
                 animationType="fade"
                 transparent={true}
@@ -414,7 +419,6 @@ const Profile = () => {
                 </View>
             </Modal>
 
-            {/* UPDATED: Deactivate Success Modal */}
             <Modal
                 animationType="fade"
                 transparent={true}

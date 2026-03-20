@@ -24,7 +24,8 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         paymentMethod, groupType, numberOfPeople,
         validIdImage, userSelfieImage, isNewKycImage,
         placeId,
-        additionalGuestNames 
+        additionalGuestNames,
+        packageDurationDays
     } = paymentData || {};
     
     const isPaymentMode = !!bookingId;
@@ -49,12 +50,13 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
     const dpFloat = parseFloat(downPayment || '0');
     const balFloat = parseFloat(balanceDue || '0');
     
-    const calculateDays = () => {
-        if (!startDate || !endDate) return 1;
-        const oneDay = 24 * 60 * 60 * 1000;
-        return Math.max(Math.round((endDate - startDate) / oneDay), 1);
+    const days = Number(packageDurationDays) > 0 ? Number(packageDurationDays) : 1;
+
+    const getItineraryDisplay = () => {
+        if (!startDate) return '';
+        if (days <= 1) return formatDate(startDate);
+        return `${formatDate(startDate)} — ${formatDate(endDate)}`;
     };
-    const days = calculateDays();
 
     const formatDate = (date) => {
         if (!date) return '';
@@ -286,7 +288,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                             <View style={styles.itemRow}>
                                 <View style={styles.itemIcon}><Calendar size={16} color="#64748B" /></View>
                                 <View style={{flex: 1}}>
-                                    <Text style={styles.itemTitle}>{formatDate(startDate)} — {formatDate(endDate)}</Text>
+                                    <Text style={styles.itemTitle}>{getItineraryDisplay()}</Text>
                                     <Text style={styles.itemSub}>{days} Day{days > 1 ? 's' : ''} Duration</Text>
                                 </View>
                             </View>
