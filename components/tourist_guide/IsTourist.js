@@ -54,7 +54,7 @@ const IsTourist = () => {
             // Keep guide-side trips only for dashboard analytics and filtering.
             const sorted = bookingRes.data
                 .filter(b => {
-                    const isMyOwnTrip = b.tourist_id === user?.id;
+                    const isMyOwnTrip = Number(b.tourist_id) === Number(user?.id);
                     const isValidStatus = b.status === 'Confirmed' || b.status === 'Completed';
                     return isValidStatus && !isMyOwnTrip; 
                 })
@@ -65,6 +65,55 @@ const IsTourist = () => {
             console.error('Failed to fetch dashboard data:', error);
         }
     };
+
+    const getBookingMessagePartner = useCallback((booking) => {
+        const currentUserId = Number(user?.id);
+        const touristId = Number(booking?.tourist_id);
+        const guideId = Number(booking?.guide_detail?.id || booking?.guide);
+        const agencyId = Number(booking?.agency_detail?.id || booking?.agency);
+
+        if (touristId > 0 && touristId !== currentUserId) {
+            return {
+                id: touristId,
+                name: booking?.tourist_username || 'Tourist',
+            };
+        }
+
+        if (guideId > 0 && guideId !== currentUserId) {
+            const fullName = `${booking?.guide_detail?.first_name || ''} ${booking?.guide_detail?.last_name || ''}`.trim();
+            return {
+                id: guideId,
+                name: fullName || booking?.guide_detail?.username || 'Guide',
+            };
+        }
+
+        if (agencyId > 0 && agencyId !== currentUserId) {
+            return {
+                id: agencyId,
+                name: booking?.agency_detail?.username || 'Agency',
+            };
+        }
+
+        return null;
+    }, [user?.id]);
+
+    const openMessageFromBooking = useCallback((booking, closeModal = false) => {
+        const partner = getBookingMessagePartner(booking);
+
+        if (!partner) {
+            showToast('Unable to find the correct receiver for this trip.', 'error');
+            return;
+        }
+
+        if (closeModal) {
+            setTripModalVisible(false);
+        }
+
+        router.push({
+            pathname: '/(protected)/message',
+            params: { partnerId: partner.id, partnerName: partner.name }
+        });
+    }, [getBookingMessagePartner]);
 
     useFocusEffect(
         useCallback(() => {
@@ -286,10 +335,7 @@ const IsTourist = () => {
                                         </View>
                                     </View>
                                     <TouchableOpacity style={styles.messageBtnLight}
-                                        onPress={() => router.push({
-                                            pathname: '/(protected)/message',
-                                            params: { partnerId: booking.tourist_id, partnerName: booking.tourist_username }
-                                        })}
+                                        onPress={() => openMessageFromBooking(booking)}
                                     >
                                         <Ionicons name="chatbubble-ellipses" size={16} color="#0F172A" style={{marginRight: 8}} />
                                         <Text style={styles.messageBtnTextLight}>Message Client</Text>
@@ -481,13 +527,7 @@ const IsTourist = () => {
 
                                         <TouchableOpacity
                                             style={styles.messageBtnLight}
-                                            onPress={() => {
-                                                setTripModalVisible(false);
-                                                router.push({
-                                                    pathname: '/(protected)/message',
-                                                    params: { partnerId: booking.tourist_id, partnerName: booking.tourist_username }
-                                                });
-                                            }}
+                                            onPress={() => openMessageFromBooking(booking, true)}
                                         >
                                             <Ionicons name="chatbubble-ellipses" size={16} color="#0F172A" style={{marginRight: 8}} />
                                             <Text style={styles.messageBtnTextLight}>Message Client</Text>

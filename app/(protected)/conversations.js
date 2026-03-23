@@ -31,12 +31,34 @@ const ConversationList = () => {
         return `${base}${imgPath}`;
     };
 
+    const getDisplayName = (partner) => {
+        const direct = String(partner?.display_name || partner?.full_name || '').trim();
+        if (direct) return direct;
+
+        const username = String(partner?.username || '').trim();
+        if (!username) return 'User';
+
+        if (username.includes('@')) {
+            const local = username.split('@', 1)[0].replace(/[._-]+/g, ' ').trim();
+            if (local) {
+                return local
+                    .split(' ')
+                    .filter(Boolean)
+                    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+                    .join(' ');
+            }
+        }
+
+        return username;
+    };
+
     const handlePressConversation = (partner) => {
+        const displayName = getDisplayName(partner);
         router.push({
             pathname: '/(protected)/message',
             params: {
                 partnerId: partner.id,
-                partnerName: partner.full_name,
+                partnerName: displayName,
                 partnerImage: partner.profile_picture || null // PASS IMAGE
             },
         });
@@ -68,6 +90,10 @@ const ConversationList = () => {
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={({ item }) => (
                     <TouchableOpacity style={styles.conversationItem} onPress={() => handlePressConversation(item)}>
+                        {(() => {
+                            const displayName = getDisplayName(item);
+                            return (
+                                <>
                         {item.profile_picture ? (
                             <Image 
                                 source={{ uri: getImageUrl(item.profile_picture) }} 
@@ -75,10 +101,13 @@ const ConversationList = () => {
                             />
                         ) : (
                             <View style={styles.avatar}>
-                                <Text style={styles.avatarText}>{item.full_name.charAt(0)}</Text>
+                                <Text style={styles.avatarText}>{displayName.charAt(0)}</Text>
                             </View>
                         )}
-                        <Text style={styles.conversationName}>{item.full_name}</Text>
+                        <Text style={styles.conversationName}>{displayName}</Text>
+                                </>
+                            );
+                        })()}
                     </TouchableOpacity>
                 )}
                 ListEmptyComponent={<Text style={styles.emptyText}>No conversations yet.</Text>}

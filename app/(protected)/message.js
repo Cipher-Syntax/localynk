@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { View, Text, ActivityIndicator, ScrollView, StyleSheet, StatusBar, Image, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -21,17 +21,49 @@ export default function Message() {
     const router = useRouter();
 
     const { partnerId, partnerName, partnerImage } = useLocalSearchParams();
+    const normalizedPartnerId = useMemo(() => {
+        const parsed = Number(partnerId);
+        return Number.isFinite(parsed) && parsed > 0 ? String(parsed) : null;
+    }, [partnerId]);
+
+    const normalizeDisplayName = (rawValue, fallback = 'User') => {
+        const raw = String(rawValue || '').trim();
+        if (!raw) return fallback;
+
+        if (!raw.includes('@')) {
+            return raw;
+        }
+
+        const local = raw.split('@', 1)[0].replace(/[._-]+/g, ' ').trim();
+        if (!local) return fallback;
+
+        return local
+            .split(' ')
+            .filter(Boolean)
+            .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+            .join(' ');
+    };
+
+    const displayPartnerName = useMemo(() => normalizeDisplayName(partnerName, 'Conversation'), [partnerName]);
 
     const fetchMessages = async () => {
-        if (!partnerId) {
+        if (!normalizedPartnerId) {
             setLoading(false);
             return;
         }
         try {
-            const response = await api.get(`/api/conversations/${partnerId}/messages/`);
+            const response = await api.get(`/api/conversations/${normalizedPartnerId}/messages/`);
             setMessages(response.data);
         } catch (error) {
             console.error('Failed to fetch messages:', error);
+
+            const detail =
+                error?.response?.data?.detail ||
+                error?.response?.data?.message ||
+                error?.message ||
+                'Failed to load conversation.';
+
+            setToast({ visible: true, message: String(detail), type: 'error' });
         } finally {
             setLoading(false);
         }
@@ -52,12 +84,12 @@ export default function Message() {
         }, 5000);
 
         return () => clearInterval(interval);
-    }, [partnerId]);
+    }, [normalizedPartnerId]);
 
     const handleSendMessage = async () => {
-        if (inputText.trim() === "" || !partnerId) return;
+        if (inputText.trim() === "" || !normalizedPartnerId) return;
 
-        if (Number(partnerId) === Number(user?.id)) {
+        if (Number(normalizedPartnerId) === Number(user?.id)) {
             setToast({ visible: true, message: "You cannot message the same account you're logged into.", type: 'error' });
             return;
         }
@@ -75,7 +107,7 @@ export default function Message() {
             id: `temp-${Date.now()}`,
             content: processedText,
             sender: user.id,
-            receiver: partnerId,
+            receiver: normalizedPartnerId,
             timestamp: new Date().toISOString(),
         };
 
@@ -83,7 +115,7 @@ export default function Message() {
         setInputText("");
 
         try {
-            await api.post(`/api/conversations/${partnerId}/messages/`, {
+            await api.post(`/api/conversations/${normalizedPartnerId}/messages/`, {
                 content: optimisticMessage.content,
             });
             fetchMessages();
@@ -111,7 +143,7 @@ export default function Message() {
 
         try {
             await api.post('/api/submit/', {
-                reported_user: partnerId,
+                reported_user: normalizedPartnerId,
                 reason: reason,
             });
             setModalVisible(false);
@@ -124,7 +156,7 @@ export default function Message() {
         }
     };
 
-    if (!partnerId) {
+    if (!normalizedPartnerId) {
         return (
             <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
                 <View style={styles.header}>
@@ -192,14 +224,14 @@ export default function Message() {
                         ) : (
                             <View style={styles.headerAvatarPlaceholder}>
                                 <Text style={styles.headerAvatarText}>
-                                    {(partnerName || 'U').charAt(0)}
+                                    {displayPartnerName.charAt(0)}
                                 </Text>
                             </View>
                         )}
-                        <Text style={styles.guideName}>{partnerName || 'Conversation'}</Text>
+                        <Text style={styles.guideName}>{displayPartnerName}</Text>
                     </View>
 
-                    {Number(user?.id) !== Number(partnerId) && (
+                    {Number(user?.id) !== Number(normalizedPartnerId) && (
                         <TouchableOpacity onPress={() => setModalVisible(true)}>
                             <Ionicons name="flag-outline" size={22} color="#000" />
                         </TouchableOpacity>
@@ -212,6 +244,13 @@ export default function Message() {
                     ref={scrollViewRef}
                     onContentSizeChange={() => scrollViewRef.current.scrollToEnd({ animated: true })}
                 >
+                    {messages.length === 0 && (
+                        <View style={styles.emptyThreadContainer}>
+                            <Text style={styles.emptyThreadTitle}>No messages yet</Text>
+                            <Text style={styles.emptyThreadText}>Send a message to start this conversation.</Text>
+                        </View>
+                    )}
+
                     {messages.map((message) => {
                         const isSent = Number(message.sender) === Number(user?.id);
                         return (
@@ -223,7 +262,7 @@ export default function Message() {
                                 ]}
                             >
                                 {!isSent && (
-                                    <Text style={styles.senderName}>{partnerName}</Text>
+                                    <Text style={styles.senderName}>{normalizeDisplayName(message.sender_display_name || partnerName)}</Text>
                                 )}
                                 <View
                                     style={[
@@ -353,6 +392,9 @@ const styles = StyleSheet.create({
     sentText: { color: "#fff" },
     receivedText: { color: "#000" },
     timestamp: { fontSize: 11, color: "#999", marginTop: 4, marginHorizontal: 10 },
+    emptyThreadContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 36, paddingHorizontal: 20 },
+    emptyThreadTitle: { fontSize: 16, fontWeight: '700', color: '#1F2937', marginBottom: 6 },
+    emptyThreadText: { fontSize: 13, color: '#6B7280', textAlign: 'center' },
     modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" },
     modalContainer: { backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 },
     modalTitle: { fontSize: 16, fontWeight: "700", color: "#00051A", textAlign: "center", marginBottom: 15 },

@@ -35,6 +35,27 @@ export function AuthProvider({ children }) {
     const router = useRouter();
     const notificationListenerRef = useRef(null);
     const notificationResponseListenerRef = useRef(null);
+    const pushRegistrationRef = useRef({
+        inFlight: false,
+        hasRegistered: false,
+        retryCount: 0,
+        retryTimer: null,
+    });
+
+    const clearPushRetryTimer = useCallback(() => {
+        if (pushRegistrationRef.current.retryTimer) {
+            clearTimeout(pushRegistrationRef.current.retryTimer);
+            pushRegistrationRef.current.retryTimer = null;
+        }
+    }, []);
+
+    const schedulePushRegistrationRetry = useCallback((retryFn, delayMs) => {
+        clearPushRetryTimer();
+        pushRegistrationRef.current.retryTimer = setTimeout(() => {
+            pushRegistrationRef.current.retryTimer = null;
+            retryFn();
+        }, delayMs);
+    }, [clearPushRetryTimer]);
 
     useEffect(() => {
         configureForegroundNotificationHandler();
@@ -44,13 +65,21 @@ export function AuthProvider({ children }) {
 
     const handleNotificationNavigation = useCallback((response) => {
         const data = response?.notification?.request?.content?.data || {};
+        console.log('Notification tap payload:', data);
         const route = resolveNotificationRoute(data);
+        console.log('Resolved notification route:', route);
         if (route) {
             router.push(route);
         }
     }, [router]);
 
     const registerPushTokenWithBackend = useCallback(async () => {
+        if (pushRegistrationRef.current.inFlight || pushRegistrationRef.current.hasRegistered) {
+            return;
+        }
+
+        pushRegistrationRef.current.inFlight = true;
+
         try {
             const permission = await getPushPermissionStatusAsync();
 
@@ -88,11 +117,39 @@ export function AuthProvider({ children }) {
                 platform: Platform.OS || 'unknown',
             });
 
+            clearPushRetryTimer();
+            pushRegistrationRef.current.retryCount = 0;
+            pushRegistrationRef.current.hasRegistered = true;
             console.log('Push token registered successfully.');
         } catch (error) {
-            console.log('Push token registration failed:', error?.response?.data || error?.message || error);
+            const responseStatus = error?.response?.status;
+            const expoError = error?.response?.data?.errors?.[0];
+            const expoErrorCode = expoError?.code || error?.response?.data?.code;
+            const expoTransient = expoError?.isTransient === true || expoErrorCode === 'SERVICE_UNAVAILABLE';
+            const errorText = String(error?.message || '');
+            const transientByMessage = /SERVICE_UNAVAILABLE|temporarily unavailable|503/i.test(errorText);
+            const isTransient = responseStatus === 503 || expoTransient || transientByMessage;
+
+            if (isTransient) {
+                const nextRetry = pushRegistrationRef.current.retryCount + 1;
+                pushRegistrationRef.current.retryCount = nextRetry;
+
+                if (nextRetry <= 5) {
+                    const delayMs = Math.min(60000, 5000 * (2 ** (nextRetry - 1)));
+                    console.log(`Push token registration transient failure (attempt ${nextRetry}/5). Retrying in ${Math.round(delayMs / 1000)}s.`);
+                    schedulePushRegistrationRetry(() => {
+                        registerPushTokenWithBackend();
+                    }, delayMs);
+                } else {
+                    console.log('Push token registration failed after retries:', error?.response?.data || error?.message || error);
+                }
+            } else {
+                console.log('Push token registration failed:', error?.response?.data || error?.message || error);
+            }
+        } finally {
+            pushRegistrationRef.current.inFlight = false;
         }
-    }, []);
+    }, [clearPushRetryTimer, schedulePushRegistrationRetry]);
 
     const unregisterPushTokenFromBackend = useCallback(async () => {
         try {
@@ -219,7 +276,18 @@ export function AuthProvider({ children }) {
     }, [state.isAuthenticated, registerPushTokenWithBackend, handleNotificationNavigation]);
 
     useEffect(() => {
+        if (state.isAuthenticated) return;
+
+        clearPushRetryTimer();
+        pushRegistrationRef.current.inFlight = false;
+        pushRegistrationRef.current.hasRegistered = false;
+        pushRegistrationRef.current.retryCount = 0;
+    }, [state.isAuthenticated, clearPushRetryTimer]);
+
+    useEffect(() => {
         return () => {
+            clearPushRetryTimer();
+
             if (notificationListenerRef.current) {
                 Notifications.removeNotificationSubscription(notificationListenerRef.current);
                 notificationListenerRef.current = null;
@@ -229,7 +297,7 @@ export function AuthProvider({ children }) {
                 notificationResponseListenerRef.current = null;
             }
         };
-    }, []);
+    }, [clearPushRetryTimer]);
 
     const handleAuthResponse = async (data) => {
         const access = data.access;

@@ -7,6 +7,9 @@ const EXPO_PUSH_TOKEN_KEY = 'expo_push_token';
 
 let handlerConfigured = false;
 
+// Helper function to pause execution for our retry delays
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export function configureForegroundNotificationHandler() {
     if (handlerConfigured) return;
 
@@ -59,7 +62,7 @@ export async function openNotificationSettingsAsync() {
     }
 }
 
-export async function getExpoPushTokenAsync() {
+export async function getExpoPushTokenAsync(maxRetries = 3) {
     const projectId =
         Constants?.expoConfig?.extra?.eas?.projectId ||
         Constants?.easConfig?.projectId;
@@ -68,8 +71,34 @@ export async function getExpoPushTokenAsync() {
         throw new Error('Missing EAS projectId for Expo push token retrieval.');
     }
 
-    const token = await Notifications.getExpoPushTokenAsync({ projectId });
-    return token?.data;
+    let attempt = 0;
+    let delayMs = 1000; // Start with a 1-second delay for the first retry
+
+    // The Retry Loop (Exponential Backoff)
+    while (attempt < maxRetries) {
+        try {
+            attempt++;
+            
+            // Try to fetch the token from Expo
+            const token = await Notifications.getExpoPushTokenAsync({ projectId });
+            
+            // If successful, return the data immediately
+            return token?.data;
+            
+        } catch (error) {
+            console.warn(`[getExpoPushTokenAsync] Attempt ${attempt} failed:`, error.message);
+            
+            // If we hit our max retries, throw the error so the app knows it failed
+            if (attempt >= maxRetries) {
+                console.error('[getExpoPushTokenAsync] Max retries reached. Expo servers might be down.');
+                throw error; 
+            }
+            
+            // Wait, then double the wait time for the next loop (1s, then 2s, etc.)
+            await delay(delayMs);
+            delayMs *= 2; 
+        }
+    }
 }
 
 export async function persistPushToken(token) {
@@ -85,23 +114,90 @@ export async function clearPersistedPushToken() {
     await AsyncStorage.removeItem(EXPO_PUSH_TOKEN_KEY);
 }
 
-export function resolveNotificationRoute(data = {}) {
-    const type = data?.type;
+function parseMaybeJson(value) {
+    if (typeof value !== 'string') return value;
+    const trimmed = value.trim();
+    if (!trimmed) return value;
+    if (!(trimmed.startsWith('{') || trimmed.startsWith('['))) return value;
 
-    if (type === 'new_message' && data?.partner_id) {
+    try {
+        return JSON.parse(trimmed);
+    } catch {
+        return value;
+    }
+}
+
+function normalizeNotificationData(raw = {}) {
+    const level1 = parseMaybeJson(raw);
+    const level2 = level1 && typeof level1 === 'object' ? parseMaybeJson(level1.data) : level1;
+
+    if (level2 && typeof level2 === 'object' && !Array.isArray(level2)) {
+        return { ...level1, ...level2 };
+    }
+
+    if (level1 && typeof level1 === 'object' && !Array.isArray(level1)) {
+        return level1;
+    }
+
+    return {};
+}
+
+function getFirstDefined(obj, keys) {
+    for (const key of keys) {
+        const value = obj?.[key];
+        if (value !== undefined && value !== null && value !== '') {
+            return value;
+        }
+    }
+    return null;
+}
+
+function toValidPartnerId(value) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? String(parsed) : null;
+}
+
+export function resolveNotificationRoute(data = {}) {
+    const normalized = normalizeNotificationData(data);
+    const type = getFirstDefined(normalized, ['type', 'alert_type', 'notification_type']);
+
+    if (type === 'new_message') {
+        const partnerIdRaw = getFirstDefined(normalized, [
+            'partner_id',
+            'partnerId',
+            'sender_id',
+            'senderId',
+            'from_user_id',
+            'fromUserId',
+            'user_id',
+            'userId',
+        ]);
+        const partnerId = toValidPartnerId(partnerIdRaw);
+        const partnerName = getFirstDefined(normalized, [
+            'partner_name',
+            'partnerName',
+            'sender_name',
+            'senderName',
+            'username',
+        ]);
+
+        if (!partnerId) {
+            return { pathname: '/(protected)/conversations' };
+        }
+
         return {
             pathname: '/(protected)/message',
             params: {
-                partnerId: String(data.partner_id),
-                partnerName: data.partner_name || 'User',
+                partnerId,
+                partnerName: String(partnerName || 'User'),
             },
         };
     }
 
-    if (type === 'review_reminder' && data?.related_object_id) {
+    if (type === 'review_reminder' && normalized?.related_object_id) {
         return {
             pathname: '/(protected)/reviewModal',
-            params: { bookingId: String(data.related_object_id) },
+            params: { bookingId: String(normalized.related_object_id) },
         };
     }
 
