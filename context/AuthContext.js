@@ -1,10 +1,21 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { View, ActivityIndicator, StyleSheet, Text, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api, { setApiToken } from '../api/api';
 import { ACCESS_TOKEN, REFRESH_TOKEN } from '../constants/constants';
 import { useRouter } from 'expo-router';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import * as Notifications from 'expo-notifications';
+import {
+    configureForegroundNotificationHandler,
+    ensureAndroidNotificationChannel,
+    requestPushPermissionAsync,
+    getExpoPushTokenAsync,
+    persistPushToken,
+    getPersistedPushToken,
+    clearPersistedPushToken,
+    resolveNotificationRoute,
+} from '../utils/pushNotifications';
 
 const AuthContext = createContext();
 
@@ -20,6 +31,56 @@ export function AuthProvider({ children }) {
     
     const [hasSkippedOnboarding, setHasSkippedOnboarding] = useState(false);
     const router = useRouter();
+    const notificationListenerRef = useRef(null);
+    const notificationResponseListenerRef = useRef(null);
+
+    useEffect(() => {
+        configureForegroundNotificationHandler();
+        ensureAndroidNotificationChannel();
+        requestPushPermissionAsync().catch(() => null);
+    }, []);
+
+    const handleNotificationNavigation = useCallback((response) => {
+        const data = response?.notification?.request?.content?.data || {};
+        const route = resolveNotificationRoute(data);
+        if (route) {
+            router.push(route);
+        }
+    }, [router]);
+
+    const registerPushTokenWithBackend = useCallback(async () => {
+        try {
+            const granted = await requestPushPermissionAsync();
+            if (!granted) return;
+
+            const expoPushToken = await getExpoPushTokenAsync();
+            if (!expoPushToken) return;
+
+            await persistPushToken(expoPushToken);
+
+            await api.post('/api/push-tokens/register/', {
+                expo_push_token: expoPushToken,
+                platform: Platform.OS || 'unknown',
+            });
+        } catch (error) {
+            console.log('Push token registration failed:', error?.response?.data || error?.message || error);
+        }
+    }, []);
+
+    const unregisterPushTokenFromBackend = useCallback(async () => {
+        try {
+            const token = await getPersistedPushToken();
+            if (!token) return;
+
+            await api.post('/api/push-tokens/unregister/', {
+                expo_push_token: token,
+            });
+        } catch (error) {
+            console.log('Push token unregistration failed:', error?.response?.data || error?.message || error);
+        } finally {
+            await clearPersistedPushToken();
+        }
+    }, []);
 
     const clearMessage = useCallback(() => {
         setState(prev => ({ ...prev, message: null, messageType: null }));
@@ -80,6 +141,7 @@ export function AuthProvider({ children }) {
 
                 if (access && refresh) {
                     api.defaults.headers.common['Authorization'] = `Bearer ${access}`;
+                    setApiToken(access);
                     
                     const user = await fetchProfile();
                     if (user) {
@@ -105,6 +167,43 @@ export function AuthProvider({ children }) {
         loadStoredUser();
     }, []);
 
+    useEffect(() => {
+        if (!state.isAuthenticated) return;
+
+        registerPushTokenWithBackend();
+
+        if (!notificationListenerRef.current) {
+            notificationListenerRef.current = Notifications.addNotificationReceivedListener(() => {
+                // Foreground notifications are shown by notification handler.
+            });
+        }
+
+        if (!notificationResponseListenerRef.current) {
+            notificationResponseListenerRef.current = Notifications.addNotificationResponseReceivedListener((response) => {
+                handleNotificationNavigation(response);
+            });
+        }
+
+        Notifications.getLastNotificationResponseAsync().then((response) => {
+            if (response) {
+                handleNotificationNavigation(response);
+            }
+        });
+    }, [state.isAuthenticated, registerPushTokenWithBackend, handleNotificationNavigation]);
+
+    useEffect(() => {
+        return () => {
+            if (notificationListenerRef.current) {
+                Notifications.removeNotificationSubscription(notificationListenerRef.current);
+                notificationListenerRef.current = null;
+            }
+            if (notificationResponseListenerRef.current) {
+                Notifications.removeNotificationSubscription(notificationResponseListenerRef.current);
+                notificationResponseListenerRef.current = null;
+            }
+        };
+    }, []);
+
     const handleAuthResponse = async (data) => {
         const access = data.access;
         const refresh = data.refresh;
@@ -113,6 +212,7 @@ export function AuthProvider({ children }) {
         await AsyncStorage.setItem(REFRESH_TOKEN, refresh);
         
         api.defaults.headers.common['Authorization'] = `Bearer ${access}`;
+        setApiToken(access);
 
         const user = await fetchProfile();
 
@@ -286,6 +386,7 @@ export function AuthProvider({ children }) {
         }
 
         try {
+            await unregisterPushTokenFromBackend();
             await AsyncStorage.multiRemove([ACCESS_TOKEN, REFRESH_TOKEN]);
             setApiToken(null); 
             setHasSkippedOnboarding(false);
