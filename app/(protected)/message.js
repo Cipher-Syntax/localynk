@@ -56,6 +56,11 @@ export default function Message() {
 
     const handleSendMessage = async () => {
         if (inputText.trim() === "" || !partnerId) return;
+
+        if (Number(partnerId) === Number(user?.id)) {
+            setToast({ visible: true, message: "You cannot message the same account you're logged into.", type: 'error' });
+            return;
+        }
         
         const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
         const phoneRegex = /(\+?\d[- .]*){10,11}/g;
@@ -85,7 +90,15 @@ export default function Message() {
         } catch (error) {
             console.error('Failed to send message:', error);
             setMessages(prevMessages => prevMessages.filter(m => m.id !== optimisticMessage.id));
-            setToast({ visible: true, message: "Failed to send message.", type: 'error' });
+
+            const detail =
+                error?.response?.data?.detail ||
+                error?.response?.data?.receiver?.[0] ||
+                error?.response?.data?.content?.[0] ||
+                error?.message ||
+                "Failed to send message.";
+
+            setToast({ visible: true, message: String(detail), type: 'error' });
         }
     };
 
@@ -186,7 +199,7 @@ export default function Message() {
                         <Text style={styles.guideName}>{partnerName || 'Conversation'}</Text>
                     </View>
 
-                    {user.id !== partnerId && (
+                    {Number(user?.id) !== Number(partnerId) && (
                         <TouchableOpacity onPress={() => setModalVisible(true)}>
                             <Ionicons name="flag-outline" size={22} color="#000" />
                         </TouchableOpacity>
@@ -200,7 +213,7 @@ export default function Message() {
                     onContentSizeChange={() => scrollViewRef.current.scrollToEnd({ animated: true })}
                 >
                     {messages.map((message) => {
-                        const isSent = message.sender === user.id;
+                        const isSent = Number(message.sender) === Number(user?.id);
                         return (
                             <View
                                 key={message.id}

@@ -7,6 +7,11 @@ const api = axios.create({
 });
 
 let tokenCache = null;
+let logoutInProgress = false;
+
+export function setLogoutInProgress(value) {
+    logoutInProgress = !!value;
+}
 
 export function setApiToken(token) {
     tokenCache = token || null;
@@ -27,6 +32,11 @@ api.interceptors.request.use(
         // Ensure headers object exists
         config.headers = config.headers || {};
 
+        if (logoutInProgress) {
+            delete config.headers['Authorization'];
+            return config;
+        }
+
         if (tokenCache) {
             config.headers['Authorization'] = `Bearer ${tokenCache}`;
         }
@@ -41,6 +51,10 @@ api.interceptors.response.use(
         const originalRequest = error.config;
 
         if (!originalRequest) {
+            return Promise.reject(error);
+        }
+
+        if (logoutInProgress) {
             return Promise.reject(error);
         }
 
@@ -60,10 +74,9 @@ api.interceptors.response.use(
 
             try {
                 const refresh = await AsyncStorage.getItem(REFRESH_TOKEN);
-                
-
                 if (!refresh) {
-                    throw new Error('No refresh token available');
+                    setApiToken(null);
+                    return Promise.reject(error);
                 }
 
                 const res = await api.post('/api/token/refresh/', { refresh });

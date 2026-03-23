@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Platform, Linking } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -44,6 +44,19 @@ export async function requestPushPermissionAsync() {
     }
 
     return finalStatus === 'granted';
+}
+
+export async function getPushPermissionStatusAsync() {
+    const { status, canAskAgain } = await Notifications.getPermissionsAsync();
+    return { status, canAskAgain };
+}
+
+export async function openNotificationSettingsAsync() {
+    try {
+        await Linking.openSettings();
+    } catch {
+        // Ignore settings navigation failures.
+    }
 }
 
 export async function getExpoPushTokenAsync() {

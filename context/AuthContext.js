@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { View, ActivityIndicator, StyleSheet, Text, Platform } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Text, Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import api, { setApiToken } from '../api/api';
+import api, { setApiToken, setLogoutInProgress } from '../api/api';
 import { ACCESS_TOKEN, REFRESH_TOKEN } from '../constants/constants';
 import { useRouter } from 'expo-router';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
@@ -10,10 +10,12 @@ import {
     configureForegroundNotificationHandler,
     ensureAndroidNotificationChannel,
     requestPushPermissionAsync,
+    getPushPermissionStatusAsync,
     getExpoPushTokenAsync,
     persistPushToken,
     getPersistedPushToken,
     clearPersistedPushToken,
+    openNotificationSettingsAsync,
     resolveNotificationRoute,
 } from '../utils/pushNotifications';
 
@@ -50,11 +52,34 @@ export function AuthProvider({ children }) {
 
     const registerPushTokenWithBackend = useCallback(async () => {
         try {
+            const permission = await getPushPermissionStatusAsync();
+
+            if (permission.status === 'denied' && permission.canAskAgain === false) {
+                Alert.alert(
+                    'Notifications Disabled',
+                    'Push notifications are disabled for this app. Enable them in system settings to receive messages and booking updates.',
+                    [
+                        { text: 'Not now', style: 'cancel' },
+                        {
+                            text: 'Open Settings',
+                            onPress: () => openNotificationSettingsAsync(),
+                        },
+                    ]
+                );
+                return;
+            }
+
             const granted = await requestPushPermissionAsync();
-            if (!granted) return;
+            if (!granted) {
+                console.log('Push token registration skipped: permission not granted.');
+                return;
+            }
 
             const expoPushToken = await getExpoPushTokenAsync();
-            if (!expoPushToken) return;
+            if (!expoPushToken) {
+                console.log('Push token registration skipped: expo token unavailable.');
+                return;
+            }
 
             await persistPushToken(expoPushToken);
 
@@ -62,6 +87,8 @@ export function AuthProvider({ children }) {
                 expo_push_token: expoPushToken,
                 platform: Platform.OS || 'unknown',
             });
+
+            console.log('Push token registered successfully.');
         } catch (error) {
             console.log('Push token registration failed:', error?.response?.data || error?.message || error);
         }
@@ -378,6 +405,8 @@ export function AuthProvider({ children }) {
     };
 
     const logout = async (shouldRedirect = true) => {
+        setLogoutInProgress(true);
+
         try {
             await GoogleSignin.revokeAccess();
             await GoogleSignin.signOut();
@@ -386,7 +415,13 @@ export function AuthProvider({ children }) {
         }
 
         try {
-            await unregisterPushTokenFromBackend();
+            // Best-effort call only. Never block logout on token unregistration failures.
+            try {
+                await unregisterPushTokenFromBackend();
+            } catch (e) {
+                console.log('Push unregistration skipped during logout:', e?.message || e);
+            }
+
             await AsyncStorage.multiRemove([ACCESS_TOKEN, REFRESH_TOKEN]);
             setApiToken(null); 
             setHasSkippedOnboarding(false);
@@ -401,12 +436,22 @@ export function AuthProvider({ children }) {
             });
 
             if (shouldRedirect) {
-                router.replace("/auth/login");
+                router.replace("/auth/landingPage");
             }
         } catch (e) {
             console.error("Logout failed", e);
+            setState({
+                isAuthenticated: false,
+                user: null,
+                token: null,
+                isLoading: false,
+                message: null,
+                messageType: null
+            });
             setApiToken(null); 
-            router.replace("/auth/login");
+            router.replace("/auth/landingPage");
+        } finally {
+            setTimeout(() => setLogoutInProgress(false), 0);
         }
     }
 
