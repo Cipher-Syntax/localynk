@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { View, StyleSheet, Image, Text, TouchableOpacity, StatusBar, ScrollView, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { View, StyleSheet, Image, Text, TouchableOpacity, StatusBar, ScrollView, ActivityIndicator, RefreshControl, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -26,6 +26,15 @@ const Notifications = () => {
     const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
     const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
     const [undoState, setUndoState] = useState({ visible: false, items: [], message: '' });
+    const [dialog, setDialog] = useState({
+        visible: false,
+        title: '',
+        message: '',
+        confirmText: null,
+        cancelText: 'Close',
+        destructive: false,
+        onConfirm: null,
+    });
     const undoTimerRef = useRef(null);
 
     const notificationIcons = {
@@ -46,6 +55,42 @@ const Notifications = () => {
     const showToast = useCallback((message, type = 'success') => {
         setToast({ visible: true, message, type });
     }, []);
+
+    const closeDialog = useCallback(() => {
+        setDialog(prev => ({ ...prev, visible: false, onConfirm: null }));
+    }, []);
+
+    const openInfoDialog = useCallback((title, message) => {
+        setDialog({
+            visible: true,
+            title,
+            message,
+            confirmText: null,
+            cancelText: 'Close',
+            destructive: false,
+            onConfirm: null,
+        });
+    }, []);
+
+    const openConfirmDialog = useCallback(({ title, message, confirmText = 'Confirm', cancelText = 'Cancel', destructive = false, onConfirm }) => {
+        setDialog({
+            visible: true,
+            title,
+            message,
+            confirmText,
+            cancelText,
+            destructive,
+            onConfirm: onConfirm || null,
+        });
+    }, []);
+
+    const handleDialogConfirm = useCallback(() => {
+        const confirmHandler = dialog.onConfirm;
+        closeDialog();
+        if (typeof confirmHandler === 'function') {
+            confirmHandler();
+        }
+    }, [dialog, closeDialog]);
 
     const fetchNotifications = async () => {
         try {
@@ -166,30 +211,26 @@ const Notifications = () => {
     const handleDeleteAll = () => {
         if (!notifications.length) return;
 
-        Alert.alert(
-            'Delete all notifications?',
-            'This will permanently remove every notification in your list.',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Delete all',
-                    style: 'destructive',
-                    onPress: async () => {
-                        const previous = notifications;
-                        setNotifications([]);
-                        try {
-                            await api.delete('/api/alerts/delete-all/');
-                            showToast('All notifications deleted.', 'success');
-                            setUndoState({ visible: false, items: [], message: '' });
-                        } catch (error) {
-                            setNotifications(previous);
-                            console.error('Failed to delete all notifications:', error);
-                            showToast('Could not delete all notifications.', 'error');
-                        }
-                    },
-                },
-            ]
-        );
+        openConfirmDialog({
+            title: 'Delete all notifications?',
+            message: 'This will permanently remove every notification in your list.',
+            confirmText: 'Delete all',
+            cancelText: 'Cancel',
+            destructive: true,
+            onConfirm: async () => {
+                const previous = notifications;
+                setNotifications([]);
+                try {
+                    await api.delete('/api/alerts/delete-all/');
+                    showToast('All notifications deleted.', 'success');
+                    setUndoState({ visible: false, items: [], message: '' });
+                } catch (error) {
+                    setNotifications(previous);
+                    console.error('Failed to delete all notifications:', error);
+                    showToast('Could not delete all notifications.', 'error');
+                }
+            },
+        });
     };
 
     const handleNotificationPress = async (item) => {
@@ -239,7 +280,7 @@ const Notifications = () => {
                 });
             } catch (error) {
                 console.error("Failed to load booking details:", error);
-                showToast('Could not load booking details.', 'error');
+                openInfoDialog('Booking Error', 'Could not load booking details.');
             }
         } 
         else if (item.title === "New Message") {
@@ -259,13 +300,13 @@ const Notifications = () => {
         } 
         // 🔥 UPDATED: Handle "Content Warning" specifically
         else if (item.title === "Content Warning" || item.title === "Warning from Admin") {
-            Alert.alert("⚠️ Administrative Warning", item.message);
+            openInfoDialog('Administrative Warning', item.message);
         }
         else if (item.title === "Application Submitted") {
-            Alert.alert(item.title, item.message);
+            openInfoDialog(item.title, item.message);
         }
         else {
-            Alert.alert(item.title, item.message);
+            openInfoDialog(item.title, item.message);
         }
     };
 
@@ -538,6 +579,33 @@ const Notifications = () => {
                 </View>
             )}
 
+            <Modal transparent visible={dialog.visible} animationType="fade" onRequestClose={closeDialog}>
+                <View style={styles.modalBackdrop}>
+                    <View style={styles.modalCard}>
+                        <Text style={styles.modalTitle}>{dialog.title}</Text>
+                        <Text style={styles.modalMessage}>{dialog.message}</Text>
+
+                        <View style={styles.modalActions}>
+                            <TouchableOpacity style={[styles.modalButton, styles.modalCancelButton]} onPress={closeDialog}>
+                                <Text style={styles.modalCancelText}>{dialog.cancelText || 'Close'}</Text>
+                            </TouchableOpacity>
+
+                            {dialog.confirmText ? (
+                                <TouchableOpacity
+                                    style={[
+                                        styles.modalButton,
+                                        dialog.destructive ? styles.modalDestructiveButton : styles.modalConfirmButton,
+                                    ]}
+                                    onPress={handleDialogConfirm}
+                                >
+                                    <Text style={styles.modalConfirmText}>{dialog.confirmText}</Text>
+                                </TouchableOpacity>
+                            ) : null}
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
             <Toast
                 visible={toast.visible}
                 message={toast.message}
@@ -601,4 +669,15 @@ const styles = StyleSheet.create({
     undoToast: { position: 'absolute', bottom: 24, left: 16, right: 16, backgroundColor: '#1F2937', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', zIndex: 20 },
     undoToastText: { color: '#fff', fontSize: 13, fontWeight: '600', flex: 1, marginRight: 10 },
     undoToastAction: { color: '#7DD3FC', fontSize: 13, fontWeight: '800' },
+    modalBackdrop: { flex: 1, backgroundColor: 'rgba(10, 35, 66, 0.35)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
+    modalCard: { width: '100%', maxWidth: 360, backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 14 },
+    modalTitle: { fontSize: 17, fontWeight: '700', color: '#0A2342' },
+    modalMessage: { marginTop: 10, fontSize: 14, color: '#495766', lineHeight: 20 },
+    modalActions: { marginTop: 18, flexDirection: 'row', justifyContent: 'flex-end', gap: 10 },
+    modalButton: { borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9 },
+    modalCancelButton: { backgroundColor: '#EEF2F6' },
+    modalConfirmButton: { backgroundColor: '#007AFF' },
+    modalDestructiveButton: { backgroundColor: '#FF3B30' },
+    modalCancelText: { color: '#344255', fontWeight: '700', fontSize: 13 },
+    modalConfirmText: { color: '#fff', fontWeight: '700', fontSize: 13 },
 });
