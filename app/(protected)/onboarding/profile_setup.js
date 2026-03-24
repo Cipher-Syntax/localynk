@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import api from '../../../api/api';
 import Toast from '../../../components/Toast';
+import { formatPHPhoneLocal, normalizePHPhone } from '../../../utils/phoneNumber';
 
 const ProfileSetupScreen = () => {
     const { user, refreshUser } = useAuth(); 
@@ -22,7 +23,7 @@ const ProfileSetupScreen = () => {
             first_name: user?.first_name || '',
             middle_name: user?.middle_name ||  '',
             last_name: user?.last_name || '',
-            phone_number: user?.phone_number || '',
+            phone_number: formatPHPhoneLocal(user?.phone_number || ''),
             location: user?.location || '',
             bio: user?.bio || '',
         }
@@ -55,7 +56,13 @@ const ProfileSetupScreen = () => {
             formData.append('first_name', data.first_name);
             formData.append('last_name', data.last_name);
             if (data.middle_name) formData.append('middle_name', data.middle_name);
-            formData.append('phone_number', data.phone_number);
+            const normalizedPhone = normalizePHPhone(data.phone_number);
+            if (!normalizedPhone) {
+                setToast({ visible: true, message: 'Please enter a valid PH mobile number.', type: 'error' });
+                setIsLoading(false);
+                return;
+            }
+            formData.append('phone_number', normalizedPhone);
             formData.append('location', data.location);
             formData.append('bio', data.bio);
 
@@ -183,7 +190,7 @@ const ProfileSetupScreen = () => {
                                         placeholder="0912 345 6789"
                                         keyboardType="phone-pad"
                                         value={value}
-                                        onChangeText={onChange}
+                                        onChangeText={(text) => onChange(formatPHPhoneLocal(text))}
                                     />
                                 )}
                             />

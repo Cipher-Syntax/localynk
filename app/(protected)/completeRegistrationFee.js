@@ -6,6 +6,7 @@ import { useLocalSearchParams } from 'expo-router';
 import FeePaymentReviewModal from '../../components/payment/FeePaymentReviewModal'; 
 import { useAuth } from '../../context/AuthContext'; 
 import Toast from '../../components/Toast';
+import { formatPHPhoneLocal, normalizePHPhone } from '../../utils/phoneNumber';
 
 const REGISTRATION_FEE_DETAILS = {
     amount: 500.00,
@@ -30,7 +31,8 @@ const CompleteRegistrationFee = () => {
     }, []);
 
     const handleReviewPress = () => {
-        if (!user?.first_name || !user?.last_name || !user?.phone_number || !user?.email) {
+        const normalizedPhone = normalizePHPhone(user?.phone_number || '');
+        if (!user?.first_name || !user?.last_name || !normalizedPhone || !user?.email) {
             setToast({ visible: true, message: "Essential profile information is missing. Please update your profile.", type: 'error' });
             return;
         }
@@ -48,7 +50,7 @@ const CompleteRegistrationFee = () => {
     const billingData = {
         firstName: user?.first_name || 'N/A',
         lastName: user?.last_name || 'N/A',
-        phoneNumber: user?.phone_number || 'N/A',
+        phoneNumber: formatPHPhoneLocal(user?.phone_number || '') || 'N/A',
         email: user?.email || 'N/A',
         country: 'Philippines',
     };

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { formatPHPhoneLocal } from '../../utils/phoneNumber';
 
 const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) => {
     if (!booking) return null;
@@ -174,7 +175,7 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
                                 <Text style={styles.sectionHeader}>Assigned Tour Guide/s</Text>
                                 {assignedGuides.map((guide, idx) => {
                                     const gFullName = guide.full_name || "Assigned Guide";
-                                    const gPhone = guide.contact_number || "N/A";
+                                    const gPhone = guide.contact_number ? formatPHPhoneLocal(guide.contact_number) : "N/A";
                                     const gEmail = guide.email || "N/A";
                                     
                                     const rawSpecialty = guide.specialization;

@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AgencyPaymentReviewModal from './agencyPaymentReviewModal'; 
 import api from '../../api/api'; 
+import { formatPHPhoneLocal, normalizePHPhone } from '../../utils/phoneNumber';
 
 const PRIMARY_COLOR = '#0072FF';
 const SURFACE_COLOR = '#FFFFFF';
@@ -158,7 +159,7 @@ const AgencyBookingDetails = () => {
             setFirstName(user.first_name || '');
             setLastName(user.last_name || '');
             setEmail(user.email || '');
-            setPhoneNumber(user.phone_number || ''); 
+            setPhoneNumber(formatPHPhoneLocal(user.phone_number || '')); 
             setCountry(user.location || ''); 
             if (user.valid_id_image) setValidIdImage(getImageUrl(user.valid_id_image));
         }
@@ -269,6 +270,12 @@ const AgencyBookingDetails = () => {
     };
 
     const handleReviewPress = () => {
+        const normalizedPhone = normalizePHPhone(phoneNumber);
+        if (!normalizedPhone) {
+            showError("Please enter a valid PH mobile number.");
+            return;
+        }
+
         const startStr = formatDateForCalendar(startDate);
         const endStr = formatDateForCalendar(endDate);
 
@@ -416,7 +423,7 @@ const AgencyBookingDetails = () => {
                                         <TextInput style={[styles.modernInput, {flex:1}]} placeholder="Last Name" value={lastName} onChangeText={setLastName} />
                                     </View>
                                     <View style={styles.inputRow}>
-                                        <TextInput style={[styles.modernInput, {flex:1}]} placeholder="Phone Number" keyboardType="phone-pad" value={phoneNumber} onChangeText={setPhoneNumber} />
+                                        <TextInput style={[styles.modernInput, {flex:1}]} placeholder="Phone Number" keyboardType="phone-pad" value={phoneNumber} onChangeText={(value) => setPhoneNumber(formatPHPhoneLocal(value))} />
                                         <View style={{width: 10}}/>
                                         <TextInput style={[styles.modernInput, {flex:1}]} placeholder="Country" value={country} onChangeText={setCountry} />
                                     </View>
@@ -604,7 +611,7 @@ const AgencyBookingDetails = () => {
                             endDate: endDate,
                             firstName: firstName,
                             lastName: lastName,
-                            phoneNumber: phoneNumber,
+                            phoneNumber: normalizePHPhone(phoneNumber) || phoneNumber,
                             country: country,
                             email: email,
                             basePrice: agency.basePrice,

@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Linking from 'expo-linking';
 import api from '../../api/api';
 import { useAuth } from "../../context/AuthContext";
+import { formatPHPhoneLocal } from '../../utils/phoneNumber';
 
 const FeePaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
     const [isLoading, setIsLoading] = useState(false);
@@ -169,7 +170,7 @@ const FeePaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => 
                                 <View style={styles.billingRow}>
                                     <View style={styles.billingItem}>
                                         <Text style={styles.billingLabel}>Phone Number</Text>
-                                        <Text style={styles.billingValue}>{phoneNumber}</Text>
+                                        <Text style={styles.billingValue}>{formatPHPhoneLocal(phoneNumber)}</Text>
                                     </View>
                                     <View style={styles.billingItem}>
                                         <Text style={styles.billingLabel}>Country</Text>

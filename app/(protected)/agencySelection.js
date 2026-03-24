@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../api/api';
+import { formatPHPhoneLocal } from '../../utils/phoneNumber';
 
 const { width, height } = Dimensions.get('window');
 
@@ -128,7 +129,7 @@ const AgencySelection = () => {
                     <View style={styles.detailItem}>
                         <Ionicons name="call-outline" size={14} color="#64748B" />
                         <Text style={styles.detailText}>
-                            {item.phone || 'No contact info'}
+                            {item.phone ? formatPHPhoneLocal(item.phone) : 'No contact info'}
                         </Text>
                     </View>
                     <View style={styles.detailItem}>
@@ -200,7 +201,7 @@ const AgencySelection = () => {
                         <View style={styles.infoIconBox}><Ionicons name="call" size={18} color="#0072FF" /></View>
                         <View>
                             <Text style={styles.infoLabel}>Contact Number</Text>
-                            <Text style={styles.infoValue}>{selectedAgency.phone || 'N/A'}</Text>
+                            <Text style={styles.infoValue}>{selectedAgency.phone ? formatPHPhoneLocal(selectedAgency.phone) : 'N/A'}</Text>
                         </View>
                     </View>
 

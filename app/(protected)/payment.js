@@ -11,6 +11,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { PaymentReviewModal } from '../../components/payment';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api/api';
+import { formatPHPhoneLocal, normalizePHPhone } from '../../utils/phoneNumber';
 
 const { width } = Dimensions.get('window');
 const PRIMARY_COLOR = '#0072FF';
@@ -335,7 +336,7 @@ const Payment = () => {
             setFirstName(user.first_name || '');
             setLastName(user.last_name || '');
             setEmail(user.email || '');
-            setPhoneNumber(user.phone_number || '');
+            setPhoneNumber(formatPHPhoneLocal(user.phone_number || ''));
             setCountry(user.location || '');
             if (user.valid_id_image) setValidIdImage(getImageUrl(user.valid_id_image));
         }
@@ -571,6 +572,12 @@ const Payment = () => {
     };
 
     const handleReviewPress = () => {
+        const normalizedPhone = normalizePHPhone(phoneNumber);
+        if (!normalizedPhone) {
+            showError('Please enter a valid PH mobile number.');
+            return;
+        }
+
         const startStr = formatDateForCalendar(startDate);
         const endStr = formatDateForCalendar(endDate);
         if (startStr === endStr && activeDuration > 1) { showError("Multi-day packages cannot start and end on the same day."); return; }
@@ -927,7 +934,7 @@ const Payment = () => {
                                         <View style={{width: 10}}/>
                                         <TextInput style={[styles.modernInput, {flex:1}]} placeholder="Last Name" value={lastName} onChangeText={setLastName} />
                                     </View>
-                                    <TextInput style={[styles.modernInput, {marginTop: 10}]} placeholder="Phone Number" keyboardType="phone-pad" value={phoneNumber} onChangeText={setPhoneNumber} />
+                                    <TextInput style={[styles.modernInput, {marginTop: 10}]} placeholder="Phone Number" keyboardType="phone-pad" value={phoneNumber} onChangeText={(value) => setPhoneNumber(formatPHPhoneLocal(value))} />
 
                                     <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Identity Verification (ID & Selfie)</Text>
                                     <View style={styles.kycRow}>
@@ -1141,7 +1148,7 @@ const Payment = () => {
                             [isAgency ? 'agency' : 'guide']: bookingEntity,
                             accommodation: accomEntity, accommodationId, 
                             tourPackageId: selectedPackage ? selectedPackage.id : tourPackageId,
-                            startDate, endDate, firstName, lastName, phoneNumber, country, email,
+                            startDate, endDate, firstName, lastName, phoneNumber: normalizePHPhone(phoneNumber) || phoneNumber, country, email,
                             basePrice: bookingEntity.basePrice, serviceFee: bookingEntity.serviceFee,
                             totalPrice, downPayment, balanceDue, bookingId, placeId,
                             paymentMethod: selectedPaymentMethod, groupType: selectedOption,

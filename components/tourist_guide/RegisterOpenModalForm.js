@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import ApplicationConfirmationModal from "./ApplicationConfirmationModal"; 
 import api from '../../api/api'; 
 import { useAuth } from "../../context/AuthContext";
+import { formatPHPhoneLocal, normalizePHPhone } from '../../utils/phoneNumber';
 
 const { width } = Dimensions.get('window');
 
@@ -25,7 +26,7 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
         lastName: getInitialValue("last_name"),
         middleInitial: user?.middle_name ? user.middle_name.charAt(0).toUpperCase() : "",
         email: getInitialValue("email"),
-        phone: getInitialValue("phone_number"),
+        phone: formatPHPhoneLocal(getInitialValue("phone_number")),
         location: getInitialValue("location"), 
         landline: "",
     });
@@ -111,7 +112,13 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
             formData.append('middle_name', form.middleInitial);
             formData.append('location', form.location);
             formData.append('email', form.email);
-            formData.append('phone_number', form.phone);
+            const normalizedPhone = normalizePHPhone(form.phone);
+            if (!normalizedPhone) {
+                setIsLoading(false);
+                Alert.alert("Invalid Mobile Number", "Please enter a valid PH mobile number.");
+                return;
+            }
+            formData.append('phone_number', normalizedPhone);
             if (form.landline) formData.append('landline', form.landline);
             
             Object.keys(images).forEach(key => {
@@ -212,7 +219,7 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
                 placeholder="0912 345 6789"
                 keyboardType="phone-pad"
                 value={form.phone}
-                onChangeText={(v) => handleInputChange("phone", v)}
+                onChangeText={(v) => handleInputChange("phone", formatPHPhoneLocal(v))}
             />
 
             <Text style={styles.label}>Landline (Optional)</Text>

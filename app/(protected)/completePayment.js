@@ -6,6 +6,7 @@ import { User } from 'lucide-react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { PaymentReviewModal } from '../../components/payment';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { formatPHPhoneLocal } from '../../utils/phoneNumber';
 
 const fetchBookingDetails = async (bookingId) => {
     console.log("Fetching data for booking:", bookingId);
@@ -174,7 +175,7 @@ const CompletePayment = () => {
                             <ReadOnlyField label="Last Name" value={bookingData.billingInfo.lastName} />
                         </ReadOnlyRow>
                         <ReadOnlyRow>
-                            <ReadOnlyField label="Phone Number" value={bookingData.billingInfo.phoneNumber} />
+                            <ReadOnlyField label="Phone Number" value={formatPHPhoneLocal(bookingData.billingInfo.phoneNumber)} />
                             <ReadOnlyField label="Country" value={bookingData.billingInfo.country} />
                         </ReadOnlyRow>
                         <ReadOnlyField label="Email" value={bookingData.billingInfo.email} />

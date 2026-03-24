@@ -27,6 +27,7 @@ import {
     hasUnseenEarnings,
     setSeenEarningsTimestamp,
 } from "../../../utils/bookingNotifications";
+import { formatPHPhoneLocal } from "../../../utils/phoneNumber";
 
 const { width } = Dimensions.get('window');
 
@@ -341,7 +342,7 @@ const Profile = () => {
                                     {profile.phone_number && (
                                         <View style={styles.detailItem}>
                                             <Ionicons name="call" size={14} color="#94A3B8" />
-                                            <Text style={styles.detailText}>{profile.phone_number}</Text>
+                                            <Text style={styles.detailText}>{formatPHPhoneLocal(profile.phone_number)}</Text>
                                         </View>
                                     )}
                                 </View>
