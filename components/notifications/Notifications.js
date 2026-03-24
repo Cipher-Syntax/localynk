@@ -61,14 +61,60 @@ const Notifications = () => {
         }
     };
 
+    const deleteNotification = async (id) => {
+        const existing = notifications.find(item => item.id === id);
+        if (!existing) return;
+
+        setNotifications(prev => prev.filter(item => item.id !== id));
+        try {
+            await api.delete(`/api/alerts/${id}/`);
+        } catch (error) {
+            setNotifications(prev => [existing, ...prev].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
+            console.error('Failed to delete notification:', error);
+            Alert.alert('Delete failed', 'Could not delete this notification. Please try again.');
+        }
+    };
+
     const handleMarkAllRead = async () => {
-        const unreadItems = notifications.filter(n => !n.is_read);
+        const hasUnread = notifications.some(n => !n.is_read);
+        if (!hasUnread) return;
+
+        const previous = notifications;
         setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
         try {
-            await Promise.all(unreadItems.map(item => api.patch(`/api/alerts/${item.id}/read/`, { is_read: true })));
+            await api.post('/api/alerts/mark-all-read/');
         } catch (error) {
+            setNotifications(previous);
             console.error("Error marking all read:", error);
+            Alert.alert('Action failed', 'Could not mark all notifications as read.');
         }
+    };
+
+    const handleDeleteAll = () => {
+        if (!notifications.length) return;
+
+        Alert.alert(
+            'Delete all notifications?',
+            'This will permanently remove every notification in your list.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete all',
+                    style: 'destructive',
+                    onPress: async () => {
+                        const previous = notifications;
+                        setNotifications([]);
+                        try {
+                            await api.delete('/api/alerts/delete-all/');
+                        } catch (error) {
+                            setNotifications(previous);
+                            console.error('Failed to delete all notifications:', error);
+                            Alert.alert('Delete failed', 'Could not delete all notifications. Please try again.');
+                        }
+                    },
+                },
+            ]
+        );
     };
 
     const handleNotificationPress = async (item) => {
@@ -148,6 +194,20 @@ const Notifications = () => {
         }
     };
 
+    const formatRelativeTime = (isoDate) => {
+        const now = new Date();
+        const date = new Date(isoDate);
+        const diffMs = now.getTime() - date.getTime();
+        const minutes = Math.floor(diffMs / (1000 * 60));
+
+        if (minutes < 1) return 'Just now';
+        if (minutes < 60) return `${minutes}m ago`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours}h ago`;
+        const days = Math.floor(hours / 24);
+        return days === 1 ? '1 day ago' : `${days} days ago`;
+    };
+
     const categorizeNotifications = () => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -164,7 +224,7 @@ const Notifications = () => {
                 ...item,
                 icon: notificationIcons[item.title] || <Ionicons name="information-circle-outline" size={28} color="#0A2342" />,
                 description: item.message, 
-                time: `${diffDays <= 0 ? 'Today' : diffDays + ' days ago'}`, 
+                time: formatRelativeTime(item.created_at), 
                 action: () => handleNotificationPress(item),
             };
 
@@ -180,13 +240,45 @@ const Notifications = () => {
     const { today: todayNotifications, week: weekNotifications } = categorizeNotifications();
 
     const renderNotification = (item) => (
-        <TouchableOpacity style={styles.notificationCard} key={item.id} onPress={item.action}>
+        <TouchableOpacity
+            style={[styles.notificationCard, !item.is_read && styles.unreadCard]}
+            key={item.id}
+            onPress={item.action}
+            activeOpacity={0.9}
+        >
             <View style={styles.iconContainer}>{item.icon}</View>
             <View style={styles.textContainer}>
                 <Text style={styles.notificationTitle}>{item.title}</Text>
                 <Text style={styles.notificationDesc} numberOfLines={2}>{item.description}</Text>
                 <Text style={styles.notificationTime}>{item.time}</Text>
             </View>
+
+            <View style={styles.actionsColumn}>
+                {!item.is_read && (
+                    <TouchableOpacity
+                        onPress={(event) => {
+                            event?.stopPropagation?.();
+                            markAsRead(item.id);
+                        }}
+                        style={styles.iconActionButton}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                        <Ionicons name="checkmark-done" size={18} color="#007AFF" />
+                    </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                    onPress={(event) => {
+                        event?.stopPropagation?.();
+                        deleteNotification(item.id);
+                    }}
+                    style={styles.iconActionButton}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                    <Ionicons name="trash-outline" size={17} color="#FF3B30" />
+                </TouchableOpacity>
+            </View>
+
             {!item.is_read && <View style={styles.redDot} />}
         </TouchableOpacity>
     );
@@ -219,10 +311,18 @@ const Notifications = () => {
                 contentContainerStyle={{ paddingBottom: 20 }}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             >
-                {notifications.some(n => !n.is_read) && (
+                {notifications.length > 0 && (
                     <View style={styles.actionHeader}>
-                         <TouchableOpacity onPress={handleMarkAllRead}>
-                            <Text style={styles.markAll}>Mark all read</Text>
+                        {notifications.some(n => !n.is_read) ? (
+                            <TouchableOpacity onPress={handleMarkAllRead} style={styles.bulkActionButton}>
+                                <Ionicons name="checkmark-done-outline" size={16} color="#007AFF" />
+                                <Text style={styles.markAll}>Mark all read</Text>
+                            </TouchableOpacity>
+                        ) : <View />}
+
+                        <TouchableOpacity onPress={handleDeleteAll} style={[styles.bulkActionButton, styles.deleteAllAction]}>
+                            <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+                            <Text style={styles.deleteAllText}>Delete all</Text>
                         </TouchableOpacity>
                     </View>
                 )}
@@ -270,15 +370,21 @@ const styles = StyleSheet.create({
         zIndex: 10 
     },
 
-    actionHeader: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 20, marginTop: 15 },
+    actionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginTop: 15 },
+    bulkActionButton: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#EAF3FF', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
+    deleteAllAction: { backgroundColor: '#FFECEC' },
     sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
     sectionTitle: { fontWeight: '700', fontSize: 16, color: '#0A2342', marginHorizontal: 20, marginTop: 10 },
     markAll: { color: '#007AFF', fontSize: 13, fontWeight: '600' },
-    notificationCard: { backgroundColor: '#fff', borderRadius: 10, marginHorizontal: 20, marginVertical: 8, padding: 15, flexDirection: 'row', alignItems: 'flex-start', shadowColor: '#000', shadowOpacity: 0.05, shadowOffset: { width: 0, height: 2 }, shadowRadius: 4, elevation: 2, position: 'relative' },
+    deleteAllText: { color: '#FF3B30', fontSize: 13, fontWeight: '600' },
+    notificationCard: { backgroundColor: '#fff', borderRadius: 12, marginHorizontal: 20, marginVertical: 8, padding: 14, flexDirection: 'row', alignItems: 'flex-start', shadowColor: '#000', shadowOpacity: 0.05, shadowOffset: { width: 0, height: 2 }, shadowRadius: 4, elevation: 2, position: 'relative' },
+    unreadCard: { borderLeftWidth: 3, borderLeftColor: '#007AFF' },
     iconContainer: { marginRight: 10, marginTop: 4 },
     textContainer: { flex: 1, marginRight: 10 },
     notificationTitle: { fontWeight: '700', color: '#0A2342', fontSize: 14 },
     notificationDesc: { fontSize: 13, color: '#555', marginTop: 2 },
     notificationTime: { fontSize: 12, color: '#777', marginTop: 4 },
+    actionsColumn: { alignItems: 'center', gap: 8, paddingTop: 2 },
+    iconActionButton: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F2F6FA' },
     redDot: { width: 10, height: 10, backgroundColor: '#FF3B30', borderRadius: 5, position: 'absolute', top: 10, right: 10 },
 });

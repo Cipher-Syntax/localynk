@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, ScrollView, ActivityIndicator } from "react-native";
+import { View } from "react-native";
 import { Notifications } from "../../components/notifications";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -30,10 +30,8 @@ export default function Notification() {
         );
     }
     return (
-        <ScrollView>
-            <SafeAreaView>
-                <Notifications />
-            </SafeAreaView>
-        </ScrollView>
+        <SafeAreaView style={{ flex: 1 }}>
+            <Notifications />
+        </SafeAreaView>
     );
 }
