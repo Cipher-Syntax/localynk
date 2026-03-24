@@ -1,31 +1,39 @@
 {
   "cli": {
-    "version": ">= 16.26.0",
-    "appVersionSource": "remote"
+	"version": ">= 16.26.0",
+	"appVersionSource": "remote"
   },
   "build": {
-    "development": {
-      "developmentClient": true,
-      "distribution": "internal",
-      "channel": "development"
-    },
-    "preview": {
-      "distribution": "internal",
-      "android": {
-        "buildType": "apk"
-      },
-      "env": {
-        "EXPO_PUBLIC_API_URL": "https://my-friendly-local-guide.onrender.com",
-        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "483220783523-5shfec08dbf87rp5qtve73ih7pg9sbub.apps.googleusercontent.com"
-      },
-      "channel": "preview"
-    },
-    "production": {
-      "autoIncrement": true,
-      "channel": "production"
-    }
+	"development": {
+	  "developmentClient": true,
+	  "distribution": "internal",
+	  "env": {
+		"EXPO_PUBLIC_API_URL": "https://backend.my-friendly-local-guide.com",
+		"EXPO_PUBLIC_GOOGLE_CLIENT_ID": "483220783523-5shfec08dbf87rp5qtve73ih7pg9sbub.apps.googleusercontent.com"
+	  },
+	  "channel": "development"
+	},
+	"preview": {
+	  "distribution": "internal",
+	  "android": {
+		"buildType": "apk"
+	  },
+	  "env": {
+		"EXPO_PUBLIC_API_URL": "https://backend.my-friendly-local-guide.com",
+		"EXPO_PUBLIC_GOOGLE_CLIENT_ID": "483220783523-5shfec08dbf87rp5qtve73ih7pg9sbub.apps.googleusercontent.com"
+	  },
+	  "channel": "preview"
+	},
+	"production": {
+	  "autoIncrement": true,
+	  "env": {
+		"EXPO_PUBLIC_API_URL": "https://backend.my-friendly-local-guide.com",
+		"EXPO_PUBLIC_GOOGLE_CLIENT_ID": "483220783523-5shfec08dbf87rp5qtve73ih7pg9sbub.apps.googleusercontent.com"
+	  },
+	  "channel": "production"
+	}
   },
   "submit": {
-    "production": {}
+	"production": {}
   }
 }

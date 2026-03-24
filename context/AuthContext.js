@@ -6,6 +6,7 @@ import { ACCESS_TOKEN, REFRESH_TOKEN } from '../constants/constants';
 import { useRouter } from 'expo-router';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import {
     configureForegroundNotificationHandler,
     ensureAndroidNotificationChannel,
@@ -115,6 +116,7 @@ export function AuthProvider({ children }) {
             await api.post('/api/push-tokens/register/', {
                 expo_push_token: expoPushToken,
                 platform: Platform.OS || 'unknown',
+                app_version: Constants?.expoConfig?.version || null,
             });
 
             clearPushRetryTimer();

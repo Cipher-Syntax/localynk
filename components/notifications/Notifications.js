@@ -122,11 +122,18 @@ const Notifications = () => {
             }
         } 
         else if (item.title === "New Message") {
-            const partnerId = item.related_object_id;
-            const partnerName = item.message.includes('from ') ? item.message.split('from ')[1] : "User";
+            const partnerId = item.partner_id || null;
+            const partnerNameFromMessage = item.message.includes('from ') ? item.message.split('from ')[1] : null;
+            const partnerName = item.partner_name || partnerNameFromMessage || "User";
+
+            if (!partnerId) {
+                router.push('/(protected)/conversations');
+                return;
+            }
+
             router.push({
                 pathname: '/(protected)/message',
-                params: { partnerId, partnerName }
+                params: { partnerId: String(partnerId), partnerName }
             });
         } 
         // 🔥 UPDATED: Handle "Content Warning" specifically

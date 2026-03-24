@@ -4,7 +4,12 @@ import { ACCESS_TOKEN, REFRESH_TOKEN } from '../constants/constants'; // Adjust 
 
 const api = axios.create({
     baseURL: process.env.EXPO_PUBLIC_API_URL,
+    timeout: 30000,
 });
+
+if (!process.env.EXPO_PUBLIC_API_URL) {
+    console.warn('EXPO_PUBLIC_API_URL is not configured. API requests may fail.');
+}
 
 let tokenCache = null;
 let logoutInProgress = false;
