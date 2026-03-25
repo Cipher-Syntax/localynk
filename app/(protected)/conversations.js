@@ -1,12 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Image } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Image, TextInput, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 import api from '../../api/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+const PREFS_KEY = 'conversation_list_prefs_v1';
 
 const ConversationList = () => {
     const [conversations, setConversations] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [query, setQuery] = useState('');
+    const [activeFilter, setActiveFilter] = useState('all');
+    const [prefs, setPrefs] = useState({ pinned: [], muted: [], archived: [], forceUnread: [] });
+    const [selectedConversation, setSelectedConversation] = useState(null);
+    const [menuVisible, setMenuVisible] = useState(false);
     const router = useRouter();
 
     useEffect(() => {
@@ -24,11 +33,74 @@ const ConversationList = () => {
         fetchConversations();
     }, []);
 
+    useEffect(() => {
+        const loadPrefs = async () => {
+            try {
+                const raw = await AsyncStorage.getItem(PREFS_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    setPrefs({
+                        pinned: Array.isArray(parsed.pinned) ? parsed.pinned : [],
+                        muted: Array.isArray(parsed.muted) ? parsed.muted : [],
+                        archived: Array.isArray(parsed.archived) ? parsed.archived : [],
+                        forceUnread: Array.isArray(parsed.forceUnread) ? parsed.forceUnread : [],
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load conversation prefs:', error);
+            }
+        };
+        loadPrefs();
+    }, []);
+
+    const persistPrefs = async (nextPrefs) => {
+        setPrefs(nextPrefs);
+        try {
+            await AsyncStorage.setItem(PREFS_KEY, JSON.stringify(nextPrefs));
+        } catch (error) {
+            console.error('Failed to save conversation prefs:', error);
+        }
+    };
+
+    const togglePref = (key, id) => {
+        const next = { ...prefs };
+        const list = next[key] || [];
+        next[key] = list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
+        persistPrefs(next);
+    };
+
+    const setReadState = (id, forceUnread) => {
+        const list = prefs.forceUnread || [];
+        const next = {
+            ...prefs,
+            forceUnread: forceUnread ? [...new Set([...list, id])] : list.filter((x) => x !== id),
+        };
+        persistPrefs(next);
+    };
+
     const getImageUrl = (imgPath) => {
         if (!imgPath) return null;
         if (imgPath.startsWith('http')) return imgPath;
         const base = api.defaults.baseURL || 'http://127.0.0.1:8000';
         return `${base}${imgPath}`;
+    };
+
+    const formatRelativeTime = (timestamp) => {
+        if (!timestamp) return '';
+        const date = new Date(timestamp);
+        if (Number.isNaN(date.getTime())) return '';
+
+        const now = Date.now();
+        const diffMs = now - date.getTime();
+        const mins = Math.floor(diffMs / 60000);
+        const hours = Math.floor(diffMs / 3600000);
+        const days = Math.floor(diffMs / 86400000);
+
+        if (mins < 1) return 'Now';
+        if (mins < 60) return `${mins}m`;
+        if (hours < 24) return `${hours}h`;
+        if (days < 7) return `${days}d`;
+        return date.toLocaleDateString();
     };
 
     const getDisplayName = (partner) => {
@@ -52,8 +124,51 @@ const ConversationList = () => {
         return username;
     };
 
+    const decoratedConversations = useMemo(() => {
+        const normalized = conversations.map((item) => {
+            const id = Number(item.id);
+            const serverUnread = Number(item.unread_count || 0);
+            const hasForcedUnread = prefs.forceUnread.includes(id);
+            const unreadCount = hasForcedUnread ? Math.max(serverUnread, 1) : serverUnread;
+
+            return {
+                ...item,
+                _id: id,
+                _name: getDisplayName(item),
+                _preview: String(item.last_message || '').trim() || 'Start chatting now',
+                _time: formatRelativeTime(item.last_message_timestamp),
+                _unreadCount: unreadCount,
+                _isPinned: prefs.pinned.includes(id),
+                _isMuted: prefs.muted.includes(id),
+                _isArchived: prefs.archived.includes(id),
+            };
+        });
+
+        const queryLower = query.trim().toLowerCase();
+
+        const filtered = normalized.filter((item) => {
+            const matchesQuery = !queryLower || item._name.toLowerCase().includes(queryLower) || item._preview.toLowerCase().includes(queryLower);
+            if (!matchesQuery) return false;
+
+            if (activeFilter === 'unread') return item._unreadCount > 0;
+            if (activeFilter === 'pinned') return item._isPinned;
+            if (activeFilter === 'archived') return item._isArchived;
+            if (activeFilter === 'active') return !item._isArchived;
+            return true;
+        });
+
+        filtered.sort((a, b) => {
+            if (a._isPinned !== b._isPinned) return a._isPinned ? -1 : 1;
+            if (a._unreadCount !== b._unreadCount) return b._unreadCount - a._unreadCount;
+            return Number(b.last_message_ts || 0) - Number(a.last_message_ts || 0);
+        });
+
+        return filtered;
+    }, [conversations, prefs, query, activeFilter]);
+
     const handlePressConversation = (partner) => {
         const displayName = getDisplayName(partner);
+        setReadState(Number(partner.id), false);
         router.push({
             pathname: '/(protected)/message',
             params: {
@@ -62,6 +177,11 @@ const ConversationList = () => {
                 partnerImage: partner.profile_picture || null // PASS IMAGE
             },
         });
+    };
+
+    const openConversationMenu = (conversation) => {
+        setSelectedConversation(conversation);
+        setMenuVisible(true);
     };
 
     if (loading) {
@@ -84,14 +204,45 @@ const ConversationList = () => {
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Conversations</Text>
+                <Text style={styles.headerSubtitle}>{decoratedConversations.length} thread{decoratedConversations.length === 1 ? '' : 's'}</Text>
+                <View style={styles.searchWrap}>
+                    <Ionicons name="search" size={16} color="#64748B" />
+                    <TextInput
+                        value={query}
+                        onChangeText={setQuery}
+                        placeholder="Search conversations"
+                        placeholderTextColor="#94A3B8"
+                        style={styles.searchInput}
+                    />
+                </View>
+                <View style={styles.filterRow}>
+                    {[
+                        { key: 'all', label: 'All' },
+                        { key: 'unread', label: 'Unread' },
+                        { key: 'pinned', label: 'Pinned' },
+                        { key: 'archived', label: 'Archived' },
+                    ].map((filter) => (
+                        <TouchableOpacity
+                            key={filter.key}
+                            style={[styles.filterChip, activeFilter === filter.key && styles.filterChipActive]}
+                            onPress={() => setActiveFilter(filter.key)}
+                        >
+                            <Text style={[styles.filterChipText, activeFilter === filter.key && styles.filterChipTextActive]}>{filter.label}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
             </View>
             <FlatList
-                data={conversations}
+                data={decoratedConversations}
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={({ item }) => (
-                    <TouchableOpacity style={styles.conversationItem} onPress={() => handlePressConversation(item)}>
+                    <TouchableOpacity
+                        style={[styles.conversationItem, item._unreadCount > 0 && styles.conversationUnread]}
+                        onPress={() => handlePressConversation(item)}
+                        onLongPress={() => openConversationMenu(item)}
+                    >
                         {(() => {
-                            const displayName = getDisplayName(item);
+                            const displayName = item._name;
                             return (
                                 <>
                         {item.profile_picture ? (
@@ -104,7 +255,24 @@ const ConversationList = () => {
                                 <Text style={styles.avatarText}>{displayName.charAt(0)}</Text>
                             </View>
                         )}
-                        <Text style={styles.conversationName}>{displayName}</Text>
+                        <View style={styles.metaWrap}>
+                            <View style={styles.topLine}>
+                                <Text numberOfLines={1} style={[styles.conversationName, item._unreadCount > 0 && styles.conversationNameUnread]}>{displayName}</Text>
+                                <View style={styles.topRight}>
+                                    {!!item._time && <Text style={styles.timeText}>{item._time}</Text>}
+                                    {item._isPinned && <Ionicons name="pin" size={13} color="#2563EB" style={{ marginLeft: 6 }} />}
+                                    {item._isMuted && <Ionicons name="notifications-off" size={13} color="#64748B" style={{ marginLeft: 6 }} />}
+                                </View>
+                            </View>
+                            <View style={styles.bottomLine}>
+                                <Text numberOfLines={1} style={styles.previewText}>{item._preview}</Text>
+                                {item._unreadCount > 0 && (
+                                    <View style={styles.unreadBadge}>
+                                        <Text style={styles.unreadBadgeText}>{item._unreadCount > 99 ? '99+' : item._unreadCount}</Text>
+                                    </View>
+                                )}
+                            </View>
+                        </View>
                                 </>
                             );
                         })()}
@@ -112,6 +280,26 @@ const ConversationList = () => {
                 )}
                 ListEmptyComponent={<Text style={styles.emptyText}>No conversations yet.</Text>}
             />
+
+            <Modal visible={menuVisible} transparent animationType="fade" onRequestClose={() => setMenuVisible(false)}>
+                <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setMenuVisible(false)}>
+                    <View style={styles.menuCard}>
+                        <Text style={styles.menuTitle}>{selectedConversation?._name || 'Conversation'}</Text>
+                        <TouchableOpacity style={styles.menuAction} onPress={() => { togglePref('pinned', selectedConversation?._id); setMenuVisible(false); }}>
+                            <Text style={styles.menuActionText}>{selectedConversation?._isPinned ? 'Unpin' : 'Pin'}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.menuAction} onPress={() => { togglePref('muted', selectedConversation?._id); setMenuVisible(false); }}>
+                            <Text style={styles.menuActionText}>{selectedConversation?._isMuted ? 'Unmute' : 'Mute'}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.menuAction} onPress={() => { togglePref('archived', selectedConversation?._id); setMenuVisible(false); }}>
+                            <Text style={styles.menuActionText}>{selectedConversation?._isArchived ? 'Unarchive' : 'Archive'}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.menuAction} onPress={() => { setReadState(selectedConversation?._id, selectedConversation?._unreadCount === 0); setMenuVisible(false); }}>
+                            <Text style={styles.menuActionText}>{selectedConversation?._unreadCount > 0 ? 'Mark as read' : 'Mark as unread'}</Text>
+                        </TouchableOpacity>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
         </SafeAreaView>
     );
 };
@@ -130,6 +318,55 @@ const styles = StyleSheet.create({
         fontSize: 24,
         fontWeight: 'bold',
     },
+    headerSubtitle: {
+        marginTop: 4,
+        color: '#64748B',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    searchWrap: {
+        marginTop: 14,
+        marginBottom: 10,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F8FAFC',
+    },
+    searchInput: {
+        flex: 1,
+        marginLeft: 8,
+        fontSize: 14,
+        color: '#0F172A',
+    },
+    filterRow: {
+        flexDirection: 'row',
+        gap: 8,
+        marginBottom: 4,
+    },
+    filterChip: {
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        borderRadius: 999,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        backgroundColor: '#FFFFFF',
+    },
+    filterChipActive: {
+        backgroundColor: '#DBEAFE',
+        borderColor: '#93C5FD',
+    },
+    filterChipText: {
+        color: '#64748B',
+        fontSize: 12,
+        fontWeight: '700',
+    },
+    filterChipTextActive: {
+        color: '#1D4ED8',
+    },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
@@ -141,6 +378,10 @@ const styles = StyleSheet.create({
         padding: 15,
         borderBottomWidth: 1,
         borderBottomColor: '#eee',
+        backgroundColor: '#fff',
+    },
+    conversationUnread: {
+        backgroundColor: '#F8FAFF',
     },
     avatar: {
         width: 50,
@@ -165,13 +406,89 @@ const styles = StyleSheet.create({
     },
     conversationName: {
         fontSize: 16,
+        color: '#0F172A',
+        fontWeight: '600',
+    },
+    conversationNameUnread: {
+        fontWeight: '800',
+    },
+    metaWrap: {
+        flex: 1,
+    },
+    topLine: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    topRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    timeText: {
+        fontSize: 11,
+        color: '#94A3B8',
+        fontWeight: '600',
+    },
+    bottomLine: {
+        marginTop: 3,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    previewText: {
+        flex: 1,
+        fontSize: 13,
+        color: '#64748B',
+    },
+    unreadBadge: {
+        minWidth: 22,
+        height: 22,
+        borderRadius: 11,
+        backgroundColor: '#2563EB',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 6,
+        marginLeft: 8,
+    },
+    unreadBadgeText: {
+        color: '#fff',
+        fontSize: 11,
+        fontWeight: '800',
     },
     emptyText: {
         textAlign: 'center',
         marginTop: 50,
         fontSize: 16,
         color: '#888',
-    }
+    },
+    menuOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(15, 23, 42, 0.35)',
+        justifyContent: 'flex-end',
+        padding: 16,
+    },
+    menuCard: {
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        padding: 12,
+    },
+    menuTitle: {
+        fontSize: 14,
+        fontWeight: '800',
+        color: '#0F172A',
+        marginBottom: 6,
+        paddingHorizontal: 6,
+    },
+    menuAction: {
+        paddingVertical: 12,
+        paddingHorizontal: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F1F5F9',
+    },
+    menuActionText: {
+        fontSize: 14,
+        color: '#1E293B',
+        fontWeight: '600',
+    },
 });
 
 export default ConversationList;

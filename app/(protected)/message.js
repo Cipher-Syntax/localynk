@@ -109,6 +109,7 @@ export default function Message() {
             sender: user.id,
             receiver: normalizedPartnerId,
             timestamp: new Date().toISOString(),
+            local_status: 'sending',
         };
 
         setMessages(prevMessages => [...prevMessages, optimisticMessage]);
@@ -121,7 +122,11 @@ export default function Message() {
             fetchMessages();
         } catch (error) {
             console.error('Failed to send message:', error);
-            setMessages(prevMessages => prevMessages.filter(m => m.id !== optimisticMessage.id));
+            setMessages(prevMessages => prevMessages.map((m) => (
+                m.id === optimisticMessage.id
+                    ? { ...m, local_status: 'failed' }
+                    : m
+            )));
 
             const detail =
                 error?.response?.data?.detail ||
@@ -131,6 +136,27 @@ export default function Message() {
                 "Failed to send message.";
 
             setToast({ visible: true, message: String(detail), type: 'error' });
+        }
+    };
+
+    const retryFailedMessage = async (tempMessage) => {
+        if (!normalizedPartnerId) return;
+
+        setMessages((prev) => prev.map((m) => (
+            m.id === tempMessage.id ? { ...m, local_status: 'sending' } : m
+        )));
+
+        try {
+            await api.post(`/api/conversations/${normalizedPartnerId}/messages/`, {
+                content: tempMessage.content,
+            });
+            setMessages((prev) => prev.filter((m) => m.id !== tempMessage.id));
+            fetchMessages();
+        } catch (error) {
+            setMessages((prev) => prev.map((m) => (
+                m.id === tempMessage.id ? { ...m, local_status: 'failed' } : m
+            )));
+            setToast({ visible: true, message: 'Retry failed. Please try again.', type: 'error' });
         }
     };
 
@@ -253,6 +279,16 @@ export default function Message() {
 
                     {messages.map((message) => {
                         const isSent = Number(message.sender) === Number(user?.id);
+                        const localStatus = message.local_status;
+                        const serverRead = Boolean(message.is_read);
+                        const statusLabel = localStatus === 'failed'
+                            ? 'Failed to send'
+                            : localStatus === 'sending'
+                                ? 'Sending...'
+                                : serverRead
+                                    ? 'Read'
+                                    : 'Delivered';
+
                         return (
                             <View
                                 key={message.id}
@@ -280,6 +316,16 @@ export default function Message() {
                                     </Text>
                                 </View>
                                 <Text style={styles.timestamp}>{new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text>
+                                {isSent && (
+                                    <View style={styles.statusRow}>
+                                        <Text style={[styles.statusText, localStatus === 'failed' && styles.statusFailed]}>{statusLabel}</Text>
+                                        {localStatus === 'failed' && (
+                                            <TouchableOpacity style={styles.retryBtn} onPress={() => retryFailedMessage(message)}>
+                                                <Text style={styles.retryBtnText}>Retry</Text>
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
+                                )}
                             </View>
                         );
                     })}
@@ -392,6 +438,11 @@ const styles = StyleSheet.create({
     sentText: { color: "#fff" },
     receivedText: { color: "#000" },
     timestamp: { fontSize: 11, color: "#999", marginTop: 4, marginHorizontal: 10 },
+    statusRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4, marginHorizontal: 10, gap: 8 },
+    statusText: { fontSize: 11, color: '#94A3B8', fontWeight: '600' },
+    statusFailed: { color: '#DC2626' },
+    retryBtn: { paddingHorizontal: 8, paddingVertical: 3, backgroundColor: '#FEE2E2', borderRadius: 999 },
+    retryBtnText: { fontSize: 10, fontWeight: '700', color: '#B91C1C' },
     emptyThreadContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 36, paddingHorizontal: 20 },
     emptyThreadTitle: { fontSize: 16, fontWeight: '700', color: '#1F2937', marginBottom: 6 },
     emptyThreadText: { fontSize: 13, color: '#6B7280', textAlign: 'center' },
