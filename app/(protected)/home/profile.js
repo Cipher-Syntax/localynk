@@ -368,12 +368,12 @@ const Profile = () => {
                                     )}
                                 </View>
                             )}
-                            {/* {isOwnProfile && (
+                            {isOwnProfile && (
                                 <TouchableOpacity style={styles.conversationChip} onPress={() => router.push('/(protected)/conversations')}>
                                     <Ionicons name="chatbubbles" size={14} color="#0072FF" />
                                     <Text style={styles.conversationChipText}>{conversationCount} Conversation{conversationCount === 1 ? '' : 's'}</Text>
                                 </TouchableOpacity>
-                            )} */}
+                            )}
                             {profile.bio && (
                                 <Text style={styles.bioText} numberOfLines={4}>{profile.bio}</Text>
                             )}
@@ -444,7 +444,7 @@ const Profile = () => {
                                     <Text style={styles.logoutText}>Log Out</Text>
                                 </TouchableOpacity>
                                 
-                                <Text style={styles.versionText}>LocaLynk v1.0.2</Text>
+                                <Text style={styles.versionText}>LocaLynk v1.0.0</Text>
                             </View>
                         )}
                     </View>

@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Image, TextInput, Modal } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../api/api';
@@ -8,30 +8,61 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 const PREFS_KEY = 'conversation_list_prefs_v1';
 
+const normalizeConversationList = (payload) => {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.results)) return payload.results;
+    if (Array.isArray(payload?.conversations)) return payload.conversations;
+    if (Array.isArray(payload?.data)) return payload.data;
+
+    if (payload && typeof payload === 'object') {
+        const objectValues = Object.values(payload).filter((value) => value && typeof value === 'object');
+        if (objectValues.length > 0 && objectValues.every((value) => !Array.isArray(value) && (value.id || value.partner_id || value.user_id))) {
+            return objectValues;
+        }
+    }
+
+    return [];
+};
+
 const ConversationList = () => {
     const [conversations, setConversations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [query, setQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState('all');
     const [prefs, setPrefs] = useState({ pinned: [], muted: [], archived: [], forceUnread: [] });
+    const [errorText, setErrorText] = useState('');
     const [selectedConversation, setSelectedConversation] = useState(null);
     const [menuVisible, setMenuVisible] = useState(false);
     const router = useRouter();
 
-    useEffect(() => {
-        const fetchConversations = async () => {
-            try {
-                const response = await api.get('/api/conversations/');
-                setConversations(response.data);
-            } catch (error) {
-                console.error('Failed to fetch conversations:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchConversations();
+    const fetchConversations = useCallback(async () => {
+        try {
+            setErrorText('');
+            const response = await api.get('/api/conversations/');
+            setConversations(normalizeConversationList(response.data));
+        } catch (error) {
+            console.error('Failed to fetch conversations:', error);
+            const detail =
+                error?.response?.data?.detail ||
+                error?.response?.data?.message ||
+                error?.message ||
+                'Could not load conversations.';
+            setErrorText(String(detail));
+            setConversations([]);
+        } finally {
+            setLoading(false);
+        }
     }, []);
+
+    useEffect(() => {
+        fetchConversations();
+    }, [fetchConversations]);
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchConversations();
+        }, [fetchConversations])
+    );
 
     useEffect(() => {
         const loadPrefs = async () => {
@@ -126,7 +157,7 @@ const ConversationList = () => {
 
     const decoratedConversations = useMemo(() => {
         const normalized = conversations.map((item) => {
-            const id = Number(item.id);
+            const id = Number(item.id ?? item.partner_id ?? item.user_id);
             const serverUnread = Number(item.unread_count || 0);
             const hasForcedUnread = prefs.forceUnread.includes(id);
             const unreadCount = hasForcedUnread ? Math.max(serverUnread, 1) : serverUnread;
@@ -168,11 +199,15 @@ const ConversationList = () => {
 
     const handlePressConversation = (partner) => {
         const displayName = getDisplayName(partner);
-        setReadState(Number(partner.id), false);
+        const partnerId = Number(partner.id ?? partner.partner_id ?? partner.user_id);
+        if (!Number.isFinite(partnerId) || partnerId <= 0) {
+            return;
+        }
+        setReadState(partnerId, false);
         router.push({
             pathname: '/(protected)/message',
             params: {
-                partnerId: partner.id,
+                partnerId,
                 partnerName: displayName,
                 partnerImage: partner.profile_picture || null // PASS IMAGE
             },
@@ -234,7 +269,7 @@ const ConversationList = () => {
             </View>
             <FlatList
                 data={decoratedConversations}
-                keyExtractor={(item) => item.id.toString()}
+                keyExtractor={(item) => String(item._id || item.id || item.partner_id || item.user_id)}
                 renderItem={({ item }) => (
                     <TouchableOpacity
                         style={[styles.conversationItem, item._unreadCount > 0 && styles.conversationUnread]}
@@ -278,12 +313,22 @@ const ConversationList = () => {
                         })()}
                     </TouchableOpacity>
                 )}
-                ListEmptyComponent={<Text style={styles.emptyText}>No conversations yet.</Text>}
+                ListEmptyComponent={
+                    <View style={styles.emptyWrap}>
+                        <Text style={styles.emptyText}>{errorText ? 'Unable to load conversations.' : 'No conversations yet.'}</Text>
+                        {!!errorText && <Text style={styles.emptySubtext}>{errorText}</Text>}
+                        {!!errorText && (
+                            <TouchableOpacity style={styles.retryButton} onPress={fetchConversations}>
+                                <Text style={styles.retryButtonText}>Retry</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                }
             />
 
             <Modal visible={menuVisible} transparent animationType="fade" onRequestClose={() => setMenuVisible(false)}>
                 <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setMenuVisible(false)}>
-                    <View style={styles.menuCard}>
+                    <SafeAreaView style={styles.menuCard}>
                         <Text style={styles.menuTitle}>{selectedConversation?._name || 'Conversation'}</Text>
                         <TouchableOpacity style={styles.menuAction} onPress={() => { togglePref('pinned', selectedConversation?._id); setMenuVisible(false); }}>
                             <Text style={styles.menuActionText}>{selectedConversation?._isPinned ? 'Unpin' : 'Pin'}</Text>
@@ -297,7 +342,7 @@ const ConversationList = () => {
                         <TouchableOpacity style={styles.menuAction} onPress={() => { setReadState(selectedConversation?._id, selectedConversation?._unreadCount === 0); setMenuVisible(false); }}>
                             <Text style={styles.menuActionText}>{selectedConversation?._unreadCount > 0 ? 'Mark as read' : 'Mark as unread'}</Text>
                         </TouchableOpacity>
-                    </View>
+                    </SafeAreaView>
                 </TouchableOpacity>
             </Modal>
         </SafeAreaView>
@@ -456,9 +501,31 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         textAlign: 'center',
-        marginTop: 50,
         fontSize: 16,
         color: '#888',
+    },
+    emptyWrap: {
+        marginTop: 50,
+        paddingHorizontal: 24,
+        alignItems: 'center',
+    },
+    emptySubtext: {
+        marginTop: 8,
+        textAlign: 'center',
+        fontSize: 13,
+        color: '#64748B',
+    },
+    retryButton: {
+        marginTop: 14,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 10,
+        backgroundColor: '#2563EB',
+    },
+    retryButtonText: {
+        color: '#fff',
+        fontSize: 13,
+        fontWeight: '700',
     },
     menuOverlay: {
         flex: 1,
