@@ -46,6 +46,7 @@ const Profile = () => {
     
     const [pendingCount, setPendingCount] = useState(0);
     const [completedCount, setCompletedCount] = useState(0);
+    const [conversationCount, setConversationCount] = useState(0);
     const [hasNewBookingDot, setHasNewBookingDot] = useState(false);
     const [hasNewEarningsDot, setHasNewEarningsDot] = useState(false);
     const [latestBookingTs, setLatestBookingTs] = useState(0);
@@ -122,9 +123,25 @@ const Profile = () => {
         }
     }, [profile?.id, profile?.is_local_guide, user?.id]);
 
+    const fetchConversationCount = useCallback(async () => {
+        try {
+            if (!user?.id) {
+                setConversationCount(0);
+                return;
+            }
+
+            const response = await api.get('/api/conversations/');
+            const list = Array.isArray(response.data) ? response.data : [];
+            setConversationCount(list.length);
+        } catch (error) {
+            setConversationCount(0);
+        }
+    }, [user?.id]);
+
     useEffect(() => {
         fetchBookingStats();
-    }, [fetchBookingStats]);
+        fetchConversationCount();
+    }, [fetchBookingStats, fetchConversationCount]);
 
     useFocusEffect(
         useCallback(() => {
@@ -132,18 +149,20 @@ const Profile = () => {
                 if (!profile) setLoading(true);
                 await fetchProfileData();
                 await fetchBookingStats({ markSeen: false });
+                await fetchConversationCount();
                 setLoading(false);
             };
             loadInitialData();
-        }, [userId, fetchBookingStats, profile])
+        }, [userId, fetchBookingStats, fetchConversationCount, profile])
     );
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
         await fetchProfileData();
         await fetchBookingStats({ markSeen: false });
+        await fetchConversationCount();
         setRefreshing(false);
-    }, [userId, fetchBookingStats]);
+    }, [userId, fetchBookingStats, fetchConversationCount]);
 
     const handleDeactivate = () => {
         setDeactivateModalVisible(true);
@@ -232,6 +251,7 @@ const Profile = () => {
 
     const touristSettingsItems = [
         { id: 1, icon: "bookmarks", label: "My Bookings", route: '/(protected)/bookings' },
+        { id: 8, icon: "chatbubbles", label: "Conversations", route: '/(protected)/conversations' },
         { id: 2, icon: "heart", label: "Favorite Guides", route: '/favorites' },
         { id: 3, icon: "map", label: "My Travel Interests", route: '/(protected)/onboarding/personalization?mode=edit' },
         { id: 6, icon: "help-circle", label: "Help & Support", route: '/(protected)/support' }
@@ -239,6 +259,7 @@ const Profile = () => {
 
     const guideSettingsItems = [
         { id: 1, icon: "calendar", label: "My Bookings", route: '/(protected)/bookings' },
+        { id: 8, icon: "chatbubbles", label: "Conversations", route: '/(protected)/conversations' },
         { id: 5, icon: "cash", label: "Earnings & Payments", route: '/(protected)/earnings' },
         { id: 2, icon: "heart", label: "Favorite Guides", route: '/favorites' },
         { id: 3, icon: "map", label: "My Travel Interests", route: '/(protected)/onboarding/personalization?mode=edit' },
@@ -346,6 +367,12 @@ const Profile = () => {
                                         </View>
                                     )}
                                 </View>
+                            )}
+                            {isOwnProfile && (
+                                <TouchableOpacity style={styles.conversationChip} onPress={() => router.push('/(protected)/conversations')}>
+                                    <Ionicons name="chatbubbles" size={14} color="#0072FF" />
+                                    <Text style={styles.conversationChipText}>{conversationCount} Conversation{conversationCount === 1 ? '' : 's'}</Text>
+                                </TouchableOpacity>
                             )}
                             {profile.bio && (
                                 <Text style={styles.bioText} numberOfLines={4}>{profile.bio}</Text>
@@ -546,6 +573,8 @@ const styles = StyleSheet.create({
     detailText: { fontSize: 13, color: '#64748B', fontWeight: '500' },
     dotSeparator: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#CBD5E1', marginHorizontal: 4 },
     bioText: { textAlign: 'center', fontSize: 14, color: '#475569', lineHeight: 20, marginHorizontal: 20 },
+    conversationChip: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6, marginBottom: 10, backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 },
+    conversationChipText: { fontSize: 12, fontWeight: '700', color: '#1D4ED8' },
     statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', borderRadius: 16, paddingVertical: 15, paddingHorizontal: 30, marginBottom: 30, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
     statItem: { alignItems: 'center', flex: 1 },
     statValue: { fontSize: 18, fontWeight: '800', color: '#0F172A' },
