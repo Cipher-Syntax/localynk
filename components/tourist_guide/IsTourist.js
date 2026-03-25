@@ -7,6 +7,24 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
 
+const normalizeDisplayName = (rawValue, fallback = 'User') => {
+    const raw = String(rawValue || '').trim();
+    if (!raw) return fallback;
+
+    if (!raw.includes('@')) {
+        return raw;
+    }
+
+    const local = raw.split('@', 1)[0].replace(/[._-]+/g, ' ').trim();
+    if (!local) return fallback;
+
+    return local
+        .split(' ')
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .join(' ');
+};
+
 const IsTourist = () => {
     const router = useRouter();
     const { user, refreshUser } = useAuth();
@@ -75,7 +93,7 @@ const IsTourist = () => {
         if (touristId > 0 && touristId !== currentUserId) {
             return {
                 id: touristId,
-                name: booking?.tourist_username || 'Tourist',
+                name: normalizeDisplayName(booking?.tourist_username, 'Tourist'),
             };
         }
 
@@ -304,15 +322,16 @@ const IsTourist = () => {
                         <View style={styles.tripCardsColumn}>
                         {filteredTrips.slice(0, 2).map((booking) => {
                             const statusStyle = getStatusStyles(booking.status);
+                            const touristDisplayName = normalizeDisplayName(booking.tourist_username, 'Unknown User');
                             return (
                                 <View key={booking.id} style={styles.bookingCardWhite}>
                                     <View style={styles.cardHeaderWhite}>
                                         <View style={styles.userInfo}>
                                             <View style={styles.avatarPlaceholderWhite}>
-                                                <Text style={styles.avatarLetterWhite}>{booking.tourist_username ? booking.tourist_username.charAt(0).toUpperCase() : 'U'}</Text>
+                                                <Text style={styles.avatarLetterWhite}>{touristDisplayName.charAt(0).toUpperCase()}</Text>
                                             </View>
                                             <View style={{ flex: 1 }}>
-                                                <Text style={styles.touristNameWhite} numberOfLines={1} ellipsizeMode="tail">{booking.tourist_username || 'Unknown User'}</Text>
+                                                <Text style={styles.touristNameWhite} numberOfLines={1} ellipsizeMode="tail">{touristDisplayName}</Text>
                                                 <Text style={styles.touristRoleWhite} numberOfLines={1}>Tourist</Text>
                                             </View>
                                         </View>
@@ -493,15 +512,16 @@ const IsTourist = () => {
                         <ScrollView showsVerticalScrollIndicator={false}>
                             {filteredTrips.map((booking) => {
                                 const statusStyle = getStatusStyles(booking.status);
+                                const touristDisplayName = normalizeDisplayName(booking.tourist_username, 'Unknown User');
                                 return (
                                     <View key={`modal-${booking.id}`} style={styles.bookingCardWhiteModal}>
                                         <View style={styles.cardHeaderWhite}>
                                             <View style={styles.userInfo}>
                                                 <View style={styles.avatarPlaceholderWhite}>
-                                                    <Text style={styles.avatarLetterWhite}>{booking.tourist_username ? booking.tourist_username.charAt(0).toUpperCase() : 'U'}</Text>
+                                                    <Text style={styles.avatarLetterWhite}>{touristDisplayName.charAt(0).toUpperCase()}</Text>
                                                 </View>
                                                 <View style={{ flex: 1 }}>
-                                                    <Text style={styles.touristNameWhite} numberOfLines={1} ellipsizeMode="tail">{booking.tourist_username || 'Unknown User'}</Text>
+                                                    <Text style={styles.touristNameWhite} numberOfLines={1} ellipsizeMode="tail">{touristDisplayName}</Text>
                                                     <Text style={styles.touristRoleWhite} numberOfLines={1}>Tourist</Text>
                                                 </View>
                                             </View>
