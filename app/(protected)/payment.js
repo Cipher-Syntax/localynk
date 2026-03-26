@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, StatusBar, StyleSheet, Image, TextInput, TouchableOpacity, ActivityIndicator, Alert, Modal, Dimensions, Platform, KeyboardAvoidingView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { User, AlertCircle, CheckCircle2, UploadCloud, Calendar as CalendarIcon, ShieldCheck } from 'lucide-react-native'; 
+import { User, AlertCircle, CheckCircle2, UploadCloud, Calendar as CalendarIcon, ShieldCheck, Package, Bed } from 'lucide-react-native'; 
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -40,6 +40,9 @@ const Payment = () => {
     
     const [guidePackages, setGuidePackages] = useState([]);
     const [selectedPackage, setSelectedPackage] = useState(null);
+    const [accommodationOptions, setAccommodationOptions] = useState([]);
+    const [selectedAccommodation, setSelectedAccommodation] = useState(null);
+    const [accommodationInitialized, setAccommodationInitialized] = useState(false);
 
     const getPackageDurationDays = (pkg) => {
         if (!pkg) return 1;
@@ -107,10 +110,11 @@ const Payment = () => {
         const fetchAvailabilityAndPackages = async () => {
             if (!isAgency && resolvedId) {
                 try {
-                    const [availRes, blockedRes, toursRes] = await Promise.all([
+                    const [availRes, blockedRes, toursRes, accomRes] = await Promise.all([
                         api.get(`/api/guides/${resolvedId}/`),
                         api.get(`/api/bookings/guide_blocked_dates/`, { params: { guide_id: resolvedId } }),
-                        placeId ? api.get(`/api/destinations/${placeId}/tours/`) : { data: [] }
+                        placeId ? api.get(`/api/destinations/${placeId}/tours/`) : { data: [] },
+                        api.get('/api/accommodations/', { params: { host_id: resolvedId } }),
                     ]);
                     
                     setGuideAvailability(availRes.data);
@@ -125,18 +129,27 @@ const Payment = () => {
                             setSelectedPackage(defaultTour);
                         }
                     }
+
+                    const accomData = Array.isArray(accomRes.data) ? accomRes.data : (accomRes.data?.results || []);
+                    setAccommodationOptions(accomData);
+
+                    const preselectedByParam = accomData.find((a) => Number(a.id) === Number(accommodationId));
+                    setSelectedAccommodation(preselectedByParam || null);
+                    setAccommodationInitialized(true);
                 } catch (error) { console.error("Failed to fetch guide data:", error); }
             }
         };
         fetchAvailabilityAndPackages();
-    }, [resolvedId, isAgency, placeId, tourPackageId]);
+    }, [resolvedId, isAgency, placeId, tourPackageId, accommodationId]);
 
     const activeDuration = selectedPackage ? getPackageDurationDays(selectedPackage) : (parseInt(paramPackageDuration) || 1);
     const activeItinerary = selectedPackage ? selectedPackage.itinerary_timeline : itineraryTimeline;
     const tourCostGroup = selectedPackage ? parseFloat(selectedPackage.price_per_day) : (basePrice ? parseFloat(basePrice) : 500);
     const tourCostSolo = selectedPackage ? parseFloat(selectedPackage.solo_price) : (soloPrice ? parseFloat(soloPrice) : tourCostGroup);
     const extraPersonFee = selectedPackage ? parseFloat(selectedPackage.additional_fee_per_head || 0) : (additionalFee ? parseFloat(additionalFee) : 0);
-    const accomCost = accommodationPrice ? parseFloat(accommodationPrice) : 0; 
+    const accomCost = accommodationInitialized
+        ? (selectedAccommodation ? parseFloat(selectedAccommodation.price || 0) : 0)
+        : (accommodationPrice ? parseFloat(accommodationPrice) : 0);
     
     const parsedItinerary = useMemo(() => {
         try { return activeItinerary ? (typeof activeItinerary === 'string' ? JSON.parse(activeItinerary) : activeItinerary) : []; } 
@@ -168,7 +181,13 @@ const Payment = () => {
         serviceFee: 50,
     };
     
-    const accomEntity = accommodationId ? { name: accommodationName || "Selected Accommodation", price: accomCost } : null;
+    const effectiveAccommodationId = accommodationInitialized
+        ? (selectedAccommodation?.id || null)
+        : (accommodationId || null);
+    const effectiveAccommodationName = accommodationInitialized
+        ? (selectedAccommodation?.title || selectedAccommodation?.name || null)
+        : (accommodationName || null);
+    const accomEntity = effectiveAccommodationId ? { name: effectiveAccommodationName || "Selected Accommodation", price: accomCost } : null;
 
     const formatDateForCalendar = (date) => {
         const year = date.getFullYear();
@@ -177,9 +196,6 @@ const Payment = () => {
         return `${year}-${month}-${day}`;
     };
 
-    // FIXED OFFSET MATH:
-    // A 1-day package adds 0 days (checkin and checkout are the same date).
-    // A 2-day package adds 1 day (e.g. Mar 21 to Mar 22).
     const getComputedEndDate = (start, durationDays) => {
         const computed = new Date(start);
         const offsetDays = durationDays > 0 ? (durationDays - 1) : 0; 
@@ -217,7 +233,7 @@ const Payment = () => {
     const [endDate, setEndDate] = useState(() => {
         const d = new Date();
         d.setHours(0, 0, 0, 0);
-        d.setDate(d.getDate() + 1); // Defaults to same day as start, updated immediately by useEffect.
+        d.setDate(d.getDate() + 1);
         return d;
     });
 
@@ -606,6 +622,7 @@ const Payment = () => {
         setIsModalOpen(true);
     };
 
+    // --- UPDATED PRICING LOGIC HERE ---
     useEffect(() => {
         if (fetchedBooking && fetchedBooking.total_price) {
             setTotalPrice(parseFloat(fetchedBooking.total_price));
@@ -616,12 +633,14 @@ const Payment = () => {
 
         const oneDay = 24 * 60 * 60 * 1000;
         let numDays = 1;
+        let numNights = 1; // Default to 1 night if they stay
         
-        // Exact day calculation ensuring same-day is treated as 1 trip day
         if (startDate.getTime() === endDate.getTime()) {
             numDays = 1;
+            numNights = 1; // If it's a 1-day trip but they picked accommodation, charge for 1 night
         } else {
             numDays = Math.round(Math.abs((endDate - startDate) / oneDay)) + 1;
+            numNights = numDays > 1 ? numDays - 1 : 1; // E.g., 2 days = 1 night, 3 days = 2 nights
         }
 
         let groupSize = parseInt(numPeople) || 1;
@@ -641,8 +660,11 @@ const Payment = () => {
         
         setCurrentGuideFee(guideFee);
         
-        const dailyTotal = guideFee + extraFees + accomCost;
-        const grandTotal = dailyTotal * numDays;
+        // Calculate Tour Fees vs Accommodation Fees separately
+        const totalGuideAndTourFee = (guideFee + extraFees) * numDays;
+        const totalAccommodationFee = accomCost * numNights;
+        
+        const grandTotal = totalGuideAndTourFee + totalAccommodationFee;
         
         const dynamicDpRate = agencyDownPayment ? (parseFloat(agencyDownPayment) / 100) : 0.30;
         
@@ -830,6 +852,51 @@ const Payment = () => {
                                     </View>
                                 )}
 
+                                {!isPayable && !isConfirmed && !isAgency && (
+                                    <View style={styles.accommodationSelectorCard}>
+                                        <View style={styles.sectionHeader}>
+                                            <Bed size={18} color="#1A2332" />
+                                            <Text style={styles.detailsHeader}>Accommodation (Optional)</Text>
+                                        </View>
+
+                                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.accScroll}>
+                                            <TouchableOpacity
+                                                style={[styles.accCard, !selectedAccommodation && styles.accCardActive]}
+                                                onPress={() => setSelectedAccommodation(null)}
+                                            >
+                                                <View style={{flex: 1, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center'}}>
+                                                    <Bed size={32} color="#94A3B8" />
+                                                    <Text style={{color: '#64748B', fontSize: 12, fontWeight: '600', marginTop: 8}}>No Stay</Text>
+                                                </View>
+                                                {!selectedAccommodation && <View style={styles.accCheck}><CheckCircle2 size={16} color="#fff" /></View>}
+                                            </TouchableOpacity>
+
+                                            {accommodationOptions.map((acc) => {
+                                                const isSelected = Number(selectedAccommodation?.id) === Number(acc.id);
+                                                return (
+                                                    <TouchableOpacity
+                                                        key={acc.id}
+                                                        style={[styles.accCard, isSelected && styles.accCardActive]}
+                                                        onPress={() => setSelectedAccommodation(acc)}
+                                                    >
+                                                        {getImageUrl(acc.photo || acc.image) ? (
+                                                            <Image source={{ uri: getImageUrl(acc.photo || acc.image) }} style={styles.accImage} />
+                                                        ) : (
+                                                            <View style={[styles.accImage, {backgroundColor: '#CBD5E1'}]} />
+                                                        )}
+                                                        <View style={styles.accOverlay} />
+                                                        <View style={styles.accInfo}>
+                                                            <Text style={styles.accTitle} numberOfLines={1}>{(acc.title || acc.name || 'Accommodation')}</Text>
+                                                            <Text style={styles.accPrice}>₱{parseFloat(acc.price || 0).toLocaleString()}/day</Text>
+                                                        </View>
+                                                        {isSelected && <View style={styles.accCheck}><CheckCircle2 size={16} color="#fff" /></View>}
+                                                    </TouchableOpacity>
+                                                );
+                                            })}
+                                        </ScrollView>
+                                    </View>
+                                )}
+
                                 <View style={styles.switchContainer}>
                                     <TouchableOpacity style={[styles.switchOption, selectedOption === 'solo' && styles.switchActive]} onPress={() => { setSelectedOption('solo'); setNumPeople('1'); }} disabled={isPayable}>
                                         <Text style={[styles.switchText, selectedOption === 'solo' && styles.switchTextActive]}>Solo Trip</Text>
@@ -947,29 +1014,35 @@ const Payment = () => {
 
                                     <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Identity Verification (ID & Selfie)</Text>
                                     <View style={styles.kycRow}>
-                                        <TouchableOpacity style={[styles.kycCard, validIdImage && styles.kycCardDone]} onPress={pickImage}>
-                                            {validIdImage ? (
-                                                <Image source={{ uri: validIdImage }} style={styles.kycImage} />
-                                            ) : (
-                                                <View style={styles.kycPlaceholder}>
-                                                    <UploadCloud size={24} color={PRIMARY_COLOR} />
-                                                    <Text style={styles.kycText}>Upload ID</Text>
-                                                </View>
-                                            )}
-                                            {validIdImage && <View style={styles.checkBubble}><CheckCircle2 size={16} color="#fff" /></View>}
-                                        </TouchableOpacity>
+                                        <View style={styles.kycItem}>
+                                            <TouchableOpacity style={[styles.kycCard, validIdImage && styles.kycCardDone]} onPress={pickImage}>
+                                                {validIdImage ? (
+                                                    <Image source={{ uri: validIdImage }} style={styles.kycImage} />
+                                                ) : (
+                                                    <View style={styles.kycPlaceholder}>
+                                                        <UploadCloud size={24} color={PRIMARY_COLOR} />
+                                                        <Text style={styles.kycText}>Upload ID</Text>
+                                                    </View>
+                                                )}
+                                                {validIdImage && <View style={styles.checkBubble}><CheckCircle2 size={16} color="#fff" /></View>}
+                                            </TouchableOpacity>
+                                            <Text style={styles.kycItemLabel}>ID</Text>
+                                        </View>
 
-                                        <TouchableOpacity style={[styles.kycCard, userSelfieImage && styles.kycCardDone]} onPress={takeSelfie}>
-                                            {userSelfieImage ? (
-                                                <Image source={{ uri: userSelfieImage }} style={styles.kycImage} />
-                                            ) : (
-                                                <View style={styles.kycPlaceholder}>
-                                                    <Ionicons name="camera-outline" size={28} color={PRIMARY_COLOR} />
-                                                    <Text style={styles.kycText}>Take Selfie</Text>
-                                                </View>
-                                            )}
-                                            {userSelfieImage && <View style={styles.checkBubble}><CheckCircle2 size={16} color="#fff" /></View>}
-                                        </TouchableOpacity>
+                                        <View style={styles.kycItem}>
+                                            <TouchableOpacity style={[styles.kycCard, userSelfieImage && styles.kycCardDone]} onPress={takeSelfie}>
+                                                {userSelfieImage ? (
+                                                    <Image source={{ uri: userSelfieImage }} style={styles.kycImage} />
+                                                ) : (
+                                                    <View style={styles.kycPlaceholder}>
+                                                        <Ionicons name="camera-outline" size={28} color={PRIMARY_COLOR} />
+                                                        <Text style={styles.kycText}>Take Selfie</Text>
+                                                    </View>
+                                                )}
+                                                {userSelfieImage && <View style={styles.checkBubble}><CheckCircle2 size={16} color="#fff" /></View>}
+                                            </TouchableOpacity>
+                                            <Text style={styles.kycItemLabel}>Selfie Photo</Text>
+                                        </View>
                                     </View>
                                 </>
                             )}
@@ -1155,7 +1228,7 @@ const Payment = () => {
                         setIsModalOpen={setIsModalOpen}
                         paymentData={{
                             [isAgency ? 'agency' : 'guide']: bookingEntity,
-                            accommodation: accomEntity, accommodationId, 
+                            accommodation: accomEntity, accommodationId: effectiveAccommodationId,
                             tourPackageId: selectedPackage ? selectedPackage.id : tourPackageId,
                             startDate, endDate, firstName, lastName, phoneNumber: normalizePHPhone(phoneNumber) || phoneNumber, country, email,
                             basePrice: bookingEntity.basePrice, serviceFee: bookingEntity.serviceFee,
@@ -1203,7 +1276,20 @@ const styles = StyleSheet.create({
     packagePillActive: { backgroundColor: '#EFF6FF', borderColor: PRIMARY_COLOR },
     packagePillText: { fontSize: 14, fontWeight: '600', color: TEXT_SECONDARY },
     packagePillTextActive: { color: PRIMARY_COLOR },
+    accommodationSelectorCard: { backgroundColor: '#F5F7FA', borderRadius: 15, padding: 14, borderWidth: 1, borderColor: '#E0E6ED', marginBottom: 14 },
+    sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 },
+    detailsHeader: { fontSize: 16, fontWeight: '700', color: '#1A2332' },
     
+    accScroll: { marginTop: 10, paddingBottom: 5 },
+    accCard: { width: 140, marginRight: 12, backgroundColor: SURFACE_COLOR, borderRadius: 12, borderWidth: 2, borderColor: '#E2E8F0', overflow: 'hidden', position: 'relative', height: 110 },
+    accCardActive: { borderColor: PRIMARY_COLOR },
+    accImage: { width: '100%', height: '100%', position: 'absolute' },
+    accOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, height: '60%', backgroundColor: 'rgba(0,0,0,0.5)' },
+    accInfo: { position: 'absolute', bottom: 8, left: 8, right: 8 },
+    accTitle: { fontSize: 13, fontWeight: '700', color: '#fff', textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 3 },
+    accPrice: { fontSize: 11, color: '#E0F2FE', fontWeight: '700', marginTop: 2 },
+    accCheck: { position: 'absolute', top: 8, right: 8, backgroundColor: PRIMARY_COLOR, borderRadius: 12, padding: 2 },
+
     seqDayLabel: { fontSize: 15, fontWeight: '800', color: PRIMARY_COLOR, marginBottom: 10 },
     timelineContainer: { marginTop: 10 },
     timelineItem: { flexDirection: 'row', marginBottom: 15 },
@@ -1241,12 +1327,14 @@ const styles = StyleSheet.create({
     guestNamesContainer: { marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: '#E2E8F0' },
 
     kycRow: { flexDirection: 'row', gap: 12 },
-    kycCard: { flex: 1, height: 120, backgroundColor: '#F8FAFC', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+    kycItem: { flex: 1, alignItems: 'center' },
+    kycCard: { width: '100%', height: 120, backgroundColor: '#F8FAFC', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
     kycCardDone: { borderStyle: 'solid', borderColor: '#22C55E' },
     kycPlaceholder: { alignItems: 'center', gap: 8 },
     kycText: { fontSize: 13, fontWeight: '600', color: TEXT_SECONDARY },
     kycImage: { width: '100%', height: '100%' },
     checkBubble: { position: 'absolute', top: 8, right: 8, backgroundColor: '#22C55E', borderRadius: 12, padding: 2 },
+    kycItemLabel: { marginTop: 8, fontSize: 12, color: '#475569', fontWeight: '700' },
     paymentScroll: { flexDirection: 'row', marginBottom: 24 },
     paymentOption: { marginRight: 12, width: 80, height: 80, backgroundColor: SURFACE_COLOR, borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', justifyContent: 'center', alignItems: 'center', gap: 8 },
     paymentOptionActive: { borderColor: PRIMARY_COLOR, backgroundColor: '#EFF6FF' },
