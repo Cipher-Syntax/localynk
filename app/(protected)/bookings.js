@@ -76,7 +76,6 @@ const MyBookings = () => {
         setConfirmVisible(true);
     };
 
-    // FIXED: Synchronizes all states (Main List, Destination Modal, Details Modal) instantly
     const confirmCancellation = async () => {
         setConfirmVisible(false);
         if (!bookingIdToCancel) return;
@@ -117,7 +116,6 @@ const MyBookings = () => {
         setPaidConfirmVisible(true);
     };
 
-    // FIXED: Synchronizes all states instantly for payments too
     const confirmMarkAsPaid = async () => {
         setPaidConfirmVisible(false);
         if (!bookingIdToMarkPaid) return;
@@ -175,6 +173,14 @@ const MyBookings = () => {
 
     const tabBookings = useMemo(() => {
         return bookings.filter((booking) => {
+            const isPending = String(booking.status || '').toLowerCase() === 'pending_payment';
+            const isAgencyBooking = !!(booking.agency || booking.agency_detail);
+            
+            if (isPending && !isAgencyBooking) {
+                return false;
+            }
+            // ---------------------------------------------------------
+
             const mine = isMyTripBooking(booking);
             return activeTab === 'my_trip' ? mine : !mine;
         });
