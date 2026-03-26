@@ -258,6 +258,7 @@ const Payment = () => {
     const paymentOptions = [
         { key: 'gcash', name: 'GCash', icon: 'wallet' },
         { key: 'paymaya', name: 'Maya', icon: 'card' },
+        { key: 'qrph', name: 'QR Ph', icon: 'qr-code-outline' },
         { key: 'card', name: 'Card', icon: 'card-outline' },
     ];
 
@@ -622,7 +623,6 @@ const Payment = () => {
         setIsModalOpen(true);
     };
 
-    // --- UPDATED PRICING LOGIC HERE ---
     useEffect(() => {
         if (fetchedBooking && fetchedBooking.total_price) {
             setTotalPrice(parseFloat(fetchedBooking.total_price));
@@ -633,14 +633,14 @@ const Payment = () => {
 
         const oneDay = 24 * 60 * 60 * 1000;
         let numDays = 1;
-        let numNights = 1; // Default to 1 night if they stay
+        let numNights = 1; 
         
         if (startDate.getTime() === endDate.getTime()) {
             numDays = 1;
-            numNights = 1; // If it's a 1-day trip but they picked accommodation, charge for 1 night
+            numNights = 1; 
         } else {
             numDays = Math.round(Math.abs((endDate - startDate) / oneDay)) + 1;
-            numNights = numDays > 1 ? numDays - 1 : 1; // E.g., 2 days = 1 night, 3 days = 2 nights
+            numNights = numDays > 1 ? numDays - 1 : 1; 
         }
 
         let groupSize = parseInt(numPeople) || 1;
@@ -660,7 +660,6 @@ const Payment = () => {
         
         setCurrentGuideFee(guideFee);
         
-        // Calculate Tour Fees vs Accommodation Fees separately
         const totalGuideAndTourFee = (guideFee + extraFees) * numDays;
         const totalAccommodationFee = accomCost * numNights;
         
