@@ -582,6 +582,15 @@ const Payment = () => {
         const endStr = formatDateForCalendar(endDate);
         if (startStr === endStr && activeDuration > 1) { showError("Multi-day packages cannot start and end on the same day."); return; }
         if (startDate > endDate) { showError("End date cannot be before start date."); return; }
+
+        if (selectedOption === 'group') {
+            const enteredGuests = parseInt(numPeople, 10) || 1;
+            const maxPax = parseInt(selectedPackage?.max_group_size, 10);
+            if (Number.isFinite(maxPax) && maxPax > 0 && enteredGuests > maxPax) {
+                showError(`Maximum guests for this package is ${maxPax}.`);
+                return;
+            }
+        }
         
         if (selectedOption === 'group' && parseInt(numPeople) > 1) {
             const hasEmptyName = guestNames.some(name => name.trim() === '');
