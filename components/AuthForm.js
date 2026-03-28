@@ -24,6 +24,7 @@ const AuthForm = ({ method }) => {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     
     const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+    const [isReactivating, setIsReactivating] = useState(false); 
 
     const router = useRouter();
 
@@ -33,6 +34,13 @@ const AuthForm = ({ method }) => {
 
     const titleText = method === 'login' ? 'Welcome Back' : 'Start Journey';
     const subtitleText = method === 'login' ? 'Continue your adventure' : 'Join the community of explorers';
+
+    // Check if the current error means we need to reactivate
+    const isDeactivatedError = message && (
+        message.includes('inactive') || 
+        message.toLowerCase().includes('deactivated') || 
+        message.toLowerCase().includes('reactivate')
+    ) && method === 'login' && messageType === 'error';
 
     useEffect(() => {
         if (method !== 'login') return;
@@ -71,15 +79,12 @@ const AuthForm = ({ method }) => {
             const isPhoneMissing = !user.phone_number || String(user.phone_number).trim() === "";
             const isLocationMissing = !user.location || String(user.location).trim() === "";
 
-            // 1. Check Terms First
             if (user.has_accepted_terms === false) {
                 router.replace('/(protected)/onboarding/terms_and_conditions');
             } 
-            // 2. Then check Profile completeness
             else if (isFirstNameMissing || isLastNameMissing || isPhoneMissing || isLocationMissing) {
                 router.replace('/(protected)/onboarding/profile_setup');
             } 
-            // 3. Everything is complete, go home
             else {
                 router.replace('/(protected)/home'); 
             }
@@ -115,13 +120,23 @@ const AuthForm = ({ method }) => {
         
         if (!username || !password) {
             clearMessage();
-            setMessage("Please enter both your username and password to reactivate.", "error");
+            setMessage("Please type your username and password, then click 'Reactivate Account' again.", "error");
             return;
         }
         
+        setIsReactivating(true);
         clearMessage();
-        const successUser = await reactivateAccount(username, password);
-        if (successUser) handleNavigation(successUser);
+        
+        // Step 1: Reactivate the account on the backend
+        const reactivateResult = await reactivateAccount(username, password);
+        
+        // Step 2: If successful, navigate directly using the returned user.
+        if (reactivateResult) {
+             setIsReactivating(false);
+             handleNavigation(reactivateResult);
+        } else {
+             setIsReactivating(false);
+        }
     };
 
     const handleGoogleLogin = async () => {
@@ -173,6 +188,19 @@ const AuthForm = ({ method }) => {
         clearMessage(); 
         await resendVerificationEmail(usernameOrEmail);
     };
+
+    // Determine what the main button should do and say
+    let mainButtonAction = handleSubmit(onSubmit);
+    let mainButtonText = method === 'login' ? 'Log In' : 'Sign Up';
+
+    if (isDeactivatedError) {
+        mainButtonAction = handleReactivate;
+        mainButtonText = 'Reactivate Account';
+    }
+
+    if (isSubmitting || isReactivating) {
+        mainButtonText = 'Please wait...';
+    }
 
     const renderInput = (controlName, placeholder, iconName, isPassword = false, showPassState = false, setShowPassState = null, rules = {}) => (
         <View style={styles.inputWrapper}>
@@ -241,13 +269,11 @@ const AuthForm = ({ method }) => {
                                                     {message}
                                                 </Text>
                                                 
-                                                {(message.includes('verify your email') || message.includes('verification') || message.includes('inactive')) && method === 'login' && messageType === 'error' && (
+                                                {/* Only show Resend Email button if it is a verification error */}
+                                                {(message.includes('verify') || message.includes('verification')) && method === 'login' && messageType === 'error' && (
                                                     <View style={styles.actionButtonsRow}>
                                                         <TouchableOpacity onPress={handleResendVerification} style={styles.actionButton}>
                                                             <Text style={styles.actionText}>Resend Email</Text>
-                                                        </TouchableOpacity>
-                                                        <TouchableOpacity onPress={handleReactivate} style={styles.actionButton}>
-                                                            <Text style={styles.actionText}>Reactivate Account</Text>
                                                         </TouchableOpacity>
                                                     </View>
                                                 )}
@@ -292,8 +318,8 @@ const AuthForm = ({ method }) => {
 
                                         <TouchableOpacity
                                             style={styles.mainButtonShadow}
-                                            onPress={handleSubmit(onSubmit)}
-                                            disabled={isSubmitting}
+                                            onPress={mainButtonAction}
+                                            disabled={isSubmitting || isReactivating}
                                         >
                                             <LinearGradient
                                                 colors={['#0072FF', '#00C6FF']}
@@ -302,7 +328,7 @@ const AuthForm = ({ method }) => {
                                                 style={styles.mainButton}
                                             >
                                                 <Text style={styles.mainButtonText}>
-                                                    {isSubmitting ? 'Please wait...' : (method === 'login' ? 'Log In' : 'Sign Up')}
+                                                    {mainButtonText}
                                                 </Text>
                                                 <Ionicons name="arrow-forward" size={20} color="#fff" />
                                             </LinearGradient>
@@ -318,7 +344,7 @@ const AuthForm = ({ method }) => {
                                             <TouchableOpacity 
                                                 style={styles.googleButton} 
                                                 onPress={handleGoogleLogin}
-                                                disabled={isGoogleLoading}
+                                                disabled={isGoogleLoading || isReactivating}
                                             >
                                                 {isGoogleLoading ? (
                                                     <ActivityIndicator size="small" color="#DB4437" />
