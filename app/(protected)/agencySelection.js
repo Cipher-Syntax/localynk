@@ -29,7 +29,7 @@ const AgencySelection = () => {
                 const validAgencies = rawData.filter(item => 
                     item.business_name && 
                     item.business_name.trim() !== '' &&
-                    item.is_approved === true
+                    item.status === 'Approved'
                 );
 
                 setAgencies(validAgencies);

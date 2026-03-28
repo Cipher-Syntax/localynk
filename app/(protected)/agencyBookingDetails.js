@@ -431,31 +431,37 @@ const AgencyBookingDetails = () => {
 
                                     <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Identity Verification</Text>
                                     <View style={styles.kycRow}>
-                                        <TouchableOpacity style={[styles.kycCard, validIdImage && styles.kycCardDone]} onPress={pickImage}>
-                                            {isLoadingImage ? (
-                                                <ActivityIndicator size="small" color={PRIMARY_COLOR} />
-                                            ) : validIdImage ? (
-                                                <Image source={{ uri: validIdImage }} style={styles.kycImage} />
-                                            ) : (
-                                                <View style={styles.kycPlaceholder}>
-                                                    <UploadCloud size={24} color={PRIMARY_COLOR} />
-                                                    <Text style={styles.kycText}>Upload ID</Text>
-                                                </View>
-                                            )}
-                                            {validIdImage && <View style={styles.checkBubble}><CheckCircle2 size={16} color="#fff" /></View>}
-                                        </TouchableOpacity>
+                                        <View style={styles.kycItem}>
+                                            <TouchableOpacity style={[styles.kycCard, validIdImage && styles.kycCardDone]} onPress={pickImage}>
+                                                {isLoadingImage ? (
+                                                    <ActivityIndicator size="small" color={PRIMARY_COLOR} />
+                                                ) : validIdImage ? (
+                                                    <Image source={{ uri: validIdImage }} style={styles.kycImage} />
+                                                ) : (
+                                                    <View style={styles.kycPlaceholder}>
+                                                        <UploadCloud size={24} color={PRIMARY_COLOR} />
+                                                        <Text style={styles.kycText}>Upload ID</Text>
+                                                    </View>
+                                                )}
+                                                {validIdImage && <View style={styles.checkBubble}><CheckCircle2 size={16} color="#fff" /></View>}
+                                            </TouchableOpacity>
+                                            <Text style={styles.kycItemLabel}>ID</Text>
+                                        </View>
 
-                                        <TouchableOpacity style={[styles.kycCard, userSelfieImage && styles.kycCardDone]} onPress={takeSelfie}>
-                                            {userSelfieImage ? (
-                                                <Image source={{ uri: userSelfieImage }} style={styles.kycImage} />
-                                            ) : (
-                                                <View style={styles.kycPlaceholder}>
-                                                    <Ionicons name="camera-outline" size={28} color={PRIMARY_COLOR} />
-                                                    <Text style={styles.kycText}>Take Selfie</Text>
-                                                </View>
-                                            )}
-                                            {userSelfieImage && <View style={styles.checkBubble}><CheckCircle2 size={16} color="#fff" /></View>}
-                                        </TouchableOpacity>
+                                        <View style={styles.kycItem}>
+                                            <TouchableOpacity style={[styles.kycCard, userSelfieImage && styles.kycCardDone]} onPress={takeSelfie}>
+                                                {userSelfieImage ? (
+                                                    <Image source={{ uri: userSelfieImage }} style={styles.kycImage} />
+                                                ) : (
+                                                    <View style={styles.kycPlaceholder}>
+                                                        <Ionicons name="camera-outline" size={28} color={PRIMARY_COLOR} />
+                                                        <Text style={styles.kycText}>Take Selfie</Text>
+                                                    </View>
+                                                )}
+                                                {userSelfieImage && <View style={styles.checkBubble}><CheckCircle2 size={16} color="#fff" /></View>}
+                                            </TouchableOpacity>
+                                            <Text style={styles.kycItemLabel}>Selfie Photo</Text>
+                                        </View>
                                     </View>
                                 </>
                             )}
@@ -674,11 +680,13 @@ const styles = StyleSheet.create({
     guestNamesContainer: { marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: '#E2E8F0' },
 
     kycRow: { flexDirection: 'row', gap: 12 },
-    kycCard: { flex: 1, height: 120, backgroundColor: '#F8FAFC', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+    kycItem: { flex: 1, alignItems: 'center' },
+    kycCard: { width: '100%', height: 120, backgroundColor: '#F8FAFC', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
     kycCardDone: { borderStyle: 'solid', borderColor: '#22C55E' },
     kycPlaceholder: { alignItems: 'center', gap: 8 },
     kycText: { fontSize: 13, fontWeight: '600', color: TEXT_SECONDARY },
     kycImage: { width: '100%', height: '100%' },
+    kycItemLabel: { marginTop: 8, fontSize: 12, color: '#475569', fontWeight: '700' },
     checkBubble: { position: 'absolute', top: 8, right: 8, backgroundColor: '#22C55E', borderRadius: 12, padding: 2 },
     receiptCard: { backgroundColor: SURFACE_COLOR, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed', marginBottom: 20, marginTop: 24 },
     receiptHeader: { alignItems: 'center', marginBottom: 16 },
