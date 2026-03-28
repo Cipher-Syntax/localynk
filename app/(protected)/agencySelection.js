@@ -16,7 +16,6 @@ const AgencySelection = () => {
     const [agencies, setAgencies] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // --- Modal State ---
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedAgency, setSelectedAgency] = useState(null);
 
@@ -42,19 +41,18 @@ const AgencySelection = () => {
         fetchAgencies();
     }, []);
 
-    // 1. Open Modal with Agency Details
     const handleOpenDetails = (agency) => {
+        if (agency.is_active === false || agency.is_guide_visible === false) return;
+        
         setSelectedAgency(agency);
         setModalVisible(true);
     };
 
-    // 2. Close Modal
     const handleCloseModal = () => {
         setModalVisible(false);
         setSelectedAgency(null);
     };
 
-    // 3. Proceed to Booking (Original Functionality, now called from Modal)
     const handleSelectAgency = () => {
         if (!selectedAgency) return;
         
@@ -63,7 +61,7 @@ const AgencySelection = () => {
         router.push({
             pathname: '/(protected)/agencyBookingDetails',
             params: { 
-                agencyId: selectedAgency.user, // Using user ID as reference
+                agencyId: selectedAgency.user, 
                 agencyName: selectedAgency.business_name,
                 placeId: params.placeId,
                 placeName: params.placeName
@@ -84,11 +82,16 @@ const AgencySelection = () => {
         const rating = item.rating ? parseFloat(item.rating).toFixed(1) : 'New'; 
         const reviewCount = item.review_count || 0; 
 
+        // Status checks
+        const isDeactivated = item.is_active === false;
+        const isOffline = item.is_guide_visible === false || isDeactivated; 
+        
+        const cardOpacity = isOffline ? 0.6 : 1;
+
         return (
-            <View style={styles.agencyCard}>
+            <View style={[styles.agencyCard, { opacity: cardOpacity }]}>
                 <View style={styles.cardProfileSection}>
-                    {/* Profile Picture */}
-                    <View style={styles.iconWrapper}>
+                    <View style={[styles.iconWrapper, isOffline && { opacity: 0.5 }]}>
                         {imageUri ? (
                             <Image source={{ uri: imageUri }} style={styles.profilePicture} />
                         ) : (
@@ -98,9 +101,20 @@ const AgencySelection = () => {
                         )}
                     </View>
                     
-                    {/* Agency Details */}
                     <View style={styles.profileInfo}>
-                        <Text style={styles.businessName}>{item.business_name}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                            <Text style={styles.businessName}>{item.business_name}</Text>
+                            
+                            {isDeactivated ? (
+                                <View style={[styles.statusBadge, { backgroundColor: '#FEE2E2', borderColor: '#FCA5A5' }]}>
+                                    <Text style={[styles.statusText, { color: '#EF4444' }]}>Deactivated</Text>
+                                </View>
+                            ) : isOffline ? (
+                                <View style={[styles.statusBadge, { backgroundColor: '#F1F5F9', borderColor: '#CBD5E1' }]}>
+                                    <Text style={[styles.statusText, { color: '#64748B' }]}>Offline</Text>
+                                </View>
+                            ) : null}
+                        </View>
                         
                         <View style={styles.ownerRow}>
                             <Ionicons name="person-circle-outline" size={14} color="#64748B" />
@@ -108,23 +122,21 @@ const AgencySelection = () => {
                         </View>
 
                         <View style={styles.ratingContainer}>
-                            <Ionicons name="star" size={14} color="#F59E0B" />
-                            <Text style={styles.ratingText}>{rating}</Text>
+                            <Ionicons name="star" size={14} color={isOffline ? "#CBD5E1" : "#F59E0B"} />
+                            <Text style={[styles.ratingText, isOffline && { color: '#94A3B8' }]}>{rating}</Text>
                             {reviewCount > 0 && (
                                 <Text style={styles.reviewCount}>({reviewCount} reviews)</Text>
                             )}
                         </View>
                     </View>
 
-                    {/* Verified Badge */}
                     <View style={styles.verifiedBadge}>
-                         <Ionicons name="shield-checkmark" size={16} color="#00C853" />
+                         <Ionicons name="shield-checkmark" size={16} color={isOffline ? "#CBD5E1" : "#00C853"} />
                     </View>
                 </View>
 
                 <View style={styles.divider} />
 
-                {/* Contact / Info Snippet */}
                 <View style={styles.detailsRow}>
                     <View style={styles.detailItem}>
                         <Ionicons name="call-outline" size={14} color="#64748B" />
@@ -140,20 +152,24 @@ const AgencySelection = () => {
                     </View>
                 </View>
 
-                {/* MODIFIED: View Details Button instead of direct Choose */}
                 <TouchableOpacity
-                    style={styles.detailsButton}
+                    style={[
+                        styles.detailsButton, 
+                        isOffline && { borderColor: '#CBD5E1', backgroundColor: '#F8FAFC' }
+                    ]}
                     onPress={() => handleOpenDetails(item)}
                     activeOpacity={0.7}
+                    disabled={isOffline}
                 >
-                    <Text style={styles.detailsButtonText}>VIEW DETAILS</Text>
-                    <Ionicons name="eye-outline" size={16} color="#0072FF" />
+                    <Text style={[styles.detailsButtonText, isOffline && { color: '#94A3B8' }]}>
+                        {isOffline ? 'UNAVAILABLE' : 'VIEW DETAILS'}
+                    </Text>
+                    <Ionicons name={isOffline ? "lock-closed" : "eye-outline"} size={16} color={isOffline ? "#94A3B8" : "#0072FF"} />
                 </TouchableOpacity>
             </View>
         );
     };
 
-    // --- Modal Content Renderer ---
     const renderModalContent = () => {
         if (!selectedAgency) return null;
 
@@ -169,7 +185,6 @@ const AgencySelection = () => {
 
         return (
             <ScrollView>
-                {/* Modal Header Image */}
                 <View style={styles.modalHeader}>
                     <View style={styles.modalImageContainer}>
                         {imageUri ? (
@@ -187,7 +202,6 @@ const AgencySelection = () => {
                     </View>
                 </View>
 
-                {/* Modal Details List */}
                 <ScrollView style={styles.modalInfoList} showsVerticalScrollIndicator={false}>
                     <View style={styles.infoRow}>
                         <View style={styles.infoIconBox}><Ionicons name="person" size={18} color="#0072FF" /></View>
@@ -222,7 +236,6 @@ const AgencySelection = () => {
                     </View>
                 </ScrollView>
 
-                {/* Modal Footer Actions */}
                 <SafeAreaView style={styles.modalFooter}>
                     <TouchableOpacity style={styles.cancelBtn} onPress={handleCloseModal}>
                         <Text style={styles.cancelBtnText}>Cancel</Text>
@@ -329,7 +342,6 @@ const AgencySelection = () => {
                 </ScrollView>
             </SafeAreaView>
 
-            {/* Custom Modal */}
             <Modal
                 animationType="slide"
                 transparent={true}
@@ -406,7 +418,6 @@ const styles = StyleSheet.create({
         lineHeight: 20,
     },
 
-    // CARD STYLES
     agencyCard: {
         backgroundColor: '#fff',
         borderRadius: 16,
@@ -456,6 +467,19 @@ const styles = StyleSheet.create({
         color: '#1E293B',
         marginBottom: 4,
     },
+    statusBadge: {
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+        borderWidth: 1,
+        marginBottom: 4,
+    },
+    statusText: {
+        fontSize: 10,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+    },
+
     ownerRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -475,7 +499,7 @@ const styles = StyleSheet.create({
     ratingText: {
         fontSize: 13,
         fontWeight: '700',
-        color: '#B45309', // Amber/Gold
+        color: '#B45309', 
     },
     reviewCount: {
         fontSize: 12,
@@ -506,7 +530,6 @@ const styles = StyleSheet.create({
         color: '#64748B',
     },
 
-    // New "View Details" Button Style
     detailsButton: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -550,46 +573,42 @@ const styles = StyleSheet.create({
         lineHeight: 22,
     },
 
-    // --- MODAL STYLES ---
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'flex-end', // Bottom sheet style
+        justifyContent: 'flex-end', 
     },
     modalContainer: {
         backgroundColor: '#fff',
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         padding: 24,
-        height: 'auto',        // Changed from '65%' to auto
-        maxHeight: '90%',      // Added max height to prevent overflow
+        height: 'auto',        
+        maxHeight: '90%',      
         shadowColor: '#000',
         shadowOffset: { width: 0, height: -2 },
         shadowOpacity: 0.1,
         shadowRadius: 10,
         elevation: 10,
     },
-    modalContent: {
-        // flex: 1, // Removed flex:1 so it shrinks to content height
-    },
     modalHeader: {
         alignItems: 'center',
         marginBottom: 24,
     },
     modalImageContainer: {
-        width: '100%',     // CHANGED: Full width
-        height: 200,       // CHANGED: Rectangular box height
-        borderRadius: 16,  // CHANGED: Box corners, not circle
+        width: '100%',     
+        height: 200,       
+        borderRadius: 16,  
         overflow: 'hidden',
         marginBottom: 16,
         borderWidth: 1,
         borderColor: '#E2E8F0',
-        backgroundColor: '#F1F5F9', // Placeholder bg
+        backgroundColor: '#F1F5F9', 
     },
     modalImage: {
         width: '100%',
         height: '100%',
-        resizeMode: 'cover', // Ensures image fills the box
+        resizeMode: 'cover', 
     },
     modalPlaceholder: {
         width: '100%',
@@ -616,9 +635,7 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
     
-    // Modal Info List
     modalInfoList: {
-       // flex: 1, // Removed to allow auto height behavior
        marginBottom: 10
     },
     infoRow: {
@@ -648,7 +665,6 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
 
-    // Modal Footer
     modalFooter: {
         flexDirection: 'row',
         gap: 16,
@@ -669,7 +685,7 @@ const styles = StyleSheet.create({
         fontSize: 15,
     },
     confirmBtn: {
-        flex: 2, // Bigger confirm button
+        flex: 2, 
         borderRadius: 14,
         overflow: 'hidden',
         shadowColor: '#0072FF',
