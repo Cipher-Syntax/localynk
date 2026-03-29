@@ -63,8 +63,10 @@ const AgencySelection = () => {
             params: { 
                 agencyId: selectedAgency.user, 
                 agencyName: selectedAgency.business_name,
+                agencyLogo: selectedAgency.logo || selectedAgency.profile_picture,
                 placeId: params.placeId,
-                placeName: params.placeName
+                placeName: params.placeName,
+                agencyDownPayment: selectedAgency.down_payment_percentage
             }
         });
     };
@@ -73,10 +75,12 @@ const AgencySelection = () => {
         if (!item || !item.business_name) return null;
 
         let imageUri = null;
-        if (item.profile_picture) {
-            imageUri = item.profile_picture.startsWith('http') 
-                ? item.profile_picture 
-                : `${api.defaults.baseURL}${item.profile_picture}`;
+        const targetImage = item.logo || item.profile_picture; 
+        
+        if (targetImage) {
+            imageUri = targetImage.startsWith('http') 
+                ? targetImage 
+                : `${api.defaults.baseURL}${targetImage}`;
         }
 
         const rating = item.rating ? parseFloat(item.rating).toFixed(1) : 'New'; 
@@ -174,10 +178,12 @@ const AgencySelection = () => {
         if (!selectedAgency) return null;
 
         let imageUri = null;
-        if (selectedAgency.profile_picture) {
-            imageUri = selectedAgency.profile_picture.startsWith('http') 
-                ? selectedAgency.profile_picture 
-                : `${api.defaults.baseURL}${selectedAgency.profile_picture}`;
+        const targetImage = selectedAgency.logo || selectedAgency.profile_picture;
+        
+        if (targetImage) {
+            imageUri = targetImage.startsWith('http') 
+                ? targetImage 
+                : `${api.defaults.baseURL}${targetImage}`;
         }
 
         const rating = selectedAgency.rating ? parseFloat(selectedAgency.rating).toFixed(1) : 'New';

@@ -23,7 +23,7 @@ const AgencyBookingDetails = () => {
     const router = useRouter();
     const { user } = useAuth();
     
-    const { agencyName, agencyId, placeName, bookingId, placeId, agencyDownPayment } = params;
+    const { agencyName, agencyId, agencyLogo, placeName, bookingId, placeId, agencyDownPayment } = params;
     const isPaymentMode = !!bookingId;
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -46,7 +46,6 @@ const AgencyBookingDetails = () => {
     const [selectedOption, setSelectedOption] = useState('solo');
     const [numPeople, setNumPeople] = useState('1');
     
-    // --- NEW STATE: Additional Guest Names Array ---
     const [guestNames, setGuestNames] = useState([]);
 
     const [firstName, setFirstName] = useState('');
@@ -331,8 +330,16 @@ const AgencyBookingDetails = () => {
                         <View style={styles.contentContainer}>
                              <View style={styles.card}>
                                 <View style={styles.guideHeader}>
-                                    <View style={[styles.avatarContainer, {backgroundColor: '#00A8FF'}]}>
-                                         <Ionicons name="business" size={28} color="#fff" />
+                                    <View style={[styles.avatarContainer, !agencyLogo && {backgroundColor: '#00A8FF'}]}>
+                                        {agencyLogo ? (
+                                            <Image 
+                                                source={{ uri: agencyLogo.startsWith('http') ? agencyLogo : `${api.defaults.baseURL}${agencyLogo}` }} 
+                                                style={{ width: '100%', height: '100%', borderRadius: 28 }} 
+                                                resizeMode="cover"
+                                            />
+                                        ) : (
+                                            <Ionicons name="business" size={28} color="#fff" />
+                                        )}
                                     </View>
                                     <View style={styles.guideInfo}>
                                         <Text style={styles.guideName}>{agency.name}</Text>

@@ -13,18 +13,33 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
         ? `${booking.destination_detail.name} Tour` 
         : (hasAccommodation ? booking.accommodation_detail.title : 'Custom Tour');
 
+    // Updated to fallback to Agency Logo if there is no destination/accommodation image
     const heroImage = hasDestination && booking.destination_detail.image
         ? { uri: booking.destination_detail.image }
         : (hasAccommodation && booking.accommodation_detail.photo
             ? { uri: booking.accommodation_detail.photo }
-            : (booking.guide_detail?.profile_picture ? { uri: booking.guide_detail.profile_picture } : null)
+            : (booking.guide_detail?.profile_picture 
+                ? { uri: booking.guide_detail.profile_picture } 
+                : (booking.agency_detail?.logo 
+                    ? { uri: booking.agency_detail.logo } 
+                    : (booking.agency_detail?.profile_picture ? { uri: booking.agency_detail.profile_picture } : null))
+              )
         );
 
+    // Properly extract Agency Business Name
     const providerName = hasDestination || !hasAccommodation
-        ? (booking.guide_detail ? `${booking.guide_detail.first_name} ${booking.guide_detail.last_name}` : booking.agency_detail?.username)
+        ? (booking.guide_detail ? `${booking.guide_detail.first_name} ${booking.guide_detail.last_name}` : (booking.agency_detail?.business_name || booking.agency_detail?.username))
         : booking.accommodation_detail.host_full_name;
         
-    const providerRole = hasDestination || !hasAccommodation ? 'Local Guide' : 'Host';
+    // Properly label Agency vs Guide
+    const providerRole = hasDestination || !hasAccommodation 
+        ? (booking.guide_detail ? 'Local Guide' : 'Travel Agency') 
+        : 'Host';
+
+    // Extract Logo or Profile Picture for the Avatar circle
+    const providerImage = hasDestination || !hasAccommodation
+        ? (booking.guide_detail?.profile_picture || booking.agency_detail?.logo || booking.agency_detail?.profile_picture)
+        : null;
 
     const getStatusColor = (status) => {
         switch(status?.toLowerCase()) {
@@ -75,7 +90,6 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
         end.setHours(0, 0, 0, 0);
         const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24));
 
-        // FIXED: Only hide the end date if the start and end are on the exact same day.
         if (diffDays === 0) return String(checkIn);
         return `${checkIn} to ${checkOut}`;
     };
@@ -161,7 +175,13 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
                         <View style={styles.section}>
                             <Text style={styles.sectionHeader}>Service Provider</Text>
                             <View style={styles.providerRow}>
-                                <View style={styles.avatarPlaceholder}><Text style={styles.avatarText}>{providerName?.charAt(0)}</Text></View>
+                                {/* Show Logo if it exists, otherwise fallback to Initials */}
+                                {providerImage ? (
+                                    <Image source={{ uri: providerImage }} style={styles.avatarImage} />
+                                ) : (
+                                    <View style={styles.avatarPlaceholder}><Text style={styles.avatarText}>{providerName?.charAt(0)}</Text></View>
+                                )}
+                                
                                 <View>
                                     <Text style={styles.providerName}>{providerName}</Text>
                                     <Text style={styles.providerRole}>{providerRole}</Text>
@@ -465,6 +485,7 @@ const styles = StyleSheet.create({
     sectionHeader: { fontSize: 14, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', marginBottom: 10, letterSpacing: 0.5 },
     
     providerRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9FAFB', padding: 12, borderRadius: 12 },
+    avatarImage: { width: 40, height: 40, borderRadius: 20, marginRight: 12, resizeMode: 'cover' },
     avatarPlaceholder: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#00A8FF', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
     avatarText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
     providerName: { fontSize: 16, fontWeight: '600', color: '#1F2937' },
