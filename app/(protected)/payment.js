@@ -266,9 +266,11 @@ const Payment = () => {
                     const availPromise = isAgency ? fetchAgencyAvailability() : api.get(`/api/guides/${resolvedId}/`);
                     const blockedPromise = isAgency ? Promise.resolve({ data: [] }) : api.get(`/api/bookings/guide_blocked_dates/`, { params: { guide_id: resolvedId } });
                     const toursPromise = destinationIdForTours ? api.get(`/api/destinations/${destinationIdForTours}/tours/`) : Promise.resolve({ data: [] });
-                    const accomPromise = isAgency && selectedAgencyProfileId
-                        ? api.get('/api/accommodations/', { params: { agency_id: selectedAgencyProfileId } })
-                        : api.get('/api/accommodations/');
+                    const accomPromise = isAgency
+                        ? (selectedAgencyProfileId
+                            ? api.get('/api/accommodations/', { params: { agency_id: selectedAgencyProfileId } })
+                            : api.get('/api/accommodations/'))
+                        : api.get('/api/accommodations/', { params: { host_id: resolvedId } });
 
                     const [availRes, blockedRes, toursRes, accomRes] = await Promise.all([
                         availPromise, blockedPromise, toursPromise, accomPromise
@@ -305,9 +307,9 @@ const Payment = () => {
                     const normalizedResolvedId = Number(resolvedId);
                     const normalizedAgencyId = Number(selectedAgencyProfileId);
 
-                    // Accept both user-id and agency-profile-id shapes from different API payloads.
-                    const myAccommodations = accomData.filter(a => {
-                        if (isAgency) {
+                    // Guide flow is pre-filtered by host_id query, while agency flow still needs robust id matching.
+                    const myAccommodations = isAgency
+                        ? accomData.filter(a => {
                             const agencyUser = Number(a.agency_user_id ?? a.agency?.user?.id ?? a.agency?.user ?? a.agency_user);
                             const agencyProfile = Number(a.agency_id ?? a.agency?.id ?? a.agency);
                             const hostOwner = Number(a.host_id ?? a.host?.id ?? a.host?.user ?? a.host);
@@ -320,11 +322,8 @@ const Payment = () => {
                             );
 
                             return profileMatch || userMatch;
-                        } else {
-                            const hId = a.host_id || a.host?.id || a.host?.user || a.host;
-                            return Number(hId) === Number(resolvedId);
-                        }
-                    });
+                        })
+                        : accomData;
 
                     setAccommodationOptions(myAccommodations);
 
