@@ -5,6 +5,7 @@ import { Receipt, MapPin, Calendar, CreditCard, User, Mail, Users, AlertCircle }
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../api/api'; 
+import { useAuth } from '../../context/AuthContext'; // NEW: Imported useAuth
 
 const { height } = Dimensions.get('window');
 
@@ -15,6 +16,8 @@ const TEXT_SECONDARY = '#64748B';
 
 const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
     const router = useRouter();
+    const { refreshUser } = useAuth();
+    
     const { 
         bookingId, guide, agency, startDate, endDate,
         firstName, lastName, email, phoneNumber, country,
@@ -25,7 +28,9 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         validIdImage, userSelfieImage, isNewKycImage,
         placeId,
         additionalGuestNames,
-        packageDurationDays
+        packageDurationDays,
+        itineraryTimeline,   
+        accommodationName    
     } = paymentData || {};
     
     const isPaymentMode = !!bookingId;
@@ -50,7 +55,23 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
     const dpFloat = parseFloat(downPayment || '0');
     const balFloat = parseFloat(balanceDue || '0');
     
-    const days = Number(packageDurationDays) > 0 ? Number(packageDurationDays) : 1;
+    const calculateDays = () => {
+        if (packageDurationDays) return Number(packageDurationDays);
+        if (!startDate || !endDate) return 1;
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const oneDay = 24 * 60 * 60 * 1000;
+        return Math.max(Math.round((end - start) / oneDay) + 1, 1);
+    };
+    const days = calculateDays();
+
+    const parsedItinerary = React.useMemo(() => {
+        try {
+            return itineraryTimeline 
+                ? (typeof itineraryTimeline === 'string' ? JSON.parse(itineraryTimeline) : itineraryTimeline) 
+                : [];
+        } catch (e) { return []; }
+    }, [itineraryTimeline]);
 
     const getItineraryDisplay = () => {
         if (!startDate) return '';
@@ -120,6 +141,28 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
             throw new Error("Missing Destination (Place ID). Please go back and select a destination.");
         }
 
+        const getExtensionFromMime = (mimeType = 'image/jpeg') => {
+            const normalized = String(mimeType || 'image/jpeg').toLowerCase();
+            if (normalized.includes('png')) return 'png';
+            if (normalized.includes('webp')) return 'webp';
+            return 'jpg';
+        };
+
+        const toUploadFile = (uri, preferredName, fallbackPrefix = 'upload', mimeType = 'image/jpeg') => {
+            if (!uri || String(uri).startsWith('data:')) return null;
+
+            const normalizedMime = mimeType || 'image/jpeg';
+            const ext = getExtensionFromMime(normalizedMime);
+            const hasExtension = preferredName && /\.[A-Za-z0-9]+$/.test(preferredName);
+            const fileName = hasExtension ? preferredName : `${fallbackPrefix}_${Date.now()}.${ext}`;
+
+            return {
+                uri: Platform.OS === 'ios' ? String(uri).replace('file://', '') : String(uri),
+                name: fileName,
+                type: normalizedMime,
+            };
+        };
+
         const formatLocalDate = (date) => {
             const year = date.getFullYear();
             const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -159,19 +202,22 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         }
 
         if (validIdImage && isNewKycImage) {
-            const uri = validIdImage;
-            const filename = uri.split('/').pop();
-            const match = /\.(\w+)$/.exec(filename);
-            const type = match ? `image/${match[1]}` : `image/jpeg`;
-            formData.append('tourist_valid_id_image', { uri, name: filename, type });
+            const uri = String(validIdImage);
+            const rawName = uri.split('/').pop() || 'tourist_valid_id';
+            const uploadFile = toUploadFile(uri, rawName, 'tourist_valid_id', 'image/jpeg');
+            if (!uploadFile) {
+                throw new Error('Please reselect your ID image and try again.');
+            }
+            formData.append('tourist_valid_id_image', uploadFile);
         }
 
         if (userSelfieImage) {
-            const uri = userSelfieImage;
-            const filename = uri.split('/').pop();
-            const match = /\.(\w+)$/.exec(filename);
-            const type = match ? `image/${match[1]}` : `image/jpeg`;
-            formData.append('tourist_selfie_image', { uri, name: filename, type });
+            const uri = String(userSelfieImage);
+            const rawName = uri.split('/').pop() || 'tourist_selfie';
+            const uploadFile = toUploadFile(uri, rawName, 'tourist_selfie', 'image/jpeg');
+            if (uploadFile) {
+                formData.append('tourist_selfie_image', uploadFile);
+            }
         }
 
         const response = await api.post('/api/bookings/', formData, {
@@ -208,30 +254,29 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 
         try {
             if (!isPaymentMode) {
-                // First create the booking for both guide and agency flows.
                 const newBooking = await createBooking();
                 setCreatedBookingId(newBooking.id);
 
-                // Agency flow: request submission only (no immediate checkout).
+                // Refresh profile so persisted KYC fields are available in the next booking flow.
+                if (refreshUser) {
+                    await refreshUser();
+                }
+
                 if (isAgencyRequestMode) {
                     setIsSuccess(true);
                     setShowConfirmationScreen(true);
                 } else {
-                    // Guide flow: immediately open down payment checkout.
                     const payableNow = parseFloat(newBooking.down_payment || dpFloat || 0);
                     await initiateDownPayment(newBooking.id, payableNow);
                 }
             } else {
-                // Existing booking payment flow.
                 if (!bookingId) {
                     throw new Error("Missing booking ID for payment.");
                 }
-
                 await initiateDownPayment(bookingId, dpFloat);
             }
         } catch (error) {
             console.error('Payment/Booking error:', error);
-            // Better error extraction for Django DRF responses
             const msg = error.response?.data?.detail 
                         || error.response?.data?.message 
                         || (error.response?.data ? JSON.stringify(error.response.data) : error.message);
@@ -295,13 +340,42 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                             <View style={styles.itemRow}>
                                 <View style={styles.itemIcon}><MapPin size={16} color="#64748B" /></View>
                                 <View style={{flex: 1}}>
-                                    <Text style={styles.itemTitle}>{guide?.name || agency?.name || 'Selected Guide'}</Text>
+                                    <Text style={styles.itemTitle}>{guide?.name || agency?.name || 'Selected Provider'}</Text>
                                     <Text style={styles.itemSub}>{guide ? 'Private Tour Guide' : 'Agency Partner'}</Text>
                                 </View>
                             </View>
+
+                            {(accommodation || accommodationName) && (
+                                <View style={styles.itemRow}>
+                                    <View style={styles.itemIcon}><Ionicons name="bed" size={16} color="#64748B" /></View>
+                                    <View style={{flex: 1}}>
+                                        <Text style={styles.itemTitle}>{accommodation?.title || accommodation?.name || accommodationName || 'Included Stay'}</Text>
+                                        <Text style={styles.itemSub}>Accommodation</Text>
+                                    </View>
+                                </View>
+                            )}
                         </View>
 
                         <DashedLine />
+
+                        {parsedItinerary && parsedItinerary.length > 0 && (
+                            <>
+                                <View style={styles.section}>
+                                    <Text style={styles.sectionLabel}>TOUR SCHEDULE</Text>
+                                    {parsedItinerary.map((dayPlan, index) => (
+                                        <View key={index} style={{marginBottom: 10}}>
+                                            <Text style={{fontSize: 13, fontWeight: '700', color: '#1E293B', marginBottom: 4}}>
+                                                Day {dayPlan.day || (index + 1)}
+                                            </Text>
+                                            <Text style={{fontSize: 13, color: '#475569', lineHeight: 18}}>
+                                                {dayPlan.activityName || dayPlan.activities || dayPlan.title || 'Tour activities for this day.'}
+                                            </Text>
+                                        </View>
+                                    ))}
+                                </View>
+                                <DashedLine />
+                            </>
+                        )}
 
                         <View style={styles.section}>
                             <Text style={styles.sectionLabel}>GUEST CONFIGURATION</Text>

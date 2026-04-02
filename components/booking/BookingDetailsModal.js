@@ -13,7 +13,6 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
         ? `${booking.destination_detail.name} Tour` 
         : (hasAccommodation ? booking.accommodation_detail.title : 'Custom Tour');
 
-    // Updated to fallback to Agency Logo if there is no destination/accommodation image
     const heroImage = hasDestination && booking.destination_detail.image
         ? { uri: booking.destination_detail.image }
         : (hasAccommodation && booking.accommodation_detail.photo
@@ -26,17 +25,14 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
               )
         );
 
-    // Properly extract Agency Business Name
     const providerName = hasDestination || !hasAccommodation
         ? (booking.guide_detail ? `${booking.guide_detail.first_name} ${booking.guide_detail.last_name}` : (booking.agency_detail?.business_name || booking.agency_detail?.username))
         : booking.accommodation_detail.host_full_name;
         
-    // Properly label Agency vs Guide
     const providerRole = hasDestination || !hasAccommodation 
         ? (booking.guide_detail ? 'Local Guide' : 'Travel Agency') 
         : 'Host';
 
-    // Extract Logo or Profile Picture for the Avatar circle
     const providerImage = hasDestination || !hasAccommodation
         ? (booking.guide_detail?.profile_picture || booking.agency_detail?.logo || booking.agency_detail?.profile_picture)
         : null;
@@ -175,7 +171,6 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
                         <View style={styles.section}>
                             <Text style={styles.sectionHeader}>Service Provider</Text>
                             <View style={styles.providerRow}>
-                                {/* Show Logo if it exists, otherwise fallback to Initials */}
                                 {providerImage ? (
                                     <Image source={{ uri: providerImage }} style={styles.avatarImage} />
                                 ) : (
@@ -189,7 +184,30 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
                             </View>
                         </View>
 
-                        {/* --- ASSIGNED AGENCY GUIDES SECTION --- */}
+                        {hasAccommodation && (
+                            <View style={styles.section}>
+                                <Text style={styles.sectionHeader}>Accommodation</Text>
+                                <View style={styles.manifestCardOverview}>
+                                    <View style={styles.manifestRowDetail}>
+                                        <Text style={styles.manifestLabelDetail}>Name:</Text>
+                                        <Text style={styles.manifestValueDetail}>{booking.accommodation_detail?.title || booking.accommodation_detail?.name || 'N/A'}</Text>
+                                    </View>
+                                    {!!booking.accommodation_detail?.location && (
+                                        <View style={styles.manifestRowDetail}>
+                                            <Text style={styles.manifestLabelDetail}>Location:</Text>
+                                            <Text style={styles.manifestValueDetail}>{booking.accommodation_detail.location}</Text>
+                                        </View>
+                                    )}
+                                    {!!booking.accommodation_detail?.price && (
+                                        <View style={styles.manifestRowDetail}>
+                                            <Text style={styles.manifestLabelDetail}>Rate:</Text>
+                                            <Text style={styles.manifestValueDetail}>₱ {Number(booking.accommodation_detail.price).toLocaleString()}/day</Text>
+                                        </View>
+                                    )}
+                                </View>
+                            </View>
+                        )}
+
                         {isAgencyBooking && assignedGuides.length > 0 && (
                             <View style={styles.section}>
                                 <Text style={styles.sectionHeader}>Assigned Tour Guide/s</Text>
@@ -259,6 +277,13 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
                                 </View>
 
                                 <View style={styles.manifestRowDetail}>
+                                    <Text style={styles.manifestLabelDetail}>Contact Number:</Text>
+                                    <Text style={[styles.manifestValueDetail, {textTransform: 'none'}]}>
+                                        {booking.tourist_detail?.phone_number || booking.tourist_detail?.phone_number || "N/A"}
+                                    </Text>
+                                </View>
+
+                                <View style={styles.manifestRowDetail}>
                                     <Text style={styles.manifestLabelDetail}>Total Pax:</Text>
                                     <Text style={styles.manifestValueDetail}>{booking.num_guests} People</Text>
                                 </View>
@@ -288,6 +313,15 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
                                             <Ionicons name="navigate" size={20} color="#F59E0B" />
                                             <Text style={[styles.manifestHeaderText, {color: '#B45309'}]}>Pickup & Coordination</Text>
                                         </View>
+
+                                        {/* NEW: Displays the Meetup Date seamlessly matched to Start Date */}
+                                        <View style={styles.manifestRowDetail}>
+                                            <Text style={styles.manifestLabelDetail}>Date:</Text>
+                                            <Text style={styles.manifestValueDetail}>
+                                                {booking.check_in ? new Date(booking.check_in).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                                            </Text>
+                                        </View>
+
                                         <View style={styles.manifestRowDetail}>
                                             <Text style={styles.manifestLabelDetail}>Location:</Text>
                                             <Text style={styles.manifestValueDetail}>{booking.meetup_location}</Text>
@@ -307,8 +341,7 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
                             </View>
                         </View>
 
-                        {/* EXPLICITLY HIDDEN FOR AGENCIES: Render Itinerary ONLY if not an agency booking */}
-                        {(!isAgencyBooking && (hasDestination || !!booking?.tour_package_detail)) && (
+                        {(hasDestination || !!booking?.tour_package_detail) && (
                             <View style={styles.section}>
                                 <Text style={styles.sectionHeader}>Booked Itinerary Schedule</Text>
                                 {!!tourItineraryByDay ? (

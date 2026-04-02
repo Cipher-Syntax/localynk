@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { View, Text, ScrollView, StatusBar, StyleSheet, Image, TextInput, TouchableOpacity, ActivityIndicator, Alert, Modal, Dimensions, Platform, KeyboardAvoidingView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
-import { PaymentReviewModal } from '../../components/payment';
+import PaymentReviewModal from '../../components/payment/paymentReviewModal';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api/api';
 import { formatPHPhoneLocal, normalizePHPhone } from '../../utils/phoneNumber';
@@ -27,9 +27,11 @@ const Payment = () => {
 
     const {
         entityName, guideName, placeName, bookingId, entityId, guideId, bookingType,
+        agencyId,
         assignedGuides, basePrice, soloPrice, accommodationPrice, accommodationId,
         accommodationName, additionalFee, placeId, tourPackageId, itineraryTimeline, packageDuration: paramPackageDuration,
-        agencyDownPayment 
+        agencyDownPayment, agencyLogo, guideProfilePicture,
+        agencyAvailableDays, agencyOpeningTime, agencyClosingTime
     } = params;
 
     const [fetchedBooking, setFetchedBooking] = useState(null);
@@ -69,6 +71,55 @@ const Payment = () => {
         return inferred > 0 ? inferred : 1;
     };
 
+    const normalizeScheduleDay = (day) => {
+        if (!day) return null;
+        const raw = String(day).trim().toLowerCase();
+        if (raw === 'all' || raw === 'daily' || raw === 'everyday') return 'All';
+        const map = {
+            monday: 'Mon', mon: 'Mon',
+            tuesday: 'Tue', tue: 'Tue', tues: 'Tue',
+            wednesday: 'Wed', wed: 'Wed',
+            thursday: 'Thu', thu: 'Thu', thurs: 'Thu',
+            friday: 'Fri', fri: 'Fri',
+            saturday: 'Sat', sat: 'Sat',
+            sunday: 'Sun', sun: 'Sun',
+        };
+        return map[raw] || null;
+    };
+
+    const formatScheduleDaysLabel = (days, isAgencySchedule = false) => {
+        if (!Array.isArray(days) || days.length === 0) {
+            return isAgencySchedule ? 'Daily' : 'Not set';
+        }
+
+        const orderedDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        const normalized = new Set(days.map(normalizeScheduleDay).filter(Boolean));
+
+        if (normalized.has('All')) return 'Daily';
+
+        const ordered = orderedDays.filter((day) => normalized.has(day));
+        if (ordered.length === 0) return isAgencySchedule ? 'Daily' : 'Not set';
+
+        const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+        if (weekdays.every((day) => normalized.has(day)) && ordered.length === weekdays.length) {
+            return 'Mon - Fri';
+        }
+
+        if (ordered.length === orderedDays.length) return 'Daily';
+        return ordered.join(', ');
+    };
+
+    const formatTimeLabel = (timeStr) => {
+        if (!timeStr) return null;
+        const [hourRaw, minuteRaw] = String(timeStr).split(':');
+        const hour = Number.parseInt(hourRaw, 10);
+        const minute = Number.parseInt(minuteRaw, 10);
+        if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+        const period = hour >= 12 ? 'PM' : 'AM';
+        const twelveHour = hour % 12 || 12;
+        return `${twelveHour}:${String(minute).padStart(2, '0')} ${period}`;
+    };
+
     const [concurrentBookings, setConcurrentBookings] = useState([]);
     const [loadingConcurrent, setLoadingConcurrent] = useState(false);
     
@@ -93,7 +144,16 @@ const Payment = () => {
 
     const isAgency = bookingType === 'agency';
     const isAgencyRequestMode = isAgency && !bookingId;
-    const resolvedName = fetchedBooking?.guide_detail?.username || fetchedBooking?.agency_detail?.username || entityName || guideName || (isAgency ? "Selected Agency" : "Selected Guide");
+    const resolvedName =
+        fetchedBooking?.guide_detail?.full_name ||
+        `${fetchedBooking?.guide_detail?.first_name || ''} ${fetchedBooking?.guide_detail?.last_name || ''}`.trim() ||
+        fetchedBooking?.guide_detail?.username ||
+        fetchedBooking?.agency_detail?.business_name ||
+        fetchedBooking?.agency_detail?.full_name ||
+        fetchedBooking?.agency_detail?.username ||
+        entityName ||
+        guideName ||
+        (isAgency ? "Selected Agency" : "Selected Guide");
     const resolvedId = fetchedBooking?.guide || fetchedBooking?.agency || entityId || guideId;
     const selectedDestinationId = useMemo(() => {
         const rawId = fetchedBooking?.destination || fetchedBooking?.destination_detail?.id || placeId;
@@ -106,50 +166,209 @@ const Payment = () => {
         return String(rawName).trim().toLowerCase();
     }, [fetchedBooking, placeName]);
 
+    const selectedAgencyProfileId = useMemo(() => {
+        const rawId = agencyId || fetchedBooking?.accommodation_detail?.agency_id;
+        const parsed = Number(rawId);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    }, [agencyId, fetchedBooking]);
+
+    const initialAgencyAvailability = useMemo(() => {
+        let parsedDays = [];
+        if (Array.isArray(agencyAvailableDays)) {
+            parsedDays = agencyAvailableDays;
+        } else if (typeof agencyAvailableDays === 'string' && agencyAvailableDays.trim()) {
+            try {
+                const parsed = JSON.parse(agencyAvailableDays);
+                if (Array.isArray(parsed)) parsedDays = parsed;
+            } catch {
+                parsedDays = [];
+            }
+        }
+
+        return {
+            available_days: parsedDays,
+            specific_available_dates: [],
+            opening_time: agencyOpeningTime || null,
+            closing_time: agencyClosingTime || null,
+        };
+    }, [agencyAvailableDays, agencyOpeningTime, agencyClosingTime]);
+
+    const operatingDaysLabel = useMemo(() => {
+        return formatScheduleDaysLabel(guideAvailability?.available_days || [], isAgency);
+    }, [guideAvailability, isAgency]);
+
+    const operatingHoursLabel = useMemo(() => {
+        const open = formatTimeLabel(guideAvailability?.opening_time);
+        const close = formatTimeLabel(guideAvailability?.closing_time);
+        if (open && close) return `${open} - ${close}`;
+        if (open) return `Opens ${open}`;
+        if (close) return `Closes ${close}`;
+        return isAgency ? 'Hours not set' : 'Not set';
+    }, [guideAvailability, isAgency]);
+
     useEffect(() => {
         const fetchAvailabilityAndPackages = async () => {
-            if (!isAgency && resolvedId) {
+            if (resolvedId) { 
                 try {
+                    const destinationIdForTours = selectedDestinationId || null;
+                    const fetchAgencyAvailability = async () => {
+                        try {
+                            const agenciesRes = await api.get('/api/agencies/');
+                            const agenciesData = Array.isArray(agenciesRes.data)
+                                ? agenciesRes.data
+                                : (agenciesRes.data?.results || []);
+
+                            const normalizedResolvedId = Number(resolvedId);
+                            const matchedAgency = agenciesData.find((agency) => {
+                                const profileId = Number(agency?.id);
+                                const userId = Number(agency?.user?.id ?? agency?.user ?? agency?.user_id);
+
+                                if (selectedAgencyProfileId && profileId === Number(selectedAgencyProfileId)) {
+                                    return true;
+                                }
+
+                                return normalizedResolvedId > 0 && (
+                                    userId === normalizedResolvedId ||
+                                    profileId === normalizedResolvedId
+                                );
+                            });
+
+                            if (matchedAgency) {
+                                return {
+                                    data: {
+                                        available_days: Array.isArray(matchedAgency.available_days)
+                                            ? matchedAgency.available_days
+                                            : (initialAgencyAvailability.available_days || []),
+                                        specific_available_dates: [],
+                                        opening_time: matchedAgency.opening_time || initialAgencyAvailability.opening_time || null,
+                                        closing_time: matchedAgency.closing_time || initialAgencyAvailability.closing_time || null,
+                                        logo: matchedAgency.logo || null,
+                                        profile_picture: matchedAgency.profile_picture || null,
+                                    },
+                                };
+                            }
+                        } catch (error) {
+                            console.log('Failed to fetch agency availability, using param fallback.', error?.message || error);
+                        }
+
+                        return {
+                            data: {
+                                available_days: initialAgencyAvailability.available_days?.length
+                                    ? initialAgencyAvailability.available_days
+                                    : ['All'],
+                                specific_available_dates: [],
+                                opening_time: initialAgencyAvailability.opening_time || null,
+                                closing_time: initialAgencyAvailability.closing_time || null,
+                            },
+                        };
+                    };
+
+                    const availPromise = isAgency ? fetchAgencyAvailability() : api.get(`/api/guides/${resolvedId}/`);
+                    const blockedPromise = isAgency ? Promise.resolve({ data: [] }) : api.get(`/api/bookings/guide_blocked_dates/`, { params: { guide_id: resolvedId } });
+                    const toursPromise = destinationIdForTours ? api.get(`/api/destinations/${destinationIdForTours}/tours/`) : Promise.resolve({ data: [] });
+                    const accomPromise = isAgency && selectedAgencyProfileId
+                        ? api.get('/api/accommodations/', { params: { agency_id: selectedAgencyProfileId } })
+                        : api.get('/api/accommodations/');
+
                     const [availRes, blockedRes, toursRes, accomRes] = await Promise.all([
-                        api.get(`/api/guides/${resolvedId}/`),
-                        api.get(`/api/bookings/guide_blocked_dates/`, { params: { guide_id: resolvedId } }),
-                        placeId ? api.get(`/api/destinations/${placeId}/tours/`) : { data: [] },
-                        api.get('/api/accommodations/', { params: { host_id: resolvedId } }),
+                        availPromise, blockedPromise, toursPromise, accomPromise
                     ]);
                     
                     setGuideAvailability(availRes.data);
                     setBlockedDates(blockedRes.data || []);
                     
-                    if (placeId && toursRes.data) {
+                    if (destinationIdForTours && toursRes.data) {
                         const toursData = Array.isArray(toursRes.data) ? toursRes.data : (toursRes.data?.results || []);
-                        const myTours = toursData.filter(t => Number(t.guide) === Number(resolvedId));
+                        
+                        const myTours = toursData.filter(t => {
+                            if (isAgency) {
+                                const aId = t.agency_user_id || t.agency?.id || t.agency?.user || t.agency;
+                                return Number(aId) === Number(resolvedId);
+                            } else {
+                                const gId = t.guide?.id || t.guide?.user || t.guide;
+                                return Number(gId) === Number(resolvedId);
+                            }
+                        });
+                        
                         setGuidePackages(myTours);
                         if (myTours.length > 0) {
-                            const defaultTour = myTours.find(t => Number(t.id) === Number(tourPackageId)) || myTours[0];
+                            const preferredTourId = Number(
+                                tourPackageId || fetchedBooking?.tour_package_detail?.id || fetchedBooking?.tour_package
+                            );
+                            const defaultTour = myTours.find(t => Number(t.id) === preferredTourId) || myTours[0];
                             setSelectedPackage(defaultTour);
                         }
                     }
 
                     const accomData = Array.isArray(accomRes.data) ? accomRes.data : (accomRes.data?.results || []);
-                    setAccommodationOptions(accomData);
+                    
+                    const normalizedResolvedId = Number(resolvedId);
+                    const normalizedAgencyId = Number(selectedAgencyProfileId);
 
-                    const preselectedByParam = accomData.find((a) => Number(a.id) === Number(accommodationId));
+                    // Accept both user-id and agency-profile-id shapes from different API payloads.
+                    const myAccommodations = accomData.filter(a => {
+                        if (isAgency) {
+                            const agencyUser = Number(a.agency_user_id ?? a.agency?.user?.id ?? a.agency?.user ?? a.agency_user);
+                            const agencyProfile = Number(a.agency_id ?? a.agency?.id ?? a.agency);
+                            const hostOwner = Number(a.host_id ?? a.host?.id ?? a.host?.user ?? a.host);
+
+                            const profileMatch = normalizedAgencyId > 0 && agencyProfile === normalizedAgencyId;
+                            const userMatch = normalizedResolvedId > 0 && (
+                                agencyUser === normalizedResolvedId ||
+                                hostOwner === normalizedResolvedId ||
+                                agencyProfile === normalizedResolvedId
+                            );
+
+                            return profileMatch || userMatch;
+                        } else {
+                            const hId = a.host_id || a.host?.id || a.host?.user || a.host;
+                            return Number(hId) === Number(resolvedId);
+                        }
+                    });
+
+                    setAccommodationOptions(myAccommodations);
+
+                    const preferredAccommodationId = Number(
+                        accommodationId || fetchedBooking?.accommodation_detail?.id || fetchedBooking?.accommodation
+                    );
+                    const preselectedByParam = myAccommodations.find((a) => Number(a.id) === preferredAccommodationId);
                     setSelectedAccommodation(preselectedByParam || null);
                     setAccommodationInitialized(true);
-                } catch (error) { console.error("Failed to fetch guide data:", error); }
+                } catch (error) { 
+                    console.error("Failed to fetch provider data:", error); 
+                }
             }
         };
         fetchAvailabilityAndPackages();
-    }, [resolvedId, isAgency, placeId, tourPackageId, accommodationId]);
+    }, [resolvedId, isAgency, selectedDestinationId, tourPackageId, accommodationId, selectedAgencyProfileId, fetchedBooking, initialAgencyAvailability]);
 
-    const activeDuration = selectedPackage ? getPackageDurationDays(selectedPackage) : (parseInt(paramPackageDuration) || 1);
-    const activeItinerary = selectedPackage ? selectedPackage.itinerary_timeline : itineraryTimeline;
+    const bookingDurationFromFetched = useMemo(() => {
+        const checkIn = fetchedBooking?.check_in;
+        const checkOut = fetchedBooking?.check_out || fetchedBooking?.check_in;
+        if (!checkIn || !checkOut) return 0;
+
+        const start = new Date(checkIn);
+        const end = new Date(checkOut);
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
+
+        start.setHours(0, 0, 0, 0);
+        end.setHours(0, 0, 0, 0);
+        return Math.max(Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1, 1);
+    }, [fetchedBooking]);
+
+    const activeDuration = selectedPackage
+        ? getPackageDurationDays(selectedPackage)
+        : (parseInt(paramPackageDuration) || bookingDurationFromFetched || 1);
+    const activeItinerary = selectedPackage
+        ? selectedPackage.itinerary_timeline
+        : (itineraryTimeline || fetchedBooking?.tour_package_detail?.itinerary_timeline || null);
     const tourCostGroup = selectedPackage ? parseFloat(selectedPackage.price_per_day) : (basePrice ? parseFloat(basePrice) : 500);
     const tourCostSolo = selectedPackage ? parseFloat(selectedPackage.solo_price) : (soloPrice ? parseFloat(soloPrice) : tourCostGroup);
     const extraPersonFee = selectedPackage ? parseFloat(selectedPackage.additional_fee_per_head || 0) : (additionalFee ? parseFloat(additionalFee) : 0);
+    const fetchedAccommodationPrice = parseFloat(fetchedBooking?.accommodation_detail?.price || 0);
     const accomCost = accommodationInitialized
-        ? (selectedAccommodation ? parseFloat(selectedAccommodation.price || 0) : 0)
-        : (accommodationPrice ? parseFloat(accommodationPrice) : 0);
+        ? (selectedAccommodation ? parseFloat(selectedAccommodation.price || 0) : fetchedAccommodationPrice)
+        : (accommodationPrice ? parseFloat(accommodationPrice) : fetchedAccommodationPrice);
     
     const parsedItinerary = useMemo(() => {
         try { return activeItinerary ? (typeof activeItinerary === 'string' ? JSON.parse(activeItinerary) : activeItinerary) : []; } 
@@ -175,19 +394,23 @@ const Payment = () => {
     const bookingEntity = {
         id: resolvedId,
         name: resolvedName,
-        purpose: placeName ? `Tour at ${placeName}` : "Private Tour",
+        purpose: (fetchedBooking?.destination_detail?.name || placeName)
+            ? `Tour at ${fetchedBooking?.destination_detail?.name || placeName}`
+            : "Private Tour",
         address: isAgency ? "Verified Agency" : "Local Guide",
         basePrice: tourCostGroup, 
         serviceFee: 50,
     };
     
     const effectiveAccommodationId = accommodationInitialized
-        ? (selectedAccommodation?.id || null)
-        : (accommodationId || null);
+        ? (selectedAccommodation?.id || fetchedBooking?.accommodation_detail?.id || null)
+        : (accommodationId || fetchedBooking?.accommodation_detail?.id || null);
     const effectiveAccommodationName = accommodationInitialized
-        ? (selectedAccommodation?.title || selectedAccommodation?.name || null)
-        : (accommodationName || null);
-    const accomEntity = effectiveAccommodationId ? { name: effectiveAccommodationName || "Selected Accommodation", price: accomCost } : null;
+        ? (selectedAccommodation?.title || selectedAccommodation?.name || fetchedBooking?.accommodation_detail?.title || fetchedBooking?.accommodation_detail?.name || null)
+        : (accommodationName || fetchedBooking?.accommodation_detail?.title || fetchedBooking?.accommodation_detail?.name || null);
+    const accomEntity = (effectiveAccommodationId || effectiveAccommodationName)
+        ? { name: effectiveAccommodationName || "Selected Accommodation", price: accomCost }
+        : null;
 
     const formatDateForCalendar = (date) => {
         const year = date.getFullYear();
@@ -217,10 +440,107 @@ const Payment = () => {
         return timeStr;
     };
 
+    const isLocalMediaUri = (value) => {
+        if (!value) return false;
+        return /^(file|content|ph|assets-library|data):/i.test(String(value).trim());
+    };
+
+    const getApiOrigin = () => {
+        try {
+            const rawBase = api.defaults.baseURL;
+            if (!rawBase) return null;
+            const parsed = new URL(rawBase);
+            return `${parsed.protocol}//${parsed.host}`;
+        } catch {
+            return null;
+        }
+    };
+
+    const normalizeRemoteUri = (value) => {
+        if (!value) return value;
+        const raw = String(value).trim();
+
+        try {
+            const parsed = new URL(raw);
+            const host = (parsed.hostname || '').toLowerCase();
+            const isLoopbackHost = host === 'localhost' || host === '127.0.0.1' || host === '10.0.2.2';
+
+            if (isLoopbackHost) {
+                const apiOrigin = getApiOrigin();
+                if (apiOrigin) {
+                    return `${apiOrigin}${parsed.pathname}${parsed.search || ''}`;
+                }
+            }
+
+            if (parsed.protocol === 'http:' && !isLoopbackHost) {
+                parsed.protocol = 'https:';
+                return parsed.toString();
+            }
+
+            return parsed.toString();
+        } catch {
+            return raw;
+        }
+    };
+
+    const toSecureRemoteUri = (value) => {
+        return normalizeRemoteUri(value);
+    };
+
     const getImageUrl = (imgPath) => {
-        if (!imgPath || imgPath.startsWith('http') || imgPath.startsWith('file://')) return imgPath;
-        const base = api.defaults.baseURL || 'http://127.0.0.1:8000';
-        return `${base}${imgPath}`;
+        if (imgPath === null || imgPath === undefined) return null;
+        const normalizedPath = String(imgPath).trim();
+        if (!normalizedPath || normalizedPath === 'null' || normalizedPath === 'undefined') return null;
+
+        if (isLocalMediaUri(normalizedPath)) return normalizedPath;
+
+        const cloudinaryIndex = normalizedPath.indexOf('res.cloudinary.com/');
+        if (cloudinaryIndex >= 0) {
+            const cloudinaryPath = normalizedPath.slice(cloudinaryIndex);
+            const cloudinaryUrl = `https://${cloudinaryPath}`;
+            return encodeURI(cloudinaryUrl);
+        }
+
+        if (normalizedPath.startsWith('http')) return normalizeRemoteUri(normalizedPath);
+        if (normalizedPath.startsWith('file://')) return normalizedPath;
+        const base = (api.defaults.baseURL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+        const normalizedRelativePath = normalizedPath.replace(/^\/+/, '');
+
+        const likelyMediaFolders = [
+            'user_kyc/',
+            'profiles/',
+            'booking_ids/',
+            'booking_selfies/',
+            'accommodations/',
+            'agency/',
+        ];
+
+        if (normalizedRelativePath.startsWith('media/')) {
+            return `${base}/${normalizedRelativePath}`;
+        }
+
+        if (likelyMediaFolders.some((folder) => normalizedRelativePath.startsWith(folder))) {
+            return `${base}/media/${normalizedRelativePath}`;
+        }
+
+        return `${base}/${normalizedRelativePath}`;
+    };
+
+    const normalizeDisplayImageUri = (rawPath) => {
+        const uri = getImageUrl(rawPath);
+        if (!uri) return null;
+        if (isLocalMediaUri(uri)) return uri;
+        let secureUri = normalizeRemoteUri(String(uri).replace('http://res.cloudinary.com/', 'https://res.cloudinary.com/'));
+
+        // Normalize known KYC Cloudinary URL variants to one stable path.
+        if (/res\.cloudinary\.com/i.test(secureUri)) {
+            secureUri = secureUri
+                .replace('https://res.cloudinary.com/media/', 'https://res.cloudinary.com/')
+                .replace('/image/upload/v1/media/user_kyc/', '/image/upload/media/user_kyc/')
+                .replace('/image/upload/v1/user_kyc/', '/image/upload/media/user_kyc/');
+        }
+
+        return encodeURI(secureUri);
     };
 
     const [startDate, setStartDate] = useState(() => {
@@ -246,6 +566,8 @@ const Payment = () => {
     const [email, setEmail] = useState('');
     
     const [validIdImage, setValidIdImage] = useState(null);
+    const [validIdPreviewImage, setValidIdPreviewImage] = useState(null);
+    const [validIdImageLoadFailed, setValidIdImageLoadFailed] = useState(false);
     const [userSelfieImage, setUserSelfieImage] = useState(null);
     const [guestNames, setGuestNames] = useState([]);
 
@@ -261,6 +583,47 @@ const Payment = () => {
         { key: 'qrph', name: 'QR Ph', icon: 'qr-code-outline' },
         { key: 'card', name: 'Card', icon: 'card-outline' },
     ];
+
+    const pickerMediaTypes = ImagePicker.MediaType?.Images
+        ? [ImagePicker.MediaType.Images]
+        : ImagePicker.MediaTypeOptions.Images;
+    const kycRetryHydrateRef = useRef(false);
+    const kycPreviewFallbackTriedRef = useRef(false);
+
+    const getImageSource = (uri) => {
+        if (!uri) return null;
+        const normalized = String(uri);
+        const shouldAttachNgrokHeader = /^https?:\/\/.+ngrok/i.test(normalized);
+        if (!shouldAttachNgrokHeader) {
+            return { uri: normalized };
+        }
+        return {
+            uri: normalized,
+            headers: {
+                'ngrok-skip-browser-warning': 'true',
+            },
+        };
+    };
+
+    const displayedValidIdImage = validIdPreviewImage || validIdImage;
+
+    const handleValidIdPreviewError = () => {
+        if (validIdPreviewImage && String(validIdPreviewImage).startsWith('data:') && validIdImage && validIdPreviewImage !== validIdImage) {
+            setValidIdPreviewImage(validIdImage);
+            return;
+        }
+
+        if (!kycPreviewFallbackTriedRef.current) {
+            const fallbackCandidate = normalizeDisplayImageUri(validIdImage || displayedValidIdImage);
+            if (fallbackCandidate && fallbackCandidate !== displayedValidIdImage) {
+                kycPreviewFallbackTriedRef.current = true;
+                setValidIdPreviewImage(fallbackCandidate);
+                return;
+            }
+        }
+
+        setValidIdImageLoadFailed(true);
+    };
 
     useEffect(() => {
         const count = parseInt(numPeople) || 1;
@@ -300,12 +663,13 @@ const Payment = () => {
         const isDateSelectable = (dateObj) => {
             const dateStr = formatDateForCalendar(dateObj);
             if (blockedDates.includes(dateStr)) return false;
-            if (isAgency) return true;
 
             const dayName = dayNames[dateObj.getDay()];
             const isSpecific = specificDates.includes(dateStr);
             const isRecurring = recurringDays.includes('All') || recurringDays.includes(dayName);
-            return specificDates.length > 0 ? isSpecific : isRecurring;
+            return specificDates.length > 0
+                ? isSpecific
+                : (recurringDays.length > 0 ? isRecurring : isAgency);
         };
 
         const tomorrow = new Date();
@@ -349,15 +713,79 @@ const Payment = () => {
     }, [activeDuration, startDate, isPayable, isConfirmed]);
 
     useEffect(() => {
+        let isCancelled = false;
+        const hasPendingLocalIdSelection = isLocalMediaUri(validIdImage);
+
+        const hydratePersistedKyc = async () => {
+            if (!user || validIdImage || hasPendingLocalIdSelection) return;
+            try {
+                const response = await api.get('/api/profile/');
+                const persistedId = normalizeDisplayImageUri(response.data?.valid_id_image);
+                if (!isCancelled && persistedId) {
+                    setValidIdImage(persistedId);
+                    setValidIdPreviewImage(persistedId);
+                    setValidIdImageLoadFailed(false);
+                    kycRetryHydrateRef.current = false;
+                    kycPreviewFallbackTriedRef.current = false;
+                }
+            } catch (error) {
+                console.log('KYC profile refresh skipped:', error?.message || error);
+            }
+        };
+
         if (user) {
             setFirstName(user.first_name || '');
             setLastName(user.last_name || '');
             setEmail(user.email || '');
             setPhoneNumber(formatPHPhoneLocal(user.phone_number || ''));
             setCountry(user.location || '');
-            if (user.valid_id_image) setValidIdImage(getImageUrl(user.valid_id_image));
+            if (user.valid_id_image && !hasPendingLocalIdSelection) {
+                const persistedId = normalizeDisplayImageUri(user.valid_id_image);
+                if (persistedId) {
+                    setValidIdImage(persistedId);
+                    setValidIdPreviewImage(persistedId);
+                    setValidIdImageLoadFailed(false);
+                    kycRetryHydrateRef.current = false;
+                    kycPreviewFallbackTriedRef.current = false;
+                }
+            }
         }
+
+        hydratePersistedKyc();
+
+        return () => {
+            isCancelled = true;
+        };
     }, [user]);
+
+    useEffect(() => {
+        if (!validIdImageLoadFailed || !validIdImage || isLocalMediaUri(validIdImage)) return;
+        if (kycRetryHydrateRef.current) return;
+
+        kycRetryHydrateRef.current = true;
+        let isCancelled = false;
+
+        const retryHydrateKycImage = async () => {
+            try {
+                const response = await api.get('/api/profile/');
+                const persistedId = normalizeDisplayImageUri(response.data?.valid_id_image);
+                if (!isCancelled && persistedId) {
+                    setValidIdImage(persistedId);
+                    setValidIdPreviewImage(persistedId);
+                    setValidIdImageLoadFailed(false);
+                    kycPreviewFallbackTriedRef.current = false;
+                }
+            } catch (error) {
+                console.log('KYC retry refresh skipped:', error?.message || error);
+            }
+        };
+
+        retryHydrateKycImage();
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [validIdImageLoadFailed, validIdImage]);
 
     useEffect(() => {
         if (!isAgency || !resolvedId) return; 
@@ -437,17 +865,15 @@ const Payment = () => {
                 continue;
             }
 
-            if (isAgency) {
-                marked[dateStr] = { disabled: false, textColor: TEXT_PRIMARY };
-            } else {
-                const dayName = dayNames[d.getDay()];
-                const isSpecific = specificDates.includes(dateStr);
-                const isRecurring = recurringDays.includes("All") || recurringDays.includes(dayName);
-                const isAvailable = specificDates.length > 0 ? isSpecific : isRecurring;
-                
-                if (isAvailable) marked[dateStr] = { disabled: false, textColor: TEXT_PRIMARY };
-                else marked[dateStr] = { disabled: true, disableTouchEvent: true, textColor: '#d9d9d9', color: '#f9f9f9' };
-            }
+            const dayName = dayNames[d.getDay()];
+            const isSpecific = specificDates.includes(dateStr);
+            const isRecurring = recurringDays.includes("All") || recurringDays.includes(dayName);
+            const isAvailable = specificDates.length > 0
+                ? isSpecific
+                : (recurringDays.length > 0 ? isRecurring : isAgency);
+
+            if (isAvailable) marked[dateStr] = { disabled: false, textColor: TEXT_PRIMARY };
+            else marked[dateStr] = { disabled: true, disableTouchEvent: true, textColor: '#d9d9d9', color: '#f9f9f9' };
         }
 
         const startStr = formatDateForCalendar(startDate);
@@ -501,7 +927,7 @@ const Payment = () => {
              return true;
         }
         
-        if (!isAgency && guideAvailability) {
+        if (guideAvailability) {
             let checkCurr = new Date(checkStart);
             let hasUnavailable = false;
             const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -513,7 +939,9 @@ const Payment = () => {
                 const dayName = dayNames[checkCurr.getDay()];
                 const isSpecific = specificDates.includes(dStr);
                 const isRecurring = recurringDays.includes("All") || recurringDays.includes(dayName);
-                const isAvailable = specificDates.length > 0 ? isSpecific : isRecurring;
+                const isAvailable = specificDates.length > 0
+                    ? isSpecific
+                    : (recurringDays.length > 0 ? isRecurring : isAgency);
 
                 if (!isAvailable) { hasUnavailable = true; break; }
                 checkCurr.setDate(checkCurr.getDate() + 1);
@@ -521,7 +949,7 @@ const Payment = () => {
 
             if (hasUnavailable) {
                 setCalendarVisible(false);
-                setTimeout(() => showError("Your multi-day package includes dates the guide is not working."), 300);
+                setTimeout(() => showError(`Your selected dates include days when the ${isAgency ? 'agency' : 'guide'} is unavailable.`), 300);
                 return true;
             }
         }
@@ -571,10 +999,34 @@ const Payment = () => {
     const pickImage = async () => {
         setIsLoadingImage(true);
         let result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images, 
-            allowsEditing: false, aspect: [4, 3], quality: 1
+            mediaTypes: pickerMediaTypes,
+            allowsEditing: false, aspect: [4, 3], quality: 0.8, base64: true
         });
-        if (!result.canceled) setValidIdImage(result.assets[0].uri);
+        if (!result.canceled) {
+            const selectedAsset = result?.assets?.[0];
+            const selectedUri = selectedAsset?.uri;
+            if (!selectedUri) {
+                showError('Unable to read the selected image. Please try a different photo.');
+                setIsLoadingImage(false);
+                return;
+            }
+
+            const normalizedSelectedUri = normalizeDisplayImageUri(selectedUri);
+            if (!normalizedSelectedUri) {
+                showError('Unable to preview the selected image. Please try another file.');
+                setIsLoadingImage(false);
+                return;
+            }
+
+            const mime = selectedAsset?.mimeType || 'image/jpeg';
+            const base64Preview = selectedAsset?.base64 ? `data:${mime};base64,${selectedAsset.base64}` : null;
+
+            setValidIdImage(normalizedSelectedUri);
+            setValidIdPreviewImage(base64Preview || normalizedSelectedUri);
+            setValidIdImageLoadFailed(false);
+            kycRetryHydrateRef.current = false;
+            kycPreviewFallbackTriedRef.current = false;
+        }
         setIsLoadingImage(false);
     };
 
@@ -582,7 +1034,7 @@ const Payment = () => {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') { Alert.alert("Permission Denied", "Camera permission is required to take a selfie."); return; }
         let result = await ImagePicker.launchCameraAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: pickerMediaTypes,
             allowsEditing: true, aspect: [1, 1], quality: 0.8, cameraType: ImagePicker.CameraType.front,
         });
         if (!result.canceled) setUserSelfieImage(result.assets[0].uri);
@@ -599,6 +1051,13 @@ const Payment = () => {
         const endStr = formatDateForCalendar(endDate);
         if (startStr === endStr && activeDuration > 1) { showError("Multi-day packages cannot start and end on the same day."); return; }
         if (startDate > endDate) { showError("End date cannot be before start date."); return; }
+
+        // Re-validate date range at submit time so unchanged default dates cannot bypass availability checks.
+        if (!isPayable && !isConfirmed) {
+            if (checkDateBlockages(startDate, endDate)) {
+                return;
+            }
+        }
 
         if (selectedOption === 'group') {
             const enteredGuests = parseInt(numPeople, 10) || 1;
@@ -675,12 +1134,45 @@ const Payment = () => {
         setBalanceDue(calculatedBalance);
     }, [startDate, endDate, selectedOption, numPeople, tourCostGroup, tourCostSolo, accomCost, extraPersonFee, activeDuration, fetchedBooking, agencyDownPayment]);
 
+    // Pick provider avatar/logo with graceful fallback to icon when no valid image exists.
     const profileImageSource = useMemo(() => {
-        if (!isAgency && guideAvailability && guideAvailability.profile_picture) {
-            return { uri: getImageUrl(guideAvailability.profile_picture) };
+        const buildSource = (rawPath) => {
+            const uri = getImageUrl(rawPath);
+            return uri ? { uri } : null;
+        };
+
+        if (fetchedBooking) {
+            if (isAgency && (fetchedBooking.agency_detail?.logo || fetchedBooking.agency_detail?.profile_picture)) {
+                const source = buildSource(fetchedBooking.agency_detail.logo || fetchedBooking.agency_detail.profile_picture);
+                if (source) return source;
+            }
+            if (!isAgency && fetchedBooking.guide_detail?.profile_picture) {
+                const source = buildSource(fetchedBooking.guide_detail.profile_picture);
+                if (source) return source;
+            }
         }
+        if (guideAvailability) {
+            if (guideAvailability.logo) {
+                const source = buildSource(guideAvailability.logo);
+                if (source) return source;
+            }
+            if (guideAvailability.profile_picture) {
+                const source = buildSource(guideAvailability.profile_picture);
+                if (source) return source;
+            }
+        }
+        
+        if (agencyLogo) {
+            const source = buildSource(agencyLogo);
+            if (source) return source;
+        }
+        if (guideProfilePicture) {
+            const source = buildSource(guideProfilePicture);
+            if (source) return source;
+        }
+        
         return null;
-    }, [isAgency, guideAvailability]);
+    }, [isAgency, fetchedBooking, guideAvailability, agencyLogo, guideProfilePicture]);
 
     const displayDpPercentage = useMemo(() => {
         if (fetchedBooking && parseFloat(fetchedBooking.total_price) > 0) {
@@ -736,6 +1228,18 @@ const Payment = () => {
                                     <View style={styles.guideInfo}>
                                         <Text style={styles.guideName}>{bookingEntity.name}</Text>
                                         <Text style={styles.guideSub}>{bookingEntity.purpose}</Text>
+                                        {isAgency && (
+                                            <View style={styles.providerScheduleWrap}>
+                                                <View style={styles.providerScheduleRow}>
+                                                    <Text style={styles.providerScheduleLabel}>Operating Days:</Text>
+                                                    <Text style={styles.providerScheduleValue}>{operatingDaysLabel}</Text>
+                                                </View>
+                                                <View style={styles.providerScheduleRow}>
+                                                    <Text style={styles.providerScheduleLabel}>Operating Hours:</Text>
+                                                    <Text style={styles.providerScheduleValue}>{operatingHoursLabel}</Text>
+                                                </View>
+                                            </View>
+                                        )}
                                     </View>
                                 </View>
                             </View>
@@ -851,7 +1355,7 @@ const Payment = () => {
                                     </View>
                                 )}
 
-                                {!isPayable && !isConfirmed && !isAgency && (
+                                {!isPayable && !isConfirmed && (
                                     <View style={styles.accommodationSelectorCard}>
                                         <View style={styles.sectionHeader}>
                                             <Bed size={18} color="#1A2332" />
@@ -893,6 +1397,21 @@ const Payment = () => {
                                                 );
                                             })}
                                         </ScrollView>
+                                    </View>
+                                )}
+
+                                {(isPayable || isConfirmed) && !!effectiveAccommodationName && (
+                                    <View style={styles.readonlyAccommodationCard}>
+                                        <View style={styles.sectionHeader}>
+                                            <Bed size={18} color="#1A2332" />
+                                            <Text style={styles.detailsHeader}>Accommodation</Text>
+                                        </View>
+                                        <View style={styles.readonlyAccommodationRow}>
+                                            <Text style={styles.readonlyAccommodationName}>{effectiveAccommodationName}</Text>
+                                            <Text style={styles.readonlyAccommodationPrice}>
+                                                {accomCost > 0 ? `₱${accomCost.toLocaleString()}/day` : 'Included in booking'}
+                                            </Text>
+                                        </View>
                                     </View>
                                 )}
 
@@ -1015,12 +1534,19 @@ const Payment = () => {
                                     <View style={styles.kycRow}>
                                         <View style={styles.kycItem}>
                                             <TouchableOpacity style={[styles.kycCard, validIdImage && styles.kycCardDone]} onPress={pickImage}>
-                                                {validIdImage ? (
-                                                    <Image source={{ uri: validIdImage }} style={styles.kycImage} />
+                                                {displayedValidIdImage && !validIdImageLoadFailed ? (
+                                                    <Image
+                                                        source={getImageSource(displayedValidIdImage)}
+                                                        style={styles.kycImage}
+                                                        onLoad={() => {
+                                                            if (validIdImageLoadFailed) setValidIdImageLoadFailed(false);
+                                                        }}
+                                                        onError={handleValidIdPreviewError}
+                                                    />
                                                 ) : (
                                                     <View style={styles.kycPlaceholder}>
                                                         <UploadCloud size={24} color={PRIMARY_COLOR} />
-                                                        <Text style={styles.kycText}>Upload ID</Text>
+                                                        <Text style={styles.kycText}>{validIdImage ? 'Preview unavailable. Tap to reselect' : 'Upload ID'}</Text>
                                                     </View>
                                                 )}
                                                 {validIdImage && <View style={styles.checkBubble}><CheckCircle2 size={16} color="#fff" /></View>}
@@ -1235,10 +1761,12 @@ const Payment = () => {
                             paymentMethod: selectedPaymentMethod, groupType: selectedOption,
                             numberOfPeople: selectedOption === 'group' ? (parseInt(numPeople) < 2 ? 2 : parseInt(numPeople)) : 1,
                             additionalGuestNames: guestNames, 
-                            validIdImage, userSelfieImage, isNewKycImage: validIdImage && validIdImage.startsWith('file://'),
+                            validIdImage, userSelfieImage, isNewKycImage: isLocalMediaUri(validIdImage),
                             tourCost: currentGuideFee, accomCost, extraPersonFee,
                             packageDurationDays: activeDuration,
-                            status: currentStatus 
+                            status: currentStatus,
+                            itineraryTimeline: activeItinerary,           
+                            accommodationName: effectiveAccommodationName 
                         }}
                     />
                 )}
@@ -1266,6 +1794,10 @@ const styles = StyleSheet.create({
     avatarImage: { width: '100%', height: '100%', borderRadius: 28 },
     guideName: { fontSize: 18, fontWeight: '700', color: TEXT_PRIMARY },
     guideSub: { fontSize: 13, color: TEXT_SECONDARY },
+    providerScheduleWrap: { marginTop: 8, gap: 2 },
+    providerScheduleRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
+    providerScheduleLabel: { fontSize: 12, color: '#334155', fontWeight: '600', marginRight: 4 },
+    providerScheduleValue: { fontSize: 12, color: '#0F172A', fontWeight: '700' },
     verifiedTag: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 4, backgroundColor: '#ECFDF5', alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
     verifiedText: { fontSize: 11, color: '#059669', fontWeight: '600' },
     sectionTitle: { fontSize: 16, fontWeight: '700', color: TEXT_PRIMARY, marginBottom: 12 },
@@ -1276,6 +1808,10 @@ const styles = StyleSheet.create({
     packagePillText: { fontSize: 14, fontWeight: '600', color: TEXT_SECONDARY },
     packagePillTextActive: { color: PRIMARY_COLOR },
     accommodationSelectorCard: { backgroundColor: '#F5F7FA', borderRadius: 15, padding: 14, borderWidth: 1, borderColor: '#E0E6ED', marginBottom: 14 },
+    readonlyAccommodationCard: { backgroundColor: '#F8FAFC', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 14 },
+    readonlyAccommodationRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    readonlyAccommodationName: { flex: 1, fontSize: 14, fontWeight: '700', color: TEXT_PRIMARY, marginRight: 10 },
+    readonlyAccommodationPrice: { fontSize: 13, fontWeight: '700', color: '#0369A1' },
     sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 },
     detailsHeader: { fontSize: 16, fontWeight: '700', color: '#1A2332' },
     

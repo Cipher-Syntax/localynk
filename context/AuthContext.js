@@ -187,6 +187,11 @@ export function AuthProvider({ children }) {
         }
     };
 
+    const isPortalOnlyAccount = useCallback((userProfile) => {
+        if (!userProfile) return false;
+        return Boolean(userProfile.is_superuser || userProfile.is_staff || userProfile.agency_profile);
+    }, []);
+
     const updateUserProfile = async (profileData) => {
         try {
             const response = await api.patch('/api/profile/', profileData);
@@ -231,6 +236,22 @@ export function AuthProvider({ children }) {
                     
                     const user = await fetchProfile();
                     if (user) {
+                        if (isPortalOnlyAccount(user)) {
+                            await AsyncStorage.multiRemove([ACCESS_TOKEN, REFRESH_TOKEN]);
+                            setApiToken(null);
+
+                            const portalLabel = user.is_superuser ? 'Admin Portal' : 'Agency Portal';
+                            setState({
+                                isAuthenticated: false,
+                                user: null,
+                                token: null,
+                                isLoading: false,
+                                message: `This account must sign in through the ${portalLabel}.`,
+                                messageType: 'error'
+                            });
+                            return;
+                        }
+
                         setState({
                             isAuthenticated: true,
                             user,
@@ -251,7 +272,7 @@ export function AuthProvider({ children }) {
         };
 
         loadStoredUser();
-    }, []);
+    }, [isPortalOnlyAccount]);
 
     useEffect(() => {
         if (!state.isAuthenticated) return;
@@ -322,6 +343,23 @@ export function AuthProvider({ children }) {
                 user: null,
                 message: "Please verify your email first.",
                 messageType: "error",
+            }));
+            return false;
+        }
+
+        if (isPortalOnlyAccount(user)) {
+            await AsyncStorage.multiRemove([ACCESS_TOKEN, REFRESH_TOKEN]);
+            setApiToken(null);
+
+            const portalLabel = user.is_superuser ? 'Admin Portal' : 'Agency Portal';
+            setState(prev => ({
+                ...prev,
+                isLoading: false,
+                isAuthenticated: false,
+                user: null,
+                token: null,
+                message: `This account must sign in through the ${portalLabel}.`,
+                messageType: 'error',
             }));
             return false;
         }

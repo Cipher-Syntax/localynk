@@ -9,6 +9,63 @@ import { formatPHPhoneLocal } from '../../utils/phoneNumber';
 
 const { width, height } = Dimensions.get('window');
 
+const DAY_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+const normalizeDayToken = (day) => {
+    if (!day) return null;
+    const raw = String(day).trim().toLowerCase();
+    if (raw === 'all' || raw === 'daily' || raw === 'everyday') return 'All';
+    const map = {
+        monday: 'Mon', mon: 'Mon',
+        tuesday: 'Tue', tue: 'Tue', tues: 'Tue',
+        wednesday: 'Wed', wed: 'Wed',
+        thursday: 'Thu', thu: 'Thu', thurs: 'Thu',
+        friday: 'Fri', fri: 'Fri',
+        saturday: 'Sat', sat: 'Sat',
+        sunday: 'Sun', sun: 'Sun',
+    };
+    return map[raw] || null;
+};
+
+const formatOperatingDays = (days) => {
+    if (!Array.isArray(days) || days.length === 0) return 'Daily';
+
+    const normalized = new Set(days.map(normalizeDayToken).filter(Boolean));
+    if (normalized.has('All')) return 'Daily';
+
+    const ordered = DAY_ORDER.filter((day) => normalized.has(day));
+    if (ordered.length === 0) return 'Daily';
+
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+    if (weekdays.every((day) => normalized.has(day)) && ordered.length === weekdays.length) {
+        return 'Mon - Fri';
+    }
+
+    if (ordered.length === DAY_ORDER.length) return 'Daily';
+    return ordered.join(', ');
+};
+
+const formatTimeValue = (timeStr) => {
+    if (!timeStr) return null;
+    const [hourRaw, minuteRaw] = String(timeStr).split(':');
+    const hour = Number.parseInt(hourRaw, 10);
+    const minute = Number.parseInt(minuteRaw, 10);
+    if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const twelveHour = hour % 12 || 12;
+    return `${twelveHour}:${String(minute).padStart(2, '0')} ${period}`;
+};
+
+const formatOperatingHours = (openingTime, closingTime) => {
+    const open = formatTimeValue(openingTime);
+    const close = formatTimeValue(closingTime);
+
+    if (open && close) return `${open} - ${close}`;
+    if (open) return `Opens ${open}`;
+    if (close) return `Closes ${close}`;
+    return 'Hours not set';
+};
+
 const AgencySelection = () => {
     const router = useRouter();
     const params = useLocalSearchParams();
@@ -21,9 +78,38 @@ const AgencySelection = () => {
 
     useEffect(() => {
         const fetchAgencies = async () => {
+            setLoading(true);
             try {
-                const response = await api.get('/api/agencies/');
-                const rawData = Array.isArray(response.data) ? response.data : response.data.results || [];
+                const rawPlaceId = Array.isArray(params.placeId) ? params.placeId[0] : params.placeId;
+                const destinationId = Number(rawPlaceId);
+                const hasDestination = Number.isFinite(destinationId) && destinationId > 0;
+
+                const [agenciesResponse, toursResponse] = await Promise.all([
+                    api.get('/api/agencies/'),
+                    hasDestination
+                        ? api.get(`/api/destinations/${destinationId}/tours/`)
+                        : Promise.resolve({ data: [] }),
+                ]);
+
+                const rawData = Array.isArray(agenciesResponse.data)
+                    ? agenciesResponse.data
+                    : agenciesResponse.data.results || [];
+
+                const destinationTours = Array.isArray(toursResponse.data)
+                    ? toursResponse.data
+                    : toursResponse.data.results || [];
+
+                const destinationAgencyUserIds = new Set(
+                    destinationTours
+                        .map((tour) => Number(tour?.agency_user_id))
+                        .filter((id) => Number.isFinite(id) && id > 0)
+                );
+
+                const destinationAgencyProfileIds = new Set(
+                    destinationTours
+                        .map((tour) => Number(tour?.agency?.id || tour?.agency_id || tour?.agency))
+                        .filter((id) => Number.isFinite(id) && id > 0)
+                );
 
                 const validAgencies = rawData.filter(item => 
                     item.business_name && 
@@ -31,15 +117,24 @@ const AgencySelection = () => {
                     item.status === 'Approved'
                 );
 
-                setAgencies(validAgencies);
+                const destinationScopedAgencies = hasDestination
+                    ? validAgencies.filter((agency) => {
+                        const agencyUserId = Number(agency.user);
+                        const agencyProfileId = Number(agency.id);
+                        return destinationAgencyUserIds.has(agencyUserId) || destinationAgencyProfileIds.has(agencyProfileId);
+                    })
+                    : validAgencies;
+
+                setAgencies(destinationScopedAgencies);
             } catch (error) {
                 console.error('Failed to fetch agencies:', error);
+                setAgencies([]);
             } finally {
                 setLoading(false);
             }
         };
         fetchAgencies();
-    }, []);
+    }, [params.placeId]);
 
     const handleOpenDetails = (agency) => {
         if (agency.is_active === false || agency.is_guide_visible === false) return;
@@ -59,14 +154,19 @@ const AgencySelection = () => {
         setModalVisible(false);
         
         router.push({
-            pathname: '/(protected)/agencyBookingDetails',
+            pathname: '/(protected)/payment',
             params: { 
-                agencyId: selectedAgency.user, 
-                agencyName: selectedAgency.business_name,
+                entityId: selectedAgency.user, 
+                agencyId: selectedAgency.id,
+                entityName: selectedAgency.business_name,
                 agencyLogo: selectedAgency.logo || selectedAgency.profile_picture,
+                bookingType: 'agency', 
                 placeId: params.placeId,
                 placeName: params.placeName,
-                agencyDownPayment: selectedAgency.down_payment_percentage
+                agencyDownPayment: selectedAgency.down_payment_percentage,
+                agencyAvailableDays: JSON.stringify(selectedAgency.available_days || []),
+                agencyOpeningTime: selectedAgency.opening_time || '',
+                agencyClosingTime: selectedAgency.closing_time || '',
             }
         });
     };
@@ -85,6 +185,8 @@ const AgencySelection = () => {
 
         const rating = item.rating ? parseFloat(item.rating).toFixed(1) : 'New'; 
         const reviewCount = item.review_count || 0; 
+        const operatingDays = formatOperatingDays(item.available_days);
+        const operatingHours = formatOperatingHours(item.opening_time, item.closing_time);
 
         // Status checks
         const isDeactivated = item.is_active === false;
@@ -141,6 +243,19 @@ const AgencySelection = () => {
 
                 <View style={styles.divider} />
 
+                <View style={styles.scheduleWrap}>
+                    <View style={styles.scheduleRow}>
+                        <Ionicons name="calendar-outline" size={14} color="#0072FF" />
+                        <Text style={styles.scheduleLabel}>Operating Days</Text>
+                        <Text style={styles.scheduleValue}>{operatingDays}</Text>
+                    </View>
+                    <View style={styles.scheduleRow}>
+                        <Ionicons name="time-outline" size={14} color="#0072FF" />
+                        <Text style={styles.scheduleLabel}>Hours</Text>
+                        <Text style={styles.scheduleValue}>{operatingHours}</Text>
+                    </View>
+                </View>
+
                 <View style={styles.detailsRow}>
                     <View style={styles.detailItem}>
                         <Ionicons name="call-outline" size={14} color="#64748B" />
@@ -188,6 +303,8 @@ const AgencySelection = () => {
 
         const rating = selectedAgency.rating ? parseFloat(selectedAgency.rating).toFixed(1) : 'New';
         const reviewCount = selectedAgency.review_count || 0;
+        const operatingDays = formatOperatingDays(selectedAgency.available_days);
+        const operatingHours = formatOperatingHours(selectedAgency.opening_time, selectedAgency.closing_time);
 
         return (
             <ScrollView>
@@ -214,6 +331,22 @@ const AgencySelection = () => {
                         <View>
                             <Text style={styles.infoLabel}>Owner</Text>
                             <Text style={styles.infoValue}>{selectedAgency.owner_name}</Text>
+                        </View>
+                    </View>
+
+                    <View style={styles.infoRow}>
+                        <View style={styles.infoIconBox}><Ionicons name="calendar" size={18} color="#0072FF" /></View>
+                        <View>
+                            <Text style={styles.infoLabel}>Operating Days</Text>
+                            <Text style={styles.infoValue}>{operatingDays}</Text>
+                        </View>
+                    </View>
+
+                    <View style={styles.infoRow}>
+                        <View style={styles.infoIconBox}><Ionicons name="time" size={18} color="#0072FF" /></View>
+                        <View>
+                            <Text style={styles.infoLabel}>Operating Hours</Text>
+                            <Text style={styles.infoValue}>{operatingHours}</Text>
                         </View>
                     </View>
 
@@ -340,7 +473,7 @@ const AgencySelection = () => {
                             <View style={styles.emptyContainer}>
                                 <Ionicons name="business-outline" size={48} color="#CBD5E1" />
                                 <Text style={styles.emptyText}>
-                                    No approved agencies available at the moment.
+                                    No approved agencies linked to this destination yet.
                                 </Text>
                             </View>
                         }
@@ -519,6 +652,32 @@ const styles = StyleSheet.create({
         height: 1,
         backgroundColor: '#F1F5F9',
         marginVertical: 12,
+    },
+
+    scheduleWrap: {
+        backgroundColor: '#F8FAFC',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        borderRadius: 10,
+        padding: 10,
+        gap: 8,
+        marginBottom: 12,
+    },
+    scheduleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    scheduleLabel: {
+        fontSize: 12,
+        color: '#64748B',
+        fontWeight: '600',
+    },
+    scheduleValue: {
+        fontSize: 12,
+        color: '#0F172A',
+        fontWeight: '700',
+        marginLeft: 'auto',
     },
 
     detailsRow: {

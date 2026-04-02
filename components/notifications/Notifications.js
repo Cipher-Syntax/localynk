@@ -263,18 +263,56 @@ const Notifications = () => {
                 const entityDetail = isAgency ? booking.agency_detail : booking.guide_detail;
                 const assignedGuides = booking.assigned_guides_detail || []; 
 
+                const computedDurationDays = (() => {
+                    if (!booking?.check_in) return 1;
+                    const start = new Date(booking.check_in);
+                    const end = new Date(booking.check_out || booking.check_in);
+                    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 1;
+                    start.setHours(0, 0, 0, 0);
+                    end.setHours(0, 0, 0, 0);
+                    return Math.max(Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1, 1);
+                })();
+
+                const itineraryRaw = booking?.tour_package_detail?.itinerary_timeline;
+                const itineraryPayload = itineraryRaw
+                    ? (typeof itineraryRaw === 'string' ? itineraryRaw : JSON.stringify(itineraryRaw))
+                    : null;
+
+                const entityName = isAgency
+                    ? (
+                        booking?.agency_detail?.business_name ||
+                        booking?.accommodation_detail?.agency_name ||
+                        entityDetail?.full_name ||
+                        entityDetail?.username ||
+                        "Selected Agency"
+                    )
+                    : (
+                        entityDetail?.full_name ||
+                        `${entityDetail?.first_name || ''} ${entityDetail?.last_name || ''}`.trim() ||
+                        entityDetail?.username ||
+                        "Your Guide"
+                    );
+
                 router.push({
                     pathname: '/(protected)/payment',
                     params: {
                         bookingId: booking.id,
-                        entityId: entityDetail.id,
-                        entityName: entityDetail.full_name || entityDetail.username || (isAgency ? "Selected Agency" : "Your Guide"),
+                        entityId: booking.agency || booking.guide || entityDetail?.id,
+                        agencyId: booking?.accommodation_detail?.agency_id || null,
+                        agencyLogo: booking?.agency_detail?.logo || booking?.agency_detail?.profile_picture || null,
+                        entityName,
                         bookingType: isAgency ? 'agency' : 'guide',
                         assignedGuides: JSON.stringify(assignedGuides),
                         basePrice: booking.total_price || 1000, 
-                        placeName: "Your Adventure", 
+                        placeId: booking.destination || booking?.destination_detail?.id || null,
+                        placeName: booking?.destination_detail?.name || "Your Adventure", 
                         checkInDate: booking.check_in, 
                         checkOutDate: booking.check_out, 
+                        packageDuration: String(computedDurationDays),
+                        tourPackageId: booking?.tour_package_detail?.id || booking?.tour_package || null,
+                        itineraryTimeline: itineraryPayload,
+                        accommodationId: booking?.accommodation_detail?.id || booking?.accommodation || null,
+                        accommodationName: booking?.accommodation_detail?.title || booking?.accommodation_detail?.name || null,
                         numGuests: booking.num_guests, 
                     }
                 });

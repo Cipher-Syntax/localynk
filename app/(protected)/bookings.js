@@ -43,7 +43,7 @@ const MyBookings = () => {
         Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
         setTimeout(() => hideToast(), 3000);
     };
-    
+
     const hideToast = () => {
         Animated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => setToast(prev => ({ ...prev, show: false })));
     };
@@ -153,6 +153,30 @@ const MyBookings = () => {
 
     const handleOpenModal = (booking) => { setSelectedBooking(booking); setDetailsModalVisible(true); };
     const handleCloseModal = () => { setDetailsModalVisible(false); setSelectedBooking(null); };
+
+    const handleProceedToPayment = (booking) => {
+        if (!booking?.id) return;
+
+        const isAgencyBooking = !!(booking.agency || booking.agency_detail);
+        const guideName = `${booking?.guide_detail?.first_name || ''} ${booking?.guide_detail?.last_name || ''}`.trim();
+        const entityName = isAgencyBooking
+            ? (booking?.agency_detail?.business_name || booking?.agency_detail?.username || 'Selected Agency')
+            : (booking?.guide_detail?.full_name || guideName || booking?.guide_detail?.username || 'Selected Guide');
+
+        router.push({
+            pathname: '/(protected)/payment',
+            params: {
+                bookingId: String(booking.id),
+                bookingType: isAgencyBooking ? 'agency' : 'guide',
+                entityId: String(booking.agency || booking.guide || ''),
+                entityName,
+                placeId: booking.destination ? String(booking.destination) : '',
+                placeName: booking?.destination_detail?.name || '',
+                agencyId: booking?.accommodation_detail?.agency_id ? String(booking.accommodation_detail.agency_id) : '',
+                agencyLogo: booking?.agency_detail?.logo || booking?.agency_detail?.profile_picture || '',
+            },
+        });
+    };
 
     const isMyTripBooking = useCallback((booking) => booking.tourist_id === user?.id, [user?.id]);
 
@@ -362,6 +386,7 @@ const MyBookings = () => {
         
         const canMarkPaid = isMyClient && item.status === 'Confirmed' && currentBalanceDue > 0;
         const canReview = isMyTrip && normalizedStatus === 'completed'; 
+        const canProceedToPayment = isMyTrip && ['accepted', 'pending_payment'].includes(normalizedStatus);
 
         const titleName = getBookingTitle(item);
         const typeLabel = item.destination_detail ? 'Tour' : (item.accommodation_detail ? 'Stay' : 'Tour');
@@ -477,6 +502,13 @@ const MyBookings = () => {
                         </View>
 
                         <View style={styles.cardFooter}>
+                            {canProceedToPayment && (
+                                <TouchableOpacity style={styles.proceedButton} onPress={() => handleProceedToPayment(item)}>
+                                    <Ionicons name="card-outline" size={14} color="#fff" style={{marginRight: 6}} />
+                                    <Text style={styles.proceedButtonText}>Proceed to Payment</Text>
+                                </TouchableOpacity>
+                            )}
+
                             {canCancel && (
                                 <TouchableOpacity style={styles.cancelButton} onPress={() => initiateCancellation(item.id)}>
                                     <Text style={styles.cancelButtonText}>Cancel Booking</Text>
@@ -508,9 +540,14 @@ const MyBookings = () => {
 
     const renderGroupItem = ({ item }) => {
         const completedCount = item.bookings.filter((booking) => String(booking.status || '').toLowerCase() === 'completed').length;
+        const acceptedCount = item.bookings.filter((booking) => String(booking.status || '').toLowerCase() === 'accepted').length;
         const pendingCount = item.bookings.filter((booking) => String(booking.status || '').toLowerCase() === 'pending_payment').length;
         const confirmedCount = item.bookings.filter((booking) => String(booking.status || '').toLowerCase() === 'confirmed').length;
         const groupImageSource = getDestinationGroupImageSource(item);
+        const payableBooking = item.bookings.find((booking) => {
+            const normalizedStatus = String(booking.status || '').toLowerCase();
+            return isMyTripBooking(booking) && ['accepted', 'pending_payment'].includes(normalizedStatus);
+        });
 
         return (
             <View style={styles.groupContainer}>
@@ -543,10 +580,18 @@ const MyBookings = () => {
                         <Text style={styles.groupMetaTextStrong}>
                             Latest booking: {item.latestBooking ? getBookingDateDisplay(item.latestBooking.check_in, item.latestBooking.check_out) : 'N/A'}
                         </Text>
+                        <Text style={styles.groupMetaText}>Accepted: {acceptedCount}</Text>
                         <Text style={styles.groupMetaText}>Confirmed: {confirmedCount}</Text>
                         <Text style={styles.groupMetaText}>Completed: {completedCount}</Text>
                         <Text style={styles.groupMetaText}>Pending Payment: {pendingCount}</Text>
                     </View>
+
+                    {/* {!!payableBooking && (
+                        <TouchableOpacity style={styles.groupProceedButton} onPress={() => handleProceedToPayment(payableBooking)}>
+                            <Ionicons name="card-outline" size={16} color="#FFFFFF" />
+                            <Text style={styles.groupProceedButtonText}>Proceed to Payment</Text>
+                        </TouchableOpacity>
+                    )} */}
 
                     <TouchableOpacity style={styles.expandButton} onPress={() => openDestinationModal(item)}>
                         <Text style={styles.expandButtonText}>
@@ -613,6 +658,7 @@ const MyBookings = () => {
                             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
                                 {[
                                     { value: 'all', label: 'All' },
+                                    { value: 'accepted', label: 'Accepted' },
                                     { value: 'confirmed', label: 'Confirmed' },
                                     { value: 'pending_payment', label: 'Pending Payment' },
                                     { value: 'completed', label: 'Completed' },
@@ -714,6 +760,7 @@ const MyBookings = () => {
                             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modalFilterRow}>
                                 {[
                                     { value: 'all', label: 'All' },
+                                    { value: 'accepted', label: 'Accepted' },
                                     { value: 'confirmed', label: 'Confirmed' },
                                     { value: 'pending_payment', label: 'Pending Payment' },
                                     { value: 'completed', label: 'Completed' },
@@ -931,6 +978,18 @@ const styles = StyleSheet.create({
     groupMetaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, flexWrap: 'wrap', gap: 8 },
     groupMetaTextStrong: { color: '#7C2D12', fontSize: 12, fontWeight: '800', width: '100%' },
     groupMetaText: { color: '#57534E', fontSize: 12, fontWeight: '600' },
+    groupProceedButton: {
+        marginTop: 10,
+        borderRadius: 10,
+        backgroundColor: '#2563EB',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        gap: 8,
+    },
+    groupProceedButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
     expandButton: {
         marginTop: 10,
         borderRadius: 10,
@@ -979,6 +1038,8 @@ const styles = StyleSheet.create({
     finDivider: { height: 1, backgroundColor: '#DCFCE7', marginVertical: 6 },
     
     cardFooter: { marginTop: 16, flexDirection: 'row', justifyContent: 'flex-end', gap: 10 },
+    proceedButton: { flexDirection:'row', alignItems:'center', paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#2563EB', borderRadius: 8, shadowColor: '#2563EB', shadowOpacity: 0.3, elevation: 3 },
+    proceedButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
     cancelButton: { paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#FEF2F2', borderRadius: 8, borderWidth: 1, borderColor: '#FECACA' },
     cancelButtonText: { color: '#DC2626', fontSize: 12, fontWeight: '700' },
     paidButton: { flexDirection:'row', alignItems:'center', paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#22C55E', borderRadius: 8, shadowColor: "#22C55E", shadowOpacity: 0.3, elevation: 3 },
