@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../api/api'; 
 import { useAuth } from '../../context/AuthContext'; // NEW: Imported useAuth
+import { buildPricingBreakdown } from '../../utils/pricingBreakdown';
 
 const { height } = Dimensions.get('window');
 
@@ -64,6 +65,31 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         return Math.max(Math.round((end - start) / oneDay) + 1, 1);
     };
     const days = calculateDays();
+    const parsedGuests = Math.max(1, Number.parseInt(numPeople, 10) || Number(numberOfPeople) || 1);
+
+    const pricingBreakdown = React.useMemo(() => {
+        return buildPricingBreakdown({
+            totalPrice: currentTotalPrice,
+            startDate,
+            endDate,
+            packageDurationDays: days,
+            groupType,
+            numberOfPeople: parsedGuests,
+            tourCostPerDay: baseGuideFeeFloat,
+            extraPersonFeePerHead: extraPersonFee,
+            accommodationCostPerNight: accomCostFloat,
+        });
+    }, [
+        currentTotalPrice,
+        startDate,
+        endDate,
+        days,
+        groupType,
+        parsedGuests,
+        baseGuideFeeFloat,
+        extraPersonFee,
+        accomCostFloat,
+    ]);
 
     const parsedItinerary = React.useMemo(() => {
         try {
@@ -430,6 +456,45 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                                 <Text style={styles.billValue}>₱ {currentTotalPrice.toLocaleString()}</Text>
                             </View>
 
+                            {pricingBreakdown.hasBreakdownItems && (
+                                <>
+                                    <View style={styles.billSubRow}>
+                                        <Text style={styles.billSubLabel}>
+                                            Package ({pricingBreakdown.days} day{pricingBreakdown.days > 1 ? 's' : ''} x ₱ {pricingBreakdown.packageRatePerDay.toLocaleString()}/day)
+                                        </Text>
+                                        <Text style={styles.billSubValue}>₱ {pricingBreakdown.packageSubtotal.toLocaleString()}</Text>
+                                    </View>
+
+                                    {pricingBreakdown.extraGuests > 0 && pricingBreakdown.extraGuestSubtotal > 0 && (
+                                        <View style={styles.billSubRow}>
+                                            <Text style={styles.billSubLabel}>
+                                                Extra guests ({pricingBreakdown.extraGuests} x ₱ {pricingBreakdown.extraFeePerHead.toLocaleString()} x {pricingBreakdown.days} day{pricingBreakdown.days > 1 ? 's' : ''})
+                                            </Text>
+                                            <Text style={styles.billSubValue}>₱ {pricingBreakdown.extraGuestSubtotal.toLocaleString()}</Text>
+                                        </View>
+                                    )}
+
+                                    {pricingBreakdown.accommodationSubtotal > 0 && (
+                                        <View style={styles.billSubRow}>
+                                            <Text style={styles.billSubLabel}>
+                                                Accommodation ({pricingBreakdown.nights} night{pricingBreakdown.nights > 1 ? 's' : ''} x ₱ {pricingBreakdown.accommodationRatePerNight.toLocaleString()}/night)
+                                            </Text>
+                                            <Text style={styles.billSubValue}>₱ {pricingBreakdown.accommodationSubtotal.toLocaleString()}</Text>
+                                        </View>
+                                    )}
+
+                                    {pricingBreakdown.hasAdjustment && (
+                                        <View style={styles.billSubRow}>
+                                            <Text style={styles.billSubLabel}>Adjustment</Text>
+                                            <Text style={styles.billSubValue}>
+                                                {pricingBreakdown.adjustmentAmount >= 0 ? '₱ ' : '- ₱ '}
+                                                {Math.abs(pricingBreakdown.adjustmentAmount).toLocaleString()}
+                                            </Text>
+                                        </View>
+                                    )}
+                                </>
+                            )}
+
                             {dpFloat > 0 && (
                                 <>
                                     <View style={styles.billRow}>
@@ -592,6 +657,9 @@ const styles = StyleSheet.create({
     billRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
     billLabel: { fontSize: 13, color: '#475569', fontWeight: '500' },
     billValue: { fontSize: 13, color: '#1E293B', fontWeight: '600', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+    billSubRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6, paddingLeft: 20 },
+    billSubLabel: { flex: 1, marginRight: 10, fontSize: 12, color: '#64748B', fontWeight: '500' },
+    billSubValue: { fontSize: 12, color: '#1E293B', fontWeight: '600', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
     receiptFooter: { padding: 20, backgroundColor: '#F8FAFC', borderTopWidth: 1, borderTopColor: '#E2E8F0' },
     pendingInfoBox: { backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE', borderRadius: 12, padding: 12, marginBottom: 10 },
     pendingInfoTitle: { fontSize: 12, fontWeight: '700', color: '#1D4ED8', marginBottom: 4 },

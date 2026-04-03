@@ -12,6 +12,7 @@ import PaymentReviewModal from '../../components/payment/paymentReviewModal';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api/api';
 import { formatPHPhoneLocal, normalizePHPhone } from '../../utils/phoneNumber';
+import { buildPricingBreakdown } from '../../utils/pricingBreakdown';
 
 const { width } = Dimensions.get('window');
 const PRIMARY_COLOR = '#0072FF';
@@ -1184,6 +1185,38 @@ const Payment = () => {
         return "30"; 
     }, [fetchedBooking, agencyDownPayment, totalPrice, downPayment]);
 
+    const pricingBreakdown = useMemo(() => {
+        return buildPricingBreakdown({
+            totalPrice,
+            startDate,
+            endDate,
+            packageDurationDays: activeDuration,
+            groupType: selectedOption,
+            numberOfPeople: selectedOption === 'group'
+                ? Math.max(parseInt(numPeople, 10) || 2, 2)
+                : 1,
+            tourCostPerDay: currentGuideFee,
+            soloPricePerDay: selectedPackage?.solo_price,
+            groupPricePerDay: selectedPackage?.price_per_day,
+            extraPersonFeePerHead: extraPersonFee,
+            accommodationCostPerNight: accomCost,
+            packageDetail: selectedPackage,
+            accommodationDetail: selectedAccommodation,
+        });
+    }, [
+        totalPrice,
+        startDate,
+        endDate,
+        activeDuration,
+        selectedOption,
+        numPeople,
+        currentGuideFee,
+        selectedPackage,
+        extraPersonFee,
+        accomCost,
+        selectedAccommodation,
+    ]);
+
 
     if (loadingBooking) {
         return (
@@ -1600,6 +1633,44 @@ const Payment = () => {
                                     <Text style={styles.receiptLabel}>Total Trip Cost</Text>
                                     <Text style={styles.receiptValue}>₱ {totalPrice.toLocaleString()}</Text>
                                 </View>
+                                {pricingBreakdown.hasBreakdownItems && (
+                                    <>
+                                        <View style={styles.receiptSubRow}>
+                                            <Text style={styles.receiptSubLabel}>
+                                                Package ({pricingBreakdown.days} day{pricingBreakdown.days > 1 ? 's' : ''} x ₱ {pricingBreakdown.packageRatePerDay.toLocaleString()}/day)
+                                            </Text>
+                                            <Text style={styles.receiptSubValue}>₱ {pricingBreakdown.packageSubtotal.toLocaleString()}</Text>
+                                        </View>
+
+                                        {pricingBreakdown.extraGuests > 0 && pricingBreakdown.extraGuestSubtotal > 0 && (
+                                            <View style={styles.receiptSubRow}>
+                                                <Text style={styles.receiptSubLabel}>
+                                                    Extra guests ({pricingBreakdown.extraGuests} x ₱ {pricingBreakdown.extraFeePerHead.toLocaleString()} x {pricingBreakdown.days} day{pricingBreakdown.days > 1 ? 's' : ''})
+                                                </Text>
+                                                <Text style={styles.receiptSubValue}>₱ {pricingBreakdown.extraGuestSubtotal.toLocaleString()}</Text>
+                                            </View>
+                                        )}
+
+                                        {pricingBreakdown.accommodationSubtotal > 0 && (
+                                            <View style={styles.receiptSubRow}>
+                                                <Text style={styles.receiptSubLabel}>
+                                                    Accommodation ({pricingBreakdown.nights} night{pricingBreakdown.nights > 1 ? 's' : ''} x ₱ {pricingBreakdown.accommodationRatePerNight.toLocaleString()}/night)
+                                                </Text>
+                                                <Text style={styles.receiptSubValue}>₱ {pricingBreakdown.accommodationSubtotal.toLocaleString()}</Text>
+                                            </View>
+                                        )}
+
+                                        {pricingBreakdown.hasAdjustment && (
+                                            <View style={styles.receiptSubRow}>
+                                                <Text style={styles.receiptSubLabel}>Adjustment</Text>
+                                                <Text style={styles.receiptSubValue}>
+                                                    {pricingBreakdown.adjustmentAmount >= 0 ? '₱ ' : '- ₱ '}
+                                                    {Math.abs(pricingBreakdown.adjustmentAmount).toLocaleString()}
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </>
+                                )}
                                 <View style={styles.receiptDivider} />
                                 <View style={styles.receiptRow}>
                                     <Text style={[styles.receiptLabel, {color: TEXT_PRIMARY, fontWeight:'700'}]}>
@@ -1882,6 +1953,9 @@ const styles = StyleSheet.create({
     receiptRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
     receiptLabel: { fontSize: 14, color: TEXT_SECONDARY },
     receiptValue: { fontSize: 14, fontWeight: '600', color: TEXT_PRIMARY },
+    receiptSubRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6, paddingLeft: 20 },
+    receiptSubLabel: { flex: 1, fontSize: 12, color: '#475569', marginRight: 10 },
+    receiptSubValue: { fontSize: 12, fontWeight: '600', color: '#1E293B' },
     receiptTotal: { fontSize: 18, fontWeight: '800' },
     receiptDivider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 12 },
     receiptNote: { fontSize: 11, color: PRIMARY_COLOR, fontStyle: 'italic', textAlign: 'right' },

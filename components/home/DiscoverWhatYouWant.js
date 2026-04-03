@@ -24,8 +24,14 @@ const DiscoverWhatYouWant = ({ isPublic = false }) => {
     const [items, setItems] = useState([]);
     const [isActive, setIsActive] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [showRightScrollHint, setShowRightScrollHint] = useState(false);
 
     const bounceValue = useRef(new Animated.Value(0)).current;
+    const rightHintPulse = useRef(new Animated.Value(0)).current;
+    const scrollViewRef = useRef(null);
+    const scrollLayoutWidthRef = useRef(0);
+    const scrollContentWidthRef = useRef(0);
+    const scrollOffsetXRef = useRef(0);
     
     const widthAnimations = useRef({});
 
@@ -104,6 +110,82 @@ const DiscoverWhatYouWant = ({ isPublic = false }) => {
         }
     }, [isActive]);
 
+    useEffect(() => {
+        let pulseAnimation;
+
+        if (showRightScrollHint) {
+            rightHintPulse.setValue(0);
+            pulseAnimation = Animated.loop(
+                Animated.sequence([
+                    Animated.timing(rightHintPulse, {
+                        toValue: 1,
+                        duration: 600,
+                        easing: Easing.inOut(Easing.ease),
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(rightHintPulse, {
+                        toValue: 0,
+                        duration: 600,
+                        easing: Easing.inOut(Easing.ease),
+                        useNativeDriver: true,
+                    }),
+                ])
+            );
+            pulseAnimation.start();
+        }
+
+        return () => {
+            if (pulseAnimation) {
+                pulseAnimation.stop();
+            }
+        };
+    }, [showRightScrollHint, rightHintPulse]);
+
+    const updateScrollHint = (offsetX = 0) => {
+        const layoutWidth = scrollLayoutWidthRef.current;
+        const contentWidth = scrollContentWidthRef.current;
+
+        if (!layoutWidth || !contentWidth) {
+            setShowRightScrollHint(false);
+            return;
+        }
+
+        const hasOverflow = contentWidth > layoutWidth + 8;
+        const canScrollRight = offsetX < (contentWidth - layoutWidth - 8);
+        setShowRightScrollHint(hasOverflow && canScrollRight);
+    };
+
+    const handleRightHintPress = () => {
+        const layoutWidth = scrollLayoutWidthRef.current || SCREEN_WIDTH;
+        const contentWidth = scrollContentWidthRef.current || 0;
+        const currentOffset = scrollOffsetXRef.current || 0;
+
+        if (!scrollViewRef.current || !contentWidth) return;
+
+        const maxOffset = Math.max(contentWidth - layoutWidth, 0);
+        const nextOffset = Math.min(currentOffset + layoutWidth, maxOffset);
+
+        scrollViewRef.current.scrollTo({ x: nextOffset, animated: true });
+        updateScrollHint(nextOffset);
+    };
+
+    const rightHintAnimatedStyle = {
+        transform: [
+            {
+                translateX: rightHintPulse.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 4],
+                }),
+            },
+            {
+                scale: rightHintPulse.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [1, 1.08],
+                }),
+            },
+        ],
+    };
+
     // UPDATED: Now directs to explore page with the selected category filter
     const handleDiscoverPress = (item) => {
         if (isPublic && !isAuthenticated) {
@@ -148,9 +230,24 @@ const DiscoverWhatYouWant = ({ isPublic = false }) => {
 
             <View style={styles.discoverRowWrapper}>
                 <ScrollView 
+                    ref={scrollViewRef}
                     horizontal 
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.scrollContainer}
+                    onLayout={(event) => {
+                        scrollLayoutWidthRef.current = event.nativeEvent.layout.width;
+                        updateScrollHint(scrollOffsetXRef.current);
+                    }}
+                    onContentSizeChange={(contentWidth) => {
+                        scrollContentWidthRef.current = contentWidth;
+                        updateScrollHint(scrollOffsetXRef.current);
+                    }}
+                    onScroll={(event) => {
+                        const offsetX = event.nativeEvent.contentOffset.x;
+                        scrollOffsetXRef.current = offsetX;
+                        updateScrollHint(offsetX);
+                    }}
+                    scrollEventThrottle={16}
                 >
                     {items.map((item) => (
                         <AnimatedTouchable
@@ -215,6 +312,18 @@ const DiscoverWhatYouWant = ({ isPublic = false }) => {
                         </AnimatedTouchable>
                     ))}
                 </ScrollView>
+
+                {showRightScrollHint && (
+                    <TouchableOpacity activeOpacity={0.9} style={styles.scrollHintOverlay} onPress={handleRightHintPress}>
+                        <LinearGradient
+                            colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.55)']}
+                            style={styles.scrollHintGradient}
+                        />
+                        <Animated.View style={[styles.scrollHintIconWrap, rightHintAnimatedStyle]}>
+                            <Ionicons name="chevron-forward" size={22} color="#FFFFFF" />
+                        </Animated.View>
+                    </TouchableOpacity>
+                )}
             </View>
         </View>
     );
@@ -265,7 +374,8 @@ const styles = StyleSheet.create({
     discoverRowWrapper: {
         width: '100%',
         height: 450,
-        backgroundColor: '#000'
+        backgroundColor: '#000',
+        position: 'relative',
     },
     scrollContainer: {
         flexDirection: 'row',
@@ -361,5 +471,29 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.5,
         shadowRadius: 8,
-    }
+    },
+    scrollHintOverlay: {
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: 56,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    scrollHintGradient: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    scrollHintIconWrap: {
+        width: 30,
+        height: 30,
+        borderRadius: 15,
+        backgroundColor: 'rgba(0, 198, 255, 0.75)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#00C6FF',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.5,
+        shadowRadius: 8,
+    },
 });

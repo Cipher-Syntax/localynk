@@ -111,6 +111,30 @@ const AgencySelection = () => {
                         .filter((id) => Number.isFinite(id) && id > 0)
                 );
 
+                const agencyMaxGuestsByUserId = new Map();
+                const agencyMaxGuestsByProfileId = new Map();
+
+                destinationTours.forEach((tour) => {
+                    const pax = Number.parseInt(tour?.max_group_size, 10);
+                    if (!Number.isFinite(pax) || pax <= 0) return;
+
+                    const agencyUserId = Number(tour?.agency_user_id);
+                    if (Number.isFinite(agencyUserId) && agencyUserId > 0) {
+                        agencyMaxGuestsByUserId.set(
+                            agencyUserId,
+                            Math.max(agencyMaxGuestsByUserId.get(agencyUserId) || 0, pax)
+                        );
+                    }
+
+                    const agencyProfileId = Number(tour?.agency?.id || tour?.agency_id || tour?.agency);
+                    if (Number.isFinite(agencyProfileId) && agencyProfileId > 0) {
+                        agencyMaxGuestsByProfileId.set(
+                            agencyProfileId,
+                            Math.max(agencyMaxGuestsByProfileId.get(agencyProfileId) || 0, pax)
+                        );
+                    }
+                });
+
                 const validAgencies = rawData.filter(item => 
                     item.business_name && 
                     item.business_name.trim() !== '' &&
@@ -125,7 +149,21 @@ const AgencySelection = () => {
                     })
                     : validAgencies;
 
-                setAgencies(destinationScopedAgencies);
+                const decoratedAgencies = destinationScopedAgencies.map((agency) => {
+                    const agencyUserId = Number(agency.user);
+                    const agencyProfileId = Number(agency.id);
+                    const maxGuests = Math.max(
+                        agencyMaxGuestsByUserId.get(agencyUserId) || 0,
+                        agencyMaxGuestsByProfileId.get(agencyProfileId) || 0
+                    );
+
+                    return {
+                        ...agency,
+                        maxGuests,
+                    };
+                });
+
+                setAgencies(decoratedAgencies);
             } catch (error) {
                 console.error('Failed to fetch agencies:', error);
                 setAgencies([]);
@@ -187,6 +225,7 @@ const AgencySelection = () => {
         const reviewCount = item.review_count || 0; 
         const operatingDays = formatOperatingDays(item.available_days);
         const operatingHours = formatOperatingHours(item.opening_time, item.closing_time);
+        const maxGuestsLabel = Number(item.maxGuests) > 0 ? `${item.maxGuests} guests` : 'Not set';
 
         // Status checks
         const isDeactivated = item.is_active === false;
@@ -222,11 +261,6 @@ const AgencySelection = () => {
                             ) : null}
                         </View>
                         
-                        <View style={styles.ownerRow}>
-                            <Ionicons name="person-circle-outline" size={14} color="#64748B" />
-                            <Text style={styles.ownerName}>{item.owner_name}</Text>
-                        </View>
-
                         <View style={styles.ratingContainer}>
                             <Ionicons name="star" size={14} color={isOffline ? "#CBD5E1" : "#F59E0B"} />
                             <Text style={[styles.ratingText, isOffline && { color: '#94A3B8' }]}>{rating}</Text>
@@ -253,6 +287,11 @@ const AgencySelection = () => {
                         <Ionicons name="time-outline" size={14} color="#0072FF" />
                         <Text style={styles.scheduleLabel}>Hours</Text>
                         <Text style={styles.scheduleValue}>{operatingHours}</Text>
+                    </View>
+                    <View style={styles.scheduleRow}>
+                        <Ionicons name="people-outline" size={14} color="#0072FF" />
+                        <Text style={styles.scheduleLabel}>Max Guests</Text>
+                        <Text style={styles.scheduleValue}>{maxGuestsLabel}</Text>
                     </View>
                 </View>
 
@@ -305,6 +344,7 @@ const AgencySelection = () => {
         const reviewCount = selectedAgency.review_count || 0;
         const operatingDays = formatOperatingDays(selectedAgency.available_days);
         const operatingHours = formatOperatingHours(selectedAgency.opening_time, selectedAgency.closing_time);
+        const maxGuestsLabel = Number(selectedAgency.maxGuests) > 0 ? `${selectedAgency.maxGuests} guests` : 'Not set';
 
         return (
             <ScrollView>
@@ -327,10 +367,10 @@ const AgencySelection = () => {
 
                 <ScrollView style={styles.modalInfoList} showsVerticalScrollIndicator={false}>
                     <View style={styles.infoRow}>
-                        <View style={styles.infoIconBox}><Ionicons name="person" size={18} color="#0072FF" /></View>
+                        <View style={styles.infoIconBox}><Ionicons name="people" size={18} color="#0072FF" /></View>
                         <View>
-                            <Text style={styles.infoLabel}>Owner</Text>
-                            <Text style={styles.infoValue}>{selectedAgency.owner_name}</Text>
+                            <Text style={styles.infoLabel}>Max Guests Allowed</Text>
+                            <Text style={styles.infoValue}>{maxGuestsLabel}</Text>
                         </View>
                     </View>
 
@@ -619,17 +659,6 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
     },
 
-    ownerRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        marginBottom: 4,
-    },
-    ownerName: {
-        fontSize: 13,
-        color: '#64748B',
-        fontWeight: '500',
-    },
     ratingContainer: {
         flexDirection: 'row',
         alignItems: 'center',

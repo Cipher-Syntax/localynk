@@ -88,6 +88,16 @@ const GuideSelection = () => {
         );
     };
 
+    const getGuideMaxGuestsLabel = (guide) => {
+        const tours = Array.isArray(guide?.tours) ? guide.tours : [];
+        const maxGuests = tours.reduce((max, tour) => {
+            const pax = parseInt(tour?.max_group_size, 10);
+            return Number.isFinite(pax) && pax > max ? pax : max;
+        }, 0);
+
+        return maxGuests > 0 ? `${maxGuests} guests` : 'N/A';
+    };
+
     const handleChooseGuide = (guide) => {
         // 1. Prevent booking yourself
         if (user && guide && String(user.id) === String(guide.id)) {
@@ -288,8 +298,8 @@ const GuideSelection = () => {
                                         <Text style={styles.detailValue}>{guide.experience_years || 0} years</Text>
                                     </View>
                                     <View style={styles.detailItem}>
-                                        <Text style={styles.detailLabel}>Price</Text>
-                                        <Text style={styles.detailValue}>₱{guide.price_per_day || 'N/A'}/day</Text>
+                                        <Text style={styles.detailLabel}>Max Guests</Text>
+                                        <Text style={styles.detailValue}>{getGuideMaxGuestsLabel(guide)}</Text>
                                     </View>
                                 </View>
 
