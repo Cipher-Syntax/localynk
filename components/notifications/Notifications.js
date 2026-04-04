@@ -323,8 +323,7 @@ const Notifications = () => {
         } 
         else if (item.title === "New Message") {
             const partnerId = item.partner_id || null;
-            const partnerNameFromMessage = item.message.includes('from ') ? item.message.split('from ')[1] : null;
-            const partnerName = item.partner_name || partnerNameFromMessage || "User";
+            const partnerName = item.partner_name || "User";
 
             if (!partnerId) {
                 router.push('/(protected)/conversations');
@@ -333,7 +332,11 @@ const Notifications = () => {
 
             router.push({
                 pathname: '/(protected)/message',
-                params: { partnerId: String(partnerId), partnerName }
+                params: {
+                    partnerId: String(partnerId),
+                    partnerName,
+                    partnerImage: item.partner_image || null,
+                }
             });
         } 
         // 🔥 UPDATED: Handle "Content Warning" specifically
