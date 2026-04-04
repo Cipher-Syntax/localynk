@@ -5,12 +5,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import RegisterModalForm from '../../components/tourist_guide/RegisterOpenModalForm';
 import IsTourist from '../../components/tourist_guide/IsTourist';
-import Action from "../../components/tourist_guide/Action";
 
 const TermsAndAgreement = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isTourist, setIsTourist] = useState(false);
-    const [action, setAction] = useState(false);
 
     const { showActions } = useLocalSearchParams();
 
@@ -26,9 +24,13 @@ const TermsAndAgreement = () => {
         return <IsTourist />;
     }
 
-    if(action){
-        return <Action />
-    }
+    const handleDecline = () => {
+        if (router.canGoBack()) {
+            router.back();
+            return;
+        }
+        router.replace('/(protected)/home/tourGuide');
+    };
 
     return (
         <SafeAreaView edges={['bottom']} style={styles.safeArea}>
@@ -47,7 +49,7 @@ const TermsAndAgreement = () => {
 
                 <View style={styles.card}>
                     <Text style={styles.cardTitle}>MFLG – Terms of Agreement</Text>
-                    <Text style={styles.cardSubtitle}>Last Updated: November 2025</Text>
+                    <Text style={styles.cardSubtitle}>Last Updated: April 2026</Text>
 
                     <Text style={styles.paragraphTitle}>1. Introduction</Text>
                     <Text style={styles.bodyText}>
@@ -86,7 +88,7 @@ const TermsAndAgreement = () => {
 
                     <Text style={styles.paragraphTitle}>8. Acceptance of Terms</Text>
                     <Text style={styles.bodyText}>
-                        By continuing to use the app, you accept any updates or changes made to these terms. For any questions or concerns, you may contact us at support@mflg.com.
+                        By continuing to use the app, you accept any updates or changes made to these terms. For any questions or concerns, you may contact us at <Text style={{ fontStyle: 'italic', color: '#007AFF' }}>localynk@my-friendly-local-guide.com</Text>.
                     </Text>
 
                     {
@@ -94,7 +96,7 @@ const TermsAndAgreement = () => {
                             <View style={styles.buttonContainer}>
                                 <TouchableOpacity
                                     style={[styles.button, styles.declineButton]}
-                                    onPress={() => setAction(true)}
+                                    onPress={handleDecline}
                                 >
                                     <Text style={styles.declineButtonText}>DECLINE</Text>
                                 </TouchableOpacity>
@@ -125,7 +127,6 @@ export default TermsAndAgreement;
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#D9E2E9',
     },
     container: {
         flex: 1,

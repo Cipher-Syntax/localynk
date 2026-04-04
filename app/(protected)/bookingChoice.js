@@ -132,7 +132,7 @@ const BookingChoice = () => {
                 <View style={styles.cardsContainer}>
                     <OptionCard
                         icon="👤"
-                        title="Custom Local Guide"
+                        title="Local Guide"
                         description="One-on-one personalized journey"
                         features={[
                             'Direct contact with your guide',
@@ -149,7 +149,7 @@ const BookingChoice = () => {
 
                     <OptionCard
                         icon="🏢"
-                        title="Professional Agency"
+                        title="Tour Agency"
                         description="Curated tours by verified agencies"
                         features={[
                             'Verified & reviewed agencies',

@@ -324,7 +324,7 @@ const Profile = () => {
                             style={styles.overlay}
                         />
                         <Text style={styles.headerTitle}>
-                            {isGuide ? "GUIDE PROFILE" : "TOURIST PROFILE"}
+                            {isGuide ? "PROFILE" : "PROFILE"}
                         </Text>
                     </View>
 

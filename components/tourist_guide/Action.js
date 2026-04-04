@@ -5,7 +5,6 @@ import IsTourist from './IsTourist';
 import RegisterModalForm from './RegisterOpenModalForm';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 const Action = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -22,7 +21,7 @@ const Action = () => {
     }
 
     return (
-        <SafeAreaView edges={['bottom']} style={styles.container}>
+        <View style={styles.container}>
 
             <View style={styles.header}>
                 <Image
@@ -89,7 +88,7 @@ const Action = () => {
                     onSubmit={handleFormSubmit}
                 />
             )}
-        </SafeAreaView>
+        </View>
     );
 };
 
@@ -98,8 +97,6 @@ export default Action;
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        justifyContent: 'space-between',
-        backgroundColor: '#fff',
     },
     header: {
         height: 120,
@@ -129,20 +126,15 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
     },
     body: {
-        backgroundColor: "#D9E2E9",
-        borderTopLeftRadius: 60,
-        borderTopRightRadius: 60,
-        paddingTop: 30,
+        flex: 1,
+        marginTop: 50,
         alignItems: 'center',
         justifyContent: 'center',
         width: '100%',
-        paddingBottom: 20,
-        height: 490,
     },
     title: {
         fontSize: 30,
-        fontWeight: '900',
-        color: '#0F172A',
+        fontWeight: 'bold',
         textAlign: 'center',
         marginBottom: 5,
         letterSpacing: 2
@@ -157,7 +149,7 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         paddingHorizontal: 35,
         borderRadius: 30,
-        marginBottom: 15,
+        marginVertical: 15,
     },
     primaryButtonText: {
         color: '#fff',
