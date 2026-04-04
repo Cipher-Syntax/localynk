@@ -287,7 +287,7 @@ const ConversationList = () => {
                             />
                         ) : (
                             <View style={styles.avatar}>
-                                <Text style={styles.avatarText}>{displayName.charAt(0)}</Text>
+                                <Ionicons name="person-circle" size={30} color="#94A3B8" />
                             </View>
                         )}
                         <View style={styles.metaWrap}>

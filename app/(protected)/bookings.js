@@ -179,6 +179,32 @@ const MyBookings = () => {
         });
     };
 
+    const handleOpenMessage = (booking) => {
+        const partnerId = Number(booking?.agency || booking?.guide || booking?.agency_detail?.id || booking?.guide_detail?.id);
+        if (!Number.isFinite(partnerId) || partnerId <= 0) {
+            showToast('Unable to open chat for this booking.', 'error');
+            return;
+        }
+
+        const guideName = `${booking?.guide_detail?.first_name || ''} ${booking?.guide_detail?.last_name || ''}`.trim();
+        const partnerName = booking?.agency
+            ? (booking?.agency_detail?.business_name || booking?.agency_detail?.username || 'Agency')
+            : (booking?.guide_detail?.full_name || guideName || booking?.guide_detail?.username || 'Tour Guide');
+
+        const partnerImage = booking?.agency
+            ? (booking?.agency_detail?.logo || booking?.agency_detail?.profile_picture || '')
+            : (booking?.guide_detail?.profile_picture || '');
+
+        router.push({
+            pathname: '/(protected)/message',
+            params: {
+                partnerId: String(partnerId),
+                partnerName,
+                partnerImage,
+            },
+        });
+    };
+
     const isMyTripBooking = useCallback((booking) => booking.tourist_id === user?.id, [user?.id]);
 
     const getBookingTitle = useCallback((booking) => {
@@ -403,6 +429,8 @@ const MyBookings = () => {
         const canMarkPaid = isMyClient && item.status === 'Confirmed' && currentBalanceDue > 0;
         const canReview = isMyTrip && normalizedStatus === 'completed'; 
         const canProceedToPayment = isMyTrip && ['accepted', 'pending_payment'].includes(normalizedStatus);
+        const canMessageProvider = isMyTrip && Number(item?.agency || item?.guide || 0) > 0;
+        const isAgencyPartner = !!item?.agency;
 
         const titleName = getBookingTitle(item);
         const typeLabel = item.destination_detail ? 'Tour' : (item.accommodation_detail ? 'Stay' : 'Tour');
@@ -600,6 +628,13 @@ const MyBookings = () => {
                                 <TouchableOpacity style={styles.proceedButton} onPress={() => handleProceedToPayment(item)}>
                                     <Ionicons name="card-outline" size={14} color="#fff" style={{marginRight: 6}} />
                                     <Text style={styles.proceedButtonText}>Proceed to Payment</Text>
+                                </TouchableOpacity>
+                            )}
+
+                            {canMessageProvider && (
+                                <TouchableOpacity style={styles.messageButton} onPress={() => handleOpenMessage(item)}>
+                                    <Ionicons name="chatbubble-outline" size={14} color="#fff" style={{marginRight: 6}} />
+                                    <Text style={styles.messageButtonText}>{isAgencyPartner ? 'Message Agency' : 'Message Guide'}</Text>
                                 </TouchableOpacity>
                             )}
 
@@ -1140,6 +1175,8 @@ const styles = StyleSheet.create({
     cancelButtonText: { color: '#DC2626', fontSize: 12, fontWeight: '700' },
     paidButton: { flexDirection:'row', alignItems:'center', paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#22C55E', borderRadius: 8, shadowColor: "#22C55E", shadowOpacity: 0.3, elevation: 3 },
     paidButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+    messageButton: { flexDirection:'row', alignItems:'center', paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#0EA5E9', borderRadius: 8, shadowColor: '#0EA5E9', shadowOpacity: 0.3, elevation: 3 },
+    messageButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
     reviewButton: { flexDirection:'row', alignItems:'center', paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#F59E0B', borderRadius: 8, shadowColor: "#F59E0B", shadowOpacity: 0.3, elevation: 3 },
     reviewButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
     emptyContainer: { alignItems: 'center', marginTop: 60 },

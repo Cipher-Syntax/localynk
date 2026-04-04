@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { View, Text, ActivityIndicator, ScrollView, StyleSheet, Image, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform } from "react-native";
+import { View, Text, ActivityIndicator, ScrollView, StyleSheet, Image, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, Keyboard } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -9,9 +9,12 @@ import { useAuth } from "../../context/AuthContext";
 import Toast from '../../components/Toast';
 
 export default function Message() {
+    const isIOS = Platform.OS === 'ios';
+    const isAndroid = Platform.OS === 'android';
     const [loading, setLoading] = useState(true);
     const [messages, setMessages] = useState([]);
     const [inputText, setInputText] = useState("");
+    const [androidKeyboardHeight, setAndroidKeyboardHeight] = useState(0);
     const [isModalVisible, setModalVisible] = useState(false);
     const [selectedReason, setSelectedReason] = useState("");
     const [customReason, setCustomReason] = useState("");
@@ -85,6 +88,26 @@ export default function Message() {
 
         return () => clearInterval(interval);
     }, [normalizedPartnerId]);
+
+    useEffect(() => {
+        if (!isAndroid) {
+            return undefined;
+        }
+
+        const onKeyboardDidShow = Keyboard.addListener('keyboardDidShow', (event) => {
+            const nextHeight = event?.endCoordinates?.height ?? 0;
+            setAndroidKeyboardHeight(nextHeight > 0 ? nextHeight : 0);
+        });
+
+        const onKeyboardDidHide = Keyboard.addListener('keyboardDidHide', () => {
+            setAndroidKeyboardHeight(0);
+        });
+
+        return () => {
+            onKeyboardDidShow.remove();
+            onKeyboardDidHide.remove();
+        };
+    }, [isAndroid]);
 
     const handleSendMessage = async () => {
         if (inputText.trim() === "" || !normalizedPartnerId) return;
@@ -220,13 +243,204 @@ export default function Message() {
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={['bottom']}>
+        <SafeAreaView style={styles.container} edges={['left', 'right']}>
             <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={() => setToast({ ...toast, visible: false })} />
-            <KeyboardAvoidingView 
-                style={{ flex: 1 }} 
-                behavior={Platform.OS === "ios" ? "padding" : "height"}
-                keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
-            >
+            {isIOS ? (
+                <KeyboardAvoidingView
+                    style={{ flex: 1 }}
+                    behavior="padding"
+                    keyboardVerticalOffset={8}
+                >
+                    <View style={{ flex: 1 }}>
+                        <View style={styles.header}>
+                            <Image
+                                source={require("../../assets/localynk_images/header.png")}
+                                style={styles.headerImage}
+                            />
+                            <LinearGradient
+                                colors={["rgba(0,0,0,0.6)", "rgba(0,0,0,0.2)", "transparent"]}
+                                style={styles.overlay}
+                            />
+                            <Text style={styles.headerTitle}>Message</Text>
+                        </View>
+
+                        <View style={styles.guideInfo}>
+                            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                                {partnerImage ? (
+                                    <Image 
+                                        source={{ uri: getImageUrl(partnerImage) }} 
+                                        style={styles.headerAvatar}
+                                    />
+                                ) : (
+                                    <View style={styles.headerAvatarPlaceholder}>
+                                        <Ionicons name="person-circle" size={32} color="#94A3B8" />
+                                    </View>
+                                )}
+                                <Text style={styles.guideName}>{displayPartnerName}</Text>
+                            </View>
+
+                            {Number(user?.id) !== Number(normalizedPartnerId) && (
+                                <TouchableOpacity onPress={() => setModalVisible(true)}>
+                                    <Ionicons name="flag-outline" size={22} color="#000" />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+
+                        <ScrollView 
+                            style={styles.messagesContainer} 
+                            showsVerticalScrollIndicator={false}
+                            keyboardShouldPersistTaps="handled"
+                            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+                            onScrollBeginDrag={Keyboard.dismiss}
+                            ref={scrollViewRef}
+                            onContentSizeChange={() => scrollViewRef.current.scrollToEnd({ animated: true })}
+                        >
+                            {messages.length === 0 && (
+                                <View style={styles.emptyThreadContainer}>
+                                    <Text style={styles.emptyThreadTitle}>No messages yet</Text>
+                                    <Text style={styles.emptyThreadText}>Send a message to start this conversation.</Text>
+                                </View>
+                            )}
+
+                            {messages.map((message) => {
+                                const isSent = Number(message.sender) === Number(user?.id);
+                                const localStatus = message.local_status;
+                                const serverRead = Boolean(message.is_read);
+                                const statusLabel = localStatus === 'failed'
+                                    ? 'Failed to send'
+                                    : localStatus === 'sending'
+                                        ? 'Sending...'
+                                        : serverRead
+                                            ? 'Read'
+                                            : 'Delivered';
+
+                                return (
+                                    <View
+                                        key={message.id}
+                                        style={[
+                                            styles.messageBox,
+                                            isSent ? styles.sentMessage : styles.receivedMessage,
+                                        ]}
+                                    >
+                                        {!isSent && (
+                                            <Text style={styles.senderName}>{normalizeDisplayName(message.sender_display_name || partnerName)}</Text>
+                                        )}
+                                        <View
+                                            style={[
+                                                styles.messageBubble,
+                                                isSent ? styles.sentBubble : styles.receivedBubble,
+                                            ]}
+                                        >
+                                            <Text
+                                                style={[
+                                                    styles.messageText,
+                                                    isSent ? styles.sentText : styles.receivedText,
+                                                ]}
+                                            >
+                                                {message.content}
+                                            </Text>
+                                        </View>
+                                        <Text style={styles.timestamp}>{new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text>
+                                        {isSent && (
+                                            <View style={styles.statusRow}>
+                                                <Text style={[styles.statusText, localStatus === 'failed' && styles.statusFailed]}>{statusLabel}</Text>
+                                                {localStatus === 'failed' && (
+                                                    <TouchableOpacity style={styles.retryBtn} onPress={() => retryFailedMessage(message)}>
+                                                        <Text style={styles.retryBtnText}>Retry</Text>
+                                                    </TouchableOpacity>
+                                                )}
+                                            </View>
+                                        )}
+                                    </View>
+                                );
+                            })}
+                        </ScrollView>
+
+                        <Modal
+                            visible={isModalVisible}
+                            transparent
+                            animationType="slide"
+                            onRequestClose={() => setModalVisible(false)}
+                        >
+                            <View style={styles.modalOverlay}>
+                                <View style={styles.modalContainer}>
+                                    <Text style={styles.modalTitle}>REPORT THIS USER?</Text>
+
+                                    <Text style={styles.reasonLabel}>Select Reason</Text>
+                                    {["Rude Behavior", "Inappropriate Message", "Spam", "Other"].map((reason) => (
+                                        <TouchableOpacity
+                                            key={reason}
+                                            style={[
+                                                styles.reasonOption,
+                                                selectedReason === reason && styles.selectedReason,
+                                            ]}
+                                            onPress={() => setSelectedReason(reason)}
+                                        >
+                                            <Text
+                                                style={[
+                                                    styles.reasonText,
+                                                    selectedReason === reason && styles.selectedReasonText,
+                                                ]}
+                                            >
+                                                {reason}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+
+                                    {selectedReason === "Other" && (
+                                        <TextInput
+                                            style={styles.reasonInput}
+                                            placeholder="Enter your reason..."
+                                            placeholderTextColor="#777"
+                                            value={customReason}
+                                            onChangeText={setCustomReason}
+                                            multiline
+                                        />
+                                    )}
+
+                                    <SafeAreaView edges={['bottom']} style={styles.modalButtons}>
+                                        <TouchableOpacity
+                                            style={[styles.modalButton, styles.yesButton]}
+                                            onPress={handleReportConfirm}
+                                        >
+                                            <Text style={styles.buttonText}>Submit</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={[styles.modalButton, styles.noButton]}
+                                            onPress={() => setModalVisible(false)}
+                                        >
+                                            <Text style={styles.buttonText}>Cancel</Text>
+                                        </TouchableOpacity>
+                                    </SafeAreaView>
+                                </View>
+                            </View>
+                        </Modal>
+
+                        <SafeAreaView edges={['bottom']} style={styles.inputSafeArea}>
+                            <View style={styles.inputContainer}>
+                                <View style={styles.textInputWrapper}>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Aa"
+                                        placeholderTextColor="#777"
+                                        value={inputText}
+                                        onChangeText={setInputText}
+                                        multiline
+                                        blurOnSubmit={false}
+                                    />
+                                </View>
+                                <TouchableOpacity
+                                    style={[styles.iconButton, styles.sendButton]}
+                                    onPress={handleSendMessage}
+                                >
+                                    <Ionicons name="send" size={20} color="#fff" />
+                                </TouchableOpacity>
+                            </View>
+                        </SafeAreaView>
+                    </View>
+                </KeyboardAvoidingView>
+            ) : (
+                <View style={{ flex: 1 }}>
                 <View style={styles.header}>
                     <Image
                         source={require("../../assets/localynk_images/header.png")}
@@ -248,9 +462,7 @@ export default function Message() {
                             />
                         ) : (
                             <View style={styles.headerAvatarPlaceholder}>
-                                <Text style={styles.headerAvatarText}>
-                                    {displayPartnerName.charAt(0)}
-                                </Text>
+                                <Ionicons name="person-circle" size={32} color="#94A3B8" />
                             </View>
                         )}
                         <Text style={styles.guideName}>{displayPartnerName}</Text>
@@ -266,6 +478,9 @@ export default function Message() {
                 <ScrollView 
                     style={styles.messagesContainer} 
                     showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+                    onScrollBeginDrag={Keyboard.dismiss}
                     ref={scrollViewRef}
                     onContentSizeChange={() => scrollViewRef.current.scrollToEnd({ animated: true })}
                 >
@@ -390,25 +605,29 @@ export default function Message() {
                     </View>
                 </Modal>
 
-                <SafeAreaView edges={['bottom']} style={styles.inputContainer}>
-                    <View style={styles.textInputWrapper}>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Aa"
-                            placeholderTextColor="#777"
-                            value={inputText}
-                            onChangeText={setInputText}
-                            multiline
-                        />
+                <SafeAreaView edges={['bottom']} style={[styles.inputSafeArea, androidKeyboardHeight > 0 ? { marginBottom: androidKeyboardHeight } : null]}>
+                    <View style={styles.inputContainer}>
+                        <View style={styles.textInputWrapper}>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Aa"
+                                placeholderTextColor="#777"
+                                value={inputText}
+                                onChangeText={setInputText}
+                                multiline
+                                blurOnSubmit={false}
+                            />
+                        </View>
+                        <TouchableOpacity
+                            style={[styles.iconButton, styles.sendButton]}
+                            onPress={handleSendMessage}
+                        >
+                            <Ionicons name="send" size={20} color="#fff" />
+                        </TouchableOpacity>
                     </View>
-                    <TouchableOpacity
-                        style={[styles.iconButton, styles.sendButton]}
-                        onPress={handleSendMessage}
-                    >
-                        <Ionicons name="send" size={20} color="#fff" />
-                    </TouchableOpacity>
                 </SafeAreaView>
-            </KeyboardAvoidingView>
+                </View>
+            )}
         </SafeAreaView>
     );
 }
@@ -459,6 +678,7 @@ const styles = StyleSheet.create({
     yesButton: { backgroundColor: "#00051A" },
     noButton: { backgroundColor: "#555" },
     buttonText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+    inputSafeArea: { backgroundColor: "#F0F0F0" },
     inputContainer: { flexDirection: "row", alignItems: "center", backgroundColor: "#F0F0F0", paddingVertical: 7, paddingHorizontal: 7 },
     iconButton: { paddingHorizontal: 6 },
     textInputWrapper: { flex: 1, marginHorizontal: 8, backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },

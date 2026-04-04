@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, Image, Text, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, ScrollView, StyleSheet, Image, Text, TouchableOpacity, ActivityIndicator, Modal, TextInput } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
 import { User, Lock } from "lucide-react-native"; // Added Lock icon
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +16,8 @@ const GuideSelection = () => {
     const [loading, setLoading] = useState(true);
     const [guides, setGuides] = useState([]);
     const [favorites, setFavorites] = useState(new Set());
+    const [searchQuery, setSearchQuery] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all');
     
     // Modals
     const [errorModalVisible, setErrorModalVisible] = useState(false);
@@ -98,6 +100,14 @@ const GuideSelection = () => {
         return maxGuests > 0 ? `${maxGuests} guests` : 'N/A';
     };
 
+    const getGuideBusyState = (guide) => {
+        if (typeof guide?.is_busy === 'boolean') {
+            return guide.is_busy;
+        }
+        const activeCount = Number(guide?.active_bookings_count || 0);
+        return guide?.guide_tier !== 'paid' && activeCount >= 1;
+    };
+
     const handleChooseGuide = (guide) => {
         // 1. Prevent booking yourself
         if (user && guide && String(user.id) === String(guide.id)) {
@@ -109,7 +119,7 @@ const GuideSelection = () => {
         // 2. NEW CHECK: Free Tier Limit
         // Note: Ensure your API returns 'guide_tier' and 'active_bookings_count' (or similar logic)
         const isFreeTier = guide.guide_tier !== 'paid'; 
-        const hasActiveBooking = guide.active_bookings_count >= 1; // Or check specific flag from backend
+        const hasActiveBooking = getGuideBusyState(guide);
 
         if (isFreeTier && hasActiveBooking) {
             setLimitModalVisible(true);
@@ -147,6 +157,36 @@ const GuideSelection = () => {
             console.error("Error toggling favorite:", error);
         }
     };
+
+    const filteredGuides = useMemo(() => {
+        const query = searchQuery.trim().toLowerCase();
+
+        return guides.filter((guide) => {
+            const isBusy = getGuideBusyState(guide);
+            const statusPass = statusFilter === 'all'
+                ? true
+                : statusFilter === 'available'
+                    ? !isBusy
+                    : isBusy;
+
+            if (!statusPass) return false;
+
+            if (!query) return true;
+
+            const guideName = guide.guide_name || `${guide.first_name || ''} ${guide.last_name || ''}`;
+            const haystack = [
+                guideName,
+                guide.location,
+                guide.specialty,
+                Array.isArray(guide.languages) ? guide.languages.join(' ') : guide.languages,
+            ]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
+
+            return haystack.includes(query);
+        });
+    }, [guides, searchQuery, statusFilter]);
     
     if (loading) {
         return (
@@ -230,13 +270,56 @@ const GuideSelection = () => {
 
                 <View style={styles.destinationInfo}>
                     <Text style={styles.destinationName}>{placeName}</Text>
-                    <Text style={styles.guideCount}>{guides.length} guide{guides.length !== 1 ? 's' : ''} available</Text>
+                    <Text style={styles.guideCount}>
+                        Showing {filteredGuides.length} of {guides.length} guide{guides.length !== 1 ? 's' : ''}
+                    </Text>
+                </View>
+
+                <View style={styles.filterCard}>
+                    <View style={styles.searchInputWrap}>
+                        <Ionicons name="search" size={16} color="#64748B" />
+                        <TextInput
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                            placeholder="Search guide by name, specialty, language"
+                            placeholderTextColor="#94A3B8"
+                            style={styles.searchInput}
+                        />
+                        {!!searchQuery && (
+                            <TouchableOpacity onPress={() => setSearchQuery('')}>
+                                <Ionicons name="close-circle" size={16} color="#64748B" />
+                            </TouchableOpacity>
+                        )}
+                    </View>
+
+                    <View style={styles.filterChipRow}>
+                        {[
+                            { key: 'all', label: 'All' },
+                            { key: 'available', label: 'Available' },
+                            { key: 'busy', label: 'Busy' },
+                        ].map((chip) => (
+                            <TouchableOpacity
+                                key={chip.key}
+                                onPress={() => setStatusFilter(chip.key)}
+                                style={[styles.filterChip, statusFilter === chip.key && styles.filterChipActive]}
+                            >
+                                <Text style={[styles.filterChipText, statusFilter === chip.key && styles.filterChipTextActive]}>{chip.label}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
                 </View>
 
                 <View style={styles.contentContainer}>
-                    {guides.map((guide, index) => {
+                    {filteredGuides.length === 0 && (
+                        <View style={styles.filteredEmptyContainer}>
+                            <Ionicons name="search-outline" size={36} color="#CBD5E1" />
+                            <Text style={styles.filteredEmptyText}>No guides match your current filters.</Text>
+                        </View>
+                    )}
+
+                    {filteredGuides.map((guide, index) => {
                          // Optional: Visually indicate they are busy
-                         const isBusy = (guide.guide_tier !== 'paid' && guide.active_bookings_count >= 1);
+                         const isBusy = getGuideBusyState(guide);
                          
                          return (
                             <View key={guide.id || index} style={[styles.guideCard, isBusy && styles.guideCardBusy]}>
@@ -398,8 +481,77 @@ const styles = StyleSheet.create({
     destinationInfo: { paddingHorizontal: 16, paddingVertical: 16, backgroundColor: '#F5F7FA', borderBottomWidth: 1, borderBottomColor: '#E0E6ED' },
     destinationName: { fontSize: 18, fontWeight: '700', color: '#1A2332', marginBottom: 4 },
     guideCount: { fontSize: 13, color: '#8B98A8' },
+
+    filterCard: {
+        marginHorizontal: 16,
+        marginTop: 12,
+        marginBottom: 4,
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        borderRadius: 14,
+        padding: 12,
+    },
+    searchInputWrap: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#CBD5E1',
+        borderRadius: 10,
+        backgroundColor: '#F8FAFC',
+        paddingHorizontal: 10,
+        gap: 8,
+    },
+    searchInput: {
+        flex: 1,
+        paddingVertical: 10,
+        fontSize: 13,
+        color: '#0F172A',
+    },
+    filterChipRow: {
+        flexDirection: 'row',
+        gap: 8,
+        marginTop: 10,
+    },
+    filterChip: {
+        paddingHorizontal: 12,
+        paddingVertical: 7,
+        borderWidth: 1,
+        borderColor: '#CBD5E1',
+        borderRadius: 999,
+        backgroundColor: '#F8FAFC',
+    },
+    filterChipActive: {
+        backgroundColor: '#E0F2FE',
+        borderColor: '#0EA5E9',
+    },
+    filterChipText: {
+        fontSize: 12,
+        color: '#475569',
+        fontWeight: '600',
+    },
+    filterChipTextActive: {
+        color: '#0369A1',
+        fontWeight: '700',
+    },
     
     contentContainer: { padding: 16, gap: 12 },
+    filteredEmptyContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 28,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        borderRadius: 12,
+        backgroundColor: '#F8FAFC',
+    },
+    filteredEmptyText: {
+        marginTop: 10,
+        fontSize: 13,
+        color: '#64748B',
+        fontWeight: '600',
+        textAlign: 'center',
+    },
     
     guideCard: { backgroundColor: '#F5F7FA', borderRadius: 15, padding: 16, borderWidth: 1, borderColor: '#E0E6ED', marginBottom: 10 },
     guideCardBusy: { backgroundColor: '#FAFAFA', borderColor: '#EEE', opacity: 0.9 }, // Style for busy guides

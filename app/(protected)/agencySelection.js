@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, ScrollView, Dimensions, Modal } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, ScrollView, Dimensions, Modal, TextInput } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -72,6 +72,8 @@ const AgencySelection = () => {
 
     const [agencies, setAgencies] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all');
 
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedAgency, setSelectedAgency] = useState(null);
@@ -209,6 +211,53 @@ const AgencySelection = () => {
         });
     };
 
+    const handleSendMessage = (agency) => {
+        const partnerId = Number(agency?.user);
+        if (!Number.isFinite(partnerId) || partnerId <= 0) {
+            return;
+        }
+
+        router.push({
+            pathname: '/(protected)/message',
+            params: {
+                partnerId: String(partnerId),
+                partnerName: agency?.business_name || 'Agency',
+                partnerImage: agency?.logo || agency?.profile_picture || '',
+            },
+        });
+    };
+
+    const filteredAgencies = useMemo(() => {
+        const query = searchQuery.trim().toLowerCase();
+
+        return agencies.filter((agency) => {
+            const isDeactivated = agency.is_active === false;
+            const isOffline = agency.is_guide_visible === false || isDeactivated;
+
+            const statusPass = statusFilter === 'all'
+                ? true
+                : statusFilter === 'available'
+                    ? !isOffline
+                    : isOffline;
+
+            if (!statusPass) return false;
+
+            if (!query) return true;
+
+            const haystack = [
+                agency.business_name,
+                agency.owner_name,
+                agency.email,
+                agency.phone,
+            ]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
+
+            return haystack.includes(query);
+        });
+    }, [agencies, searchQuery, statusFilter]);
+
     const renderAgencyCard = ({ item }) => {
         if (!item || !item.business_name) return null;
 
@@ -323,6 +372,19 @@ const AgencySelection = () => {
                         {isOffline ? 'UNAVAILABLE' : 'VIEW DETAILS'}
                     </Text>
                     <Ionicons name={isOffline ? "lock-closed" : "eye-outline"} size={16} color={isOffline ? "#94A3B8" : "#0072FF"} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[
+                        styles.messageButton,
+                        isOffline && { backgroundColor: '#F1F5F9', borderColor: '#CBD5E1' }
+                    ]}
+                    onPress={() => handleSendMessage(item)}
+                    activeOpacity={0.7}
+                    disabled={isOffline || !item?.user}
+                >
+                    <Ionicons name="chatbubble-ellipses-outline" size={16} color={isOffline ? '#94A3B8' : '#FFFFFF'} />
+                    <Text style={[styles.messageButtonText, isOffline && { color: '#94A3B8' }]}>SEND MESSAGE</Text>
                 </TouchableOpacity>
             </View>
         );
@@ -502,16 +564,56 @@ const AgencySelection = () => {
                         </Text>
                     </View>
 
+                    <View style={styles.filterCard}>
+                        <View style={styles.searchInputWrap}>
+                            <Ionicons name="search" size={16} color="#64748B" />
+                            <TextInput
+                                value={searchQuery}
+                                onChangeText={setSearchQuery}
+                                placeholder="Search agency by name, or email"
+                                placeholderTextColor="#94A3B8"
+                                style={styles.searchInput}
+                            />
+                            {!!searchQuery && (
+                                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                                    <Ionicons name="close-circle" size={16} color="#64748B" />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+
+                        <View style={styles.filterChipRow}>
+                            {[
+                                { key: 'all', label: 'All' },
+                                { key: 'available', label: 'Available' },
+                                { key: 'offline', label: 'Offline' },
+                            ].map((chip) => (
+                                <TouchableOpacity
+                                    key={chip.key}
+                                    onPress={() => setStatusFilter(chip.key)}
+                                    style={[styles.filterChip, statusFilter === chip.key && styles.filterChipActive]}
+                                >
+                                    <Text style={[styles.filterChipText, statusFilter === chip.key && styles.filterChipTextActive]}>{chip.label}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+
+                        <Text style={styles.filterSummaryText}>
+                            Showing {filteredAgencies.length} of {agencies.length} agency{agencies.length !== 1 ? 'ies' : ''}
+                        </Text>
+                    </View>
+
                     <FlatList
-                        data={agencies}
+                        data={filteredAgencies}
                         renderItem={renderAgencyCard}
                         keyExtractor={(item) => item.id.toString()}
                         scrollEnabled={false}
                         ListEmptyComponent={
                             <View style={styles.emptyContainer}>
-                                <Ionicons name="business-outline" size={48} color="#CBD5E1" />
+                                <Ionicons name={agencies.length > 0 ? 'search-outline' : 'business-outline'} size={48} color="#CBD5E1" />
                                 <Text style={styles.emptyText}>
-                                    No approved agencies linked to this destination yet.
+                                    {agencies.length > 0
+                                        ? 'No agencies match your current filters.'
+                                        : 'No approved agencies linked to this destination yet.'}
                                 </Text>
                             </View>
                         }
@@ -593,6 +695,63 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#64748B',
         lineHeight: 20,
+    },
+
+    filterCard: {
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        borderRadius: 14,
+        padding: 12,
+        marginBottom: 14,
+    },
+    searchInputWrap: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#CBD5E1',
+        borderRadius: 10,
+        backgroundColor: '#F8FAFC',
+        paddingHorizontal: 10,
+        gap: 8,
+    },
+    searchInput: {
+        flex: 1,
+        paddingVertical: 10,
+        fontSize: 13,
+        color: '#0F172A',
+    },
+    filterChipRow: {
+        flexDirection: 'row',
+        gap: 8,
+        marginTop: 10,
+    },
+    filterChip: {
+        paddingHorizontal: 12,
+        paddingVertical: 7,
+        borderWidth: 1,
+        borderColor: '#CBD5E1',
+        borderRadius: 999,
+        backgroundColor: '#F8FAFC',
+    },
+    filterChipActive: {
+        backgroundColor: '#E0F2FE',
+        borderColor: '#0EA5E9',
+    },
+    filterChipText: {
+        fontSize: 12,
+        color: '#475569',
+        fontWeight: '600',
+    },
+    filterChipTextActive: {
+        color: '#0369A1',
+        fontWeight: '700',
+    },
+    filterSummaryText: {
+        marginTop: 10,
+        fontSize: 12,
+        color: '#64748B',
+        fontWeight: '600',
     },
 
     agencyCard: {
@@ -735,6 +894,23 @@ const styles = StyleSheet.create({
     },
     detailsButtonText: {
         color: '#0072FF',
+        fontSize: 14,
+        fontWeight: '700',
+    },
+    messageButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        borderRadius: 12,
+        gap: 8,
+        marginTop: 10,
+        backgroundColor: '#0072FF',
+        borderWidth: 1,
+        borderColor: '#0072FF',
+    },
+    messageButtonText: {
+        color: '#FFFFFF',
         fontSize: 14,
         fontWeight: '700',
     },
