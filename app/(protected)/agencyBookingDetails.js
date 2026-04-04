@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, StatusBar, StyleSheet, Image, TextInput, TouchableOpacity, ActivityIndicator, Modal, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Image, TextInput, TouchableOpacity, ActivityIndicator, Modal, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { CheckCircle2, UploadCloud, Calendar as CalendarIcon, ShieldCheck, AlertCircle } from 'lucide-react-native'; 
@@ -311,8 +311,7 @@ const AgencyBookingDetails = () => {
 
     return (
         <View style={{ flex: 1, backgroundColor: BACKGROUND_COLOR }}>
-             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+             <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
                     <ScrollView style={styles.container} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
                         
@@ -513,7 +512,7 @@ const AgencyBookingDetails = () => {
                 </KeyboardAvoidingView>
 
                 {/* BOTTOM BAR */}
-                <SafeAreaView style={styles.bottomBar}>
+                <SafeAreaView edges={['bottom']} style={styles.bottomBar}>
                     <View>
                         <Text style={styles.bottomLabel}>
                             {isPaymentMode ? "Total Payable Now" : "Estimated Down Payment"}

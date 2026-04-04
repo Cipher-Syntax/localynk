@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Image, Text, TouchableOpacity, StatusBar } from 'react-native';
+import { View, StyleSheet, Image, Text, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import IsTourist from './IsTourist';
 import RegisterModalForm from './RegisterOpenModalForm';
@@ -22,8 +22,7 @@ const Action = () => {
     }
 
     return (
-        <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <SafeAreaView edges={['bottom']} style={styles.container}>
 
             <View style={styles.header}>
                 <Image

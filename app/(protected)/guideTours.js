@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, StatusBar, Image, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+﻿import React, { useState, useEffect } from 'react';
+import { View, ScrollView, StyleSheet, Image, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -75,7 +75,6 @@ const GuideDestinations = () => {
     return (
         <View style={{ flex: 1 }}>
             <ScrollView style={styles.container}>
-                <StatusBar barStyle="light-content" />
                 
                 <View style={styles.header}>
                     <Image

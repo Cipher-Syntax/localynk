@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, ScrollView, StatusBar, Dimensions, Modal } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, ScrollView, Dimensions, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -415,7 +415,7 @@ const AgencySelection = () => {
                     </View>
                 </ScrollView>
 
-                <SafeAreaView style={styles.modalFooter}>
+                <SafeAreaView edges={['bottom']} style={styles.modalFooter}>
                     <TouchableOpacity style={styles.cancelBtn} onPress={handleCloseModal}>
                         <Text style={styles.cancelBtnText}>Cancel</Text>
                     </TouchableOpacity>
@@ -439,8 +439,7 @@ const AgencySelection = () => {
     if (loading) {
         return (
             <View style={styles.container}>
-                <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-                <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+                <SafeAreaView edges={['bottom']} style={{ flex: 1 }}>
                     <View style={styles.header}>
                         <View style={[styles.headerImage, { backgroundColor: '#E0E6ED', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 }]} />
                     </View>
@@ -478,8 +477,7 @@ const AgencySelection = () => {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-            <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+            <SafeAreaView edges={['bottom']} style={{ flex: 1 }}>
                 
                 <View style={styles.header}>
                     <Image
@@ -527,7 +525,7 @@ const AgencySelection = () => {
                 visible={modalVisible}
                 onRequestClose={handleCloseModal}
             >
-                <SafeAreaView style={styles.modalOverlay}>
+                <SafeAreaView edges={['bottom']} style={styles.modalOverlay}>
                     <View style={styles.modalContainer}>
                         {renderModalContent()}
                     </View>

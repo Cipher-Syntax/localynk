@@ -2,11 +2,11 @@ import { Tabs } from "expo-router";
 import { useCallback, useState } from "react";
 import { User, Map, Home } from "lucide-react-native";
 import { View, Platform } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { useAuth } from "../../../context/AuthContext";
 import api from "../../../api/api";
 import { getLatestBookingTimestamp, getSeenBookingTimestamp } from "../../../utils/bookingNotifications";
+import { ScreenSafeArea } from "../../../components";
 
 const HomeLayout = () => {
     const { role, user } = useAuth();
@@ -58,7 +58,7 @@ const HomeLayout = () => {
     );
 
     return (
-        <SafeAreaView style={{flex: 1}}>
+        <ScreenSafeArea showStatusBar={false}>
             <Tabs
                 screenOptions={{
                     headerShown: false,
@@ -136,7 +136,7 @@ const HomeLayout = () => {
                     />
                 ))}
             </Tabs>
-        </SafeAreaView>
+        </ScreenSafeArea>
     );
 };
 

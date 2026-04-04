@@ -5,7 +5,6 @@ import {
     ActivityIndicator, 
     ScrollView, 
     StyleSheet, 
-    StatusBar, 
     Image, 
     TouchableOpacity, 
     RefreshControl, 
@@ -16,9 +15,9 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, AntDesign } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../../context/AuthContext";
 import api from "../../../api/api";
+import { ScreenSafeArea } from "../../../components";
 import {
     getLatestBookingTimestamp,
     hasUnseenBookings,
@@ -34,6 +33,7 @@ const { width } = Dimensions.get('window');
 const Profile = () => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [statusBarStyle, setStatusBarStyle] = useState('light-content');
     
     const [deactivateModalVisible, setDeactivateModalVisible] = useState(false);
     const [successModalVisible, setSuccessModalVisible] = useState(false); 
@@ -164,6 +164,12 @@ const Profile = () => {
         setRefreshing(false);
     }, [userId, fetchBookingStats, fetchConversationCount]);
 
+    const handleScroll = useCallback((event) => {
+        const offsetY = event.nativeEvent.contentOffset.y;
+        const nextStyle = offsetY > 40 ? 'dark-content' : 'light-content';
+        setStatusBarStyle((prevStyle) => (prevStyle === nextStyle ? prevStyle : nextStyle));
+    }, []);
+
     const handleDeactivate = () => {
         setDeactivateModalVisible(true);
     };
@@ -292,10 +298,12 @@ const Profile = () => {
     };
 
     return (
-        <View style={{flex: 1}}>
+        <ScreenSafeArea statusBarStyle={statusBarStyle}>
             <ScrollView 
                 style={styles.container} 
                 showsVerticalScrollIndicator={false}
+                onScroll={handleScroll}
+                scrollEventThrottle={16}
                 refreshControl={
                     <RefreshControl 
                         refreshing={refreshing} 
@@ -306,8 +314,6 @@ const Profile = () => {
                 }
             >
                 <View>
-                    <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-
                     <View style={styles.header}>
                         <Image
                             source={require('../../../assets/localynk_images/header.png')}
@@ -548,7 +554,7 @@ const Profile = () => {
                     </View>
                 </View>
             </Modal>
-        </View>
+        </ScreenSafeArea>
     );
 }
 

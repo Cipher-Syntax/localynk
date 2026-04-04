@@ -140,7 +140,7 @@ const ReviewModal = () => {
     }
 
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView edges={['bottom']} style={styles.safeArea}>
             <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={() => setToast({ ...toast, visible: false })} />
             <ScrollView contentContainerStyle={styles.container}>
                 <View style={styles.header}>

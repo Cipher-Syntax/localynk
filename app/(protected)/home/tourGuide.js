@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { View, Text, ScrollView, ActivityIndicator, StyleSheet, Modal, TouchableOpacity, Alert, RefreshControl } from "react-native";
+import { View, Text, ScrollView, ActivityIndicator, StyleSheet, Modal, TouchableOpacity, Alert, RefreshControl, StatusBar, Platform } from "react-native";
 import { IsTourist, Action, PendingGuide } from "../../../components/tourist_guide"; 
-import { SafeAreaView } from "react-native-safe-area-context";
+import { ScreenSafeArea } from "../../../components";
 import { useAuth } from "../../../context/AuthContext";
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -64,19 +64,31 @@ export default function TourGuide() {
         return () => clearTimeout(timer);
     }, []);
 
+    useFocusEffect(
+        useCallback(() => {
+            StatusBar.setBarStyle('light-content');
+            if (Platform.OS === 'android') {
+                StatusBar.setBackgroundColor('transparent');
+                StatusBar.setTranslucent(true);
+            }
+        }, [])
+    );
+
     if (loading || isAuthLoading) {
         return (
-            <View style={{ flex: 1, backgroundColor: '#F5F7FA' }}>
-                <View style={{ height: 120, backgroundColor: '#E0E6ED', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 }} />
-                <View style={{ padding: 16, marginTop: 10 }}>
-                    <View style={{ height: 180, backgroundColor: '#E0E6ED', borderRadius: 16, marginBottom: 16 }} />
-                    <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
-                        <View style={{ flex: 1, height: 100, backgroundColor: '#E0E6ED', borderRadius: 16 }} />
-                        <View style={{ flex: 1, height: 100, backgroundColor: '#E0E6ED', borderRadius: 16 }} />
+            <ScreenSafeArea style={styles.safeArea} statusBarStyle="light-content">
+                <View style={{ flex: 1, backgroundColor: '#F5F7FA' }}>
+                    <View style={{ height: 120, backgroundColor: '#E0E6ED', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 }} />
+                    <View style={{ padding: 16, marginTop: 10 }}>
+                        <View style={{ height: 180, backgroundColor: '#E0E6ED', borderRadius: 16, marginBottom: 16 }} />
+                        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+                            <View style={{ flex: 1, height: 100, backgroundColor: '#E0E6ED', borderRadius: 16 }} />
+                            <View style={{ flex: 1, height: 100, backgroundColor: '#E0E6ED', borderRadius: 16 }} />
+                        </View>
+                        <View style={{ height: 150, backgroundColor: '#E0E6ED', borderRadius: 16 }} />
                     </View>
-                    <View style={{ height: 150, backgroundColor: '#E0E6ED', borderRadius: 16 }} />
                 </View>
-            </View>
+            </ScreenSafeArea>
         );
     }
 
@@ -87,7 +99,7 @@ export default function TourGuide() {
     
     if (role === 'guide') {
         return (
-            <View style={styles.safeArea}>
+            <ScreenSafeArea style={styles.safeArea} statusBarStyle="light-content">
                 <ScrollView 
                     contentContainerStyle={styles.scrollContent}
                     refreshControl={
@@ -169,13 +181,13 @@ export default function TourGuide() {
                         </View>
                     </View>
                 </Modal>
-            </View>
+            </ScreenSafeArea>
         );
     }
     
     if (role === 'pending_guide') {
         return (
-            <SafeAreaView style={styles.safeArea}>
+            <ScreenSafeArea style={styles.safeArea} statusBarStyle="light-content">
                 <ScrollView 
                     contentContainerStyle={styles.scrollContent}
                     refreshControl={
@@ -188,12 +200,12 @@ export default function TourGuide() {
                 >
                     <PendingGuide /> 
                 </ScrollView>
-            </SafeAreaView>
+            </ScreenSafeArea>
         );
     }
 
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <ScreenSafeArea style={styles.safeArea} statusBarStyle="light-content">
             <ScrollView 
                 contentContainerStyle={styles.scrollContent}
                 refreshControl={
@@ -206,7 +218,7 @@ export default function TourGuide() {
             >
                 <Action />
             </ScrollView>
-        </SafeAreaView>
+        </ScreenSafeArea>
     );
 }
 

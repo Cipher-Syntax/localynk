@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { View, StyleSheet, Image, Text, TouchableOpacity, StatusBar, ScrollView, ActivityIndicator, RefreshControl, Modal } from 'react-native';
+import { View, StyleSheet, Image, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -535,7 +535,6 @@ const Notifications = () => {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
             <View>
                 <View style={styles.header}>
                     <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} />

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, StatusBar, Image, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, ScrollView, StyleSheet, Image, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
 import { User } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
@@ -102,8 +102,7 @@ const AgencyAssignedGuide = () => {
     
     return (
         <ScrollView style={styles.container}>
-            <SafeAreaView>
-                <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+            <SafeAreaView edges={['bottom']}>
                 <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={() => setToast({ ...toast, visible: false })} />
                 
                 <View style={styles.header}>

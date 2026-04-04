@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StatusBar, StyleSheet, Image, TouchableOpacity, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Image, TouchableOpacity, Pressable, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
@@ -57,8 +57,7 @@ const CompleteRegistrationFee = () => {
 
     return (
         <ScrollView style={styles.container}>
-            <SafeAreaView>
-                <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+            <SafeAreaView edges={['bottom']}>
                 <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={() => setToast({ ...toast, visible: false })} />
 
                 <View style={styles.header}>

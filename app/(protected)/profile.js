@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, ScrollView, StyleSheet, StatusBar, Image, Text, TouchableOpacity, ActivityIndicator, Dimensions, Alert } from 'react-native';
+import { View, ScrollView, StyleSheet, Image, Text, TouchableOpacity, ActivityIndicator, Dimensions, Alert } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
 import { User, Calendar as CalendarIcon, Map, Star, Compass, Clock, Languages, Package, MapPin, Bed, Wifi, Car, Coffee, CheckCircle } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
@@ -229,8 +229,7 @@ const GuideProfile = () => {
 
     return (
         <ScrollView style={styles.container}>
-            <SafeAreaView edges={['top']}>
-                <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+            <SafeAreaView edges={['bottom']}>
                 
                 <View style={styles.header}>
                     <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} />
@@ -453,7 +452,7 @@ const GuideProfile = () => {
                             <View style={styles.infoItem}><Clock size={16} color="#1A2332" /><Text style={styles.detailText}><Text style={styles.detailLabel}>Experience: </Text>{guide.experience_years} years</Text></View>
                         </View>
 
-                        <SafeAreaView style={styles.detailsSection}>
+                        <SafeAreaView edges={['bottom']} style={styles.detailsSection}>
                             <View style={styles.sectionHeader}>
                                 <CalendarIcon size={18} color="#1A2332" />
                                 <Text style={styles.detailsHeader}>Availability</Text>

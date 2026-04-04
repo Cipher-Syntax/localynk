@@ -107,7 +107,7 @@ const EditProfile = () => {
             style={{ flex: 1 }} 
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-            <SafeAreaView style={{ flex: 1, backgroundColor: '#F9FAFB' }}>
+            <SafeAreaView edges={['bottom']} style={{ flex: 1, backgroundColor: '#F9FAFB' }}>
                 <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={() => setToast({ ...toast, visible: false })} />
                 <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
                     

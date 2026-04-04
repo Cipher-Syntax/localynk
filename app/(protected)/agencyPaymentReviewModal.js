@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator, TextInput, Platform, Dimensions } from 'react-native';
+import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput, Platform, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Receipt, MapPin, Calendar, CreditCard, User, Mail, Users, AlertCircle, Send } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -165,7 +165,6 @@ const AgencyPaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) 
     return (
         <Modal visible={isModalOpen} animationType="fade" transparent={true} onRequestClose={() => setIsModalOpen(false)}>
             <View style={styles.overlay}>
-                <StatusBar barStyle="light-content" backgroundColor="rgba(0,0,0,0.6)" />
                 
                 <View style={styles.receiptContainer}>
                     <View style={styles.receiptHeader}>
@@ -327,7 +326,7 @@ const AgencyPaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) 
             </Modal>
 
              <Modal visible={showConfirmationScreen} animationType="slide">
-                <SafeAreaView style={[styles.successContainer, !isSuccess && {backgroundColor: '#EF4444'}]}>
+                <SafeAreaView edges={['bottom']} style={[styles.successContainer, !isSuccess && {backgroundColor: '#EF4444'}]}>
                     <View style={styles.successContent}>
                         <View style={styles.successIconCircle}>
                             <Ionicons name={isSuccess ? "checkmark" : "close"} size={60} color="#fff" />

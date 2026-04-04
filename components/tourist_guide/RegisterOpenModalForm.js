@@ -267,7 +267,7 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
         <>
             <Modal visible={isModalOpen} animationType="slide" presentationStyle="pageSheet">
                 <View style={styles.container}>
-                    <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+                    <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
                         
                         <View style={styles.header}>
                             <TouchableOpacity onPress={() => setIsOpenModal(false)} style={styles.closeButton}>
@@ -290,7 +290,7 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
                         </ScrollView>
 
                         {/* Footer Navigation */}
-                        <SafeAreaView style={styles.footer}>
+                        <SafeAreaView edges={['bottom']} style={styles.footer}>
                             {currentStep > 1 && (
                                 <TouchableOpacity style={styles.secondaryButton} onPress={prevStep}>
                                     <Text style={styles.secondaryButtonText}>Back</Text>

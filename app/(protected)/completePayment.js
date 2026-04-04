@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StatusBar, StyleSheet, Image, TextInput, TouchableOpacity, ActivityIndicator, Pressable } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Image, TextInput, TouchableOpacity, ActivityIndicator, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { User } from 'lucide-react-native';
@@ -85,8 +85,7 @@ const CompletePayment = () => {
 
     return (
         <ScrollView style={styles.container}>
-            <SafeAreaView>
-                <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+            <SafeAreaView edges={['bottom']}>
 
                 <View style={styles.header}>
                     <Image

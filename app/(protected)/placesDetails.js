@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ScrollView, View, Text, Image, StyleSheet, StatusBar, FlatList, TouchableOpacity, Animated, Easing, ActivityIndicator } from 'react-native';
+import { ScrollView, View, Text, Image, StyleSheet, FlatList, TouchableOpacity, Animated, Easing, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Star, MapPin, Calendar, User } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -89,8 +89,7 @@ export default function PlacesDetails() {
 
     return (
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-            <SafeAreaView>
-                <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+            <SafeAreaView edges={['bottom']}>
 
                 <View style={styles.header}>
                     <Image

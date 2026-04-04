@@ -29,7 +29,7 @@ export default function Explore() {
     }
     return (
         <View style={{ flex: 1 }}>
-            <SafeAreaView style={{ flex: 1 }}>
+            <SafeAreaView edges={['bottom']} style={{ flex: 1 }}>
                 <ExplorePlaces />
             </SafeAreaView>
         </View>

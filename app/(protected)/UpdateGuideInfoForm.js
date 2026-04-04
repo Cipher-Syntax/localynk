@@ -214,7 +214,7 @@ const UpdateGuideInfoForm = () => {
     }
 
     return (
-        <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <SafeAreaView style={styles.safeArea} edges={['bottom']}>
             <View style={styles.headerContainer}>
                 <TouchableOpacity onPress={handleCancel} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color="#1F2937" />
@@ -386,7 +386,7 @@ const UpdateGuideInfoForm = () => {
                 animationType="slide"
                 onRequestClose={() => setSpecialtyModalVisible(false)}
             >
-                <SafeAreaView style={styles.modalOverlay}>
+                <SafeAreaView edges={['bottom']} style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Select Specialty</Text>

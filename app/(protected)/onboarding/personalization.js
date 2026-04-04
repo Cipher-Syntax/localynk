@@ -203,7 +203,7 @@ export default function PersonalizationScreen() {
 
     if (loading) {
         return (
-            <SafeAreaView style={styles.safeArea}>
+            <SafeAreaView edges={['bottom']} style={styles.safeArea}>
                 <View style={styles.container}>
                     <View style={styles.header}>
                         <View style={styles.headerContent}>
@@ -238,7 +238,7 @@ export default function PersonalizationScreen() {
     });
 
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView edges={['bottom']} style={styles.safeArea}>
             <View style={styles.container}>
                 {/* Enhanced Header */}
                 <View style={styles.header}>
@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
     // Header Styles
     header: { 
         paddingHorizontal: 20, 
-        paddingTop: 16, 
+        paddingTop: 40, 
         paddingBottom: 20,
         backgroundColor: '#fff', 
         borderBottomWidth: 1,
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
         marginRight: 12
     },
     headerText: {
-        flex: 1
+        flex: 1,
     },
     title: { 
         fontSize: 26, 

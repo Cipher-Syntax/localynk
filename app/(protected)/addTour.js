@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { ScrollView, StatusBar, View, Text, Image, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, Modal, FlatList, Platform, Dimensions } from 'react-native';
+import { ScrollView, View, Text, Image, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, Modal, FlatList, Platform, Dimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
@@ -561,8 +561,7 @@ const AddTour = () => {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="dark-content" />
-            <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+            <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
                 
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -609,7 +608,7 @@ const AddTour = () => {
 
             {/* Destination Selection Modal */}
             <Modal visible={destModalVisible} animationType="slide" transparent={true}>
-                <SafeAreaView style={styles.modalOverlay}>
+                <SafeAreaView edges={['bottom']} style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>Select Destination</Text>
                         <FlatList

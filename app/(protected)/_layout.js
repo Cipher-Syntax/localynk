@@ -1,5 +1,5 @@
 import { Stack, useRouter, useSegments } from "expo-router";
-import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
+import { View, Text, ActivityIndicator, StyleSheet, StatusBar } from "react-native";
 import React, { useEffect } from 'react';
 import { useAuth } from "../../context/AuthContext"; 
 
@@ -82,10 +82,13 @@ export default function ProtectedLayout() {
     if (!isAuthenticated) return null;
 
     return (
-        <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
-            <Stack.Screen name="home" />
-            <Stack.Screen name="onboarding/personalization" />
-        </Stack>
+        <>
+            <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
+            <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
+                <Stack.Screen name="home" />
+                <Stack.Screen name="onboarding/personalization" />
+            </Stack>
+        </>
     );
 }
 

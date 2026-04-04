@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { View, Text, ActivityIndicator, ScrollView, StyleSheet, StatusBar, Image, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform } from "react-native";
+import { View, Text, ActivityIndicator, ScrollView, StyleSheet, Image, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -184,7 +184,7 @@ export default function Message() {
 
     if (!normalizedPartnerId) {
         return (
-            <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+            <SafeAreaView style={styles.container} edges={['bottom']}>
                 <View style={styles.header}>
                     <Text style={styles.headerTitle}>Message</Text>
                 </View>
@@ -200,7 +200,7 @@ export default function Message() {
 
     if (loading) {
         return (
-            <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top', 'left', 'right']}>
+            <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['bottom']}>
                 <View style={{ height: 120, backgroundColor: '#E0E6ED', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 }} />
                 <View style={{ flexDirection: 'row', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: '#ddd' }}>
                      <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#E0E6ED', marginRight: 10 }} />
@@ -220,8 +220,7 @@ export default function Message() {
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        <SafeAreaView style={styles.container} edges={['bottom']}>
             <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={() => setToast({ ...toast, visible: false })} />
             <KeyboardAvoidingView 
                 style={{ flex: 1 }} 
@@ -373,7 +372,7 @@ export default function Message() {
                                 />
                             )}
 
-                            <SafeAreaView style={styles.modalButtons}>
+                            <SafeAreaView edges={['bottom']} style={styles.modalButtons}>
                                 <TouchableOpacity
                                     style={[styles.modalButton, styles.yesButton]}
                                     onPress={handleReportConfirm}
@@ -391,7 +390,7 @@ export default function Message() {
                     </View>
                 </Modal>
 
-                <SafeAreaView style={styles.inputContainer}>
+                <SafeAreaView edges={['bottom']} style={styles.inputContainer}>
                     <View style={styles.textInputWrapper}>
                         <TextInput
                             style={styles.input}

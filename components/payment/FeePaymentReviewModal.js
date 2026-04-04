@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -115,9 +115,8 @@ const FeePaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => 
 
     return (
         <Modal visible={isModalOpen} animationType="slide">
-            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
             <ScrollView style={styles.container}>
-                <SafeAreaView>
+                <SafeAreaView edges={['bottom']}>
                     <View style={styles.header}>
                         <TouchableOpacity onPress={() => setIsModalOpen(false)}>
                             <Ionicons name="close" size={28} color="#1A2332" />

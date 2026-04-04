@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, StatusBar, TouchableOpacity, RefreshControl, Image, Animated, ScrollView, Modal, TextInput } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Image, Animated, ScrollView, Modal, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient'; 
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -700,7 +700,7 @@ const MyBookings = () => {
 
     if (loading) {
         return (
-            <SafeAreaView style={styles.mainContainer}>
+            <SafeAreaView edges={['bottom']} style={styles.mainContainer}>
                 <View style={styles.header}>
                     <View style={{ width: '100%', height: '100%', backgroundColor: '#E0E6ED', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 }} />
                 </View>
@@ -714,8 +714,7 @@ const MyBookings = () => {
     }
 
     return (
-        <SafeAreaView style={styles.mainContainer}>
-            <StatusBar barStyle="dark-content" />
+        <SafeAreaView edges={['bottom']} style={styles.mainContainer}>
             <FlatList
                 data={groupedBookings}
                 renderItem={renderGroupItem}

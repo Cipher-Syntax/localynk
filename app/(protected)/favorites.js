@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, ScrollView, StyleSheet, StatusBar, Image, Text, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
+import { View, ScrollView, StyleSheet, Image, Text, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
 import { User } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
@@ -131,7 +131,6 @@ const Favorites = () => {
     if (guides.length === 0) {
         return (
             <ScrollView style={styles.container}>
-                <StatusBar barStyle="light-content" />
                 <View style={styles.header}>
                     <Image
                         source={require('../../assets/localynk_images/header.png')}
@@ -160,7 +159,6 @@ const Favorites = () => {
     return (
         <View style={{ flex: 1 }}> 
             <ScrollView style={styles.container}>
-                <StatusBar barStyle="light-content" />
                 
                 <View style={styles.header}>
                     <Image

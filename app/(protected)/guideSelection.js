@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, StatusBar, Image, Text, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
+import { View, ScrollView, StyleSheet, Image, Text, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
 import { User, Lock } from "lucide-react-native"; // Added Lock icon
 import { Ionicons } from '@expo/vector-icons';
@@ -150,7 +150,7 @@ const GuideSelection = () => {
     
     if (loading) {
         return (
-            <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top', 'left', 'right']}>
+            <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['bottom']}>
                 <View style={{ height: 120, backgroundColor: '#E0E6ED', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 }} />
                 <View style={{ paddingHorizontal: 16, paddingVertical: 16, backgroundColor: '#F5F7FA', borderBottomWidth: 1, borderBottomColor: '#E0E6ED' }}>
                     <View style={{ width: 150, height: 20, backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 8 }} />
@@ -183,7 +183,6 @@ const GuideSelection = () => {
     if (guides.length === 0) {
         return (
             <ScrollView style={styles.container}>
-                <StatusBar barStyle="light-content" />
                 <View style={styles.header}>
                     <Image
                         source={require('../../assets/localynk_images/header.png')}
@@ -209,9 +208,8 @@ const GuideSelection = () => {
     }
 
     return (
-        <SafeAreaView style={{ flex: 1 }}> 
+        <SafeAreaView edges={['bottom']} style={{ flex: 1 }}> 
             <ScrollView style={styles.container}>
-                <StatusBar barStyle="dark-content" backgroundColor="#fff" />
                 
                 <View style={styles.header}>
                     <Image

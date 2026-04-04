@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Modal, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,8 +18,7 @@ const ApplicationConfirmationModal = ({ isModalOpen, setIsModalOpen }) => {
             animationType="fade"
             transparent={false}
         >
-            <SafeAreaView style={styles.confirmationContainer}>
-                <StatusBar barStyle="dark-content" backgroundColor="#f5f7fa" />
+            <SafeAreaView edges={['bottom']} style={styles.confirmationContainer}>
                 <View style={styles.confirmationContent}>
                     <Text style={styles.confirmationHeader}>APPLICATION SUBMITTED</Text>
                     

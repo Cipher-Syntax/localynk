@@ -1,7 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { 
-    View, Text, StyleSheet, FlatList, ActivityIndicator, StatusBar, 
-    TouchableOpacity, RefreshControl, Image, Dimensions 
+    View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, RefreshControl, Image, Dimensions 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient'; 
@@ -169,8 +168,7 @@ const Earnings = () => {
     }
 
     return (
-        <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="dark-content" />
+        <SafeAreaView edges={['bottom']} style={styles.container}>
             
             {/* Header */}
             <View style={styles.header}>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, View, Text, Image, StatusBar, StyleSheet, TouchableOpacity } from 'react-native';
+import { ScrollView, View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -31,8 +31,7 @@ const TermsAndAgreement = () => {
     }
 
     return (
-        <SafeAreaView style={styles.safeArea}>
-            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        <SafeAreaView edges={['bottom']} style={styles.safeArea}>
             <ScrollView style={styles.container}>
                 <View style={styles.header}>
                     <Image

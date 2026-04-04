@@ -128,7 +128,7 @@ const MyReviews = () => {
 
     if (loading) {
         return (
-            <SafeAreaView style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+            <SafeAreaView edges={['bottom']} style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
                 <View style={{ paddingHorizontal: 20, paddingVertical: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F1F5F9' }}>
                      <View style={{ width: 120, height: 20, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
                 </View>
@@ -159,7 +159,7 @@ const MyReviews = () => {
     }
 
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView edges={['bottom']} style={styles.safeArea}>
             <View style={styles.topHeader}>
                 <Text style={styles.screenTitle}>My Reviews</Text>
             </View>

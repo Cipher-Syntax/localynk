@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, ActivityIndicator, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, Dimensions } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -184,8 +184,7 @@ const GuideAvailability = () => {
     if (!guide) return <View style={styles.container}><Text>No Data</Text></View>;
 
     return (
-        <SafeAreaView style={styles.container}>
-             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        <SafeAreaView edges={['bottom']} style={styles.container}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
                     <Ionicons name="arrow-back" size={24} color="#333" />
@@ -328,7 +327,7 @@ const GuideAvailability = () => {
                 <View style={{height: 100}} />
             </ScrollView>
 
-            <SafeAreaView style={styles.footer}>
+            <SafeAreaView edges={['bottom']} style={styles.footer}>
                 <View style={styles.footerTextContainer}>
                     <Text style={styles.footerLabel}>Interested?</Text>
                     <Text style={styles.footerSub}>View full profile to book.</Text>

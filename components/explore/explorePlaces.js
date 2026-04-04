@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { View, StyleSheet, StatusBar, Image, Text, TouchableOpacity, Animated, Easing, TextInput, Dimensions, FlatList, ActivityIndicator, Modal, ScrollView } from 'react-native';
+import { View, StyleSheet, Image, Text, TouchableOpacity, Animated, Easing, TextInput, Dimensions, FlatList, ActivityIndicator, Modal, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from "expo-linear-gradient";
 import { User } from "lucide-react-native";
@@ -427,7 +427,6 @@ const ExplorePlaces = () => {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
             <FlatList
                 key={activeTab}
                 data={displayData}
@@ -446,7 +445,7 @@ const ExplorePlaces = () => {
                 transparent={true}
                 onRequestClose={() => setIsFilterModalVisible(false)}
             >
-                <SafeAreaView style={styles.modalOverlay}>
+                <SafeAreaView edges={['bottom']} style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Filters ({activeTab === 'guides' ? 'Guides' : 'Places'})</Text>

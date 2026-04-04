@@ -100,7 +100,7 @@ const ProfileSetupScreen = () => {
 
     return (
         <View style={styles.container}>
-            <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+            <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
                 <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={() => setToast({ ...toast, visible: false })} />
                 <KeyboardAvoidingView 
                     behavior={Platform.OS === "ios" ? "padding" : "height"}

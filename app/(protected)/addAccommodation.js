@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import {ScrollView,StatusBar,View,Text,Image,StyleSheet,TextInput,TouchableOpacity,Alert,ActivityIndicator,Platform,Dimensions } from 'react-native';
+import {ScrollView,View,Text,Image,StyleSheet,TextInput,TouchableOpacity,Alert,ActivityIndicator,Platform,Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -370,8 +370,7 @@ const AddAccommodation = () => {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="dark-content" />
-            <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+            <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
                 
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>

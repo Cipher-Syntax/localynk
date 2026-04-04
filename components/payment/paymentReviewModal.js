@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator, TextInput, Platform, Dimensions, Linking } from 'react-native';
+import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput, Platform, Dimensions, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Receipt, MapPin, Calendar, CreditCard, User, Mail, Users, AlertCircle } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -98,6 +98,63 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                 : [];
         } catch (e) { return []; }
     }, [itineraryTimeline]);
+
+    const groupedItinerary = React.useMemo(() => {
+        if (!Array.isArray(parsedItinerary) || parsedItinerary.length === 0) return [];
+
+        const dayBuckets = new Map();
+
+        const getDayNumber = (value, fallbackDay) => {
+            const parsed = Number.parseInt(value, 10);
+            return Number.isFinite(parsed) && parsed > 0 ? parsed : fallbackDay;
+        };
+
+        const pushActivity = (day, activity) => {
+            const label = String(activity || '').trim();
+            if (!label) return;
+            if (!dayBuckets.has(day)) {
+                dayBuckets.set(day, []);
+            }
+            dayBuckets.get(day).push(label);
+        };
+
+        parsedItinerary.forEach((entry, index) => {
+            const day = getDayNumber(entry?.day, index + 1);
+
+            if (Array.isArray(entry?.activities)) {
+                entry.activities.forEach((item) => {
+                    if (typeof item === 'string') {
+                        pushActivity(day, item);
+                    } else if (item && typeof item === 'object') {
+                        pushActivity(day, item.activityName || item.title || item.name || item.activity);
+                    }
+                });
+            }
+
+            if (typeof entry?.activities === 'string') {
+                pushActivity(day, entry.activities);
+            }
+
+            if (typeof entry === 'string') {
+                pushActivity(day, entry);
+            } else {
+                pushActivity(day, entry?.activityName);
+                pushActivity(day, entry?.title);
+            }
+        });
+
+        return Array.from(dayBuckets.entries())
+            .sort((a, b) => a[0] - b[0])
+            .map(([day, activities]) => {
+                const uniqueActivities = [...new Set(activities)];
+                return {
+                    day,
+                    activities: uniqueActivities.length > 0
+                        ? uniqueActivities
+                        : ['Tour activities for this day.'],
+                };
+            });
+    }, [parsedItinerary]);
 
     const getItineraryDisplay = () => {
         if (!startDate) return '';
@@ -335,7 +392,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
     return (
         <Modal visible={isModalOpen} animationType="fade" transparent={true} onRequestClose={() => setIsModalOpen(false)}>
             <View style={styles.overlay}>
-                <StatusBar barStyle="light-content" backgroundColor="rgba(0,0,0,0.6)" />
                 
                 <View style={styles.receiptContainer}>
                     <View style={styles.receiptHeader}>
@@ -384,18 +440,20 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 
                         <DashedLine />
 
-                        {parsedItinerary && parsedItinerary.length > 0 && (
+                        {groupedItinerary.length > 0 && (
                             <>
                                 <View style={styles.section}>
                                     <Text style={styles.sectionLabel}>TOUR SCHEDULE</Text>
-                                    {parsedItinerary.map((dayPlan, index) => (
-                                        <View key={index} style={{marginBottom: 10}}>
-                                            <Text style={{fontSize: 13, fontWeight: '700', color: '#1E293B', marginBottom: 4}}>
-                                                Day {dayPlan.day || (index + 1)}
+                                    {groupedItinerary.map((dayPlan) => (
+                                        <View key={`day-${dayPlan.day}`} style={styles.scheduleDayGroup}>
+                                            <Text style={styles.scheduleDayTitle}>
+                                                Day {dayPlan.day}
                                             </Text>
-                                            <Text style={{fontSize: 13, color: '#475569', lineHeight: 18}}>
-                                                {dayPlan.activityName || dayPlan.activities || dayPlan.title || 'Tour activities for this day.'}
-                                            </Text>
+                                            {dayPlan.activities.map((activity, index) => (
+                                                <Text key={`day-${dayPlan.day}-activity-${index}`} style={styles.scheduleActivity}>
+                                                    - {activity}
+                                                </Text>
+                                            ))}
                                         </View>
                                     ))}
                                 </View>
@@ -578,7 +636,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
             </Modal>
 
              <Modal visible={showConfirmationScreen} animationType="slide">
-                <SafeAreaView style={[styles.successContainer, !isSuccess && {backgroundColor: '#EF4444'}]}>
+                <SafeAreaView edges={['bottom']} style={[styles.successContainer, !isSuccess && {backgroundColor: '#EF4444'}]}>
                     <View style={styles.successContent}>
                         <View style={styles.successIconCircle}>
                             <Ionicons name={isSuccess ? "checkmark" : "close"} size={60} color="#fff" />
@@ -651,6 +709,9 @@ const styles = StyleSheet.create({
     itemTitle: { fontSize: 14, fontWeight: '700', color: '#1E293B', marginBottom: 2 },
     itemSub: { fontSize: 13, color: '#64748B' },
     itemText: { fontSize: 14, color: '#334155', fontWeight: '500' },
+    scheduleDayGroup: { marginBottom: 10 },
+    scheduleDayTitle: { fontSize: 13, fontWeight: '700', color: '#1E293B', marginBottom: 4 },
+    scheduleActivity: { fontSize: 13, color: '#475569', lineHeight: 18, marginBottom: 2, paddingLeft: 8 },
     smallInput: { width: 60, height: 36, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, textAlign: 'center', fontSize: 14, fontWeight: '700', color: '#1E293B', backgroundColor: '#F8FAFC' },
     dashedLineContainer: { flexDirection: 'row', justifyContent: 'space-between', overflow: 'hidden', marginBottom: 20 },
     dash: { width: 6, height: 1, backgroundColor: '#CBD5E1', marginRight: 4 },

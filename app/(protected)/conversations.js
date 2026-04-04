@@ -221,7 +221,7 @@ const ConversationList = () => {
 
     if (loading) {
         return (
-            <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+            <SafeAreaView edges={['bottom']} style={{ flex: 1, backgroundColor: '#fff' }}>
                 <View style={{ padding: 20, borderBottomWidth: 1, borderBottomColor: '#eee' }}>
                     <View style={{ width: 150, height: 28, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
                 </View>
@@ -236,7 +236,7 @@ const ConversationList = () => {
     }
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView edges={['bottom']} style={styles.container}>
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Conversations</Text>
                 <Text style={styles.headerSubtitle}>{decoratedConversations.length} thread{decoratedConversations.length === 1 ? '' : 's'}</Text>
@@ -328,7 +328,7 @@ const ConversationList = () => {
 
             <Modal visible={menuVisible} transparent animationType="fade" onRequestClose={() => setMenuVisible(false)}>
                 <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setMenuVisible(false)}>
-                    <SafeAreaView style={styles.menuCard}>
+                    <SafeAreaView edges={['bottom']} style={styles.menuCard}>
                         <Text style={styles.menuTitle}>{selectedConversation?._name || 'Conversation'}</Text>
                         <TouchableOpacity style={styles.menuAction} onPress={() => { togglePref('pinned', selectedConversation?._id); setMenuVisible(false); }}>
                             <Text style={styles.menuActionText}>{selectedConversation?._isPinned ? 'Unpin' : 'Pin'}</Text>

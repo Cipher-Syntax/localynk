@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Linking, Modal, ActivityIndicator, ScrollView, StatusBar } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Linking, Modal, ActivityIndicator, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -139,8 +139,7 @@ const UpgradeMembership = () => {
 
     if (showConfirmation) {
         return (
-            <SafeAreaView style={styles.container}>
-                <StatusBar barStyle="dark-content" />
+            <SafeAreaView edges={['bottom']} style={styles.container}>
                 <LinearGradient
                     colors={['#FFFFFF', '#F9FAFB']}
                     style={styles.gradientBackground}
@@ -164,8 +163,7 @@ const UpgradeMembership = () => {
     }
 
     return (
-        <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="dark-content" />
+        <SafeAreaView edges={['bottom']} style={styles.container}>
             <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={() => setToast({ ...toast, visible: false })} />
             <LinearGradient
                 colors={['#FFFFFF', '#F3F4F6']}

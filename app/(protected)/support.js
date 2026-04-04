@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
     View, Text, StyleSheet, ScrollView, TouchableOpacity, 
-    Image, Dimensions, StatusBar, LayoutAnimation, Platform, UIManager 
+    Image, Dimensions, LayoutAnimation, Platform, UIManager 
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -87,7 +87,6 @@ const Support = () => {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" />
             
             {/* --- HEADER --- */}
             <View style={styles.headerContainer}>
@@ -100,7 +99,7 @@ const Support = () => {
                     colors={['rgba(0,198,255,0.85)', 'rgba(0,114,255,0.95)']}
                     style={styles.headerOverlay}
                 />
-                <SafeAreaView style={styles.headerContent}>
+                <SafeAreaView edges={['bottom']} style={styles.headerContent}>
                     <View style={styles.navBar}>
                         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                             <Ionicons name="arrow-back" size={24} color="#fff" />

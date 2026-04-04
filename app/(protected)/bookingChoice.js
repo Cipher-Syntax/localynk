@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -99,8 +99,7 @@ const BookingChoice = () => {
     );
 
     return (
-        <SafeAreaView style={styles.fullContainer}>
-            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        <SafeAreaView edges={['bottom']} style={styles.fullContainer}>
 
             <ScrollView 
                 style={styles.container} 

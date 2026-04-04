@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react'; 
-import { View, ScrollView, StyleSheet, StatusBar, Image, Text, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
+import { View, ScrollView, StyleSheet, Image, Text, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
 import { User, Calendar as CalendarIcon, Map, Star, Compass, Clock, Languages, Package, MapPin, Bed, Wifi, Car, Coffee, CheckCircle } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
@@ -217,8 +217,7 @@ const TouristGuideDetails = () => {
 
     return (
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-            <SafeAreaView edges={['top']} style={{backgroundColor: '#fff'}}>
-                <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+            <SafeAreaView edges={['bottom']} style={{backgroundColor: '#fff'}}>
                 
                 <View style={styles.header}>
                     <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} />

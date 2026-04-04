@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TextInput, ImageBackground, StyleSheet, TouchableOpacity, Dimensions, FlatList, Image, StatusBar } from 'react-native';
+import { View, Text, TextInput, ImageBackground, StyleSheet, TouchableOpacity, Dimensions, FlatList, Image } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import Swiper from 'react-native-swiper';
 import MaskedView from '@react-native-masked-view/masked-view';
@@ -49,7 +49,6 @@ const Header = ({ destinations = [], unreadCount = 0 }) => {
 
     return (
         <View style={{ flex: 1 }}>
-            <StatusBar barStyle="dark-content" />
             <View style={[styles.headerBar, { width: width * 1 }]}>
                 
                 <View style={styles.searchWrapper}>
@@ -117,11 +116,12 @@ const Header = ({ destinations = [], unreadCount = 0 }) => {
                 {destinations.length > 0 ? (
                     <Swiper 
                         ref={swiperRef}
-                        autoplay 
-                        loop 
+                        autoplay
+                        autoplayTimeout={5}
+                        loop
                         showsPagination={false}
-                        autoplayTimeout={6}
                         onIndexChanged={handleIndexChanged}
+                        removeClippedSubviews={false}
                     >
                         {destinations.map(item => (
                             <ImageBackground
@@ -129,6 +129,7 @@ const Header = ({ destinations = [], unreadCount = 0 }) => {
                                 source={item.image ? { uri: item.image || item.first_image || item.thumbnail || '' } : require('../../assets/localynk_images/login_background.png')}
                                 style={styles.slide}
                                 resizeMode="cover"
+                                fadeDuration={300}
                             >
                                 <LinearGradient
                                     colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.7)']}
@@ -182,7 +183,7 @@ const Header = ({ destinations = [], unreadCount = 0 }) => {
             </View>
 
             <View style={styles.indicatorContainer}>
-                {destinations.slice(0, 3).map((_, index) => (
+                {destinations.slice(0, 5).map((_, index) => (
                     <TouchableOpacity
                         key={index}
                         style={[

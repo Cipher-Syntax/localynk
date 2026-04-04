@@ -30,7 +30,7 @@ export default function Notification() {
         );
     }
     return (
-        <SafeAreaView style={{ flex: 1 }}>
+        <SafeAreaView edges={['bottom']} style={{ flex: 1 }}>
             <Notifications />
         </SafeAreaView>
     );

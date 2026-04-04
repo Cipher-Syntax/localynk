@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { View, Text, ScrollView, StatusBar, StyleSheet, Image, TextInput, TouchableOpacity, ActivityIndicator, Alert, Modal, Dimensions, Platform, KeyboardAvoidingView } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Image, TextInput, TouchableOpacity, ActivityIndicator, Alert, Modal, Dimensions, Platform, KeyboardAvoidingView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { User, AlertCircle, CheckCircle2, UploadCloud, Calendar as CalendarIcon, ShieldCheck, Package, Bed } from 'lucide-react-native'; 
@@ -1228,8 +1228,7 @@ const Payment = () => {
 
     return (
         <View style={{ flex: 1, backgroundColor: BACKGROUND_COLOR }}>
-            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-            <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+            <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
                     <ScrollView style={styles.container} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
                         
@@ -1625,7 +1624,7 @@ const Payment = () => {
                                 </>
                             )}
 
-                            <SafeAreaView style={[styles.receiptCard, { marginBottom: isAgency ? 20 : 40 }]}>
+                            <SafeAreaView edges={['bottom']} style={[styles.receiptCard, { marginBottom: isAgency ? 20 : 40 }]}>
                                 <View style={styles.receiptHeader}>
                                     <Text style={styles.receiptTitle}>Payment Summary</Text>
                                 </View>
@@ -1702,7 +1701,7 @@ const Payment = () => {
                 </KeyboardAvoidingView>
 
                 {!isConfirmed ? (
-                    <SafeAreaView style={styles.bottomBar}>
+                    <SafeAreaView edges={['bottom']} style={styles.bottomBar}>
                         <View>
                             <Text style={styles.bottomLabel}>Total Payable Now</Text>
                             <Text style={styles.bottomPrice}>₱{downPayment.toLocaleString()}</Text>
@@ -1715,7 +1714,7 @@ const Payment = () => {
                         </TouchableOpacity>
                     </SafeAreaView>
                 ) : (
-                    <SafeAreaView style={styles.bottomBar}>
+                    <SafeAreaView edges={['bottom']} style={styles.bottomBar}>
                         <TouchableOpacity style={[styles.payButton, {backgroundColor: '#059669', width: '100%'}]} onPress={() => router.push('/(protected)/home')}>
                             <Ionicons name="home" size={18} color="#fff" style={{marginRight:8}}/>
                             <Text style={styles.payButtonText}>Return Home</Text>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, Image, Text, StatusBar, ScrollView, TouchableOpacity, Alert, Modal, Switch, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Image, Text, ScrollView, TouchableOpacity, Alert, Modal, Switch, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -233,8 +233,7 @@ const IsTourist = () => {
     };
 
     return (
-        <View style={styles.container} edges={['top']}>
-            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        <View style={styles.container}>
 
             <View style={styles.header}>
                 <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} />
@@ -578,7 +577,7 @@ const styles = StyleSheet.create({
     headerImage: { width: '100%', height: '100%', resizeMode: 'cover', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     headerTitle: { position: 'absolute', bottom: 15, left: 20, color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 1 },
-    tierBadge: { position: 'absolute', top: 20, right: 20, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)' },
+    tierBadge: { position: 'absolute', top: 35, right: 20, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)' },
     tierBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700', marginLeft: 6 },
     mainContent: { flexDirection: "column", gap: 15, paddingBottom: 40 },
     statusToggleContainer: { width: '90%', alignSelf: 'center', backgroundColor: '#fff', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 16, marginTop: 15, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 3, borderWidth: 1, borderColor: '#f0f0f0' },
