@@ -99,7 +99,7 @@ export default function TourGuide() {
     
     if (role === 'guide') {
         return (
-            <ScreenSafeArea style={styles.safeArea} statusBarStyle="light-content">
+            <ScreenSafeArea style={styles.safeArea} statusBarStyle="light-content" edges={[]}>
                 <ScrollView 
                     contentContainerStyle={styles.scrollContent}
                     refreshControl={

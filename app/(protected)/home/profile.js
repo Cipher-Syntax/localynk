@@ -298,7 +298,7 @@ const Profile = () => {
     };
 
     return (
-        <ScreenSafeArea statusBarStyle={statusBarStyle}>
+        <ScreenSafeArea statusBarStyle={statusBarStyle} edges={[]}>
             <ScrollView 
                 style={styles.container} 
                 showsVerticalScrollIndicator={false}
