@@ -7,6 +7,7 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar } from 'react-native-calendars';
 import api from '../../api/api';
+import StopDetailsModal from '../../components/itinerary/StopDetailsModal';
 
 const { width } = Dimensions.get('window');
 
@@ -23,6 +24,7 @@ const TouristGuideDetails = () => {
     const { guideId, placeId } = params;
     
     const [selectedTour, setSelectedTour] = useState(null);
+    const [stopDetailsVisible, setStopDetailsVisible] = useState(false);
 
     const getPackageDurationDays = (pkg) => {
         if (!pkg) return 1;
@@ -112,18 +114,22 @@ const TouristGuideDetails = () => {
         return `${base}${imgPath}`;
     };
 
-    const renderSequentialItinerary = () => {
-         if (!selectedTour || !selectedTour.itinerary_timeline) return <Text style={styles.emptyText}>No detailed timeline available.</Text>;
-         
-         let timelineData = [];
-         try {
-             timelineData = typeof selectedTour.itinerary_timeline === 'string' ? JSON.parse(selectedTour.itinerary_timeline) : selectedTour.itinerary_timeline;
-         } catch(e) { return <Text style={styles.emptyText}>No detailed timeline available.</Text>; }
+    const parsedTimelineData = useMemo(() => {
+        if (!selectedTour || !selectedTour.itinerary_timeline) return [];
+        try {
+            return typeof selectedTour.itinerary_timeline === 'string'
+                ? JSON.parse(selectedTour.itinerary_timeline)
+                : selectedTour.itinerary_timeline;
+        } catch {
+            return [];
+        }
+    }, [selectedTour]);
 
-         if (timelineData.length === 0) return <Text style={styles.emptyText}>No detailed timeline available.</Text>;
+    const renderSequentialItinerary = () => {
+         if (parsedTimelineData.length === 0) return <Text style={styles.emptyText}>No detailed timeline available.</Text>;
 
          // Group exactly how payment.js does
-         const grouped = timelineData.reduce((acc, item) => {
+         const grouped = parsedTimelineData.reduce((acc, item) => {
              const d = parseInt(item.day) || 1;
              if (!acc[d]) acc[d] = [];
              acc[d].push(item);
@@ -304,7 +310,18 @@ const TouristGuideDetails = () => {
 
                             <View style={styles.divider} />
 
-                            <Text style={styles.subHeader}>Itinerary Schedule</Text>
+                            <View style={styles.subHeaderRow}>
+                                <Text style={styles.subHeader}>Itinerary Schedule</Text>
+                                {parsedTimelineData.length > 0 && (
+                                    <TouchableOpacity
+                                        style={styles.viewStopDetailsButton}
+                                        onPress={() => setStopDetailsVisible(true)}
+                                    >
+                                        <Ionicons name="images-outline" size={14} color="#1D4ED8" />
+                                        <Text style={styles.viewStopDetailsText}>View Stop Details</Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
                             {renderSequentialItinerary()}
 
                             <View style={styles.divider} />
@@ -433,6 +450,15 @@ const TouristGuideDetails = () => {
                         </TouchableOpacity>
                     </View>
                 </View>
+
+                <StopDetailsModal
+                    visible={stopDetailsVisible}
+                    onClose={() => setStopDetailsVisible(false)}
+                    timeline={parsedTimelineData}
+                    stopCatalog={Array.isArray(selectedTour?.stops) ? selectedTour.stops : []}
+                    accommodationCatalog={accommodations}
+                    getImageUrl={getImageUrl}
+                />
             </SafeAreaView>
         </ScrollView>
     );
@@ -482,7 +508,20 @@ const styles = StyleSheet.create({
     packagePillTextActive: { color: '#00A8FF' },
 
     bodyText: { fontSize: 14, color: '#555', lineHeight: 22 },
-    subHeader: { fontSize: 13, fontWeight: '700', color: '#333', marginBottom: 8, marginTop: 10 },
+    subHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 10, marginBottom: 8, flexWrap: 'wrap' },
+    subHeader: { fontSize: 13, fontWeight: '700', color: '#333' },
+    viewStopDetailsButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: '#EFF6FF',
+        borderWidth: 1,
+        borderColor: '#BFDBFE',
+        borderRadius: 999,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+    },
+    viewStopDetailsText: { fontSize: 11, fontWeight: '700', color: '#1D4ED8' },
     divider: { height: 1, backgroundColor: '#eee', marginVertical: 12 },
     emptyText: { fontSize: 13, color: '#888', fontStyle: 'italic', marginBottom: 10 },
 

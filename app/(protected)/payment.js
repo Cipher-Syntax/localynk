@@ -9,6 +9,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import PaymentReviewModal from '../../components/payment/paymentReviewModal';
+import StopDetailsModal from '../../components/itinerary/StopDetailsModal';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api/api';
 import { formatPHPhoneLocal, normalizePHPhone } from '../../utils/phoneNumber';
@@ -384,7 +385,31 @@ const Payment = () => {
         }, {});
     }, [parsedItinerary]);
 
+    const itineraryStopCatalog = useMemo(() => {
+        if (Array.isArray(selectedPackage?.stops)) return selectedPackage.stops;
+        if (Array.isArray(fetchedBooking?.tour_package_detail?.stops)) return fetchedBooking.tour_package_detail.stops;
+        return [];
+    }, [selectedPackage, fetchedBooking]);
+
+    const itineraryAccommodationCatalog = useMemo(() => {
+        const catalog = Array.isArray(accommodationOptions) ? [...accommodationOptions] : [];
+
+        if (selectedAccommodation && !catalog.some((item) => Number(item?.id) === Number(selectedAccommodation?.id))) {
+            catalog.push(selectedAccommodation);
+        }
+
+        if (
+            fetchedBooking?.accommodation_detail
+            && !catalog.some((item) => Number(item?.id) === Number(fetchedBooking?.accommodation_detail?.id))
+        ) {
+            catalog.push(fetchedBooking.accommodation_detail);
+        }
+
+        return catalog;
+    }, [accommodationOptions, selectedAccommodation, fetchedBooking]);
+
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [stopDetailsVisible, setStopDetailsVisible] = useState(false);
     const [isCalendarVisible, setCalendarVisible] = useState(false);
     const [selectingType, setSelectingType] = useState('start');
     const [isLoadingImage, setIsLoadingImage] = useState(false);
@@ -1351,7 +1376,16 @@ const Payment = () => {
 
                                 {Object.keys(groupedItinerary).length > 0 && (
                                     <View style={{ marginBottom: 20 }}>
-                                        <Text style={styles.sectionTitle}>Itinerary Schedule</Text>
+                                        <View style={styles.sectionHeaderWithAction}>
+                                            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Itinerary Schedule</Text>
+                                            <TouchableOpacity
+                                                style={styles.viewStopsButton}
+                                                onPress={() => setStopDetailsVisible(true)}
+                                            >
+                                                <Ionicons name="images-outline" size={14} color="#1D4ED8" />
+                                                <Text style={styles.viewStopsButtonText}>View Stop Details</Text>
+                                            </TouchableOpacity>
+                                        </View>
                                         <View style={styles.timelineContainer}>
                                             {Object.keys(groupedItinerary).sort((a,b)=>a-b).map(day => (
                                                 <View key={`seq-day-${day}`} style={{marginBottom: 20}}>
@@ -1803,6 +1837,15 @@ const Payment = () => {
                     </View>
                 </Modal>
 
+                <StopDetailsModal
+                    visible={stopDetailsVisible}
+                    onClose={() => setStopDetailsVisible(false)}
+                    timeline={parsedItinerary}
+                    stopCatalog={itineraryStopCatalog}
+                    accommodationCatalog={itineraryAccommodationCatalog}
+                    getImageUrl={getImageUrl}
+                />
+
                 <Modal visible={errorModalVisible} transparent={true} animationType="fade">
                     <View style={styles.errorOverlay}>
                         <View style={styles.errorCard}>
@@ -1870,6 +1913,19 @@ const styles = StyleSheet.create({
     verifiedTag: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 4, backgroundColor: '#ECFDF5', alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
     verifiedText: { fontSize: 11, color: '#059669', fontWeight: '600' },
     sectionTitle: { fontSize: 16, fontWeight: '700', color: TEXT_PRIMARY, marginBottom: 12 },
+    sectionHeaderWithAction: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
+    viewStopsButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 999,
+        backgroundColor: '#EFF6FF',
+        borderWidth: 1,
+        borderColor: '#BFDBFE',
+    },
+    viewStopsButtonText: { fontSize: 12, fontWeight: '700', color: '#1D4ED8' },
     
     packageScroll: { flexDirection: 'row', marginBottom: 20 },
     packagePill: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: '#F1F5F9', marginRight: 10, borderWidth: 1, borderColor: '#E2E8F0' },

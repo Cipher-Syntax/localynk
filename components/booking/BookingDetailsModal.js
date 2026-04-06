@@ -1,11 +1,15 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { formatPHPhoneLocal } from '../../utils/phoneNumber';
 import { buildPricingBreakdown } from '../../utils/pricingBreakdown';
+import api from '../../api/api';
+import StopDetailsModal from '../itinerary/StopDetailsModal';
 
 const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) => {
     if (!booking) return null;
+
+    const [stopDetailsVisible, setStopDetailsVisible] = useState(false);
 
     const hasDestination = !!booking.destination_detail;
     const hasAccommodation = !!booking.accommodation_detail;
@@ -138,9 +142,20 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
         ? booking.assigned_agency_guides_detail 
         : (booking.assigned_agency_guides_detail ? [booking.assigned_agency_guides_detail] : []);
 
-    const tourItineraryByDay = useMemo(() => {
+    const getImageUrl = (imgPath) => {
+        if (!imgPath) return null;
+        const raw = String(imgPath).trim();
+        if (!raw) return null;
+        if (raw.startsWith('http') || raw.startsWith('file://') || raw.startsWith('data:')) return raw;
+
+        const base = (api.defaults.baseURL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+        if (raw.startsWith('/')) return `${base}${raw}`;
+        return `${base}/${raw.replace(/^\/+/, '')}`;
+    };
+
+    const tourItineraryTimeline = useMemo(() => {
         let timeline = booking?.tour_package_detail?.itinerary_timeline;
-        
+
         if (typeof timeline === 'string') {
             try {
                 timeline = JSON.parse(timeline);
@@ -149,15 +164,19 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
             }
         }
 
-        if (!Array.isArray(timeline) || timeline.length === 0) return null;
+        return Array.isArray(timeline) ? timeline : [];
+    }, [booking]);
 
-        return timeline.reduce((acc, stop) => {
+    const tourItineraryByDay = useMemo(() => {
+        if (tourItineraryTimeline.length === 0) return null;
+
+        return tourItineraryTimeline.reduce((acc, stop) => {
             const dayNum = Number.parseInt(stop?.day, 10) || 1;
             if (!acc[dayNum]) acc[dayNum] = [];
             acc[dayNum].push(stop);
             return acc;
         }, {});
-    }, [booking]);
+    }, [tourItineraryTimeline]);
 
     return (
         <Modal animationType="slide" transparent={true} visible={visible} onRequestClose={onClose}>
@@ -361,7 +380,18 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
 
                         {(hasDestination || !!booking?.tour_package_detail) && (
                             <View style={styles.section}>
-                                <Text style={styles.sectionHeader}>Booked Itinerary Schedule</Text>
+                                <View style={styles.sectionHeaderRow}>
+                                    <Text style={[styles.sectionHeader, { marginBottom: 0 }]}>Booked Itinerary Schedule</Text>
+                                    {tourItineraryTimeline.length > 0 && (
+                                        <TouchableOpacity
+                                            style={styles.viewStopDetailsButton}
+                                            onPress={() => setStopDetailsVisible(true)}
+                                        >
+                                            <Ionicons name="images-outline" size={14} color="#1D4ED8" />
+                                            <Text style={styles.viewStopDetailsText}>View Stop Details</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
                                 {!!tourItineraryByDay ? (
                                     Object.keys(tourItineraryByDay)
                                         .sort((a, b) => Number(a) - Number(b))
@@ -551,6 +581,15 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
                     </ScrollView>
                 </View>
             </View>
+
+            <StopDetailsModal
+                visible={stopDetailsVisible}
+                onClose={() => setStopDetailsVisible(false)}
+                timeline={tourItineraryTimeline}
+                stopCatalog={Array.isArray(booking?.tour_package_detail?.stops) ? booking.tour_package_detail.stops : []}
+                accommodationCatalog={booking?.accommodation_detail ? [booking.accommodation_detail] : []}
+                getImageUrl={getImageUrl}
+            />
         </Modal>
     );
 };
@@ -573,6 +612,19 @@ const styles = StyleSheet.create({
     
     section: { marginBottom: 15 },
     sectionHeader: { fontSize: 14, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', marginBottom: 10, letterSpacing: 0.5 },
+    sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 10, flexWrap: 'wrap' },
+    viewStopDetailsButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: '#EFF6FF',
+        borderWidth: 1,
+        borderColor: '#BFDBFE',
+        borderRadius: 999,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+    },
+    viewStopDetailsText: { fontSize: 11, fontWeight: '700', color: '#1D4ED8' },
     
     providerRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9FAFB', padding: 12, borderRadius: 12 },
     avatarImage: { width: 40, height: 40, borderRadius: 20, marginRight: 12, resizeMode: 'cover' },

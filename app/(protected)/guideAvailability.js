@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { Map, Calendar as CalendarIcon, CheckCircle, Bed, ArrowRight, User } from "lucide-react-native";
 import api from '../../api/api';
+import StopDetailsModal from '../../components/itinerary/StopDetailsModal';
 
 const { width } = Dimensions.get('window');
 
@@ -21,6 +22,7 @@ const GuideAvailability = () => {
     // --- MULTI-PACKAGE DYNAMIC STATE ---
     const [tourPackages, setTourPackages] = useState([]); 
     const [selectedTour, setSelectedTour] = useState(null);
+    const [stopDetailsVisible, setStopDetailsVisible] = useState(false);
 
     const getPackageDurationDays = (pkg) => {
         if (!pkg) return 1;
@@ -119,17 +121,21 @@ const GuideAvailability = () => {
         return marked;
     }, [guide, blockedDates]);
 
-    const renderSequentialItinerary = () => {
-        if (!selectedTour || !selectedTour.itinerary_timeline) return <Text style={styles.emptyText}>No timeline available.</Text>;
-        
-        let timelineData = [];
+    const parsedTimelineData = useMemo(() => {
+        if (!selectedTour || !selectedTour.itinerary_timeline) return [];
         try {
-            timelineData = typeof selectedTour.itinerary_timeline === 'string' ? JSON.parse(selectedTour.itinerary_timeline) : selectedTour.itinerary_timeline;
-        } catch (e) { return <Text style={styles.emptyText}>No timeline available.</Text>; }
+            return typeof selectedTour.itinerary_timeline === 'string'
+                ? JSON.parse(selectedTour.itinerary_timeline)
+                : selectedTour.itinerary_timeline;
+        } catch {
+            return [];
+        }
+    }, [selectedTour]);
 
-        if (timelineData.length === 0) return <Text style={styles.emptyText}>No timeline available.</Text>;
+    const renderSequentialItinerary = () => {
+        if (parsedTimelineData.length === 0) return <Text style={styles.emptyText}>No timeline available.</Text>;
 
-        const grouped = timelineData.reduce((acc, item) => {
+        const grouped = parsedTimelineData.reduce((acc, item) => {
             const d = parseInt(item.day) || 1;
             if (!acc[d]) acc[d] = [];
             acc[d].push(item);
@@ -287,7 +293,18 @@ const GuideAvailability = () => {
 
                     <View style={styles.divider} />
 
-                    <Text style={styles.subHeader}>Schedule</Text>
+                    <View style={styles.subHeaderRow}>
+                        <Text style={styles.subHeader}>Schedule</Text>
+                        {parsedTimelineData.length > 0 && (
+                            <TouchableOpacity
+                                style={styles.viewStopDetailsButton}
+                                onPress={() => setStopDetailsVisible(true)}
+                            >
+                                <Ionicons name="images-outline" size={14} color="#1D4ED8" />
+                                <Text style={styles.viewStopDetailsText}>View Stop Details</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
                     {renderSequentialItinerary()}
 
                     <View style={styles.divider} />
@@ -344,6 +361,15 @@ const GuideAvailability = () => {
                     <ArrowRight size={20} color="#fff" />
                 </TouchableOpacity>
             </SafeAreaView>
+
+            <StopDetailsModal
+                visible={stopDetailsVisible}
+                onClose={() => setStopDetailsVisible(false)}
+                timeline={parsedTimelineData}
+                stopCatalog={Array.isArray(selectedTour?.stops) ? selectedTour.stops : []}
+                accommodationCatalog={accommodations}
+                getImageUrl={getImageUrl}
+            />
         </SafeAreaView>
     );
 };
@@ -381,7 +407,20 @@ const styles = StyleSheet.create({
     packagePillTextActive: { color: '#00A8FF' },
 
     bodyText: { fontSize: 14, color: '#555', lineHeight: 22 },
+    subHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 10, marginBottom: 8, flexWrap: 'wrap' },
     subHeader: { fontSize: 13, fontWeight: '700', color: '#333', marginBottom: 8, marginTop: 10 },
+    viewStopDetailsButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: '#EFF6FF',
+        borderWidth: 1,
+        borderColor: '#BFDBFE',
+        borderRadius: 999,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+    },
+    viewStopDetailsText: { fontSize: 11, fontWeight: '700', color: '#1D4ED8' },
     highlightText: { fontSize: 12, color: '#00A8FF', fontStyle: 'italic', marginBottom: 10, fontWeight: '600' },
     divider: { height: 1, backgroundColor: '#eee', marginVertical: 12 },
     inclusionsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

@@ -426,11 +426,24 @@ const MyBookings = () => {
             : ['accepted', 'confirmed', 'pending_payment'];
         const canCancel = cancellableStatuses.includes(normalizedStatus) && !hasTripStartedOrPassed;
         
+        const assignedGuidesRaw = item?.assigned_agency_guides_detail;
+        const assignedGuides = Array.isArray(assignedGuidesRaw)
+            ? assignedGuidesRaw
+            : (assignedGuidesRaw ? [assignedGuidesRaw] : []);
+        const assignedGuideIds = Array.isArray(item?.assigned_agency_guides)
+            ? item.assigned_agency_guides
+            : [];
+        const hasAssignedAgencyGuide = assignedGuides.length > 0 || assignedGuideIds.length > 0;
+
+        const isAgencyPartner = !!item?.agency;
         const canMarkPaid = isMyClient && item.status === 'Confirmed' && currentBalanceDue > 0;
         const canReview = isMyTrip && normalizedStatus === 'completed'; 
-        const canProceedToPayment = isMyTrip && ['accepted', 'pending_payment'].includes(normalizedStatus);
+        const canProceedToPayment =
+            isMyTrip
+            && ['accepted', 'pending_payment'].includes(normalizedStatus)
+            && currentBalanceDue > 0
+            && (!isAgencyPartner || hasAssignedAgencyGuide);
         const canMessageProvider = isMyTrip && Number(item?.agency || item?.guide || 0) > 0;
-        const isAgencyPartner = !!item?.agency;
 
         const titleName = getBookingTitle(item);
         const typeLabel = item.destination_detail ? 'Tour' : (item.accommodation_detail ? 'Stay' : 'Tour');
@@ -1168,16 +1181,16 @@ const styles = StyleSheet.create({
     finSubValue: { fontSize: 11, fontWeight: '600', color: '#334155' },
     finDivider: { height: 1, backgroundColor: '#DCFCE7', marginVertical: 6 },
     
-    cardFooter: { marginTop: 16, flexDirection: 'row', justifyContent: 'flex-end', gap: 10 },
-    proceedButton: { flexDirection:'row', alignItems:'center', paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#2563EB', borderRadius: 8, shadowColor: '#2563EB', shadowOpacity: 0.3, elevation: 3 },
+    cardFooter: { marginTop: 16, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-start', gap: 8 },
+    proceedButton: { flexDirection:'row', alignItems:'center', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#2563EB', borderRadius: 8, shadowColor: '#2563EB', shadowOpacity: 0.3, elevation: 3, flexShrink: 1 },
     proceedButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-    cancelButton: { paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#FEF2F2', borderRadius: 8, borderWidth: 1, borderColor: '#FECACA' },
+    cancelButton: { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#FEF2F2', borderRadius: 8, borderWidth: 1, borderColor: '#FECACA', flexShrink: 1 },
     cancelButtonText: { color: '#DC2626', fontSize: 12, fontWeight: '700' },
-    paidButton: { flexDirection:'row', alignItems:'center', paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#22C55E', borderRadius: 8, shadowColor: "#22C55E", shadowOpacity: 0.3, elevation: 3 },
+    paidButton: { flexDirection:'row', alignItems:'center', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#22C55E', borderRadius: 8, shadowColor: "#22C55E", shadowOpacity: 0.3, elevation: 3, flexShrink: 1 },
     paidButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-    messageButton: { flexDirection:'row', alignItems:'center', paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#0EA5E9', borderRadius: 8, shadowColor: '#0EA5E9', shadowOpacity: 0.3, elevation: 3 },
+    messageButton: { flexDirection:'row', alignItems:'center', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#0EA5E9', borderRadius: 8, shadowColor: '#0EA5E9', shadowOpacity: 0.3, elevation: 3, flexShrink: 1 },
     messageButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-    reviewButton: { flexDirection:'row', alignItems:'center', paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#F59E0B', borderRadius: 8, shadowColor: "#F59E0B", shadowOpacity: 0.3, elevation: 3 },
+    reviewButton: { flexDirection:'row', alignItems:'center', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#F59E0B', borderRadius: 8, shadowColor: "#F59E0B", shadowOpacity: 0.3, elevation: 3, flexShrink: 1 },
     reviewButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
     emptyContainer: { alignItems: 'center', marginTop: 60 },
     emptyText: { fontSize: 18, fontWeight: '700', color: '#374151', marginTop: 10 },

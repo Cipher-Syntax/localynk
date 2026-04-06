@@ -7,6 +7,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../api/api';
 import { Calendar } from 'react-native-calendars';
+import StopDetailsModal from '../../components/itinerary/StopDetailsModal';
 
 import { useAuth } from '../../context/AuthContext'; 
 
@@ -27,6 +28,7 @@ const GuideProfile = () => {
     const [tourPackages, setTourPackages] = useState([]);
     const [selectedTour, setSelectedTour] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [stopDetailsVisible, setStopDetailsVisible] = useState(false);
 
     const isOwnProfile = user && user.id === parseInt(userId);
 
@@ -341,7 +343,18 @@ const GuideProfile = () => {
                                 )}
 
                                 <View style={styles.divider} />
-                                <Text style={styles.subHeader}>Itinerary Schedule</Text>
+                                <View style={styles.subHeaderRow}>
+                                    <Text style={styles.subHeader}>Itinerary Schedule</Text>
+                                    {timelineData.length > 0 && (
+                                        <TouchableOpacity
+                                            style={styles.viewStopDetailsButton}
+                                            onPress={() => setStopDetailsVisible(true)}
+                                        >
+                                            <Ionicons name="images-outline" size={14} color="#1D4ED8" />
+                                            <Text style={styles.viewStopDetailsText}>View Stop Details</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
                                 {renderSequentialItinerary()}
 
                                 <View style={styles.divider} />
@@ -496,6 +509,15 @@ const GuideProfile = () => {
                         
                     </View>
                 </View>
+
+                <StopDetailsModal
+                    visible={stopDetailsVisible}
+                    onClose={() => setStopDetailsVisible(false)}
+                    timeline={timelineData}
+                    stopCatalog={Array.isArray(selectedTour?.stops) ? selectedTour.stops : []}
+                    accommodationCatalog={accommodations}
+                    getImageUrl={getImageUrl}
+                />
             </SafeAreaView>
         </ScrollView>
     );
@@ -569,7 +591,20 @@ const styles = StyleSheet.create({
     inclusionText: { fontSize: 11, color: '#155724', fontWeight: '600' },
     emptyText: { fontSize: 13, color: '#888', fontStyle: 'italic', marginBottom: 10 },
 
-    subHeader: { fontSize: 14, fontWeight: '600', color: '#1A2332', marginTop: 10, marginBottom: 5 },
+    subHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 10, marginBottom: 5, flexWrap: 'wrap' },
+    subHeader: { fontSize: 14, fontWeight: '600', color: '#1A2332' },
+    viewStopDetailsButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: '#EFF6FF',
+        borderWidth: 1,
+        borderColor: '#BFDBFE',
+        borderRadius: 999,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+    },
+    viewStopDetailsText: { fontSize: 11, fontWeight: '700', color: '#1D4ED8' },
     divider: { height: 1, backgroundColor: '#eee', marginVertical: 12 },
     packageDetailsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 15, marginVertical: 10 },
     packageDetailItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
