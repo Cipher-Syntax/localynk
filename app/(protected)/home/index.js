@@ -86,7 +86,7 @@ const Home = () => {
 
     if (loading) {
         return (
-            <ScreenSafeArea statusBarStyle="light-content">
+            <ScreenSafeArea statusBarStyle="light-content" edges={[]}>
                 <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, backgroundColor: '#fff' }}>
                     <View style={{ height: 120, backgroundColor: '#E0E6ED', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 }} />
                     <View style={{ padding: 16, marginTop: 10 }}>
@@ -111,12 +111,15 @@ const Home = () => {
     }
 
     return (
-        <ScreenSafeArea statusBarStyle="light-content">
+        <ScreenSafeArea statusBarStyle="light-content" edges={[]}>
             <ScrollView 
                 showsVerticalScrollIndicator={false}
+                contentInsetAdjustmentBehavior="never"
+                automaticallyAdjustContentInsets={false}
+                contentContainerStyle={{ paddingBottom: 0 }}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#00C6FF"]} />}
             >
-                <View style={{ paddingBottom: 50 }}>
+                <View>
                     <Header destinations={destinations} unreadCount={unreadCount} />
                     <FeaturedPlaces data={destinations} isPublic={false} />
                     

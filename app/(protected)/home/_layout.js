@@ -6,7 +6,6 @@ import { useFocusEffect } from "expo-router";
 import { useAuth } from "../../../context/AuthContext";
 import api from "../../../api/api";
 import { getLatestBookingTimestamp, getSeenBookingTimestamp } from "../../../utils/bookingNotifications";
-import { ScreenSafeArea } from "../../../components";
 
 const HomeLayout = () => {
     const { role, user } = useAuth();
@@ -58,85 +57,85 @@ const HomeLayout = () => {
     );
 
     return (
-        <ScreenSafeArea showStatusBar={false}>
-            <Tabs
-                screenOptions={{
-                    headerShown: false,
-                    tabBarShowLabel: true,
-                    tabBarStyle: {
-                        backgroundColor: COLORS.background,
-                        borderTopWidth: 0,
-                        height: Platform.OS === "ios" ? 100 : 80, 
-                        paddingBottom: Platform.OS === "ios" ? 30 : 12,
-                        paddingTop: 12,
-                        // marginBottom: 40
-                    },
-                    tabBarLabelStyle: {
-                        fontSize: 11,
-                        fontWeight: "500",
-                        marginTop: 4,
-                        flex: 1
-                    },
-                    tabBarActiveTintColor: COLORS.activeTint,
-                    tabBarInactiveTintColor: COLORS.inactiveTint,
-                }}
-            >
-                {TABS.map((tab) => (
-                    <Tabs.Screen
-                        key={tab.name}
-                        name={tab.name}
-                        listeners={{
-                            tabPress: () => {
-                                if (tab.name === 'profile') {
-                                    setHasNewBookingDot(false);
-                                }
-                            },
-                        }}
-                        options={{
-                            title: tab.title,
-                            tabBarIcon: ({ color, focused }) => {
-                                const Icon = tab.icon;
-                                return (
-                                    <View
-                                        style={{
-                                            width: 46,
-                                            height: 46,
-                                            borderRadius: 23, 
-                                            justifyContent: "center",
-                                            alignItems: "center",
-                                            backgroundColor: focused
-                                                ? COLORS.focusedBackground
-                                                : "transparent",
-                                            borderWidth: focused ? 1 : 0,
-                                            borderColor: focused ? "rgba(255,255,255,0.1)" : "transparent",
-                                        }}
-                                    >
-                                        <Icon 
-                                            color={color} 
-                                            size={22} 
-                                            fill={focused ? color : "transparent"}
+        <Tabs
+            screenOptions={{
+                headerShown: false,
+                tabBarShowLabel: true,
+                tabBarStyle: {
+                    backgroundColor: COLORS.background,
+                    borderTopWidth: 0,
+                    height: Platform.OS === "ios" ? 100 : 80,
+                    paddingBottom: Platform.OS === "ios" ? 30 : 12,
+                    paddingTop: 12,
+                },
+                tabBarLabelStyle: {
+                    fontSize: 11,
+                    fontWeight: "500",
+                    marginTop: 4,
+                    flex: 1
+                },
+                tabBarActiveTintColor: COLORS.activeTint,
+                tabBarInactiveTintColor: COLORS.inactiveTint,
+                sceneStyle: {
+                    backgroundColor: "#fff",
+                },
+            }}
+        >
+            {TABS.map((tab) => (
+                <Tabs.Screen
+                    key={tab.name}
+                    name={tab.name}
+                    listeners={{
+                        tabPress: () => {
+                            if (tab.name === 'profile') {
+                                setHasNewBookingDot(false);
+                            }
+                        },
+                    }}
+                    options={{
+                        title: tab.title,
+                        tabBarIcon: ({ color, focused }) => {
+                            const Icon = tab.icon;
+                            return (
+                                <View
+                                    style={{
+                                        width: 46,
+                                        height: 46,
+                                        borderRadius: 23,
+                                        justifyContent: "center",
+                                        alignItems: "center",
+                                        backgroundColor: focused
+                                            ? COLORS.focusedBackground
+                                            : "transparent",
+                                        borderWidth: focused ? 1 : 0,
+                                        borderColor: focused ? "rgba(255,255,255,0.1)" : "transparent",
+                                    }}
+                                >
+                                    <Icon
+                                        color={color}
+                                        size={22}
+                                        fill={focused ? color : "transparent"}
+                                    />
+                                    {tab.name === 'profile' && hasNewBookingDot && !focused && (
+                                        <View
+                                            style={{
+                                                position: 'absolute',
+                                                top: 8,
+                                                right: 8,
+                                                width: 10,
+                                                height: 10,
+                                                borderRadius: 5,
+                                                backgroundColor: '#EF4444',
+                                            }}
                                         />
-                                        {tab.name === 'profile' && hasNewBookingDot && !focused && (
-                                            <View
-                                                style={{
-                                                    position: 'absolute',
-                                                    top: 8,
-                                                    right: 8,
-                                                    width: 10,
-                                                    height: 10,
-                                                    borderRadius: 5,
-                                                    backgroundColor: '#EF4444',
-                                                }}
-                                            />
-                                        )}
-                                    </View>
-                                );
-                            },
-                        }}
-                    />
-                ))}
-            </Tabs>
-        </ScreenSafeArea>
+                                    )}
+                                </View>
+                            );
+                        },
+                    }}
+                />
+            ))}
+        </Tabs>
     );
 };
 

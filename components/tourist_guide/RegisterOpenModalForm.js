@@ -243,7 +243,7 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
                     { label: "Guide Certificate", key: "tour_guide_certificate" },
                     { label: "Proof of Residency", key: "proof_of_residency" },
                     { label: "Valid ID", key: "valid_id" },
-                    { label: "NBI Clearance", key: "nbi_clearance" },
+                    { label: "Accreditation ID", key: "nbi_clearance" },
                 ].map((item, index) => (
                     <View key={index} style={styles.gridItem}>
                         <Text style={styles.gridLabel}>{item.label}</Text>
