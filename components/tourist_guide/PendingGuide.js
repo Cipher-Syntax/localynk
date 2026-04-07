@@ -27,10 +27,10 @@ const PendingGuide = () => {
                     </Text>
                 </View>
 
-                <TouchableOpacity style={styles.contactButton}>
+                {/* <TouchableOpacity style={styles.contactButton}>
                     <Ionicons name="help-circle-outline" size={20} color="#fff" />
                     <Text style={styles.contactButtonText}>Contact Support</Text>
-                </TouchableOpacity>
+                </TouchableOpacity> */}
 
                 <Text style={styles.footerText}>
                     In the meantime, you can continue to use Localynk as a tourist.
