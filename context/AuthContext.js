@@ -192,6 +192,23 @@ export function AuthProvider({ children }) {
         return Boolean(userProfile.is_superuser || userProfile.is_staff || userProfile.agency_profile);
     }, []);
 
+    const hasPendingGuideApplication = useCallback((userProfile) => {
+        if (!userProfile) return false;
+
+        if (typeof userProfile.has_pending_application === 'boolean') {
+            return userProfile.has_pending_application;
+        }
+
+        const guideApplication = userProfile.guide_application;
+        if (!guideApplication) return false;
+
+        if (typeof guideApplication.is_reviewed === 'boolean') {
+            return !guideApplication.is_reviewed;
+        }
+
+        return true;
+    }, []);
+
     const updateUserProfile = async (profileData) => {
         try {
             const response = await api.patch('/api/profile/', profileData);
@@ -569,7 +586,11 @@ export function AuthProvider({ children }) {
         if (state.user) {
             if (state.user.is_local_guide && state.user.guide_approved) {
                 role = 'guide';
-            } else if (state.user.is_local_guide && !state.user.guide_approved) {
+            } else if (
+                state.user.is_local_guide &&
+                !state.user.guide_approved &&
+                hasPendingGuideApplication(state.user)
+            ) {
                 role = 'pending_guide';
             }
         }
@@ -590,7 +611,7 @@ export function AuthProvider({ children }) {
             clearMessage,
             setMessage, 
         }
-    }, [state, hasSkippedOnboarding]);
+    }, [state, hasSkippedOnboarding, hasPendingGuideApplication]);
 
     return (
         <AuthContext.Provider value={value}>
