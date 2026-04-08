@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Dimensions, ImageBackground, StatusBar, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ImageBackground, StatusBar, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useForm, Controller } from 'react-hook-form';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import api from '../../api/api';
-
-const { width } = Dimensions.get('window');
 
 const ResetPassword = () => {
     const router = useRouter();
@@ -24,7 +22,7 @@ const ResetPassword = () => {
     useEffect(() => {
         if (uid) setValue('uid', uid);
         if (token) setValue('token', token);
-    }, [uid, token]);
+    }, [uid, token, setValue]);
 
     const onSubmit = async (data) => {
         setMessage('');

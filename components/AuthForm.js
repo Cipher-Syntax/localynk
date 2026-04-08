@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
     View, Text, TextInput, TouchableOpacity, ImageBackground, StyleSheet, 
-    Dimensions, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, 
+    KeyboardAvoidingView, Platform, TouchableWithoutFeedback, 
     Keyboard, ActivityIndicator, ScrollView 
 } from 'react-native';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
@@ -11,8 +11,6 @@ import { useRouter } from 'expo-router';
 import * as Linking from 'expo-linking'; 
 import { useAuth } from '../context/AuthContext'; 
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
-
-const { width, height } = Dimensions.get('window');
 
 const AuthForm = ({ method }) => {
     const { login, register, googleLogin, resendVerificationEmail, reactivateAccount, message, messageType, clearMessage, setMessage } = useAuth(); 
@@ -70,7 +68,7 @@ const AuthForm = ({ method }) => {
         const subscription = Linking.addEventListener('url', handleDeepLink);
 
         return () => subscription.remove();
-    }, [method]);
+    }, [method, setMessage]);
 
     const handleNavigation = (user) => {
         if (user) {
@@ -152,7 +150,7 @@ const AuthForm = ({ method }) => {
             });
 
             await GoogleSignin.hasPlayServices();
-            const userInfo = await GoogleSignin.signIn();
+            await GoogleSignin.signIn();
             const tokens = await GoogleSignin.getTokens();
 
             if (tokens?.idToken) {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl, Image } from 'react-native';
+import { View, Text, StyleSheet, FlatList, RefreshControl, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -60,7 +60,10 @@ const MyReviews = () => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
-    const fetchReviews = async () => {
+    
+
+    // Move fetchReviews outside useEffect so it can be reused
+    const fetchReviews = useCallback(async () => {
         if (!user) return;
         try {
             if (refreshUser) await refreshUser();
@@ -81,16 +84,16 @@ const MyReviews = () => {
             setLoading(false);
             setRefreshing(false);
         }
-    };
+    }, [user, refreshUser]);
 
     useEffect(() => {
         fetchReviews();
-    }, []);
+    }, [fetchReviews]);
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
         fetchReviews();
-    }, [user]);
+    }, [fetchReviews]);
 
     const renderHeader = () => {
         const rating = user?.guide_rating ? parseFloat(user.guide_rating).toFixed(1) : '0.0';
@@ -128,7 +131,7 @@ const MyReviews = () => {
 
     if (loading) {
         return (
-            <SafeAreaView edges={['bottom']} style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+            <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
                 <View style={{ paddingHorizontal: 20, paddingVertical: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F1F5F9' }}>
                      <View style={{ width: 120, height: 20, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
                 </View>
@@ -159,7 +162,7 @@ const MyReviews = () => {
     }
 
     return (
-        <SafeAreaView edges={['bottom']} style={styles.safeArea}>
+        <SafeAreaView edges={['top']} style={styles.safeArea}>
             <View style={styles.topHeader}>
                 <Text style={styles.screenTitle}>My Reviews</Text>
             </View>

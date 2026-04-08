@@ -1,9 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ShieldCheck, Map, Heart } from 'lucide-react-native';
-
-const { width } = Dimensions.get('window');
 
 const FeatureItem = ({ icon: Icon, title, description }) => (
     <View style={styles.featureItem}>

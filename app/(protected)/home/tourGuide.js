@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { View, Text, ScrollView, ActivityIndicator, StyleSheet, Modal, TouchableOpacity, Alert, RefreshControl, StatusBar, Platform } from "react-native";
+import { View, Text, ScrollView, ActivityIndicator, StyleSheet, Modal, TouchableOpacity, RefreshControl, StatusBar, Platform } from "react-native";
 import { IsTourist, Action, PendingGuide } from "../../../components/tourist_guide"; 
 import { ScreenSafeArea } from "../../../components";
 import { useAuth } from "../../../context/AuthContext";
@@ -11,7 +11,7 @@ import api from '../../../api/api';
 
 export default function TourGuide() {
     const [loading, setLoading] = useState(true);
-    const { role, isLoading: isAuthLoading, refreshUser, user } = useAuth();
+    const { role, isLoading: isAuthLoading, refreshUser } = useAuth();
     const [showWelcomeModal, setShowWelcomeModal] = useState(false);
     const [subscriptionPrice, setSubscriptionPrice] = useState(null);
     const [loadingPrice, setLoadingPrice] = useState(true);

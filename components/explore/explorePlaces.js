@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
-import { View, StyleSheet, Image, Text, TouchableOpacity, Animated, Easing, TextInput, Dimensions, FlatList, ActivityIndicator, Modal, ScrollView } from 'react-native';
+import { View, StyleSheet, Image, Text, TouchableOpacity, Animated, Easing, TextInput, FlatList, Modal, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from "expo-linear-gradient";
 import { User } from "lucide-react-native";
@@ -9,7 +9,6 @@ import api from '../../api/api';
 
 const FALLBACK_IMAGE = require('../../assets/localynk_images/discover1.png'); 
 
-const { width } = Dimensions.get('window');
 const GAP = 12;
 const PADDING = 16;
 const LARGE_HEIGHT = 280;
@@ -81,28 +80,30 @@ const ExplorePlaces = () => {
 
     const bounceValue = useRef(new Animated.Value(0)).current;
 
-    const startBounce = () => {
-        Animated.loop(
-            Animated.sequence([
-                Animated.timing(bounceValue, {
-                    toValue: -10,
-                    duration: 400,
-                    easing: Easing.linear,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(bounceValue, {
-                    toValue: 0,
-                    duration: 400,
-                    easing: Easing.linear,
-                    useNativeDriver: true,
-                }),
-            ])
-        ).start();
-    }
+    
 
     useEffect(() => {
+        const startBounce = () => {
+            Animated.loop(
+                Animated.sequence([
+                    Animated.timing(bounceValue, {
+                        toValue: -10,
+                        duration: 400,
+                        easing: Easing.linear,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(bounceValue, {
+                        toValue: 0,
+                        duration: 400,
+                        easing: Easing.linear,
+                        useNativeDriver: true,
+                    }),
+                ])
+            ).start();
+        }
+
         startBounce();
-    }, []);
+    }, [bounceValue]);
 
     // Debounce Effect: waits before applying query to reduce expensive list filtering while typing.
     useEffect(() => {
@@ -245,7 +246,7 @@ const ExplorePlaces = () => {
             const parsedBase = new URL(base);
             const origin = `${parsedBase.protocol}//${parsedBase.host}`;
             return new URL(normalizedPath, `${origin}/`).toString();
-        } catch (error) {
+        } catch (_error) {
             const prefix = base.endsWith('/') ? base.slice(0, -1) : base;
             const suffix = normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`;
             return `${prefix}${suffix}`;

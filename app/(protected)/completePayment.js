@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, Image, TextInput, TouchableOpacity, ActivityIndicator, Pressable } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Image, TouchableOpacity, ActivityIndicator, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { User } from 'lucide-react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { PaymentReviewModal } from '../../components/payment';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatPHPhoneLocal } from '../../utils/phoneNumber';
@@ -38,7 +38,6 @@ const fetchBookingDetails = async (bookingId) => {
 
 const CompletePayment = () => {
     const { bookingId } = useLocalSearchParams();
-    const router = useRouter();
 
     const [loading, setLoading] = useState(true);
     const [bookingData, setBookingData] = useState(null);

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { ScrollView, View, Text, Image, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, Modal, FlatList, Platform, Dimensions } from 'react-native';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { ScrollView, View, Text, Image, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Modal, FlatList, Platform, Dimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
@@ -63,9 +63,9 @@ const AddTour = () => {
 
     useEffect(() => {
         fetchInitialData();
-    }, []);
+    }, [fetchInitialData]);
 
-    const fetchInitialData = async () => {
+    const fetchInitialData = useCallback(async () => {
         try {
             const [destRes, accomRes] = await Promise.all([
                 api.get('/api/destinations/'),
@@ -79,7 +79,7 @@ const AddTour = () => {
         } finally {
             setIsFetchingData(false);
         }
-    };
+    }, []);
 
     const displayDestinations = useMemo(() => {
         if (!user?.specialty || !destinations.length) return destinations;

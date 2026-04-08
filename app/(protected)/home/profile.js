@@ -2,13 +2,11 @@ import React, { useState, useEffect, useCallback } from "react";
 import { 
     View, 
     Text, 
-    ActivityIndicator, 
     ScrollView, 
     StyleSheet, 
     Image, 
     TouchableOpacity, 
     RefreshControl, 
-    Dimensions, 
     Alert,
     Modal 
 } from "react-native";
@@ -28,8 +26,6 @@ import {
 } from "../../../utils/bookingNotifications";
 import { formatPHPhoneLocal } from "../../../utils/phoneNumber";
 
-const { width } = Dimensions.get('window');
-
 const Profile = () => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -46,7 +42,6 @@ const Profile = () => {
     
     const [pendingCount, setPendingCount] = useState(0);
     const [completedCount, setCompletedCount] = useState(0);
-    const [conversationCount, setConversationCount] = useState(0);
     const [hasNewBookingDot, setHasNewBookingDot] = useState(false);
     const [hasNewEarningsDot, setHasNewEarningsDot] = useState(false);
     const [latestBookingTs, setLatestBookingTs] = useState(0);
@@ -54,7 +49,7 @@ const Profile = () => {
     
     const router = useRouter();
 
-    const fetchProfileData = async () => {
+    const fetchProfileData = useCallback(async () => {
         try {
             if (userId) {
                 const response = await api.get(`/api/guides/${userId}/`);
@@ -65,7 +60,7 @@ const Profile = () => {
         } catch (error) {
             console.error("Failed to fetch profile:", error);
         }
-    };
+    }, [refreshUser, userId]);
 
     useEffect(() => {
         if (!userId && user) {
@@ -115,7 +110,7 @@ const Profile = () => {
                 const unseenEarnings = await hasUnseenEarnings(user.id, bookingsList);
                 setHasNewEarningsDot(unseenEarnings);
             }
-        } catch (error) {
+        } catch (_error) {
             setPendingCount(0);
             setCompletedCount(0);
             setHasNewBookingDot(false);
@@ -123,25 +118,10 @@ const Profile = () => {
         }
     }, [profile?.id, profile?.is_local_guide, user?.id]);
 
-    const fetchConversationCount = useCallback(async () => {
-        try {
-            if (!user?.id) {
-                setConversationCount(0);
-                return;
-            }
-
-            const response = await api.get('/api/conversations/');
-            const list = Array.isArray(response.data) ? response.data : [];
-            setConversationCount(list.length);
-        } catch (error) {
-            setConversationCount(0);
-        }
-    }, [user?.id]);
 
     useEffect(() => {
         fetchBookingStats();
-        fetchConversationCount();
-    }, [fetchBookingStats, fetchConversationCount]);
+    }, [fetchBookingStats]);
 
     useFocusEffect(
         useCallback(() => {
@@ -149,20 +129,18 @@ const Profile = () => {
                 if (!profile) setLoading(true);
                 await fetchProfileData();
                 await fetchBookingStats({ markSeen: false });
-                await fetchConversationCount();
                 setLoading(false);
             };
             loadInitialData();
-        }, [userId, fetchBookingStats, fetchConversationCount, profile])
+        }, [fetchBookingStats, profile, fetchProfileData])
     );
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
         await fetchProfileData();
         await fetchBookingStats({ markSeen: false });
-        await fetchConversationCount();
         setRefreshing(false);
-    }, [userId, fetchBookingStats, fetchConversationCount]);
+    }, [fetchBookingStats, fetchProfileData]);
 
     const handleScroll = useCallback((event) => {
         const offsetY = event.nativeEvent.contentOffset.y;
@@ -374,12 +352,6 @@ const Profile = () => {
                                     )}
                                 </View>
                             )}
-                            {/* {isOwnProfile && (
-                                <TouchableOpacity style={styles.conversationChip} onPress={() => router.push('/(protected)/conversations')}>
-                                    <Ionicons name="chatbubbles" size={14} color="#0072FF" />
-                                    <Text style={styles.conversationChipText}>{conversationCount} Conversation{conversationCount === 1 ? '' : 's'}</Text>
-                                </TouchableOpacity>
-                            )} */}
                             {profile.bio && (
                                 <Text style={styles.bioText} numberOfLines={4}>{profile.bio}</Text>
                             )}

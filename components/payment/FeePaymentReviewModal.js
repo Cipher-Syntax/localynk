@@ -12,8 +12,6 @@ const FeePaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => 
     const [isLoading, setIsLoading] = useState(false);
     const [checkoutUrl, setCheckoutUrl] = useState('');
     const [showPaymentLink, setShowPaymentLink] = useState(false);
-    const [paymentId, setPaymentId] = useState(null);
-    const [paymentStatus, setPaymentStatus] = useState(null);
 
     const router = useRouter();
     const { refreshUser } = useAuth();
@@ -37,7 +35,6 @@ const FeePaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => 
 
             if (responseData.checkout_url) {
                 setCheckoutUrl(responseData.checkout_url);
-                setPaymentId(responseData.payment_id);
                 setShowPaymentLink(true);
 
                 startPolling(responseData.payment_id);
@@ -69,8 +66,6 @@ const FeePaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => 
             try {
                 const statusResp = await api.get(`/api/payments/status/${id}/`);
                 const status = statusResp.data.status;
-
-                setPaymentStatus(status);
 
                 if (status === "succeeded" || status === "failed") {
                     clearInterval(pollingRef.current);

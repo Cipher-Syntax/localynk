@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -131,8 +131,6 @@ const OnboardingTerms = () => {
         </SafeAreaView>
     );
 };
-
-const { width } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
     safeArea: {

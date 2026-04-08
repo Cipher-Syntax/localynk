@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
     View, Text, StyleSheet, ScrollView, TouchableOpacity, 
-    Image, Dimensions, LayoutAnimation, Platform, UIManager 
+    Image, LayoutAnimation, Platform, UIManager 
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';

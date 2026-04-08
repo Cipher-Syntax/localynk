@@ -52,7 +52,7 @@ const ReviewModal = () => {
         };
 
         fetchBookingDetails();
-    }, [bookingId]);
+    }, [bookingId, router]);
 
     const handleSubmit = async () => {
         const destinationToReview = booking?.destination || booking?.accommodation?.destination;

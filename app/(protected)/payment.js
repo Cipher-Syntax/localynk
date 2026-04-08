@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { View, Text, ScrollView, StyleSheet, Image, TextInput, TouchableOpacity, ActivityIndicator, Alert, Modal, Dimensions, Platform, KeyboardAvoidingView } from 'react-native';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { View, Text, ScrollView, StyleSheet, Image, TextInput, TouchableOpacity, ActivityIndicator, Alert, Modal, Platform, KeyboardAvoidingView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { User, AlertCircle, CheckCircle2, UploadCloud, Calendar as CalendarIcon, ShieldCheck, Package, Bed } from 'lucide-react-native'; 
+import { User, AlertCircle, CheckCircle2, UploadCloud, Calendar as CalendarIcon, Bed } from 'lucide-react-native'; 
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -15,7 +15,6 @@ import api from '../../api/api';
 import { formatPHPhoneLocal, normalizePHPhone } from '../../utils/phoneNumber';
 import { buildPricingBreakdown } from '../../utils/pricingBreakdown';
 
-const { width } = Dimensions.get('window');
 const PRIMARY_COLOR = '#0072FF';
 const SURFACE_COLOR = '#FFFFFF';
 const BACKGROUND_COLOR = '#F8F9FC';
@@ -30,7 +29,7 @@ const Payment = () => {
     const {
         entityName, guideName, placeName, bookingId, entityId, guideId, bookingType,
         agencyId,
-        assignedGuides, basePrice, soloPrice, accommodationPrice, accommodationId,
+        basePrice, soloPrice, accommodationPrice, accommodationId,
         accommodationName, additionalFee, placeId, tourPackageId, itineraryTimeline, packageDuration: paramPackageDuration,
         agencyDownPayment, agencyLogo, guideProfilePicture,
         agencyAvailableDays, agencyOpeningTime, agencyClosingTime
@@ -58,7 +57,7 @@ const Payment = () => {
             timeline = typeof pkg.itinerary_timeline === 'string'
                 ? JSON.parse(pkg.itinerary_timeline)
                 : (pkg.itinerary_timeline || []);
-        } catch (e) {
+        } catch (_e) {
             timeline = [];
         }
 
@@ -73,7 +72,7 @@ const Payment = () => {
         return inferred > 0 ? inferred : 1;
     };
 
-    const normalizeScheduleDay = (day) => {
+    const normalizeScheduleDay = useCallback((day) => {
         if (!day) return null;
         const raw = String(day).trim().toLowerCase();
         if (raw === 'all' || raw === 'daily' || raw === 'everyday') return 'All';
@@ -87,9 +86,9 @@ const Payment = () => {
             sunday: 'Sun', sun: 'Sun',
         };
         return map[raw] || null;
-    };
+    }, []);
 
-    const formatScheduleDaysLabel = (days, isAgencySchedule = false) => {
+    const formatScheduleDaysLabel = React.useCallback((days, isAgencySchedule = false) => {
         if (!Array.isArray(days) || days.length === 0) {
             return isAgencySchedule ? 'Daily' : 'Not set';
         }
@@ -109,7 +108,7 @@ const Payment = () => {
 
         if (ordered.length === orderedDays.length) return 'Daily';
         return ordered.join(', ');
-    };
+    }, [normalizeScheduleDay]);
 
     const formatTimeLabel = (timeStr) => {
         if (!timeStr) return null;
@@ -197,7 +196,7 @@ const Payment = () => {
 
     const operatingDaysLabel = useMemo(() => {
         return formatScheduleDaysLabel(guideAvailability?.available_days || [], isAgency);
-    }, [guideAvailability, isAgency]);
+    }, [guideAvailability, isAgency, formatScheduleDaysLabel]);
 
     const operatingHoursLabel = useMemo(() => {
         const open = formatTimeLabel(guideAvailability?.opening_time);
@@ -373,7 +372,7 @@ const Payment = () => {
     
     const parsedItinerary = useMemo(() => {
         try { return activeItinerary ? (typeof activeItinerary === 'string' ? JSON.parse(activeItinerary) : activeItinerary) : []; } 
-        catch (e) { return []; }
+        catch (_e) { return []; }
     }, [activeItinerary]);
 
     const groupedItinerary = useMemo(() => {
@@ -412,7 +411,7 @@ const Payment = () => {
     const [stopDetailsVisible, setStopDetailsVisible] = useState(false);
     const [isCalendarVisible, setCalendarVisible] = useState(false);
     const [selectingType, setSelectingType] = useState('start');
-    const [isLoadingImage, setIsLoadingImage] = useState(false);
+    // Removed unused isLoadingImage state
     const [errorModalVisible, setErrorModalVisible] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
 
@@ -465,10 +464,10 @@ const Payment = () => {
         return timeStr;
     };
 
-    const isLocalMediaUri = (value) => {
+    const isLocalMediaUri = useCallback((value) => {
         if (!value) return false;
         return /^(file|content|ph|assets-library|data):/i.test(String(value).trim());
-    };
+    }, []);
 
     const getApiOrigin = () => {
         try {
@@ -481,7 +480,7 @@ const Payment = () => {
         }
     };
 
-    const normalizeRemoteUri = (value) => {
+    const normalizeRemoteUri = useCallback((value) => {
         if (!value) return value;
         const raw = String(value).trim();
 
@@ -506,13 +505,10 @@ const Payment = () => {
         } catch {
             return raw;
         }
-    };
+    }, []);
 
-    const toSecureRemoteUri = (value) => {
-        return normalizeRemoteUri(value);
-    };
 
-    const getImageUrl = (imgPath) => {
+    const getImageUrl = React.useCallback((imgPath) => {
         if (imgPath === null || imgPath === undefined) return null;
         const normalizedPath = String(imgPath).trim();
         if (!normalizedPath || normalizedPath === 'null' || normalizedPath === 'undefined') return null;
@@ -549,9 +545,9 @@ const Payment = () => {
         }
 
         return `${base}/${normalizedRelativePath}`;
-    };
+    }, [isLocalMediaUri, normalizeRemoteUri]);
 
-    const normalizeDisplayImageUri = (rawPath) => {
+    const normalizeDisplayImageUri = useCallback((rawPath) => {
         const uri = getImageUrl(rawPath);
         if (!uri) return null;
         if (isLocalMediaUri(uri)) return uri;
@@ -566,7 +562,7 @@ const Payment = () => {
         }
 
         return encodeURI(secureUri);
-    };
+    }, [getImageUrl, normalizeRemoteUri, isLocalMediaUri]);
 
     const [startDate, setStartDate] = useState(() => {
         const d = new Date();
@@ -674,7 +670,7 @@ const Payment = () => {
                 setGuestNames(fetchedBooking.additional_guest_names);
             }
         }
-    }, [fetchedBooking]);
+    }, [fetchedBooking, paramPackageDuration]);
 
     useEffect(() => {
         if (isPayable || isConfirmed || fetchedBooking) return;
@@ -779,7 +775,7 @@ const Payment = () => {
         return () => {
             isCancelled = true;
         };
-    }, [user]);
+    }, [user, isLocalMediaUri, normalizeDisplayImageUri, validIdImage]);
 
     useEffect(() => {
         if (!validIdImageLoadFailed || !validIdImage || isLocalMediaUri(validIdImage)) return;
@@ -808,7 +804,7 @@ const Payment = () => {
         return () => {
             isCancelled = true;
         };
-    }, [validIdImageLoadFailed, validIdImage]);
+    }, [validIdImageLoadFailed, validIdImage, normalizeDisplayImageUri, isLocalMediaUri]);
 
     useEffect(() => {
         if (!isAgency || !resolvedId) return; 
@@ -1020,7 +1016,7 @@ const Payment = () => {
     };
 
     const pickImage = async () => {
-        setIsLoadingImage(true);
+        // setIsLoadingImage(true); // removed unused state
         let result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: pickerMediaTypes,
             allowsEditing: false, aspect: [4, 3], quality: 0.8, base64: true
@@ -1030,14 +1026,12 @@ const Payment = () => {
             const selectedUri = selectedAsset?.uri;
             if (!selectedUri) {
                 showError('Unable to read the selected image. Please try a different photo.');
-                setIsLoadingImage(false);
                 return;
             }
 
             const normalizedSelectedUri = normalizeDisplayImageUri(selectedUri);
             if (!normalizedSelectedUri) {
                 showError('Unable to preview the selected image. Please try another file.');
-                setIsLoadingImage(false);
                 return;
             }
 
@@ -1050,7 +1044,6 @@ const Payment = () => {
             kycRetryHydrateRef.current = false;
             kycPreviewFallbackTriedRef.current = false;
         }
-        setIsLoadingImage(false);
     };
 
     const takeSelfie = async () => {
@@ -1195,7 +1188,7 @@ const Payment = () => {
         }
         
         return null;
-    }, [isAgency, fetchedBooking, guideAvailability, agencyLogo, guideProfilePicture]);
+    }, [isAgency, fetchedBooking, guideAvailability, agencyLogo, guideProfilePicture, getImageUrl]);
 
     const displayDpPercentage = useMemo(() => {
         if (fetchedBooking && parseFloat(fetchedBooking.total_price) > 0) {

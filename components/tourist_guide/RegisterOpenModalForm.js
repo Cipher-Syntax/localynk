@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { View, Text, TextInput, Modal, TouchableOpacity, ScrollView, Image, StyleSheet, ActivityIndicator, Alert, Dimensions, Platform } from "react-native";
+import { View, Text, TextInput, Modal, TouchableOpacity, ScrollView, Image, StyleSheet, ActivityIndicator, Alert, Platform } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -8,8 +8,6 @@ import ApplicationConfirmationModal from "./ApplicationConfirmationModal";
 import api from '../../api/api'; 
 import { useAuth } from "../../context/AuthContext";
 import { formatPHPhoneLocal, normalizePHPhone } from '../../utils/phoneNumber';
-
-const { width } = Dimensions.get('window');
 
 const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
     const { user } = useAuth();
@@ -46,7 +44,7 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
         }
 
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: 'images',
             allowsEditing: true,
             aspect: [4, 3],
             quality: 0.8,

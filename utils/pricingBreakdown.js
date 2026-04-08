@@ -11,7 +11,7 @@ const inferItineraryDays = (timelineRaw) => {
     if (typeof timeline === 'string') {
         try {
             timeline = JSON.parse(timeline);
-        } catch (error) {
+        } catch (_error) {
             timeline = [];
         }
     }

@@ -49,7 +49,7 @@ const MyBookings = () => {
         Animated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => setToast(prev => ({ ...prev, show: false })));
     };
 
-    const fetchBookings = async () => {
+    const fetchBookings = useCallback(async () => {
         try {
             const response = await api.get('/api/bookings/');
             const incoming = Array.isArray(response.data) ? response.data : [];
@@ -67,10 +67,10 @@ const MyBookings = () => {
             setLoading(false);
             setRefreshing(false);
         }
-    };
+    }, [user.id]);
 
-    useFocusEffect(useCallback(() => { setLoading(true); fetchBookings(); }, []));
-    const onRefresh = useCallback(() => { setRefreshing(true); fetchBookings(); }, []);
+    useFocusEffect(useCallback(() => { setLoading(true); fetchBookings(); }, [fetchBookings]));
+    const onRefresh = useCallback(() => { setRefreshing(true); fetchBookings(); }, [fetchBookings]);
 
     const initiateCancellation = (bookingId) => {
         setBookingIdToCancel(bookingId);
@@ -686,10 +686,6 @@ const MyBookings = () => {
         const pendingCount = item.bookings.filter((booking) => String(booking.status || '').toLowerCase() === 'pending_payment').length;
         const confirmedCount = item.bookings.filter((booking) => String(booking.status || '').toLowerCase() === 'confirmed').length;
         const groupImageSource = getDestinationGroupImageSource(item);
-        const payableBooking = item.bookings.find((booking) => {
-            const normalizedStatus = String(booking.status || '').toLowerCase();
-            return isMyTripBooking(booking) && ['accepted', 'pending_payment'].includes(normalizedStatus);
-        });
 
         return (
             <View style={styles.groupContainer}>

@@ -1,7 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { 
-    View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, RefreshControl, Image, Dimensions 
-} from 'react-native';
+    View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient'; 
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,10 +9,8 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import api from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
 
-const { width } = Dimensions.get('window');
-
 const Earnings = () => {
-    const { user } = useAuth();
+    useAuth();
     const router = useRouter();
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -24,7 +21,7 @@ const Earnings = () => {
     const [pendingPayout, setPendingPayout] = useState(0);
     const [settledPayout, setSettledPayout] = useState(0);
 
-    const fetchEarningsData = async () => {
+    const fetchEarningsData = useCallback(async () => {
         try {
             // Fetch bookings specifically for the guide view
             const response = await api.get('/api/bookings/?view_as=guide');
@@ -38,7 +35,7 @@ const Earnings = () => {
             setLoading(false);
             setRefreshing(false);
         }
-    };
+    }, []);
 
     const calculateStats = (data) => {
         let total = 0;
@@ -82,12 +79,12 @@ const Earnings = () => {
     useFocusEffect(useCallback(() => { 
         setLoading(true); 
         fetchEarningsData(); 
-    }, []));
+    }, [fetchEarningsData]));
 
     const onRefresh = useCallback(() => { 
         setRefreshing(true); 
         fetchEarningsData(); 
-    }, []);
+    }, [fetchEarningsData]);
 
     const renderPayoutItem = ({ item }) => {
         // Skip bookings that aren't financially relevant (e.g. Cancelled/Declined or no downpayment)
@@ -168,7 +165,7 @@ const Earnings = () => {
     }
 
     return (
-        <SafeAreaView edges={['bottom']} style={styles.container}>
+        <SafeAreaView edges={['top']} style={styles.container}>
             
             {/* Header */}
             <View style={styles.header}>

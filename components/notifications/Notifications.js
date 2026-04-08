@@ -92,7 +92,7 @@ const Notifications = () => {
         }
     }, [dialog, closeDialog]);
 
-    const fetchNotifications = async () => {
+    const fetchNotifications = useCallback(async () => {
         try {
             const response = await api.get('/api/alerts/');
             if (response.data) {
@@ -107,12 +107,12 @@ const Notifications = () => {
             setIsLoading(false);
             setRefreshing(false);
         }
-    };
+    }, [showToast]);
 
     useFocusEffect(
         useCallback(() => {
             fetchNotifications();
-        }, [])
+        }, [fetchNotifications])
     );
 
     useEffect(() => {
@@ -127,7 +127,7 @@ const Notifications = () => {
     const onRefresh = useCallback(() => {
         setRefreshing(true);
         fetchNotifications();
-    }, []);
+    }, [fetchNotifications]);
 
     const restoreUndoSnapshot = useCallback(() => {
         if (!undoState.items.length) return;

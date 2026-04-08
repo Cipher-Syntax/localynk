@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, ActivityIndicator, ScrollView, RefreshControl, StyleSheet, Text } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, ScrollView, RefreshControl} from "react-native";
 import { Header, FeaturedPlaces, About, HomePlacesBrowse, DiscoverWhatYouWant } from "../../components/home";
 import PublicHeader from "../../components/home/PublicHeader";
 import { useAuth } from "../../context/AuthContext";
@@ -20,7 +19,7 @@ const PublicHome = () => {
             if (isAuthenticated) {
                 router.replace('/(protected)/home');
             }
-        }, [isAuthenticated])
+        }, [isAuthenticated, router])
     );
 
     const fetchPublicData = async () => {
@@ -114,15 +113,5 @@ const PublicHome = () => {
         </ScrollView>
     );
 }
-
-const styles = StyleSheet.create({
-    loadingContainer: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: "#fff",
-        height: "100%"
-    }
-});
 
 export default PublicHome;

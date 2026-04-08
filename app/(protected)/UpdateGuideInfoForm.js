@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Keyboard, Modal } from 'react-native';
 import api from '../../api/api'; 
 import { Calendar } from 'react-native-calendars';
@@ -31,7 +31,6 @@ const UpdateGuideInfoForm = () => {
     const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
 
     const daysOptions = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const dayMapping = { 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6, 'Sun': 0 };
 
     // 1. Fetch Categories from the Backend API
     useEffect(() => {
@@ -62,7 +61,7 @@ const UpdateGuideInfoForm = () => {
         if (user && isCategoriesLoaded) {
             populateForm(user);
         }
-    }, [user, isCategoriesLoaded]);
+    }, [user, isCategoriesLoaded, populateForm]);
 
     const showToast = (message, type = 'success') => {
         setToast({ visible: true, message, type });
@@ -71,7 +70,7 @@ const UpdateGuideInfoForm = () => {
         }, 3000);
     };
 
-    const populateForm = (data) => {
+    const populateForm = useCallback((data) => {
         if (Array.isArray(data.languages)) {
             setLanguages(data.languages);
         } 
@@ -105,7 +104,7 @@ const UpdateGuideInfoForm = () => {
             return acc;
         }, {});
         setMarkedDates(existingMarkedDates);
-    };
+    }, [specialtyOptions]);
 
     const toggleDay = (day) => {
         if (availableDays.includes(day)) {
@@ -130,6 +129,7 @@ const UpdateGuideInfoForm = () => {
     };
 
     const disabledDays = useMemo(() => {
+        const dayMapping = { 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6, 'Sun': 0 };
         const enabledDayNumbers = availableDays.map(day => dayMapping[day]);
         const disabled = {};
         const today = new Date();

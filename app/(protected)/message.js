@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { View, Text, ActivityIndicator, ScrollView, StyleSheet, Image, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, Keyboard } from "react-native";
+import { View, Text, ScrollView, StyleSheet, Image, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, Keyboard } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -49,7 +49,17 @@ export default function Message() {
 
     const displayPartnerName = useMemo(() => normalizeDisplayName(partnerName, 'Conversation'), [partnerName]);
 
-    const fetchMessages = async () => {
+    
+
+    const getImageUrl = (imgPath) => {
+        if (!imgPath) return null;
+        if (imgPath.startsWith('http')) return imgPath;
+        const base = api.defaults.baseURL || 'http://127.0.0.1:8000';
+        return `${base}${imgPath}`;
+    };
+
+    // Move fetchMessages to component scope so it can be used elsewhere
+    const fetchMessages = React.useCallback(async () => {
         if (!normalizedPartnerId) {
             setLoading(false);
             return;
@@ -70,14 +80,7 @@ export default function Message() {
         } finally {
             setLoading(false);
         }
-    };
-
-    const getImageUrl = (imgPath) => {
-        if (!imgPath) return null;
-        if (imgPath.startsWith('http')) return imgPath;
-        const base = api.defaults.baseURL || 'http://127.0.0.1:8000';
-        return `${base}${imgPath}`;
-    };
+    }, [normalizedPartnerId]);
 
     useEffect(() => {
         fetchMessages();
@@ -87,7 +90,7 @@ export default function Message() {
         }, 5000);
 
         return () => clearInterval(interval);
-    }, [normalizedPartnerId]);
+    }, [normalizedPartnerId, fetchMessages]);
 
     useEffect(() => {
         if (!isAndroid) {
@@ -175,7 +178,7 @@ export default function Message() {
             });
             setMessages((prev) => prev.filter((m) => m.id !== tempMessage.id));
             fetchMessages();
-        } catch (error) {
+        } catch (_error) {
             setMessages((prev) => prev.map((m) => (
                 m.id === tempMessage.id ? { ...m, local_status: 'failed' } : m
             )));

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, RefreshControl, Modal, TextInput, KeyboardAvoidingView, Platform, Alert, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -67,7 +67,7 @@ const MyTourPackages = () => {
         return `${base}${imgPath}`;
     };
 
-    const fetchAllData = async () => {
+    const fetchAllData = useCallback(async () => {
         if (!user) return;
         try {
             const [destRes, toursRes, accomRes] = await Promise.all([
@@ -92,13 +92,8 @@ const MyTourPackages = () => {
             console.error('Error fetching tour packages data:', error);
             setToast({ visible: true, message: "Could not load all tour packages data right now.", type: 'error' });
         }
-    };
+    }, [user]);
 
-    const loadData = async () => {
-        setLoading(true);
-        await fetchAllData();
-        setLoading(false);
-    };
 
     const onRefresh = async () => {
         setRefreshing(true);
@@ -107,8 +102,13 @@ const MyTourPackages = () => {
     };
 
     useEffect(() => {
+        const loadData = async () => {
+            setLoading(true);
+            await fetchAllData();
+            setLoading(false);
+        };
         loadData();
-    }, [user]);
+    }, [user, fetchAllData]);
 
     const toggleExpand = (destId) => setExpandedDestId(expandedDestId === destId ? null : destId);
 
@@ -128,7 +128,7 @@ const MyTourPackages = () => {
             
             setToast({ visible: true, message: "Successfully removed from destination.", type: 'success' });
             await fetchAllData(); 
-        } catch (error) {
+        } catch (_error) {
             setToast({ visible: true, message: "Failed to delete items. Please try again.", type: 'error' });
         } finally { setLoading(false); }
     };
@@ -145,7 +145,7 @@ const MyTourPackages = () => {
                         await api.delete(`/api/tours/${tourId}/`);
                         setMyTours(prev => prev.filter(t => t.id !== tourId));
                         setToast({ visible: true, message: "Tour package deleted successfully.", type: "success" });
-                    } catch (error) { setToast({ visible: true, message: "Failed to delete tour package.", type: "error" }); }
+                    } catch (_error) { setToast({ visible: true, message: "Failed to delete tour package.", type: "error" }); }
                 }}
             ]
         );
@@ -172,7 +172,7 @@ const MyTourPackages = () => {
         setPlaceNames(existingStops.map(s => s.name));
         
         try { setTimeline(typeof tour.itinerary_timeline === 'string' ? JSON.parse(tour.itinerary_timeline) : (tour.itinerary_timeline || [])); } 
-        catch(e) { setTimeline([]); }
+        catch(_e) { setTimeline([]); }
         
         setCurrentDayTab(1);
         setTempTimelineRow({ startTime: '', endTime: '', selectedActivityIndex: '' });
@@ -313,7 +313,7 @@ const MyTourPackages = () => {
 
             await api.patch(`/api/tours/${editingTour.id}/`, payload, { headers: { 'Content-Type': 'multipart/form-data' } });
             
-            await loadData(); 
+            await fetchAllData(); 
             setEditModalVisible(false);
             setToast({ visible: true, message: "Tour updated successfully.", type: "success" });
         } catch (error) {
@@ -398,7 +398,7 @@ const MyTourPackages = () => {
     const filteredTimeline = timeline.filter(r => r.day === currentDayTab || (!r.day && currentDayTab === 1));
 
     return (
-        <SafeAreaView style={styles.container} edges={['bottom']}>
+        <SafeAreaView style={styles.container} edges={['top']}>
             <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={() => setToast({ ...toast, visible: false })} />
             <ConfirmationModal visible={confirmModal.visible} title="Remove Destination" description={`Are you sure you want to delete all your tour packages for ${confirmModal.destName}?`} confirmText="Delete" onConfirm={executeDelete} onCancel={() => setConfirmModal({ visible: false, destId: null, destName: '' })} />
             

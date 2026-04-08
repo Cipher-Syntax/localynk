@@ -67,7 +67,7 @@ export default function ProtectedLayout() {
             }
         }
         
-    }, [isLoading, isAuthenticated, segments, isProfileIncomplete, hasAcceptedTerms, isOnboardingComplete, hasSkippedOnboarding]);
+    }, [isLoading, isAuthenticated, segments, isProfileIncomplete, hasAcceptedTerms, isOnboardingComplete, hasSkippedOnboarding, inProtectedGroup, router]);
 
     if (isLoading) {
         return (

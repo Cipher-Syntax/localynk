@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, ScrollView, StyleSheet, Image, Text, TouchableOpacity, ActivityIndicator, Modal, TextInput } from 'react-native';
+import { View, ScrollView, StyleSheet, Image, Text, TouchableOpacity, Modal, TextInput } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
 import { User, Lock } from "lucide-react-native"; // Added Lock icon
 import { Ionicons } from '@expo/vector-icons';
@@ -82,7 +82,7 @@ const GuideSelection = () => {
             const parsedBase = new URL(base);
             const origin = `${parsedBase.protocol}//${parsedBase.host}`;
             return new URL(normalizedPath, `${origin}/`).toString();
-        } catch (error) {
+        } catch (_error) {
             const prefix = base.endsWith('/') ? base.slice(0, -1) : base;
             const suffix = normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`;
             return `${prefix}${suffix}`;

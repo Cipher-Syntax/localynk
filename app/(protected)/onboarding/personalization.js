@@ -11,7 +11,6 @@ import {
     Platform, 
     UIManager,
     Animated,
-    Dimensions
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -28,7 +27,6 @@ if (
 }
 
 const ITEMS_PER_CATEGORY = 10;
-const { width } = Dimensions.get('window');
 
 export default function PersonalizationScreen() {
     const { user, refreshUser, setHasSkippedOnboarding } = useAuth();
@@ -46,49 +44,49 @@ export default function PersonalizationScreen() {
     const categoryOrder = ['Beach', 'Mountain', 'City', 'Adventure', 'Cultural', 'Relaxation', 'Others'];
 
     useEffect(() => {
-        fetchData();
-    }, []);
+        const fetchData = async () => {
+            try {
+                const destRes = await api.get('/api/onboarding-destinations/');
+                const allDestinations = destRes.data;
 
-    const fetchData = async () => {
-        try {
-            const destRes = await api.get('/api/onboarding-destinations/');
-            const allDestinations = destRes.data;
-
-            const groups = {};
-            allDestinations.forEach(item => {
-                const cat = item.category || "Others";
-                if (!groups[cat]) groups[cat] = [];
-                groups[cat].push(item);
-            });
-
-            Object.keys(groups).forEach(cat => {
-                groups[cat].sort((a, b) => {
-                    if (a.is_featured && !b.is_featured) return -1;
-                    if (!a.is_featured && b.is_featured) return 1;
-                    return (parseFloat(b.average_rating || 0) - parseFloat(a.average_rating || 0));
+                const groups = {};
+                allDestinations.forEach(item => {
+                    const cat = item.category || "Others";
+                    if (!groups[cat]) groups[cat] = [];
+                    groups[cat].push(item);
                 });
-                groups[cat] = groups[cat].slice(0, ITEMS_PER_CATEGORY);
-            });
 
-            setGroupedDestinations(groups);
+                Object.keys(groups).forEach(cat => {
+                    groups[cat].sort((a, b) => {
+                        if (a.is_featured && !b.is_featured) return -1;
+                        if (!a.is_featured && b.is_featured) return 1;
+                        return (parseFloat(b.average_rating || 0) - parseFloat(a.average_rating || 0));
+                    });
+                    groups[cat] = groups[cat].slice(0, ITEMS_PER_CATEGORY);
+                });
 
-            const categories = Object.keys(groups);
-            if (categories.length > 0) {
-                setExpandedCategory(categories[0]);
+                setGroupedDestinations(groups);
+
+                const categories = Object.keys(groups);
+                if (categories.length > 0) {
+                    setExpandedCategory(categories[0]);
+                }
+
+                if (isEditMode && user?.personalization_profile?.preferred_destinations) {
+                    const currentPrefs = user.personalization_profile.preferred_destinations;
+                    const currentIds = currentPrefs.map(d => typeof d === 'object' ? d.id : d);
+                    setSelectedIds(currentIds);
+                }
+            } catch (error) {
+                console.error("Error loading personalization data:", error);
+            } finally {
+                setLoading(false);
             }
+        };
+        fetchData();
+    }, [isEditMode, user.personalization_profile.preferred_destinations]);
 
-            if (isEditMode && user?.personalization_profile?.preferred_destinations) {
-                const currentPrefs = user.personalization_profile.preferred_destinations;
-                const currentIds = currentPrefs.map(d => typeof d === 'object' ? d.id : d);
-                setSelectedIds(currentIds);
-            }
-        } catch (error) {
-            console.error("Error loading personalization data:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
+    
     const toggleCategory = (category) => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setExpandedCategory(prev => prev === category ? null : category);
@@ -123,7 +121,7 @@ export default function PersonalizationScreen() {
 
             if (isEditMode) router.back();
             else router.replace('/home');
-        } catch (error) {
+        } catch (_error) {
             alert("Failed to save preferences.");
         } finally {
             setSaving(false);

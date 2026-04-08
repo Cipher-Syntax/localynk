@@ -8,7 +8,6 @@ import api from '../../api/api';
 
 const { height } = Dimensions.get('window');
 
-const PRIMARY_COLOR = '#0072FF';
 const SURFACE_COLOR = '#FFFFFF';
 const TEXT_PRIMARY = '#1E293B';
 const TEXT_SECONDARY = '#64748B';
@@ -18,10 +17,10 @@ const AgencyPaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) 
     const { 
         bookingId, guideName,
         agency, startDate, endDate,
-        firstName, lastName, email, phoneNumber, country,
+        firstName, lastName, email,
         totalPrice: initialConfirmedPrice, 
         downPayment, balanceDue, 
-        numberOfPeople, additionalGuestNames,
+        additionalGuestNames,
         validIdImage, userSelfieImage, isNewKycImage,
         placeId
     } = paymentData || {};

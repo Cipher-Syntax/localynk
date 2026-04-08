@@ -5,12 +5,11 @@ import { Receipt, MapPin, Calendar, CreditCard, User, Mail, Users, AlertCircle }
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../api/api'; 
-import { useAuth } from '../../context/AuthContext'; // NEW: Imported useAuth
+import { useAuth } from '../../context/AuthContext';
 import { buildPricingBreakdown } from '../../utils/pricingBreakdown';
 
 const { height } = Dimensions.get('window');
 
-const PRIMARY_COLOR = '#0072FF';
 const SURFACE_COLOR = '#FFFFFF';
 const TEXT_PRIMARY = '#1E293B';
 const TEXT_SECONDARY = '#64748B';
@@ -21,8 +20,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
     
     const { 
         bookingId, guide, agency, startDate, endDate,
-        firstName, lastName, email, phoneNumber, country,
-        basePrice, serviceFee, totalPrice: initialConfirmedPrice, 
+        firstName, lastName, email, totalPrice: initialConfirmedPrice, 
         downPayment, balanceDue, tourCost, accomCost, extraPersonFee,
         accommodation, accommodationId, tourPackageId,
         paymentMethod, groupType, numberOfPeople,
@@ -50,7 +48,6 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
     const pollingRef = useRef(null);
 
     const priceFloat = parseFloat(initialConfirmedPrice || '0');
-    const serviceFeeFloat = parseFloat(serviceFee || '0');
     const accomCostFloat = parseFloat(accomCost || '0');
     const baseGuideFeeFloat = parseFloat(tourCost || '0');
     const dpFloat = parseFloat(downPayment || '0');
@@ -96,7 +93,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
             return itineraryTimeline 
                 ? (typeof itineraryTimeline === 'string' ? JSON.parse(itineraryTimeline) : itineraryTimeline) 
                 : [];
-        } catch (e) { return []; }
+        } catch (_e) { return []; }
     }, [itineraryTimeline]);
 
     const groupedItinerary = React.useMemo(() => {

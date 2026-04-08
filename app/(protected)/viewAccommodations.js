@@ -19,7 +19,7 @@ export default function ViewAccommodations() {
     const { user: currentUser } = useAuth();
     const userId = params.userId || currentUser?.id;
 
-    const isOwner = currentUser?.id == userId;
+    const isOwner = currentUser?.id === userId;
 
     const [loading, setLoading] = useState(true);
     const [guide, setGuide] = useState(null);
@@ -81,47 +81,48 @@ export default function ViewAccommodations() {
         return `${base}${imgPath}`;
     };
 
-    const loadData = async () => {
-        setLoading(true);
-        setError(null);
-
-        try {
-            const guideRes = await api.get(`/api/guides/${userId}/`);
-            setGuide(guideRes.data);
-
-            let accs = [];
-            const tryEndpoints = [
-                `/api/guides/${userId}/accommodations/`,
-                `/api/accommodations/?guide=${userId}`,
-                `/api/accommodations/?owner=${userId}`,
-                `/api/accommodations/`
-            ];
-
-            for (const ep of tryEndpoints) {
-                try {
-                    const r = await api.get(ep);
-                    if (Array.isArray(r.data)) accs = r.data;
-                    else if (Array.isArray(r.data.results)) accs = r.data.results;
-                    else if (r.data && typeof r.data === 'object') {
-                        if (Array.isArray(r.data.results)) accs = r.data.results;
-                        else if (Array.isArray(r.data.data)) accs = r.data.data;
-                        else accs = [r.data];
-                    }
-                    if (accs.length > 0) break;
-                } catch (e) { console.log(e) }
-            }
-            setAccommodations(accs || []);
-
-        } catch (err) {
-            console.warn('ViewAccommodations load error', err);
-            setError('Failed to load data');
-        } finally {
-            setLoading(false);
-        }
-    };
+    
 
     useEffect(() => {
         if (!userId) return;
+        const loadData = async () => {
+            setLoading(true);
+            setError(null);
+
+            try {
+                const guideRes = await api.get(`/api/guides/${userId}/`);
+                setGuide(guideRes.data);
+
+                let accs = [];
+                const tryEndpoints = [
+                    `/api/guides/${userId}/accommodations/`,
+                    `/api/accommodations/?guide=${userId}`,
+                    `/api/accommodations/?owner=${userId}`,
+                    `/api/accommodations/`
+                ];
+
+                for (const ep of tryEndpoints) {
+                    try {
+                        const r = await api.get(ep);
+                        if (Array.isArray(r.data)) accs = r.data;
+                        else if (Array.isArray(r.data.results)) accs = r.data.results;
+                        else if (r.data && typeof r.data === 'object') {
+                            if (Array.isArray(r.data.results)) accs = r.data.results;
+                            else if (Array.isArray(r.data.data)) accs = r.data.data;
+                            else accs = [r.data];
+                        }
+                        if (accs.length > 0) break;
+                    } catch (e) { console.log(e) }
+                }
+                setAccommodations(accs || []);
+
+            } catch (err) {
+                console.warn('ViewAccommodations load error', err);
+                setError('Failed to load data');
+            } finally {
+                setLoading(false);
+            }
+        };
         loadData();
     }, [userId]);
 
@@ -136,7 +137,7 @@ export default function ViewAccommodations() {
             await api.delete(`/api/accommodations/${itemToDelete}/`);
             setAccommodations(prev => prev.filter(a => a.id !== itemToDelete));
             showToast("Accommodation deleted successfully", "success");
-        } catch (error) {
+        } catch (_error) {
             showToast("Failed to delete accommodation", "error");
         } finally {
             setDeleteConfirmVisible(false);
@@ -274,7 +275,7 @@ export default function ViewAccommodations() {
     }
 
     return (
-        <SafeAreaView edges={['bottom']} style={styles.container}>
+        <SafeAreaView edges={['top']} style={styles.container}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 
                 <View style={styles.headerRow}>
@@ -317,7 +318,7 @@ export default function ViewAccommodations() {
                         try {
                             const parsed = typeof acc.amenities === 'string' ? JSON.parse(acc.amenities) : acc.amenities;
                             amenities = { ...amenities, ...parsed };
-                        } catch (e) {}
+                        } catch (_e) {}
                     } else {
                         amenities.wifi = acc.wifi;
                         amenities.parking = acc.parking;

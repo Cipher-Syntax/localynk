@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, Image, TextInput, TouchableOpacity, ActivityIndicator, Modal, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Image, TextInput, TouchableOpacity, ActivityIndicator, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { CheckCircle2, UploadCloud, Calendar as CalendarIcon, ShieldCheck, AlertCircle } from 'lucide-react-native'; 
@@ -180,7 +180,7 @@ const AgencyBookingDetails = () => {
         setDownPayment(dp);
         setBalanceDue(baseCost - dp);
 
-    }, [startDate, endDate, selectedOption, numPeople, dynamicDpRate]);
+    }, [startDate, endDate, selectedOption, numPeople, dynamicDpRate, agency.basePrice]);
 
     const getMarkedDates = useMemo(() => {
         const marked = {};

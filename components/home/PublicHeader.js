@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react'
 import { View, Text, TextInput, ImageBackground, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import Swiper from 'react-native-swiper';

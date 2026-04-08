@@ -108,7 +108,7 @@ const DiscoverWhatYouWant = ({ isPublic = false }) => {
         if (isActive) {
             startBounce();
         }
-    }, [isActive]);
+    }, [isActive, bounceValue]);
 
     useEffect(() => {
         let pulseAnimation;

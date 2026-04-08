@@ -159,7 +159,7 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
         if (typeof timeline === 'string') {
             try {
                 timeline = JSON.parse(timeline);
-            } catch (e) {
+            } catch (_e) {
                 timeline = [];
             }
         }

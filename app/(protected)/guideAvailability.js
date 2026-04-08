@@ -1,14 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, Feather } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { Map, Calendar as CalendarIcon, CheckCircle, Bed, ArrowRight, User } from "lucide-react-native";
 import api from '../../api/api';
 import StopDetailsModal from '../../components/itinerary/StopDetailsModal';
-
-const { width } = Dimensions.get('window');
 
 const GuideAvailability = () => {
     const router = useRouter();
@@ -34,7 +32,7 @@ const GuideAvailability = () => {
             timeline = typeof pkg.itinerary_timeline === 'string'
                 ? JSON.parse(pkg.itinerary_timeline)
                 : (pkg.itinerary_timeline || []);
-        } catch (e) {
+        } catch (_e) {
             timeline = [];
         }
 
@@ -100,7 +98,7 @@ const GuideAvailability = () => {
             try {
                 const parsed = JSON.parse(params.accommodations);
                 return Array.isArray(parsed) ? parsed : [];
-            } catch (e) { return []; }
+            } catch (_e) { return []; }
         }
         return [];
     }, [selectedTour, params.accommodations]);

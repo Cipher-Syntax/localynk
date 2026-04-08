@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { View, ActivityIndicator, StyleSheet, Text, Platform, Alert } from 'react-native';
+import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api, { setApiToken, setLogoutInProgress } from '../api/api';
 import { ACCESS_TOKEN, REFRESH_TOKEN } from '../constants/constants';
@@ -219,7 +219,7 @@ export function AuthProvider({ children }) {
                 messageType: "success"
             }));
             return true;
-        } catch (err) {
+        } catch (_err) {
             setState(prev => ({
                 ...prev,
                 message: "Failed to update profile.",
@@ -229,7 +229,7 @@ export function AuthProvider({ children }) {
         }
     };
 
-    const refreshUser = async () => {
+    const refreshUser = useCallback(async () => {
         try {
             const user = await fetchProfile();
             if (user) {
@@ -239,7 +239,7 @@ export function AuthProvider({ children }) {
         } catch {
             return false;
         }
-    };
+    }, []);
 
     useEffect(() => {
         const loadStoredUser = async () => {
@@ -289,7 +289,7 @@ export function AuthProvider({ children }) {
         };
 
         loadStoredUser();
-    }, [isPortalOnlyAccount]);
+    }, [isPortalOnlyAccount, logout]);
 
     useEffect(() => {
         if (!state.isAuthenticated) return;
@@ -339,7 +339,7 @@ export function AuthProvider({ children }) {
         };
     }, [clearPushRetryTimer]);
 
-    const handleAuthResponse = async (data) => {
+    const handleAuthResponse = useCallback(async (data) => {
         const access = data.access;
         const refresh = data.refresh;
 
@@ -391,9 +391,9 @@ export function AuthProvider({ children }) {
         });
 
         return user;
-    }
+    }, [isPortalOnlyAccount]);
 
-    const login = async (username, password) => {
+    const login = useCallback(async (username, password) => {
         setState(prev => ({ ...prev, isLoading: true, message: null }));
 
         try {
@@ -447,9 +447,9 @@ export function AuthProvider({ children }) {
 
             return false;
         }
-    };
+    }, [handleAuthResponse]);
 
-    const googleLogin = async (token) => {
+    const googleLogin = useCallback(async (token) => {
         setState(prev => ({ ...prev, isLoading: true, message: null }));
         try {
             const response = await api.post('/api/auth/google/', { token });
@@ -465,9 +465,9 @@ export function AuthProvider({ children }) {
             }));
             return false;
         }
-    };
+    }, [handleAuthResponse]);
 
-    const register = async (data) => {
+    const register = useCallback(async (data) => {
         try {
             await api.post('/api/register/', data);
             setState(prev => ({
@@ -494,9 +494,9 @@ export function AuthProvider({ children }) {
             }));
             return false;
         }
-    };
+    }, []);
 
-    const resendVerificationEmail = async (email) => {
+    const resendVerificationEmail = useCallback(async (email) => {
         try {
             const response = await api.post("/api/resend-verify-email/", { email });
             setState(prev => ({
@@ -504,16 +504,16 @@ export function AuthProvider({ children }) {
                 message: response.data.detail,
                 messageType: "success"
             }));
-        } catch (error) {
+        } catch (_error) {
             setState(prev => ({
                 ...prev,
                 message: "Failed to resend email",
                 messageType: "error"
             }));
         }
-    };
+    }, []);
 
-    const reactivateAccount = async (username, password) => {
+    const reactivateAccount = useCallback(async (username, password) => {
         setState(prev => ({ ...prev, isLoading: true, message: null }));
         try {
             const response = await api.post('/api/auth/reactivate/', { username, password });
@@ -527,16 +527,16 @@ export function AuthProvider({ children }) {
             }));
             return false;
         }
-    };
+    }, [handleAuthResponse]);
 
-    const logout = async (shouldRedirect = true) => {
+    const logout = useCallback(async (shouldRedirect = true) => {
         setLogoutInProgress(true);
 
         try {
             await GoogleSignin.revokeAccess();
             await GoogleSignin.signOut();
-        } catch (error) {
-            try { await GoogleSignin.signOut(); } catch (e) { /* ignore */ }
+        } catch (_error) {
+            try { await GoogleSignin.signOut(); } catch (_e) { /* ignore */ }
         }
 
         try {
@@ -578,7 +578,7 @@ export function AuthProvider({ children }) {
         } finally {
             setTimeout(() => setLogoutInProgress(false), 0);
         }
-    }
+    }, [router, unregisterPushTokenFromBackend]);
 
     const value = useMemo(() => {
         let role = 'tourist'; 
@@ -611,7 +611,20 @@ export function AuthProvider({ children }) {
             clearMessage,
             setMessage, 
         }
-    }, [state, hasSkippedOnboarding, hasPendingGuideApplication]);
+    }, [
+        state,
+        hasSkippedOnboarding,
+        hasPendingGuideApplication,
+        login,
+        googleLogin,
+        register,
+        logout,
+        refreshUser,
+        resendVerificationEmail,
+        reactivateAccount,
+        clearMessage,
+        setMessage
+    ]);
 
     return (
         <AuthContext.Provider value={value}>
@@ -621,7 +634,3 @@ export function AuthProvider({ children }) {
 }
 
 export const useAuth = () => useContext(AuthContext);
-
-const styles = StyleSheet.create({
-    loadingOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }
-});

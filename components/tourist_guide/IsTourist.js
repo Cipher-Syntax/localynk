@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, Image, Text, ScrollView, TouchableOpacity, Alert, Modal, Switch, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Image, Text, ScrollView, TouchableOpacity, Modal, Switch, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
 
@@ -63,7 +62,7 @@ const IsTourist = () => {
         fetchPrice();
     }, []);
 
-    const fetchBookings = async () => {
+    const fetchBookings = useCallback(async () => {
         try {
             const bookingRes = await api.get('/api/bookings/', {
                 params: { view_as: 'guide' }
@@ -82,7 +81,7 @@ const IsTourist = () => {
         } catch (error) {
             console.error('Failed to fetch dashboard data:', error);
         }
-    };
+    }, [user?.id]);
 
     const getBookingMessagePartner = useCallback((booking) => {
         const currentUserId = Number(user?.id);
@@ -131,13 +130,13 @@ const IsTourist = () => {
             pathname: '/(protected)/message',
             params: { partnerId: partner.id, partnerName: partner.name }
         });
-    }, [getBookingMessagePartner]);
+    }, [getBookingMessagePartner, router]);
 
     useFocusEffect(
         useCallback(() => {
             fetchBookings();
             refreshUser(); 
-        }, [])
+        }, [fetchBookings, refreshUser])
     );
 
     const showToast = (message, type = 'success') => {
@@ -157,7 +156,7 @@ const IsTourist = () => {
             } else {
                 showToast("You are now Offline.", 'neutral');
             }
-        } catch (error) {
+        } catch (_error) {
             setIsGuideActive(!newStatus);
             showToast("Failed to update status.", 'error');
         }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, ScrollView, StyleSheet, Image, Text, TouchableOpacity, ActivityIndicator, Dimensions, Alert } from 'react-native';
+import { View, ScrollView, StyleSheet, Image, Text, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
-import { User, Calendar as CalendarIcon, Map, Star, Compass, Clock, Languages, Package, MapPin, Bed, Wifi, Car, Coffee, CheckCircle } from "lucide-react-native";
+import { User, Calendar as CalendarIcon, Star, Compass, Clock, Languages, Package, MapPin, Bed, Wifi, Car, Coffee, CheckCircle } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router'; 
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,8 +10,6 @@ import { Calendar } from 'react-native-calendars';
 import StopDetailsModal from '../../components/itinerary/StopDetailsModal';
 
 import { useAuth } from '../../context/AuthContext'; 
-
-const { width } = Dimensions.get('window');
 
 const GuideProfile = () => {
     const { user } = useAuth(); 
@@ -99,7 +97,7 @@ const GuideProfile = () => {
                             setTourPackages(updatedTours);
                             setSelectedTour(updatedTours.length > 0 ? updatedTours[0] : null);
                             Alert.alert("Success", "Tour package deleted successfully.");
-                        } catch (error) {
+                        } catch (_error) {
                             Alert.alert("Error", "Failed to delete tour package. Please try again.");
                         } finally {
                             setIsDeleting(false);
@@ -120,7 +118,7 @@ const GuideProfile = () => {
         try {
             const raw = selectedTour.itinerary_timeline;
             return typeof raw === 'string' ? JSON.parse(raw) : raw;
-        } catch(e) { return []; }
+        } catch(_e) { return []; }
     }, [selectedTour]);
 
     const renderSequentialItinerary = () => {

@@ -1,15 +1,13 @@
 import React, { useState, useCallback, useMemo } from 'react'; 
-import { View, ScrollView, StyleSheet, Image, Text, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
+import { View, ScrollView, StyleSheet, Image, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
-import { User, Calendar as CalendarIcon, Map, Star, Compass, Clock, Languages, Package, MapPin, Bed, Wifi, Car, Coffee, CheckCircle } from "lucide-react-native";
+import { User, Calendar as CalendarIcon, Map, Star, Bed, CheckCircle } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router'; 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar } from 'react-native-calendars';
 import api from '../../api/api';
 import StopDetailsModal from '../../components/itinerary/StopDetailsModal';
-
-const { width } = Dimensions.get('window');
 
 const TouristGuideDetails = () => {
     const [guide, setGuide] = useState(null);
@@ -84,7 +82,7 @@ const TouristGuideDetails = () => {
                             timeline = typeof tour.itinerary_timeline === 'string' 
                                 ? JSON.parse(tour.itinerary_timeline) 
                                 : tour.itinerary_timeline;
-                        } catch(e) {}
+                        } catch(_e) {}
                         if (Array.isArray(timeline)) {
                             timeline.forEach(item => {
                                 if (item.type === 'accom' && item.refId) {

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, ScrollView, StyleSheet, Image, Text, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, ScrollView, StyleSheet, Image, Text, TouchableOpacity, Modal } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
 import { User } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
