@@ -1,8 +1,7 @@
-import { Tabs } from "expo-router";
+import { Tabs, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { User, Map, Home } from "lucide-react-native";
 import { View, Platform } from "react-native";
-import { useFocusEffect } from "expo-router";
 import { useAuth } from "../../../context/AuthContext";
 import api from "../../../api/api";
 import { getLatestBookingTimestamp, getSeenBookingTimestamp } from "../../../utils/bookingNotifications";
@@ -11,7 +10,6 @@ import { ScreenSafeArea } from "../../../components";
 const HomeLayout = () => {
     const { role, user } = useAuth();
     const [hasNewBookingDot, setHasNewBookingDot] = useState(false);
-    const [latestBookingTs, setLatestBookingTs] = useState(0);
 
     const guideTabTitle = role === 'guide' ? "Dashboard" : "Apply";
 
@@ -31,7 +29,6 @@ const HomeLayout = () => {
     const refreshBookingBadge = useCallback(async () => {
         if (!user?.id) {
             setHasNewBookingDot(false);
-            setLatestBookingTs(0);
             return;
         }
 
@@ -42,11 +39,9 @@ const HomeLayout = () => {
                 : (Array.isArray(response.data?.results) ? response.data.results : []);
 
             const latestTs = getLatestBookingTimestamp(bookings);
-            setLatestBookingTs(latestTs);
-
             const seenTs = await getSeenBookingTimestamp(user.id);
             setHasNewBookingDot(latestTs > seenTs);
-        } catch (error) {
+        } catch (_error) {
             setHasNewBookingDot(false);
         }
     }, [user?.id]);
@@ -54,6 +49,12 @@ const HomeLayout = () => {
     useFocusEffect(
         useCallback(() => {
             refreshBookingBadge();
+
+            const interval = setInterval(() => {
+                refreshBookingBadge();
+            }, 5000);
+
+            return () => clearInterval(interval);
         }, [refreshBookingBadge])
     );
 

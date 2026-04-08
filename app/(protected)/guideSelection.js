@@ -18,10 +18,18 @@ const GuideSelection = () => {
     const [favorites, setFavorites] = useState(new Set());
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [guideImageErrors, setGuideImageErrors] = useState({});
     
     // Modals
     const [errorModalVisible, setErrorModalVisible] = useState(false);
     const [limitModalVisible, setLimitModalVisible] = useState(false); // NEW STATE
+
+    const toGuideIdKey = (guideId) => String(guideId ?? '').trim();
+
+    const toGuideIdPayload = (guideIdKey) => {
+        const numericId = Number(guideIdKey);
+        return Number.isFinite(numericId) ? numericId : guideIdKey;
+    };
 
     useEffect(() => {
         const fetchGuidesAndFavorites = async () => {
@@ -39,7 +47,11 @@ const GuideSelection = () => {
                 
                 // Fetch user's existing favorites
                 const favoritesResponse = await api.get('/api/favorites/');
-                const favoriteIds = new Set(favoritesResponse.data.map(guide => guide.id));
+                const favoriteIds = new Set(
+                    (Array.isArray(favoritesResponse.data) ? favoritesResponse.data : [])
+                        .map((guide) => toGuideIdKey(guide?.id ?? guide?.guide_id))
+                        .filter(Boolean),
+                );
                 setFavorites(favoriteIds);
 
             } catch (error) {
@@ -55,9 +67,40 @@ const GuideSelection = () => {
 
     const getImageUrl = (imgPath) => {
         if (!imgPath) return null;
-        if (imgPath.startsWith('http')) return imgPath;
-        const base = api.defaults.baseURL || 'http://127.0.0.1:8000';
-        return `${base}${imgPath}`;
+
+        const path = typeof imgPath === 'object'
+            ? (imgPath.image || imgPath.url || imgPath.photo)
+            : imgPath;
+        if (!path) return null;
+
+        const normalizedPath = String(path);
+        if (/^https?:\/\//i.test(normalizedPath)) return normalizedPath;
+
+        const base = api.defaults.baseURL || process.env.EXPO_PUBLIC_API_URL || '';
+
+        try {
+            const parsedBase = new URL(base);
+            const origin = `${parsedBase.protocol}//${parsedBase.host}`;
+            return new URL(normalizedPath, `${origin}/`).toString();
+        } catch (error) {
+            const prefix = base.endsWith('/') ? base.slice(0, -1) : base;
+            const suffix = normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`;
+            return `${prefix}${suffix}`;
+        }
+    };
+
+    const getGuideImagePath = (guide) =>
+        guide?.profile_picture || guide?.profile_image || guide?.avatar || null;
+
+    const markGuideImageError = (guideImageKey) => {
+        if (!guideImageKey) return;
+        setGuideImageErrors((previous) => {
+            if (previous[guideImageKey]) return previous;
+            return {
+                ...previous,
+                [guideImageKey]: true,
+            };
+        });
     };
 
     const renderAvailability = (guideDays) => {
@@ -92,12 +135,26 @@ const GuideSelection = () => {
 
     const getGuideMaxGuestsLabel = (guide) => {
         const tours = Array.isArray(guide?.tours) ? guide.tours : [];
-        const maxGuests = tours.reduce((max, tour) => {
+        const maxGuestsFromTours = tours.reduce((max, tour) => {
             const pax = parseInt(tour?.max_group_size, 10);
             return Number.isFinite(pax) && pax > max ? pax : max;
         }, 0);
 
-        return maxGuests > 0 ? `${maxGuests} guests` : 'N/A';
+        const maxGuestsFromGuide = [
+            guide?.max_group_size,
+            guide?.max_guests,
+            guide?.max_guest,
+            guide?.max_pax,
+            guide?.guest_limit,
+            guide?.group_size,
+        ].reduce((max, value) => {
+            const parsed = parseInt(value, 10);
+            return Number.isFinite(parsed) && parsed > max ? parsed : max;
+        }, 0);
+
+        const maxGuests = Math.max(maxGuestsFromTours, maxGuestsFromGuide);
+
+        return maxGuests > 0 ? `${maxGuests} guests` : 'Per package';
     };
 
     const getGuideBusyState = (guide) => {
@@ -134,7 +191,6 @@ const GuideSelection = () => {
                 guideName: guide.guide_name || `${guide.first_name} ${guide.last_name}`,
                 itinerary: guide.tour_itinerary || '',
                 availableDays: JSON.stringify(guide.available_days || []),
-                price: guide.price_per_day,
                 placeId: placeId,
                 placeName: placeName
             }
@@ -142,14 +198,17 @@ const GuideSelection = () => {
     };
 
     const toggleFavorite = async (guideId) => {
+        const guideIdKey = toGuideIdKey(guideId);
+        if (!guideIdKey) return;
+
         try {
-            await api.post('/api/favorites/toggle/', { guide_id: guideId });
+            await api.post('/api/favorites/toggle/', { guide_id: toGuideIdPayload(guideIdKey) });
             setFavorites(prev => {
                 const newFavorites = new Set(prev);
-                if (newFavorites.has(guideId)) {
-                    newFavorites.delete(guideId);
+                if (newFavorites.has(guideIdKey)) {
+                    newFavorites.delete(guideIdKey);
                 } else {
-                    newFavorites.add(guideId);
+                    newFavorites.add(guideIdKey);
                 }
                 return newFavorites;
             });
@@ -320,15 +379,21 @@ const GuideSelection = () => {
                     {filteredGuides.map((guide, index) => {
                          // Optional: Visually indicate they are busy
                          const isBusy = getGuideBusyState(guide);
+                        const guideName = guide.guide_name || `${guide.first_name || ''} ${guide.last_name || ''}`;
+                        const guideIdKey = toGuideIdKey(guide.id || guide.user_id);
+                        const guideImageKey = String(guide.id || guide.user_id || guideName || index);
+                         const guideImageUri = getImageUrl(getGuideImagePath(guide));
+                        const showGuideImage = Boolean(guideImageUri && !guideImageErrors[guideImageKey]);
                          
                          return (
                             <View key={guide.id || index} style={[styles.guideCard, isBusy && styles.guideCardBusy]}>
                                 <View style={styles.cardProfileSection}>
-                                    <View style={[styles.iconWrapper, guide.profile_picture && styles.imageWrapper]}>
-                                        {guide.profile_picture ? (
+                                    <View style={[styles.iconWrapper, showGuideImage && styles.imageWrapper]}>
+                                        {showGuideImage ? (
                                             <Image 
-                                                source={{ uri: getImageUrl(guide.profile_picture) }} 
+                                                source={{ uri: guideImageUri }} 
                                                 style={[styles.profileImage, isBusy && { opacity: 0.5 }]}
+                                                onError={() => markGuideImageError(guideImageKey)}
                                             />
                                         ) : (
                                             <User size={40} color="#8B98A8" />
@@ -337,7 +402,7 @@ const GuideSelection = () => {
                                     
                                     <View style={styles.profileInfo}>
                                         <View style={styles.nameRow}>
-                                            <Text style={styles.guideName}>{guide.guide_name || `${guide.first_name} ${guide.last_name}`}</Text>
+                                            <Text style={styles.guideName}>{guideName}</Text>
                                             {isBusy && (
                                                 <View style={styles.busyBadge}>
                                                     <Text style={styles.busyText}>Busy</Text>
@@ -354,7 +419,7 @@ const GuideSelection = () => {
 
                                     <TouchableOpacity onPress={() => toggleFavorite(guide.id)}>
                                         <Ionicons 
-                                            name={favorites.has(guide.id) ? "heart" : "heart-outline"} 
+                                            name={favorites.has(guideIdKey) ? "heart" : "heart-outline"} 
                                             size={22} 
                                             color="#FF5A5F" 
                                         />

@@ -1,17 +1,16 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TextInput, ImageBackground, StyleSheet, TouchableOpacity, Dimensions, FlatList, Image } from 'react-native';
-import { Feather, Ionicons } from '@expo/vector-icons';
+import { View, Text, ImageBackground, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import Swiper from 'react-native-swiper';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import HomeSearchBar from './HomeSearchBar';
 
 const { width } = Dimensions.get('window');
 
 const Header = ({ destinations = [], unreadCount = 0 }) => {
     const [activeIndex, setActiveIndex] = useState(0);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [filteredDestinations, setFilteredDestinations] = useState([]);
     const swiperRef = useRef(null);
     const router = useRouter();
     const handleIndexChanged = (index) => {
@@ -29,22 +28,50 @@ const Header = ({ destinations = [], unreadCount = 0 }) => {
         });
     };
 
-    const onSearch = (text) => {
-        setSearchQuery(text);
-        if (text) {
-            const filtered = destinations.filter(item => 
-                item.name.toLowerCase().includes(text.toLowerCase())
-            );
-            setFilteredDestinations(filtered);
-        } else {
-            setFilteredDestinations([]);
-        }
-    };
+    const handleSearchResultSelect = (result) => {
+        if (!result) return;
 
-    const onSelectDestination = (id) => {
-        setSearchQuery('');
-        setFilteredDestinations([]);
-        handleExplorePress(id);
+        if (result.category === 'destinations') {
+            const destinationIdFromResult =
+                result.raw?.id ??
+                result.raw?.destination_id ??
+                result.raw?.destination?.id ??
+                result.rawId;
+
+            let destinationId = destinationIdFromResult;
+
+            if (!destinationId && result.title) {
+                const matchedDestination = destinations.find(
+                    (item) =>
+                        String(item?.name || '').trim().toLowerCase() ===
+                        String(result.title || '').trim().toLowerCase(),
+                );
+
+                destinationId = matchedDestination?.id;
+            }
+
+            if (!destinationId) {
+                router.push({
+                    pathname: '/(protected)/explore',
+                    params: {
+                        q: result.title,
+                        category: 'destinations',
+                    },
+                });
+                return;
+            }
+
+            handleExplorePress(destinationId);
+            return;
+        }
+
+        router.push({
+            pathname: '/(protected)/explore',
+            params: {
+                q: result.title,
+                category: result.category,
+            },
+        });
     };
 
     return (
@@ -52,49 +79,12 @@ const Header = ({ destinations = [], unreadCount = 0 }) => {
             <View style={[styles.headerBar, { width: width * 1 }]}>
                 
                 <View style={styles.searchWrapper}>
-                    <View style={styles.searchBox}>
-                        <Feather name='search' size={18} color="#666" />
-                        <TextInput 
-                            placeholder='Explore new place...' 
-                            style={styles.input}
-                            placeholderTextColor="#999"
-                            value={searchQuery}
-                            onChangeText={onSearch}
-                        />
-                        {searchQuery.length > 0 && (
-                            <TouchableOpacity onPress={() => onSearch('')}>
-                                <Feather name="x" size={18} color="#999" />
-                            </TouchableOpacity>
-                        )}
-                    </View>
-
-                    {searchQuery.length > 0 && (
-                        <View style={styles.dropdownContainer}>
-                            {filteredDestinations.length > 0 ? (
-                                <FlatList
-                                    data={filteredDestinations}
-                                    keyExtractor={(item) => item.id.toString()}
-                                    keyboardShouldPersistTaps="handled"
-                                    renderItem={({ item }) => (
-                                        <TouchableOpacity 
-                                            style={styles.dropdownItem}
-                                            onPress={() => onSelectDestination(item.id)}
-                                        >
-                                            <Image 
-                                                source={item.image ? { uri: item.image || item.first_image || item.thumbnail } : require('../../assets/localynk_images/login_background.png')} 
-                                                style={styles.dropdownImage} 
-                                            />
-                                            <Text style={styles.dropdownText}>{item.name}</Text>
-                                        </TouchableOpacity>
-                                    )}
-                                />
-                            ) : (
-                                <View style={{padding: 15, alignItems: 'center'}}>
-                                    <Text style={{color: '#888'}}>No places found</Text>
-                                </View>
-                            )}
-                        </View>
-                    )}
+                    <HomeSearchBar
+                        destinations={destinations}
+                        onSelectResult={handleSearchResultSelect}
+                        allowedCategories={['destinations']}
+                        placeholder="Search destinations..."
+                    />
                 </View>
 
                 <TouchableOpacity 
@@ -217,65 +207,6 @@ const styles = StyleSheet.create({
         flex: 1,
         position: 'relative',
         zIndex: 101,
-    },
-    searchBox: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(217, 226, 233, 0.95)',
-        borderRadius: 50,
-        paddingHorizontal: 15,
-        paddingVertical: 8,
-        elevation: 3,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        height: 50,
-    },
-    input: {
-        marginLeft: 10,
-        flex: 1,
-        height: 40,
-        fontSize: 14,
-        color: '#333',
-    },
-    dropdownContainer: {
-        position: 'absolute',
-        top: 55, 
-        left: 0,
-        right: 0,
-        backgroundColor: 'rgba(255, 255, 255, 0.92)', 
-        borderRadius: 16,
-        elevation: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
-        maxHeight: 250, 
-        zIndex: 102,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.5)',
-    },
-    dropdownItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(0, 0, 0, 0.05)',
-    },
-    dropdownImage: {
-        width: 44,
-        height: 44,
-        borderRadius: 10,
-        marginRight: 12,
-        backgroundColor: '#eee'
-    },
-    dropdownText: {
-        fontSize: 14,
-        color: '#333',
-        fontWeight: '600',
-        flex: 1,
     },
     notificationBtn: {
         width: 50,

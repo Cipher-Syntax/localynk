@@ -36,7 +36,7 @@ const TouristGuideDetails = () => {
             timeline = typeof pkg.itinerary_timeline === 'string'
                 ? JSON.parse(pkg.itinerary_timeline)
                 : (pkg.itinerary_timeline || []);
-        } catch (e) {
+        } catch (_e) {
             timeline = [];
         }
 
@@ -54,7 +54,10 @@ const TouristGuideDetails = () => {
     useFocusEffect(
         useCallback(() => {
             const fetchData = async () => {
-                if (!guideId || !placeId) return;
+                if (!guideId || !placeId) {
+                    setLoading(false);
+                    return;
+                }
                 try {
                     const [guideRes, destRes, toursRes, accomRes, blockedRes] = await Promise.all([
                         api.get(`/api/guides/${guideId}/`),
@@ -195,7 +198,7 @@ const TouristGuideDetails = () => {
         return marked;
     }, [guide, blockedDates]);
 
-    if (loading || !guide) {
+    if (loading) {
         return (
             <View style={{ flex: 1, backgroundColor: '#fff' }}>
                 <View style={{ height: 120, backgroundColor: '#E0E6ED', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 }} />
@@ -204,6 +207,18 @@ const TouristGuideDetails = () => {
                         <ActivityIndicator size="large" color="#00A8FF" style={{marginTop: 50}}/>
                     </View>
                 </View>
+            </View>
+        );
+    }
+
+    if (!guide) {
+        return (
+            <View style={styles.loadingContainer}>
+                <Text style={styles.emptyText}>Guide details are unavailable for this selection.</Text>
+                <TouchableOpacity style={[styles.actionButton, { marginTop: 14, width: 160 }]} onPress={() => router.back()}>
+                    <Ionicons name="arrow-back" size={14} color="#fff" />
+                    <Text style={styles.actionButtonText}>Go Back</Text>
+                </TouchableOpacity>
             </View>
         );
     }

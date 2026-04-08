@@ -1,10 +1,10 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { View, StyleSheet, Image, Text, TouchableOpacity, Animated, Easing, TextInput, Dimensions, FlatList, ActivityIndicator, Modal, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from "expo-linear-gradient";
 import { User } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import api from '../../api/api';
 
 const FALLBACK_IMAGE = require('../../assets/localynk_images/discover1.png'); 
@@ -14,28 +14,70 @@ const GAP = 12;
 const PADDING = 16;
 const LARGE_HEIGHT = 280;
 const SMALL_HEIGHT = (LARGE_HEIGHT - GAP) / 2;
+const SEARCH_DEBOUNCE_MS = 400;
+const MIN_SEARCH_CHARS = 2;
+
+const getParamValue = (value) => (Array.isArray(value) ? value[0] : value);
+
+const normalizeText = (value) => String(value || '').trim().toLowerCase();
+
+const normalizeCategoryValue = (value) => {
+    if (!value) return '';
+
+    if (typeof value === 'object') {
+        return normalizeText(value.name || value.label || value.title);
+    }
+
+    return normalizeText(value);
+};
+
+const getGuideRatingValue = (guide) => {
+    const rating = parseFloat(guide?.guide_rating ?? guide?.rating ?? guide?.average_rating);
+    return Number.isFinite(rating) ? rating : 0;
+};
+
+const getPlaceRatingValue = (place) => {
+    const rating = parseFloat(place?.average_rating ?? place?.rating);
+    return Number.isFinite(rating) ? rating : 0;
+};
+
+const getGuideIdKey = (guide) => String(guide?.id ?? guide?.user_id ?? '').trim();
+
+const getFavoriteGuideIdKey = (guide) => String(guide?.id ?? guide?.guide_id ?? '').trim();
+
+const toGuideIdPayload = (guideIdKey) => {
+    const numericId = Number(guideIdKey);
+    return Number.isFinite(numericId) ? numericId : guideIdKey;
+};
 
 const ExplorePlaces = () => {
     const router = useRouter();
     const params = useLocalSearchParams();
 
-    const [activeTab, setActiveTab] = useState(params.tab || 'guides');
-    const [selectedCategory, setSelectedCategory] = useState(params.category || ''); 
+    const initialTab = getParamValue(params.tab) || 'guides';
+    const initialCategory = getParamValue(params.category) || '';
+    const initialQuery = getParamValue(params.q) || '';
+
+    const [activeTab, setActiveTab] = useState(initialTab);
+    const [selectedCategory, setSelectedCategory] = useState(initialCategory); 
     
     // UI Search State (updates instantly for the text input)
-    const [searchQuery, setSearchQuery] = useState('');
+    const [searchQuery, setSearchQuery] = useState(initialQuery);
     // Filter Search State (waits for user to stop typing before updating)
-    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(String(initialQuery).trim());
 
     // Filter States
     const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
     const [minRating, setMinRating] = useState(0);
-    const [maxGuidePrice, setMaxGuidePrice] = useState('');
+    const [minGuideGuests, setMinGuideGuests] = useState('');
+    const [withProfilePhotoOnly, setWithProfilePhotoOnly] = useState(false);
     const [selectedGuideLocation, setSelectedGuideLocation] = useState('');
 
     const [guides, setGuides] = useState([]);
     const [places, setPlaces] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [guideImageErrors, setGuideImageErrors] = useState({});
+    const [favorites, setFavorites] = useState(new Set());
 
     const bounceValue = useRef(new Animated.Value(0)).current;
 
@@ -62,20 +104,68 @@ const ExplorePlaces = () => {
         startBounce();
     }, []);
 
-    // Debounce Effect: Waits 300ms after the last keystroke to update the filter query
+    // Debounce Effect: waits before applying query to reduce expensive list filtering while typing.
     useEffect(() => {
+        const normalizedQuery = String(searchQuery || '').trim();
         const timer = setTimeout(() => {
-            setDebouncedSearchQuery(searchQuery);
-        }, 300);
+            setDebouncedSearchQuery(normalizedQuery);
+        }, SEARCH_DEBOUNCE_MS);
 
         return () => clearTimeout(timer); // Cleanup timer on every keystroke
     }, [searchQuery]);
 
     // Watch for params changes if navigated from other tabs
     useEffect(() => {
-        if (params.tab) setActiveTab(params.tab);
-        if (params.category) setSelectedCategory(params.category);
-    }, [params.tab, params.category]);
+        const nextTab = getParamValue(params.tab);
+        const nextCategory = getParamValue(params.category);
+        const nextQuery = getParamValue(params.q);
+
+        if (nextTab) setActiveTab(nextTab);
+        if (nextCategory !== undefined) setSelectedCategory(nextCategory || '');
+        if (nextQuery !== undefined) setSearchQuery(nextQuery || '');
+    }, [params.tab, params.category, params.q]);
+
+    const normalizedSearchQuery = useMemo(
+        () => String(debouncedSearchQuery || '').trim().toLowerCase(),
+        [debouncedSearchQuery],
+    );
+
+    const selectedCategoryNormalized = useMemo(
+        () => normalizeCategoryValue(selectedCategory),
+        [selectedCategory],
+    );
+
+    const placeCategories = useMemo(() => {
+        const categoryMap = new Map();
+
+        places.forEach((place) => {
+            const rawCategory = place?.category;
+            const normalizedValue = normalizeCategoryValue(rawCategory);
+            if (!normalizedValue) return;
+
+            if (!categoryMap.has(normalizedValue)) {
+                const label = typeof rawCategory === 'object'
+                    ? (rawCategory?.name || rawCategory?.label || rawCategory?.title || normalizedValue)
+                    : String(rawCategory);
+
+                categoryMap.set(normalizedValue, label);
+            }
+        });
+
+        return Array.from(categoryMap.entries()).map(([value, label]) => ({
+            value,
+            label,
+        }));
+    }, [places]);
+
+    const selectedCategoryLabel = useMemo(() => {
+        if (!selectedCategoryNormalized) return '';
+
+        const selected = placeCategories.find((category) => category.value === selectedCategoryNormalized);
+        return selected?.label || selectedCategory;
+    }, [placeCategories, selectedCategory, selectedCategoryNormalized]);
+
+    const shouldApplySearchFilter = normalizedSearchQuery.length >= MIN_SEARCH_CHARS;
 
     useEffect(() => {
         let isMounted = true;
@@ -85,15 +175,23 @@ const ExplorePlaces = () => {
             try {
                 const guidesPromise = api.get('/api/guides/').catch(() => ({ data: [] }));
                 const placesPromise = api.get('/api/destinations/').catch(() => ({ data: [] }));
+                const favoritesPromise = api.get('/api/favorites/').catch(() => ({ data: [] }));
 
-                const [guidesRes, placesRes] = await Promise.all([guidesPromise, placesPromise]);
+                const [guidesRes, placesRes, favoritesRes] = await Promise.all([guidesPromise, placesPromise, favoritesPromise]);
 
                 if (isMounted) {
                     const guidesData = Array.isArray(guidesRes.data) ? guidesRes.data : (guidesRes.data?.results || []);
                     const placesData = Array.isArray(placesRes.data) ? placesRes.data : (placesRes.data?.results || []);
+                    const favoritesData = Array.isArray(favoritesRes.data) ? favoritesRes.data : [];
+                    const favoriteIds = new Set(
+                        favoritesData
+                            .map((guide) => getFavoriteGuideIdKey(guide))
+                            .filter(Boolean),
+                    );
 
                     setGuides(guidesData);
                     setPlaces(placesData);
+                    setFavorites(favoriteIds);
                 }
             } catch (error) {
                 console.error('Critical failure fetching data:', error);
@@ -107,39 +205,182 @@ const ExplorePlaces = () => {
         return () => { isMounted = false };
     }, []);
 
+    const refreshFavorites = useCallback(async () => {
+        try {
+            const response = await api.get('/api/favorites/');
+            const data = Array.isArray(response.data) ? response.data : [];
+            setFavorites(
+                new Set(
+                    data
+                        .map((guide) => getFavoriteGuideIdKey(guide))
+                        .filter(Boolean),
+                ),
+            );
+        } catch (_error) {
+            // Keep current state when refresh fails.
+        }
+    }, []);
+
+    useFocusEffect(
+        useCallback(() => {
+            refreshFavorites();
+        }, [refreshFavorites]),
+    );
+
+    const getImageUrl = (imgPath) => {
+        if (!imgPath) return null;
+
+        const path = typeof imgPath === 'object'
+            ? (imgPath.image || imgPath.url || imgPath.photo)
+            : imgPath;
+
+        if (!path) return null;
+
+        const normalizedPath = String(path);
+        if (/^https?:\/\//i.test(normalizedPath)) return normalizedPath;
+
+        const base = api.defaults.baseURL || process.env.EXPO_PUBLIC_API_URL || '';
+
+        try {
+            const parsedBase = new URL(base);
+            const origin = `${parsedBase.protocol}//${parsedBase.host}`;
+            return new URL(normalizedPath, `${origin}/`).toString();
+        } catch (error) {
+            const prefix = base.endsWith('/') ? base.slice(0, -1) : base;
+            const suffix = normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`;
+            return `${prefix}${suffix}`;
+        }
+    };
+
+    const getGuideImagePath = (guide) =>
+        guide?.profile_picture || guide?.profile_image || guide?.avatar || null;
+
+    const getGuideMaxGuests = (guide) => {
+        const tours = Array.isArray(guide?.tours) ? guide.tours : [];
+        const maxFromTours = tours.reduce((max, tour) => {
+            const pax = parseInt(tour?.max_group_size, 10);
+            return Number.isFinite(pax) && pax > max ? pax : max;
+        }, 0);
+
+        const fallbackFromGuide = [
+            guide?.max_group_size,
+            guide?.max_guests,
+            guide?.max_guest,
+            guide?.max_pax,
+            guide?.guest_limit,
+            guide?.group_size,
+        ].reduce((max, value) => {
+            const parsed = parseInt(value, 10);
+            return Number.isFinite(parsed) && parsed > max ? parsed : max;
+        }, 0);
+
+        return Math.max(maxFromTours, fallbackFromGuide);
+    };
+
+    const getGuideMaxGuestsLabel = (guide) => {
+        const maxGuests = getGuideMaxGuests(guide);
+        return maxGuests > 0 ? `${maxGuests} guests` : 'Per package';
+    };
+
+    const markGuideImageError = (guideImageKey) => {
+        if (!guideImageKey) return;
+        setGuideImageErrors((previous) => {
+            if (previous[guideImageKey]) return previous;
+            return {
+                ...previous,
+                [guideImageKey]: true,
+            };
+        });
+    };
+
+    const toggleFavorite = async (guideIdKey) => {
+        if (!guideIdKey) return;
+
+        const payloadGuideId = toGuideIdPayload(guideIdKey);
+
+        setFavorites((previous) => {
+            const next = new Set(previous);
+            if (next.has(guideIdKey)) {
+                next.delete(guideIdKey);
+            } else {
+                next.add(guideIdKey);
+            }
+            return next;
+        });
+
+        try {
+            await api.post('/api/favorites/toggle/', { guide_id: payloadGuideId });
+        } catch (error) {
+            // Revert optimistic update when request fails.
+            setFavorites((previous) => {
+                const reverted = new Set(previous);
+                if (reverted.has(guideIdKey)) {
+                    reverted.delete(guideIdKey);
+                } else {
+                    reverted.add(guideIdKey);
+                }
+                return reverted;
+            });
+            console.error('Failed to toggle favorite in explore:', error);
+        }
+    };
+
     // OPTIMIZED: Memoized Guide Filters using debounced search
     const filteredGuides = useMemo(() => {
         return guides.filter(guide => {
-            const fullName = `${guide.first_name || ''} ${guide.last_name || ''}`.toLowerCase();
-            const specialty = (guide.specialty || '').toLowerCase();
-            const loc = (guide.location || '').toLowerCase();
-            const query = debouncedSearchQuery.toLowerCase();
+            const fullName = normalizeText(`${guide.first_name || ''} ${guide.last_name || ''}`);
+            const specialty = normalizeText(guide.specialty || guide.specialization);
+            const locationText = normalizeText(guide.location || guide.address || guide.city);
+            const languageText = Array.isArray(guide.languages)
+                ? normalizeText(guide.languages.join(' '))
+                : normalizeText(guide.languages);
+            const guideImageUri = getImageUrl(getGuideImagePath(guide));
+            const hasProfilePhoto = !!guideImageUri;
+            const maxGuests = getGuideMaxGuests(guide);
 
-            const matchesSearch = fullName.includes(query) || specialty.includes(query) || loc.includes(query);
-            const matchesLocation = selectedGuideLocation ? loc.includes(selectedGuideLocation.toLowerCase()) : true;
+            const searchableText = `${fullName} ${specialty} ${locationText} ${languageText}`;
 
-            const guidePrice = parseFloat(guide.price_per_day) || 0;
-            const matchesPrice = maxGuidePrice ? guidePrice <= parseFloat(maxGuidePrice) : true;
+            const matchesSearch = !shouldApplySearchFilter ||
+                searchableText.includes(normalizedSearchQuery);
+            const matchesLocation = selectedGuideLocation
+                ? locationText.includes(normalizeText(selectedGuideLocation))
+                : true;
 
-            const guideRating = parseFloat(guide.guide_rating) || 0;
+            const minGuestsValue = parseInt(minGuideGuests, 10);
+            const matchesMinGuests = Number.isFinite(minGuestsValue) && minGuestsValue > 0
+                ? maxGuests >= minGuestsValue
+                : true;
+
+            const matchesProfilePhoto = withProfilePhotoOnly ? hasProfilePhoto : true;
+
+            const guideRating = getGuideRatingValue(guide);
             const matchesRating = minRating > 0 ? guideRating >= minRating : true;
 
-            return matchesSearch && matchesLocation && matchesPrice && matchesRating;
+            return matchesSearch && matchesLocation && matchesMinGuests && matchesProfilePhoto && matchesRating;
         });
-    }, [guides, debouncedSearchQuery, selectedGuideLocation, maxGuidePrice, minRating]);
+    }, [guides, shouldApplySearchFilter, normalizedSearchQuery, selectedGuideLocation, minGuideGuests, withProfilePhotoOnly, minRating]);
 
     // OPTIMIZED: Memoized Places Filters using debounced search
     const filteredPlaces = useMemo(() => {
         return places.filter(place => {
-            const matchesSearch = (place.name || '').toLowerCase().includes(debouncedSearchQuery.toLowerCase());
-            const matchesCategory = selectedCategory ? place.category === selectedCategory : true;
+            const placeName = normalizeText(place.name);
+            const placeLocation = normalizeText(place.location || place.address || place.city);
+            const placeCategory = normalizeCategoryValue(place.category);
 
-            const placeRating = parseFloat(place.average_rating) || 0;
+            const matchesSearch = !shouldApplySearchFilter ||
+                placeName.includes(normalizedSearchQuery) ||
+                placeLocation.includes(normalizedSearchQuery) ||
+                placeCategory.includes(normalizedSearchQuery);
+            const matchesCategory = selectedCategoryNormalized
+                ? placeCategory === selectedCategoryNormalized
+                : true;
+
+            const placeRating = getPlaceRatingValue(place);
             const matchesRating = minRating > 0 ? placeRating >= minRating : true;
 
             return matchesSearch && matchesCategory && matchesRating;
         });
-    }, [places, debouncedSearchQuery, selectedCategory, minRating]);
+    }, [places, shouldApplySearchFilter, normalizedSearchQuery, selectedCategoryNormalized, minRating]);
 
     const chunkData = (data, size) => {
         if (!data || !Array.isArray(data)) return [];
@@ -151,12 +392,15 @@ const ExplorePlaces = () => {
     };
 
     // Helper: Check if there are any active filters to display the clear badge
-    const hasActiveFilters = selectedCategory !== '' || minRating > 0 || (activeTab === 'guides' && (maxGuidePrice !== '' || selectedGuideLocation !== ''));
+    const hasActiveFilters = activeTab === 'places'
+        ? (selectedCategoryNormalized !== '' || minRating > 0)
+        : (minRating > 0 || minGuideGuests !== '' || selectedGuideLocation !== '' || withProfilePhotoOnly);
 
     const clearAllFilters = () => {
         setSelectedCategory('');
         setMinRating(0);
-        setMaxGuidePrice('');
+        setMinGuideGuests('');
+        setWithProfilePhotoOnly(false);
         setSelectedGuideLocation('');
     };
 
@@ -190,16 +434,32 @@ const ExplorePlaces = () => {
         );
     };
 
-    const GuideCardStack = ({ item }) => (
+    const GuideCardStack = ({ item }) => {
+        const guideName = `${item.first_name || ''} ${item.last_name || ''}`.trim() || 'Guide';
+        const guideImageKey = String(item.id || item.user_id || guideName);
+        const guideIdKey = getGuideIdKey(item);
+        const isFavorited = Boolean(guideIdKey && favorites.has(guideIdKey));
+        const guideImageUri = getImageUrl(getGuideImagePath(item));
+        const showGuideImage = Boolean(guideImageUri && !guideImageErrors[guideImageKey]);
+
+        return (
         <View style={styles.guideCardStack}>
             <View style={styles.cardProfileSection}>
-                <View style={styles.iconWrapper}>
-                    <User size={40} color="#8B98A8" />
+                <View style={[styles.iconWrapper, showGuideImage && styles.iconWrapperWithImage]}>
+                    {showGuideImage ? (
+                        <Image
+                            source={{ uri: guideImageUri }}
+                            style={styles.guideAvatarImage}
+                            onError={() => markGuideImageError(guideImageKey)}
+                        />
+                    ) : (
+                        <User size={30} color="#8B98A8" />
+                    )}
                 </View>
 
                 <View style={styles.profileInfo}>
                     <View style={styles.nameRow}>
-                        <Text style={styles.guideName}>{item.first_name} {item.last_name}</Text>
+                        <Text style={styles.guideName}>{guideName}</Text>
                         {renderAvailability(item.available_days)}
                     </View>
 
@@ -209,8 +469,12 @@ const ExplorePlaces = () => {
                     </Text>
                 </View>
 
-                <TouchableOpacity>
-                    <Ionicons name="heart-outline" size={22} color="#FF5A5F" />
+                <TouchableOpacity onPress={() => toggleFavorite(guideIdKey)} disabled={!guideIdKey}>
+                    <Ionicons
+                        name={isFavorited ? 'heart' : 'heart-outline'}
+                        size={22}
+                        color={isFavorited ? '#FF5A5F' : '#94A3B8'}
+                    />
                 </TouchableOpacity>
             </View>
 
@@ -230,8 +494,8 @@ const ExplorePlaces = () => {
                     <Text style={styles.detailValue}>{item.experience_years || 0} years</Text>
                 </View>
                 <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Price</Text>
-                    <Text style={styles.detailValue}>₱{item.price_per_day || 'N/A'}/day</Text>
+                    <Text style={styles.detailLabel}>Max Guests</Text>
+                    <Text style={styles.detailValue}>{getGuideMaxGuestsLabel(item)}</Text>
                 </View>
             </View>
 
@@ -239,18 +503,23 @@ const ExplorePlaces = () => {
                 style={styles.buttonContainer} 
                 activeOpacity={0.8} 
                 onPress={() => router.push({
-                    pathname: "/(protected)/touristGuideDetails",
-                    params: { guideId: item.id },
+                    pathname: "/(protected)/guideTours",
+                    params: {
+                        guideId: item.id,
+                        guideName,
+                    },
                 })}
             >
-                <Text style={styles.bookButton}>VIEW PROFILE</Text>
+                <Text style={styles.bookButton}>VIEW DESTINATIONS</Text>
             </TouchableOpacity>
         </View>
     );
+    };
 
     const PlaceCardBento = ({ item, style }) => {
-        const imageSource = item.image || item.first_image || item.thumbnail
-            ? { uri: item.image || item.first_image || item.thumbnail }
+        const placeImageUri = getImageUrl(item.image || item.first_image || item.thumbnail);
+        const imageSource = placeImageUri
+            ? { uri: placeImageUri }
             : FALLBACK_IMAGE;
 
         return (
@@ -350,7 +619,7 @@ const ExplorePlaces = () => {
                 </TouchableOpacity>
 
                 <Text style={styles.headerTitle}>
-                    EXPLORE {activeTab === 'guides' ? 'GUIDES' : (selectedCategory ? selectedCategory.toUpperCase() : 'PLACES')}
+                    EXPLORE {activeTab === 'guides' ? 'GUIDES' : (selectedCategoryLabel ? selectedCategoryLabel.toUpperCase() : 'PLACES')}
                 </Text>
             </View>
 
@@ -359,11 +628,16 @@ const ExplorePlaces = () => {
                     <Ionicons name="search" size={18} color="#8B98A8" style={styles.searchIcon} />
                     <TextInput
                         style={styles.searchInput}
-                        placeholder={activeTab === 'guides' ? "Search guides..." : "Search places..."}
+                        placeholder={activeTab === 'guides' ? "Search guide by name, specialty, language" : "Search places..."}
                         placeholderTextColor="#8B98A8"
                         value={searchQuery}
                         onChangeText={setSearchQuery}
                     />
+                    {!!searchQuery && (
+                        <TouchableOpacity onPress={() => setSearchQuery('')}>
+                            <Ionicons name="close-circle" size={16} color="#8B98A8" />
+                        </TouchableOpacity>
+                    )}
                 </View>
 
                 {/* Open Filter Modal */}
@@ -372,6 +646,14 @@ const ExplorePlaces = () => {
                     {hasActiveFilters && <View style={styles.filterActiveDot} />}
                 </TouchableOpacity>
             </View>
+
+            {!!searchQuery.trim() && searchQuery.trim().length < MIN_SEARCH_CHARS && (
+                <View style={styles.searchHintContainer}>
+                    <Text style={styles.searchHintText}>
+                        Type at least {MIN_SEARCH_CHARS} characters to filter results.
+                    </Text>
+                </View>
+            )}
 
             <View style={styles.toggleRow}>
                 <View style={styles.toggleContainer}>
@@ -399,7 +681,7 @@ const ExplorePlaces = () => {
             {hasActiveFilters && (
                 <View style={styles.activeFilterContainer}>
                     <Text style={styles.activeFilterText}>
-                        Filters applied {selectedCategory && activeTab === 'places' ? `(${selectedCategory})` : ''}
+                        Filters applied {selectedCategoryLabel && activeTab === 'places' ? `(${selectedCategoryLabel})` : ''}
                     </Text>
                     <TouchableOpacity onPress={clearAllFilters} style={styles.clearFilterBadge}>
                         <Ionicons name="close" size={14} color="#fff" />
@@ -474,13 +756,13 @@ const ExplorePlaces = () => {
                                 <>
                                     <Text style={styles.filterSectionTitle}>Category</Text>
                                     <View style={styles.categoryFilterContainer}>
-                                        {Array.from(new Set(places.map(p => p.category).filter(Boolean))).map(cat => (
+                                        {placeCategories.map(cat => (
                                             <TouchableOpacity 
-                                                key={cat} 
-                                                style={[styles.categoryPill, selectedCategory === cat && styles.categoryPillActive]}
-                                                onPress={() => setSelectedCategory(selectedCategory === cat ? '' : cat)}
+                                                key={cat.value}
+                                                style={[styles.categoryPill, selectedCategoryNormalized === cat.value && styles.categoryPillActive]}
+                                                onPress={() => setSelectedCategory(selectedCategoryNormalized === cat.value ? '' : cat.value)}
                                             >
-                                                <Text style={[styles.categoryPillText, selectedCategory === cat && styles.categoryPillTextActive]}>{cat}</Text>
+                                                <Text style={[styles.categoryPillText, selectedCategoryNormalized === cat.value && styles.categoryPillTextActive]}>{cat.label}</Text>
                                             </TouchableOpacity>
                                         ))}
                                     </View>
@@ -489,15 +771,31 @@ const ExplorePlaces = () => {
 
                             {activeTab === 'guides' && (
                                 <>
-                                    <Text style={styles.filterSectionTitle}>Maximum Price (₱/day)</Text>
+                                    <Text style={styles.filterSectionTitle}>Minimum Guest Capacity</Text>
                                     <TextInput
                                         style={styles.filterInput}
-                                        placeholder="e.g. 1500"
+                                        placeholder="e.g. 6"
                                         placeholderTextColor="#8B98A8"
                                         keyboardType="numeric"
-                                        value={maxGuidePrice}
-                                        onChangeText={setMaxGuidePrice}
+                                        value={minGuideGuests}
+                                        onChangeText={setMinGuideGuests}
                                     />
+
+                                    <TouchableOpacity
+                                        style={[styles.toggleFilterRow, withProfilePhotoOnly && styles.toggleFilterRowActive]}
+                                        onPress={() => setWithProfilePhotoOnly((prev) => !prev)}
+                                        activeOpacity={0.8}
+                                    >
+                                        <View>
+                                            <Text style={styles.toggleFilterTitle}>With Profile Photo</Text>
+                                            <Text style={styles.toggleFilterSubtitle}>Show guides with available profile image.</Text>
+                                        </View>
+                                        <Ionicons
+                                            name={withProfilePhotoOnly ? 'checkmark-circle' : 'ellipse-outline'}
+                                            size={20}
+                                            color={withProfilePhotoOnly ? '#00A8FF' : '#94A3B8'}
+                                        />
+                                    </TouchableOpacity>
 
                                     <Text style={styles.filterSectionTitle}>Location</Text>
                                     <TextInput
@@ -559,6 +857,8 @@ const styles = StyleSheet.create({
     searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#EBF0F5', borderRadius: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: '#D0DAE3' },
     searchIcon: { marginRight: 8 },
     searchInput: { flex: 1, paddingVertical: 10, fontSize: 14, color: '#1A2332' },
+    searchHintContainer: { paddingHorizontal: 16, marginBottom: 8 },
+    searchHintText: { fontSize: 12, color: '#64748B' },
 
     filterButton: { position: 'relative', backgroundColor: '#EBF0F5', padding: 10, borderRadius: 10, borderWidth: 1, borderColor: '#D0DAE3' },
     filterActiveDot: { position: 'absolute', top: -3, right: -3, width: 10, height: 10, borderRadius: 5, backgroundColor: '#FF5A5F', borderWidth: 2, borderColor: '#fff' },
@@ -619,7 +919,9 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     cardProfileSection: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 },
-    iconWrapper: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#EBF0F5', justifyContent: 'center', alignItems: 'center' },
+    iconWrapper: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#EBF0F5', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+    iconWrapperWithImage: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#D0DAE3' },
+    guideAvatarImage: { width: '100%', height: '100%', resizeMode: 'cover' },
     profileInfo: { flex: 1, marginLeft: 12 },
 
     nameRow: { flexDirection: 'column', alignItems: 'flex-start' },
@@ -662,6 +964,33 @@ const styles = StyleSheet.create({
     categoryPillActive: { backgroundColor: '#00A8FF', borderColor: '#00A8FF' },
     categoryPillText: { fontSize: 14, fontWeight: '500', color: '#1A2332' },
     categoryPillTextActive: { color: '#fff', fontWeight: '600' },
+
+    toggleFilterRow: {
+        marginTop: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#E0E6ED',
+        backgroundColor: '#F8FAFC',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    toggleFilterRowActive: {
+        borderColor: '#7DD3FC',
+        backgroundColor: '#E8F6FF',
+    },
+    toggleFilterTitle: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: '#1A2332',
+    },
+    toggleFilterSubtitle: {
+        marginTop: 2,
+        fontSize: 11,
+        color: '#64748B',
+    },
 
     filterInput: { backgroundColor: '#F5F7FA', borderWidth: 1, borderColor: '#E0E6ED', borderRadius: 10, padding: 12, fontSize: 15, color: '#1A2332' },
 

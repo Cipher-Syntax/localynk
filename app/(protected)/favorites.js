@@ -37,9 +37,49 @@ const Favorites = () => {
 
     const getImageUrl = (imgPath) => {
         if (!imgPath) return null;
-        if (imgPath.startsWith('http')) return imgPath;
-        const base = api.defaults.baseURL || 'http://127.0.0.1:8000';
-        return `${base}${imgPath}`;
+
+        const path = typeof imgPath === 'object'
+            ? (imgPath.image || imgPath.url || imgPath.photo)
+            : imgPath;
+        if (!path) return null;
+
+        const normalizedPath = String(path);
+        if (/^https?:\/\//i.test(normalizedPath)) return normalizedPath;
+
+        const base = api.defaults.baseURL || process.env.EXPO_PUBLIC_API_URL || '';
+
+        try {
+            const parsedBase = new URL(base);
+            const origin = `${parsedBase.protocol}//${parsedBase.host}`;
+            return new URL(normalizedPath, `${origin}/`).toString();
+        } catch (_error) {
+            const prefix = base.endsWith('/') ? base.slice(0, -1) : base;
+            const suffix = normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`;
+            return `${prefix}${suffix}`;
+        }
+    };
+
+    const getGuideMaxGuestsLabel = (guide) => {
+        const tours = Array.isArray(guide?.tours) ? guide.tours : [];
+        const maxGuestsFromTours = tours.reduce((max, tour) => {
+            const pax = parseInt(tour?.max_group_size, 10);
+            return Number.isFinite(pax) && pax > max ? pax : max;
+        }, 0);
+
+        const maxGuestsFromGuide = [
+            guide?.max_group_size,
+            guide?.max_guests,
+            guide?.max_guest,
+            guide?.max_pax,
+            guide?.guest_limit,
+            guide?.group_size,
+        ].reduce((max, value) => {
+            const parsed = parseInt(value, 10);
+            return Number.isFinite(parsed) && parsed > max ? parsed : max;
+        }, 0);
+
+        const maxGuests = Math.max(maxGuestsFromTours, maxGuestsFromGuide);
+        return maxGuests > 0 ? `${maxGuests} guests` : 'Per package';
     };
 
     const renderAvailability = (guideDays) => {
@@ -236,8 +276,8 @@ const Favorites = () => {
                                     <Text style={styles.detailValue}>{guide.experience_years || 0} years</Text>
                                 </View>
                                 <View style={styles.detailItem}>
-                                    <Text style={styles.detailLabel}>Price</Text>
-                                    <Text style={styles.detailValue}>₱{guide.price_per_day || 'N/A'}/day</Text>
+                                    <Text style={styles.detailLabel}>Max Guests</Text>
+                                    <Text style={styles.detailValue}>{getGuideMaxGuestsLabel(guide)}</Text>
                                 </View>
                             </View>
 

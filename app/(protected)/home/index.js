@@ -117,6 +117,7 @@ const Home = () => {
                 contentInsetAdjustmentBehavior="never"
                 automaticallyAdjustContentInsets={false}
                 contentContainerStyle={{ paddingBottom: 0 }}
+                keyboardShouldPersistTaps="always"
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#00C6FF"]} />}
             >
                 <View>
