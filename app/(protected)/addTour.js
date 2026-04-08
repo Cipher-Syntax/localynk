@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { ScrollView, View, Text, Image, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Modal, FlatList, Platform, Dimensions } from 'react-native';
+import { ScrollView, View, Text, Image, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Modal, FlatList, Platform, Dimensions, KeyboardAvoidingView } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
@@ -199,9 +199,29 @@ const AddTour = () => {
 
     const validateStep = (step) => {
         if (step === 1) {
-            if (!selectedDest || !formData.name || !formData.description) {
+            if (!selectedDest || !formData.name || !formData.description || !formData.duration || !formData.durationDays || !formData.maxGroupSize) {
                 showToast("Please select a destination and fill in tour details.", "error");
                 return false;
+            }
+        }
+        if (step === 2) {
+            if (!formData.whatToBring.trim()) {
+                showToast("Please fill in 'What to Bring'", "error");
+                return false;
+            }
+
+            for (let i = 0; i < placeNames.length; i++) {
+                if (!placeNames[i] || !placeNames[i].trim()) {
+                    showToast(`Please provide a name for Stop ${i + 1}`, "error");
+                    return false;
+                }
+            }
+
+            for (let i = 0; i < featuredPlaces.length; i++) {
+                if (!featuredPlaces[i]) {
+                    showToast(`Please upload an image for Stop ${i + 1}`, "error");
+                    return false;
+                }
             }
         }
         if (step === 3) {
@@ -292,6 +312,7 @@ const AddTour = () => {
     );
 
     const renderStep1 = () => (
+       
         <View style={styles.stepContainer}>
             <Text style={styles.stepTitle}>The Essentials</Text>
             <Text style={styles.stepSubtitle}>Where are you taking them?</Text>
@@ -301,7 +322,7 @@ const AddTour = () => {
                 <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
                     <Ionicons name="location" size={20} color="#0072FF" />
                     <Text style={selectedDest ? styles.dropdownTextSelected : styles.dropdownTextPlaceholder}>
-                        {selectedDest ? selectedDest.name : (isFetchingData ? "Loading..." : "Select Destination")}
+                        {selectedDest ? selectedDest.name.slice(0, 30) + '...' : (isFetchingData ? "Loading..." : "Select Destination")}
                     </Text>
                 </View>
                 <Ionicons name="chevron-down" size={20} color="#666" />
@@ -361,6 +382,7 @@ const AddTour = () => {
                 </View>
             </View>
         </View>
+            
     );
 
     const renderStep2 = () => (
@@ -561,7 +583,7 @@ const AddTour = () => {
 
     return (
         <View style={styles.container}>
-            <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
+            <SafeAreaView style={{ flex: 1 }} edges={['top']}>
                 
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -573,11 +595,17 @@ const AddTour = () => {
 
                 {renderProgressBar()}
 
-                <ScrollView ref={scrollViewRef} contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
-                    {currentStep === 1 && renderStep1()}
-                    {currentStep === 2 && renderStep2()}
-                    {currentStep === 3 && renderStep3()}
-                </ScrollView>
+                <KeyboardAvoidingView
+                    style={{ flex: 1 }}
+                    behavior="padding"
+                    keyboardVerticalOffset={8}
+                >
+                    <ScrollView ref={scrollViewRef} contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+                        {currentStep === 1 && renderStep1()}
+                        {currentStep === 2 && renderStep2()}
+                        {currentStep === 3 && renderStep3()}
+                    </ScrollView>
+                </KeyboardAvoidingView>
 
                 <View style={[styles.footer, { paddingBottom: insets.bottom + 20 }]}>
                     {currentStep > 1 && (

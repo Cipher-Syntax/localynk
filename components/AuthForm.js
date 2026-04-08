@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
     View, Text, TextInput, TouchableOpacity, ImageBackground, StyleSheet, 
-    KeyboardAvoidingView, Platform, TouchableWithoutFeedback, 
+    KeyboardAvoidingView, TouchableWithoutFeedback, 
     Keyboard, ActivityIndicator, ScrollView 
 } from 'react-native';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
@@ -240,10 +240,10 @@ const AuthForm = ({ method }) => {
                     colors={['rgba(0,0,0,0.1)', 'rgba(15, 23, 42, 0.85)']}
                     style={styles.gradientOverlay}
                 >
-                    <KeyboardAvoidingView 
-                        behavior={Platform.OS === "ios" ? "padding" : "height"}
-                        style={styles.keyboardView}
-                        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+                    <KeyboardAvoidingView
+                        style={{ flex: 1 }}
+                        behavior="padding"
+                        keyboardVerticalOffset={8}
                     >
                         <ScrollView 
                             style={{ flex: 1 }}
@@ -267,7 +267,6 @@ const AuthForm = ({ method }) => {
                                                     {message}
                                                 </Text>
                                                 
-                                                {/* Only show Resend Email button if it is a verification error */}
                                                 {(message.includes('verify') || message.includes('verification')) && method === 'login' && messageType === 'error' && (
                                                     <View style={styles.actionButtonsRow}>
                                                         <TouchableOpacity onPress={handleResendVerification} style={styles.actionButton}>

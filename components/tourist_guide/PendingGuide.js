@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 const PendingGuide = () => {
@@ -27,10 +28,10 @@ const PendingGuide = () => {
                     </Text>
                 </View>
 
-                {/* <TouchableOpacity style={styles.contactButton}>
+                <TouchableOpacity style={styles.contactButton} onPress={router.push({pathname: '(protected)/support.js'})}>
                     <Ionicons name="help-circle-outline" size={20} color="#fff" />
                     <Text style={styles.contactButtonText}>Contact Support</Text>
-                </TouchableOpacity> */}
+                </TouchableOpacity>
 
                 <Text style={styles.footerText}>
                     In the meantime, you can continue to use Localynk as a tourist.

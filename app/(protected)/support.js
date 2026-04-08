@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { 
     View, Text, StyleSheet, ScrollView, TouchableOpacity, 
-    Image, LayoutAnimation, Platform, UIManager 
+    Image, LayoutAnimation, Platform, UIManager, TextInput, Modal, 
+    KeyboardAvoidingView, Keyboard, ActivityIndicator 
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import api from '../../api/api'; 
 
 // Enable layout animation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -54,12 +56,57 @@ const GuideStep = ({ number, title, description, icon, color }) => (
 
 const Support = () => {
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState('tourist'); // 'tourist' or 'guide'
+    const [activeTab, setActiveTab] = useState('tourist'); 
     const [openSection, setOpenSection] = useState(null);
+    
+    // Support Message Modal states
+    const [isModalVisible, setModalVisible] = useState(false);
+    const [supportMessage, setSupportMessage] = useState('');
+    const [isSending, setIsSending] = useState(false);
+
+    // Custom Alert Modal states
+    const [isAlertVisible, setAlertVisible] = useState(false);
+    const [alertTitle, setAlertTitle] = useState('');
+    const [alertMessage, setAlertMessage] = useState('');
+    const [alertType, setAlertType] = useState('error'); 
 
     const toggleSection = (index) => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setOpenSection(openSection === index ? null : index);
+    };
+
+    const showCustomAlert = (title, message, type = 'error') => {
+        setAlertTitle(title);
+        setAlertMessage(message);
+        setAlertType(type);
+        setAlertVisible(true);
+    };
+
+    const handleContactSupport = async () => {
+        if (!supportMessage.trim()) {
+            showCustomAlert("Empty Message", "Please type your issue before sending so we can help you out!", "error");
+            return;
+        }
+
+        setIsSending(true); 
+
+        try {
+            await api.post('/api/support/', { 
+                message: supportMessage 
+            });
+
+            setSupportMessage(''); 
+            setModalVisible(false);
+            showCustomAlert("Success!", "Your message was sent safely to our support team. We'll email you back soon.", "success");
+            
+        } catch (error) {
+            console.error('API Error:', error);
+            // Safely grab the error message from Django if it exists
+            const errorMessage = error.response?.data?.error || "Failed to send message. Please try again.";
+            showCustomAlert("Error", errorMessage, "error");
+        } finally {
+            setIsSending(false); // Re-enable button whether it succeeded or failed
+        }
     };
 
     const faqData = [
@@ -77,7 +124,7 @@ const Support = () => {
         },
         {
             question: "How do I become a Local Guide?",
-            answer: "Go to your Profile > Guide Settings or 'Upgrade Membership'. Submit your valid ID and any required tourism certificates. Once approved by Admin, you can start accepting bookings."
+            answer: "Go to your Apply Tab > Let's Go > Read Terms and Conditon. Submit your valid ID and any required tourism certificates. Once approved by Admin, you can start accepting bookings."
         },
         {
             question: "What happens if a guide doesn't show up?",
@@ -89,7 +136,7 @@ const Support = () => {
         <View style={styles.container}>
             
             {/* --- HEADER --- */}
-            <View style={styles.headerContainer}>
+            <SafeAreaView edges={['top']} style={styles.headerContainer}>
                 <Image 
                     source={require('../../assets/localynk_images/header.png')} 
                     style={styles.headerBg}
@@ -113,7 +160,7 @@ const Support = () => {
                         <Text style={styles.subGreeting}>Guides, tutorials, and FAQs.</Text>
                     </View>
                 </SafeAreaView>
-            </View>
+            </SafeAreaView>
 
             <ScrollView 
                 style={styles.body} 
@@ -225,20 +272,115 @@ const Support = () => {
                         ))}
                     </View>
 
-                    {/* --- CONTACT SUPPORT --- */}
+                    {/* --- CONTACT SUPPORT TRIGGER --- */}
                     <View style={styles.contactSupport}>
                         <View style={styles.contactIconCircle}>
                             <MaterialIcons name="support-agent" size={32} color="#fff" />
                         </View>
                         <Text style={styles.contactTitle}>Still need help?</Text>
                         <Text style={styles.contactText}>Our team is available 24/7 to assist you.</Text>
-                        <TouchableOpacity style={styles.contactBtn}>
+                        <TouchableOpacity style={styles.contactBtn} onPress={() => setModalVisible(true)}>
                             <Text style={styles.contactBtnText}>Contact Support</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
-
             </ScrollView>
+
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={isModalVisible}
+                onRequestClose={() => setModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    {/* Tapping the dark overlay dismisses the keyboard */}
+                    <TouchableOpacity 
+                        style={{ flex: 1 }} 
+                        activeOpacity={1} 
+                        onPress={() => Keyboard.dismiss()} 
+                    />
+                    
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === "ios" ? "padding" : "padding"}
+                    >
+                        <View style={styles.modalContainer}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Contact Support</Text>
+                                <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeModalBtn}>
+                                    <Ionicons name="close" size={24} color="#64748B" />
+                                </TouchableOpacity>
+                            </View>
+
+                            <Text style={styles.modalInstruction}>
+                                Briefly describe your issue below, and our team will investigate and email you a response.
+                            </Text>
+
+                            <TextInput
+                                style={styles.modalInput}
+                                placeholder="Type your message here..."
+                                placeholderTextColor="#94A3B8"
+                                multiline
+                                numberOfLines={5}
+                                value={supportMessage}
+                                onChangeText={setSupportMessage}
+                                editable={!isSending} // Prevent typing while sending
+                            />
+
+                            <TouchableOpacity 
+                                style={styles.modalSubmitBtn} 
+                                onPress={handleContactSupport}
+                                disabled={isSending} // Disable button to prevent double-clicks
+                            >
+                                <LinearGradient
+                                    colors={isSending ? ['#94A3B8', '#64748B'] : ['#00C6FF', '#0072FF']} // Turns gray when sending
+                                    style={styles.modalSubmitGradient}
+                                >
+                                    <Text style={styles.modalSubmitText}>
+                                        {isSending ? 'Sending...' : 'Send Message'}
+                                    </Text>
+                                    
+                                    {/* Show spinner if sending, otherwise show paper-plane icon */}
+                                    {isSending ? (
+                                        <ActivityIndicator size="small" color="#fff" style={{marginLeft: 8}} />
+                                    ) : (
+                                        <Ionicons name="paper-plane" size={18} color="#fff" style={{marginLeft: 8}} />
+                                    )}
+                                </LinearGradient>
+                            </TouchableOpacity>
+
+                            <View style={styles.modalBottomBleed} />
+                        </View>
+                    </KeyboardAvoidingView>
+                </View>
+            </Modal>
+
+            <Modal
+                animationType="fade"
+                transparent={true}
+                visible={isAlertVisible}
+                onRequestClose={() => setAlertVisible(false)}
+            >
+                <View style={styles.alertOverlay}>
+                    <View style={styles.alertContainer}>
+                        <View style={[styles.alertIconContainer, { backgroundColor: alertType === 'success' ? '#D1FAE5' : '#FEF3C7' }]}>
+                            <Ionicons 
+                                name={alertType === 'success' ? "checkmark-circle" : "warning"} 
+                                size={32} 
+                                color={alertType === 'success' ? "#10B981" : "#F59E0B"} 
+                            />
+                        </View>
+                        <Text style={styles.alertTitle}>{alertTitle}</Text>
+                        <Text style={styles.alertMessage}>{alertMessage}</Text>
+                        <TouchableOpacity 
+                            style={styles.alertBtn} 
+                            onPress={() => setAlertVisible(false)}
+                        >
+                            <Text style={styles.alertBtnText}>OK</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
         </View>
     );
 };
@@ -307,5 +449,129 @@ const styles = StyleSheet.create({
     contactTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
     contactText: { fontSize: 14, color: '#94A3B8', marginTop: 5, marginBottom: 20, textAlign: 'center' },
     contactBtn: { backgroundColor: '#fff', paddingHorizontal: 30, paddingVertical: 12, borderRadius: 30 },
-    contactBtnText: { color: '#1E293B', fontWeight: '700', fontSize: 14 }
+    contactBtnText: { color: '#1E293B', fontWeight: '700', fontSize: 14 },
+
+    // Message Modal Styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(15, 23, 42, 0.6)', 
+        justifyContent: 'flex-end',
+    },
+    modalContainer: {
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        paddingHorizontal: 24,
+        paddingTop: 24,
+        paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: '800',
+        color: '#1E293B',
+    },
+    closeModalBtn: {
+        padding: 4,
+    },
+    modalInstruction: {
+        fontSize: 14,
+        color: '#64748B',
+        marginBottom: 20,
+        lineHeight: 20,
+    },
+    modalInput: {
+        backgroundColor: '#F1F5F9',
+        borderRadius: 12,
+        padding: 16,
+        color: '#0F172A',
+        fontSize: 15,
+        minHeight: 120,
+        textAlignVertical: 'top',
+        marginBottom: 24,
+    },
+    modalSubmitBtn: {
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    modalSubmitGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 16,
+    },
+    modalSubmitText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700',
+    },
+    modalBottomBleed: {
+        position: 'absolute',
+        bottom: -500, // Extends way off the bottom of the screen
+        left: 0,
+        right: 0,
+        height: 500,
+        backgroundColor: '#fff',
+        zIndex: -1,
+    },
+
+    // Custom Alert Modal Styles
+    alertOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(15, 23, 42, 0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+    },
+    alertContainer: {
+        backgroundColor: '#fff',
+        borderRadius: 20,
+        padding: 24,
+        width: '100%',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        elevation: 10,
+    },
+    alertIconContainer: {
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    alertTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: '#1E293B',
+        marginBottom: 8,
+        textAlign: 'center',
+    },
+    alertMessage: {
+        fontSize: 14,
+        color: '#64748B',
+        textAlign: 'center',
+        marginBottom: 24,
+        lineHeight: 20,
+    },
+    alertBtn: {
+        backgroundColor: '#0F172A',
+        paddingVertical: 12,
+        paddingHorizontal: 32,
+        borderRadius: 12,
+        width: '100%',
+        alignItems: 'center',
+    },
+    alertBtnText: {
+        color: '#fff',
+        fontWeight: '700',
+        fontSize: 16,
+    }
 });
