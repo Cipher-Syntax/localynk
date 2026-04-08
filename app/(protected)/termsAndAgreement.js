@@ -68,7 +68,7 @@ const TermsAndAgreement = () => {
 
                     <Text style={styles.paragraphTitle}>4. Payments and Cancellations</Text>
                     <Text style={styles.bodyText}>
-                        All payments and cancellations made through MFLG must follow the platform's policies, and MFLG reserves the right to review and manage refunds or disputes when necessary.
+                        All payments and cancellations made through MFLG must follow the platform&apos;s policies, and MFLG reserves the right to review and manage refunds or disputes when necessary.
                     </Text>
 
                     <Text style={styles.paragraphTitle}>5. Limitation of Liability</Text>

@@ -164,7 +164,7 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
     const renderStep1 = () => (
         <View style={styles.stepContainer}>
             <Text style={styles.stepTitle}>Personal Details</Text>
-            <Text style={styles.stepSubtitle}>Let's get to know you.</Text>
+            <Text style={styles.stepSubtitle}>Let&#39;s get to know you.</Text>
 
             <Text style={styles.label}>Full Name</Text>
             <View style={styles.row}>

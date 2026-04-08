@@ -68,7 +68,7 @@ const Action = () => {
                         end={{ x: 1, y: 1 }}
                         style={styles.primaryButton}
                     >
-                        <Text style={styles.primaryButtonText}>Let's Go!</Text>
+                        <Text style={styles.primaryButtonText}>Let&#39;s Go!</Text>
                     </LinearGradient>
                 </TouchableOpacity>
 

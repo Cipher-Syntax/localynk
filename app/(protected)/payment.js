@@ -609,9 +609,7 @@ const Payment = () => {
         { key: 'card', name: 'Card', icon: 'card-outline' },
     ];
 
-    const pickerMediaTypes = ImagePicker.MediaType?.Images
-        ? [ImagePicker.MediaType.Images]
-        : ImagePicker.MediaTypeOptions.Images;
+    const pickerMediaTypes = 'images';
     const kycRetryHydrateRef = useRef(false);
     const kycPreviewFallbackTriedRef = useRef(false);
 

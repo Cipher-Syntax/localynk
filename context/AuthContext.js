@@ -329,11 +329,11 @@ export function AuthProvider({ children }) {
             clearPushRetryTimer();
 
             if (notificationListenerRef.current) {
-                Notifications.removeNotificationSubscription(notificationListenerRef.current);
+                notificationListenerRef.current.remove();
                 notificationListenerRef.current = null;
             }
             if (notificationResponseListenerRef.current) {
-                Notifications.removeNotificationSubscription(notificationResponseListenerRef.current);
+                notificationResponseListenerRef.current.remove();
                 notificationResponseListenerRef.current = null;
             }
         };

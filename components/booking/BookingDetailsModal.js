@@ -7,39 +7,39 @@ import api from '../../api/api';
 import StopDetailsModal from '../itinerary/StopDetailsModal';
 
 const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) => {
-    if (!booking) return null;
-
+    // Always call hooks before any early return
     const [stopDetailsVisible, setStopDetailsVisible] = useState(false);
 
-    const hasDestination = !!booking.destination_detail;
-    const hasAccommodation = !!booking.accommodation_detail;
+    // Provide default values to avoid calling hooks conditionally
+    const hasDestination = !!booking?.destination_detail;
+    const hasAccommodation = !!booking?.accommodation_detail;
 
     const title = hasDestination 
-        ? `${booking.destination_detail.name} Tour` 
-        : (hasAccommodation ? booking.accommodation_detail.title : 'Custom Tour');
+        ? `${booking?.destination_detail?.name} Tour` 
+        : (hasAccommodation ? booking?.accommodation_detail?.title : 'Custom Tour');
 
-    const heroImage = hasDestination && booking.destination_detail.image
+    const heroImage = hasDestination && booking?.destination_detail?.image
         ? { uri: booking.destination_detail.image }
-        : (hasAccommodation && booking.accommodation_detail.photo
+        : (hasAccommodation && booking?.accommodation_detail?.photo
             ? { uri: booking.accommodation_detail.photo }
-            : (booking.guide_detail?.profile_picture 
+            : (booking?.guide_detail?.profile_picture 
                 ? { uri: booking.guide_detail.profile_picture } 
-                : (booking.agency_detail?.logo 
+                : (booking?.agency_detail?.logo 
                     ? { uri: booking.agency_detail.logo } 
-                    : (booking.agency_detail?.profile_picture ? { uri: booking.agency_detail.profile_picture } : null))
+                    : (booking?.agency_detail?.profile_picture ? { uri: booking.agency_detail.profile_picture } : null))
               )
         );
 
     const providerName = hasDestination || !hasAccommodation
-        ? (booking.guide_detail ? `${booking.guide_detail.first_name} ${booking.guide_detail.last_name}` : (booking.agency_detail?.business_name || booking.agency_detail?.username))
-        : booking.accommodation_detail.host_full_name;
+        ? (booking?.guide_detail ? `${booking.guide_detail.first_name} ${booking.guide_detail.last_name}` : (booking?.agency_detail?.business_name || booking?.agency_detail?.username))
+        : booking?.accommodation_detail?.host_full_name;
         
     const providerRole = hasDestination || !hasAccommodation 
-        ? (booking.guide_detail ? 'Local Guide' : 'Travel Agency') 
+        ? (booking?.guide_detail ? 'Local Guide' : 'Travel Agency') 
         : 'Host';
 
     const providerImage = hasDestination || !hasAccommodation
-        ? (booking.guide_detail?.profile_picture || booking.agency_detail?.logo || booking.agency_detail?.profile_picture)
+        ? (booking?.guide_detail?.profile_picture || booking?.agency_detail?.logo || booking?.agency_detail?.profile_picture)
         : null;
 
     const getStatusColor = (status) => {
@@ -51,18 +51,18 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
         }
     };
 
-    const total = Number(booking.total_price || 0);
-    const downPayment = Number(booking.down_payment || 0);
-    const currentBalanceDue = Number(booking.balance_due || 0);
+    const total = Number(booking?.total_price || 0);
+    const downPayment = Number(booking?.down_payment || 0);
+    const currentBalanceDue = Number(booking?.balance_due || 0);
 
     const pricingBreakdown = useMemo(() => {
         return buildPricingBreakdown({
             totalPrice: total,
-            startDate: booking.check_in,
-            endDate: booking.check_out,
+            startDate: booking?.check_in,
+            endDate: booking?.check_out,
             packageDurationDays: booking?.tour_package_detail?.duration_days,
-            numberOfPeople: booking.num_guests,
-            groupType: Number(booking.num_guests) > 1 ? 'group' : 'solo',
+            numberOfPeople: booking?.num_guests,
+            groupType: Number(booking?.num_guests) > 1 ? 'group' : 'solo',
             soloPricePerDay: booking?.tour_package_detail?.solo_price,
             groupPricePerDay: booking?.tour_package_detail?.price_per_day,
             extraPersonFeePerHead: booking?.tour_package_detail?.additional_fee_per_head,
@@ -112,7 +112,7 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
         return `${checkIn} to ${checkOut}`;
     };
 
-    const isAgencyBooking = !!booking.agency || !!booking.agency_detail;
+    const isAgencyBooking = !!booking?.agency || !!booking?.agency_detail;
 
     const concurrentBookings = useMemo(() => {
         if (!isAgencyBooking || !booking || !allBookings || allBookings.length === 0) return [];
@@ -138,9 +138,9 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
         });
     }, [booking, allBookings, isAgencyBooking]);
 
-    const assignedGuides = Array.isArray(booking.assigned_agency_guides_detail) 
+    const assignedGuides = Array.isArray(booking?.assigned_agency_guides_detail) 
         ? booking.assigned_agency_guides_detail 
-        : (booking.assigned_agency_guides_detail ? [booking.assigned_agency_guides_detail] : []);
+        : (booking?.assigned_agency_guides_detail ? [booking.assigned_agency_guides_detail] : []);
 
     const getImageUrl = (imgPath) => {
         if (!imgPath) return null;
@@ -177,6 +177,8 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
             return acc;
         }, {});
     }, [tourItineraryTimeline]);
+
+    if (!booking) return null;
 
     return (
         <Modal animationType="slide" transparent={true} visible={visible} onRequestClose={onClose}>

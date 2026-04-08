@@ -420,7 +420,7 @@ const MyTourPackages = () => {
                         <View style={styles.emptyStateContainer}>
                             <Ionicons name="briefcase-outline" size={60} color="#CBD5E1" />
                             <Text style={styles.emptyStateTitle}>No Tour Packages Found</Text>
-                            <Text style={styles.emptyStateText}>You haven't set up any tour packages or destinations yet.</Text>
+                            <Text style={styles.emptyStateText}>You haven&apos;t set up any tour packages or destinations yet.</Text>
                         </View>
                     )}
                     <View style={{height: 40}} /> 

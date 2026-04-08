@@ -148,7 +148,7 @@ const UpgradeMembership = () => {
                         <View style={styles.iconContainer}>
                             <Ionicons name="checkmark-circle" size={120} color="#00C853" />
                         </View>
-                        <Text style={styles.confirmationTitle}>You're Premium!</Text>
+                        <Text style={styles.confirmationTitle}>You&apos;re Premium!</Text>
                         <Text style={styles.confirmationMessage}>
                             Thank you for subscribing. You now have unlimited access to accept bookings and grow your business.
                         </Text>

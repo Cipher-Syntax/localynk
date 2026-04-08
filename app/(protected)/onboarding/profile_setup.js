@@ -113,7 +113,7 @@ const ProfileSetupScreen = () => {
                     >
                         <View style={styles.headerContainer}>
                             <Text style={styles.headerTitle}>Complete Your Profile</Text>
-                            <Text style={styles.headerSubtitle}>Let's get to know you better.</Text>
+                            <Text style={styles.headerSubtitle}>Let&apos;s get to know you better.</Text>
                         </View>
 
                         <View style={styles.avatarContainer}>

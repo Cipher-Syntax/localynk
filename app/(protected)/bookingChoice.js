@@ -126,7 +126,7 @@ const BookingChoice = () => {
                 <View style={styles.headerSection}>
                     <Text style={styles.mainHeader}>Select Your Experience</Text>
                     <Text style={styles.placeName}>{placeName || 'This Location'}</Text>
-                    <Text style={styles.subtext}>Choose how you'd like to explore</Text>
+                    <Text style={styles.subtext}>Choose how you&apos;d like to explore</Text>
                 </View>
 
                 <View style={styles.cardsContainer}>

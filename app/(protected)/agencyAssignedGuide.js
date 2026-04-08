@@ -135,7 +135,7 @@ const AgencyAssignedGuide = () => {
                     </TouchableOpacity>
                     
                     <Text style={styles.infoText}>
-                        <Ionicons name="information-circle-outline" size={14} color="#666" /> This is the final confirmed price from the agency. Click 'Proceed to Payment' to finalize your booking.
+                        <Ionicons name="information-circle-outline" size={14} color="#666" /> This is the final confirmed price from the agency. Click &apos;Proceed to Payment&apos; to finalize your booking.
                     </Text>
                 </View>
             </SafeAreaView>

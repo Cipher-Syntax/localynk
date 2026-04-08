@@ -179,7 +179,7 @@ const AddAccommodation = () => {
     const renderStep1 = () => (
         <View style={styles.stepContainer}>
             <Text style={styles.stepTitle}>The Basics</Text>
-            <Text style={styles.stepSubtitle}>Let's start with the essential details.</Text>
+            <Text style={styles.stepSubtitle}>Let&apos;s start with the essential details.</Text>
 
             <Text style={styles.label}>Listing Title</Text>
             <TextInput
