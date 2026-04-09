@@ -9,7 +9,7 @@ import api from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
 import BookingDetailsModal from '../../components/booking/BookingDetailsModal';
 import ConfirmationModal from '../../components/ConfirmationModal';
-import { getBookingSortTimestamp, getLatestBookingTimestamp, setSeenBookingTimestamp } from '../../utils/bookingNotifications';
+import { getBookingSortTimestamp, getLatestBookingTimestamp, setSeenBookingTimestamp, hasUnseenBookings } from '../../utils/bookingNotifications';
 import { buildPricingBreakdown } from '../../utils/pricingBreakdown';
 
 const MyBookings = () => {
@@ -39,6 +39,10 @@ const MyBookings = () => {
     const [modalDateFilter, setModalDateFilter] = useState('all');
     const [modalSearchFilter, setModalSearchFilter] = useState('');
 
+    // --- NEW: State for Tab Notification Dots ---
+    const [hasNewMyTrip, setHasNewMyTrip] = useState(false);
+    const [hasNewClientBooking, setHasNewClientBooking] = useState(false);
+
     const showToast = (message, type = 'success') => {
         setToast({ show: true, message, type });
         Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
@@ -56,10 +60,22 @@ const MyBookings = () => {
             const sorted = [...incoming].sort((a, b) => getBookingSortTimestamp(b) - getBookingSortTimestamp(a));
             setBookings(sorted);
 
-            // Opening Bookings means user has seen latest booking update.
-            const latestTs = getLatestBookingTimestamp(sorted);
-            if (user?.id && latestTs > 0) {
-                await setSeenBookingTimestamp(user.id, latestTs);
+            if (user?.id) {
+                // Separate bookings to check unseen status independently
+                const myTrips = sorted.filter(b => b.tourist_id === user.id);
+                const clientBookings = sorted.filter(b => b.tourist_id !== user.id);
+
+                const unseenMyTrips = await hasUnseenBookings(user.id, myTrips);
+                const unseenClientBookings = await hasUnseenBookings(user.id, clientBookings);
+
+                setHasNewMyTrip(prev => prev || unseenMyTrips);
+                setHasNewClientBooking(prev => prev || unseenClientBookings);
+
+                // Update global seen timestamp so the notification in profile disappears
+                const latestTs = getLatestBookingTimestamp(sorted);
+                if (latestTs > 0) {
+                    await setSeenBookingTimestamp(user.id, latestTs);
+                }
             }
         } catch (error) {
             console.error('Failed to fetch bookings:', error);
@@ -67,10 +83,17 @@ const MyBookings = () => {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [user.id]);
+    }, [user?.id]);
 
     useFocusEffect(useCallback(() => { setLoading(true); fetchBookings(); }, [fetchBookings]));
     const onRefresh = useCallback(() => { setRefreshing(true); fetchBookings(); }, [fetchBookings]);
+
+    // Handle switching tabs and clearing the dot for that tab
+    const switchTab = (tab) => {
+        setActiveTab(tab);
+        if (tab === 'my_trip') setHasNewMyTrip(false);
+        if (tab === 'client_booking') setHasNewClientBooking(false);
+    };
 
     const initiateCancellation = (bookingId) => {
         setBookingIdToCancel(bookingId);
@@ -424,10 +447,9 @@ const MyBookings = () => {
 
         const normalizedStatus = String(item.status || '').toLowerCase();
 
-        const cancellableStatuses = isMyTrip
-            ? ['confirmed', 'pending_payment']
-            : ['accepted', 'confirmed', 'pending_payment'];
-        const canCancel = cancellableStatuses.includes(normalizedStatus) && !hasTripStartedOrPassed;
+        const canCancel = isMyTrip 
+            ? ['confirmed', 'pending_payment'].includes(normalizedStatus) && !hasTripStartedOrPassed
+            : false;
         
         const assignedGuidesRaw = item?.assigned_agency_guides_detail;
         const assignedGuides = Array.isArray(assignedGuidesRaw)
@@ -775,15 +797,21 @@ const MyBookings = () => {
                             <View style={styles.tabSwitcher}>
                                 <TouchableOpacity
                                     style={[styles.tabButton, activeTab === 'my_trip' && styles.tabButtonActive]}
-                                    onPress={() => setActiveTab('my_trip')}
+                                    onPress={() => switchTab('my_trip')}
                                 >
-                                    <Text style={[styles.tabButtonText, activeTab === 'my_trip' && styles.tabButtonTextActive]}>MY TRIP</Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Text style={[styles.tabButtonText, activeTab === 'my_trip' && styles.tabButtonTextActive]}>MY TRIP</Text>
+                                        {hasNewMyTrip && activeTab !== 'my_trip' && <View style={styles.tabBadgeDot} />}
+                                    </View>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={[styles.tabButton, activeTab === 'client_booking' && styles.tabButtonActiveClient]}
-                                    onPress={() => setActiveTab('client_booking')}
+                                    onPress={() => switchTab('client_booking')}
                                 >
-                                    <Text style={[styles.tabButtonText, activeTab === 'client_booking' && styles.tabButtonTextActive]}>CLIENT BOOKING</Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Text style={[styles.tabButtonText, activeTab === 'client_booking' && styles.tabButtonTextActive]}>CLIENT BOOKING</Text>
+                                        {hasNewClientBooking && activeTab !== 'client_booking' && <View style={styles.tabBadgeDot} />}
+                                    </View>
                                 </TouchableOpacity>
                             </View>
 
@@ -1019,6 +1047,14 @@ const styles = StyleSheet.create({
     tabButtonActiveClient: { backgroundColor: '#F97316' },
     tabButtonText: { fontSize: 12, fontWeight: '800', color: '#475569' },
     tabButtonTextActive: { color: '#FFFFFF' },
+    tabBadgeDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#EF4444',
+        marginLeft: 6,
+        marginTop: -6,
+    },
     filterLabel: { fontSize: 11, fontWeight: '800', color: '#475569', marginBottom: 8, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.6 },
     filterRow: { paddingBottom: 4, paddingRight: 8 },
     filterRowWrap: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 2 },

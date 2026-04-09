@@ -345,6 +345,51 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
                                     <Text style={styles.manifestValueDetail}>{getBookingDateDisplay(booking.check_in, booking.check_out)}</Text>
                                 </View>
 
+                                {/* --- START: BOX LAYOUT FOR VERIFICATION DOCUMENTS --- */}
+                                {(booking.tourist_valid_id_image || booking?.tourist_detail?.valid_id_image || booking.tourist_selfie_image) && (
+                                    <View style={{ marginTop: 12, borderTopWidth: 1, borderTopColor: '#E2E8F0', paddingTop: 12 }}>
+                                        <Text style={[styles.manifestLabelDetail, { marginBottom: 8, color: '#1E3A8A', fontWeight: '700' }]}>Verification Documents:</Text>
+                                        <View style={{ flexDirection: 'row', gap: 12 }}>
+                                            
+                                            {/* ID Box */}
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={{ fontSize: 11, color: '#64748B', marginBottom: 4, fontWeight: '600' }}>Valid ID</Text>
+                                                {(booking.tourist_valid_id_image || booking?.tourist_detail?.valid_id_image) ? (
+                                                    <Image
+                                                        source={{ uri: getImageUrl(booking.tourist_valid_id_image || booking?.tourist_detail?.valid_id_image) }}
+                                                        style={{ width: '100%', aspectRatio: 1, borderRadius: 8, backgroundColor: '#E2E8F0', borderWidth: 1, borderColor: '#CBD5E1' }}
+                                                        resizeMode="cover"
+                                                    />
+                                                ) : (
+                                                    <View style={{ width: '100%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F8FAFC', borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed' }}>
+                                                        <Ionicons name="card-outline" size={24} color="#CBD5E1" />
+                                                        <Text style={{ fontSize: 10, color: '#94A3B8', marginTop: 4 }}>No ID</Text>
+                                                    </View>
+                                                )}
+                                            </View>
+
+                                            {/* Selfie Box */}
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={{ fontSize: 11, color: '#64748B', marginBottom: 4, fontWeight: '600' }}>Selfie</Text>
+                                                {booking.tourist_selfie_image ? (
+                                                    <Image
+                                                        source={{ uri: getImageUrl(booking.tourist_selfie_image) }}
+                                                        style={{ width: '100%', aspectRatio: 1, borderRadius: 8, backgroundColor: '#E2E8F0', borderWidth: 1, borderColor: '#CBD5E1' }}
+                                                        resizeMode="cover"
+                                                    />
+                                                ) : (
+                                                    <View style={{ width: '100%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F8FAFC', borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed' }}>
+                                                        <Ionicons name="person-outline" size={24} color="#CBD5E1" />
+                                                        <Text style={{ fontSize: 10, color: '#94A3B8', marginTop: 4 }}>No Selfie</Text>
+                                                    </View>
+                                                )}
+                                            </View>
+
+                                        </View>
+                                    </View>
+                                )}
+                                {/* --- END: VERIFICATION DOCUMENTS --- */}
+
                                 {booking.meetup_location && (
                                     <>
                                         <View style={styles.manifestDivider} />
@@ -353,7 +398,6 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
                                             <Text style={[styles.manifestHeaderText, {color: '#B45309'}]}>Pickup & Coordination</Text>
                                         </View>
 
-                                        {/* NEW: Displays the Meetup Date seamlessly matched to Start Date */}
                                         <View style={styles.manifestRowDetail}>
                                             <Text style={styles.manifestLabelDetail}>Date:</Text>
                                             <Text style={styles.manifestValueDetail}>
