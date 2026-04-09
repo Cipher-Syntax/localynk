@@ -44,6 +44,13 @@ const Notifications = () => {
         "New Booking Request": <Ionicons name="calendar-number-outline" size={28} color="#FF9500" />,
         "New Message": <Ionicons name="chatbubble-ellipses-outline" size={28} color="#0A2342" />,
         "Payment Successful": <FontAwesome5 name="money-check-alt" size={24} color="#007AFF" />,
+        "Refund Request Submitted": <Ionicons name="return-down-back-outline" size={28} color="#0F766E" />,
+        "Refund Requested": <Ionicons name="return-down-back-outline" size={28} color="#0F766E" />,
+        "Refund Under Review": <Ionicons name="time-outline" size={28} color="#1D4ED8" />,
+        "Refund Approved": <Ionicons name="checkmark-circle-outline" size={28} color="#16A34A" />,
+        "Refund Rejected": <Ionicons name="close-circle-outline" size={28} color="#DC2626" />,
+        "Refund Completed": <Ionicons name="cash-outline" size={28} color="#0F766E" />,
+        "New Refund Request": <Ionicons name="alert-circle-outline" size={28} color="#F97316" />,
         "Application Submitted": <Ionicons name="time-outline" size={28} color="#8E8E93" />,
         "How was your trip?": <Ionicons name="star-outline" size={28} color="#FF8C00" />,
         "You have a new review!": <Ionicons name="star-half-outline" size={28} color="#007AFF" />,
@@ -346,6 +353,27 @@ const Notifications = () => {
         else if (item.title === "Application Submitted") {
             openInfoDialog(item.title, item.message);
         }
+        else if (item.title.toLowerCase().includes('refund')) {
+            if (item.related_model === 'RefundRequest' && item.related_object_id) {
+                try {
+                    const refundRes = await api.get(`/api/payments/refunds/${item.related_object_id}/`);
+                    const refund = refundRes.data || {};
+                    if (refund.booking_id) {
+                        router.push({
+                            pathname: '/(protected)/refundRequest',
+                            params: {
+                                bookingId: String(refund.booking_id),
+                                downPayment: String(refund.payment_amount || 0),
+                            },
+                        });
+                        return;
+                    }
+                } catch (error) {
+                    console.error('Failed to open refund context from notification:', error);
+                }
+            }
+            router.push('/(protected)/bookings');
+        }
         else {
             openInfoDialog(item.title, item.message);
         }
@@ -416,7 +444,10 @@ const Notifications = () => {
             if (activeFilter === 'unread') return !item.is_read;
             if (activeFilter === 'messages') return item.title === 'New Message';
             if (activeFilter === 'bookings') return item.title.toLowerCase().includes('booking');
-            if (activeFilter === 'payments') return item.title.toLowerCase().includes('payment');
+            if (activeFilter === 'payments') {
+                const normalized = item.title.toLowerCase();
+                return normalized.includes('payment') || normalized.includes('refund');
+            }
             return true;
         });
     }, [activeFilter, groupedNotifications]);

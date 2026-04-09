@@ -221,6 +221,19 @@ const MyBookings = () => {
         });
     };
 
+    const handleOpenRefundRequest = (booking) => {
+        if (!booking?.id) return;
+
+        router.push({
+            pathname: '/(protected)/refundRequest',
+            params: {
+                bookingId: String(booking.id),
+                bookingTitle: getBookingTitle(booking),
+                downPayment: String(booking.down_payment || 0),
+            },
+        });
+    };
+
     const isMyTripBooking = useCallback((booking) => booking.tourist_id === user?.id, [user?.id]);
 
     const getBookingTitle = useCallback((booking) => {
@@ -351,6 +364,8 @@ const MyBookings = () => {
                 return { badge: styles.acceptedBadge, text: styles.acceptedText, icon: 'checkmark-circle' };
             case 'pending_payment': 
                 return { badge: styles.pendingBadge, text: styles.pendingText, icon: 'time' };
+            case 'refunded':
+                return { badge: styles.refundedBadge, text: styles.refundedText, icon: 'return-down-back' };
             case 'cancelled': 
             case 'declined': 
                 return { badge: styles.declinedBadge, text: styles.declinedText, icon: 'close-circle' };
@@ -469,6 +484,10 @@ const MyBookings = () => {
             && currentBalanceDue > 0
             && (!isAgencyPartner || hasAssignedAgencyGuide);
         const canMessageProvider = isMyTrip && Number(item?.agency || item?.guide || 0) > 0;
+        const canRequestRefund =
+            isMyTrip
+            && Number(item.down_payment || 0) > 0
+            && !['completed', 'refunded', 'declined'].includes(normalizedStatus);
 
         const titleName = getBookingTitle(item);
         const typeLabel = item.destination_detail ? 'Tour' : (item.accommodation_detail ? 'Stay' : 'Tour');
@@ -676,6 +695,13 @@ const MyBookings = () => {
                                 </TouchableOpacity>
                             )}
 
+                            {canRequestRefund && (
+                                <TouchableOpacity style={styles.refundButton} onPress={() => handleOpenRefundRequest(item)}>
+                                    <Ionicons name="return-down-back-outline" size={14} color="#fff" style={{marginRight: 6}} />
+                                    <Text style={styles.refundButtonText}>Request Refund</Text>
+                                </TouchableOpacity>
+                            )}
+
                             {canCancel && (
                                 <TouchableOpacity style={styles.cancelButton} onPress={() => initiateCancellation(item.id)}>
                                     <Text style={styles.cancelButtonText}>Cancel Booking</Text>
@@ -822,6 +848,7 @@ const MyBookings = () => {
                                     { value: 'accepted', label: 'Accepted' },
                                     { value: 'confirmed', label: 'Confirmed' },
                                     { value: 'pending_payment', label: 'Pending Payment' },
+                                    { value: 'refunded', label: 'Refunded' },
                                     { value: 'completed', label: 'Completed' },
                                     { value: 'cancelled', label: 'Cancelled' },
                                 ].map((option) => (
@@ -924,6 +951,7 @@ const MyBookings = () => {
                                     { value: 'accepted', label: 'Accepted' },
                                     { value: 'confirmed', label: 'Confirmed' },
                                     { value: 'pending_payment', label: 'Pending Payment' },
+                                    { value: 'refunded', label: 'Refunded' },
                                     { value: 'completed', label: 'Completed' },
                                     { value: 'cancelled', label: 'Cancelled' },
                                 ].map((option) => (
@@ -1187,6 +1215,8 @@ const styles = StyleSheet.create({
     acceptedText: { color: '#166534', fontSize: 11, fontWeight: '700' },
     pendingBadge: { backgroundColor: '#FEF9C3' }, 
     pendingText: { color: '#854D0E', fontSize: 11, fontWeight: '700' },
+    refundedBadge: { backgroundColor: '#CCFBF1' },
+    refundedText: { color: '#0F766E', fontSize: 11, fontWeight: '700' },
     declinedBadge: { backgroundColor: '#FEE2E2' }, 
     declinedText: { color: '#991B1B', fontSize: 11, fontWeight: '700' },
     defaultBadge: { backgroundColor: '#F3F4F6' },
@@ -1218,6 +1248,8 @@ const styles = StyleSheet.create({
     paidButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
     messageButton: { flexDirection:'row', alignItems:'center', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#0EA5E9', borderRadius: 8, shadowColor: '#0EA5E9', shadowOpacity: 0.3, elevation: 3, flexShrink: 1 },
     messageButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+    refundButton: { flexDirection:'row', alignItems:'center', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#0F766E', borderRadius: 8, shadowColor: '#0F766E', shadowOpacity: 0.3, elevation: 3, flexShrink: 1 },
+    refundButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
     reviewButton: { flexDirection:'row', alignItems:'center', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#F59E0B', borderRadius: 8, shadowColor: "#F59E0B", shadowOpacity: 0.3, elevation: 3, flexShrink: 1 },
     reviewButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
     emptyContainer: { alignItems: 'center', marginTop: 60 },
