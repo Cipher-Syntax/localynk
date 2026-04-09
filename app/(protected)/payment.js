@@ -308,7 +308,6 @@ const Payment = () => {
                     const normalizedResolvedId = Number(resolvedId);
                     const normalizedAgencyId = Number(selectedAgencyProfileId);
 
-                    // Guide flow is pre-filtered by host_id query, while agency flow still needs robust id matching.
                     const myAccommodations = isAgency
                         ? accomData.filter(a => {
                             const agencyUser = Number(a.agency_user_id ?? a.agency?.user?.id ?? a.agency?.user ?? a.agency_user);
@@ -411,7 +410,6 @@ const Payment = () => {
     const [stopDetailsVisible, setStopDetailsVisible] = useState(false);
     const [isCalendarVisible, setCalendarVisible] = useState(false);
     const [selectingType, setSelectingType] = useState('start');
-    // Removed unused isLoadingImage state
     const [errorModalVisible, setErrorModalVisible] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
 
@@ -553,7 +551,6 @@ const Payment = () => {
         if (isLocalMediaUri(uri)) return uri;
         let secureUri = normalizeRemoteUri(String(uri).replace('http://res.cloudinary.com/', 'https://res.cloudinary.com/'));
 
-        // Normalize known KYC Cloudinary URL variants to one stable path.
         if (/res\.cloudinary\.com/i.test(secureUri)) {
             secureUri = secureUri
                 .replace('https://res.cloudinary.com/media/', 'https://res.cloudinary.com/')
@@ -1016,7 +1013,6 @@ const Payment = () => {
     };
 
     const pickImage = async () => {
-        // setIsLoadingImage(true); // removed unused state
         let result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: pickerMediaTypes,
             allowsEditing: false, aspect: [4, 3], quality: 0.8, base64: true
@@ -1056,7 +1052,8 @@ const Payment = () => {
         if (!result.canceled) setUserSelfieImage(result.assets[0].uri);
     };
 
-    const handleReviewPress = () => {
+    // MAKE THIS FUNCTION ASYNC TO AWAIT THE PROFILE UPDATE
+    const handleReviewPress = async () => {
         const normalizedPhone = normalizePHPhone(phoneNumber);
         if (!normalizedPhone) {
             showError('Please enter a valid PH mobile number.');
@@ -1068,7 +1065,6 @@ const Payment = () => {
         if (startStr === endStr && activeDuration > 1) { showError("Multi-day packages cannot start and end on the same day."); return; }
         if (startDate > endDate) { showError("End date cannot be before start date."); return; }
 
-        // Re-validate date range at submit time so unchanged default dates cannot bypass availability checks.
         if (!isPayable && !isConfirmed) {
             if (checkDateBlockages(startDate, endDate)) {
                 return;
@@ -1095,6 +1091,19 @@ const Payment = () => {
         if (!validIdImage && !isPayable) { showError("Please upload a valid government ID to proceed."); return; }
         if (!userSelfieImage && !isPayable) { showError("Please take a selfie for identity verification."); return; }
         
+        // SAVE BILLING INFORMATION TO THE DATABASE BEFORE OPENING THE MODAL
+        try {
+            await api.patch('/api/profile/', {
+                first_name: firstName,
+                last_name: lastName,
+                phone_number: normalizedPhone
+            });
+        } catch (error) {
+            console.error("Failed to update profile billing info:", error);
+            showError("Failed to save billing information. Please check your inputs and try again.");
+            return;
+        }
+
         setIsModalOpen(true);
     };
 
@@ -1150,7 +1159,6 @@ const Payment = () => {
         setBalanceDue(calculatedBalance);
     }, [startDate, endDate, selectedOption, numPeople, tourCostGroup, tourCostSolo, accomCost, extraPersonFee, activeDuration, fetchedBooking, agencyDownPayment]);
 
-    // Pick provider avatar/logo with graceful fallback to icon when no valid image exists.
     const profileImageSource = useMemo(() => {
         const buildSource = (rawPath) => {
             const uri = getImageUrl(rawPath);
@@ -1580,11 +1588,11 @@ const Payment = () => {
                                 <>
                                     <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Billing Details</Text>
                                     <View style={styles.inputRow}>
-                                        <TextInput style={[styles.modernInput, {flex:1}]} placeholder="First Name" value={firstName} onChangeText={setFirstName} />
+                                        <TextInput style={[styles.modernInput, {flex:1}]} placeholder="First Name" placeholderTextColor="#64748B" value={firstName} onChangeText={setFirstName} />
                                         <View style={{width: 10}}/>
-                                        <TextInput style={[styles.modernInput, {flex:1}]} placeholder="Last Name" value={lastName} onChangeText={setLastName} />
+                                        <TextInput style={[styles.modernInput, {flex:1}]} placeholder="Last Name" placeholderTextColor="#64748B" value={lastName} onChangeText={setLastName} />
                                     </View>
-                                    <TextInput style={[styles.modernInput, {marginTop: 10}]} placeholder="Phone Number" keyboardType="phone-pad" value={phoneNumber} onChangeText={(value) => setPhoneNumber(formatPHPhoneLocal(value))} />
+                                    <TextInput style={[styles.modernInput, {marginTop: 10}]} placeholder="Phone Number" placeholderTextColor="#64748B" keyboardType="phone-pad" value={phoneNumber} onChangeText={(value) => setPhoneNumber(formatPHPhoneLocal(value))} />
 
                                     <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Identity Verification (ID & Selfie)</Text>
                                     <View style={styles.kycRow}>
@@ -1970,7 +1978,7 @@ const styles = StyleSheet.create({
     switchActive: { backgroundColor: PRIMARY_COLOR, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
     switchText: { fontSize: 14, fontWeight: '600', color: TEXT_SECONDARY },
     switchTextActive: { color: '#FFFFFF', fontWeight: '700' },
-    modernInput: { backgroundColor: SURFACE_COLOR, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: TEXT_PRIMARY },
+    modernInput: { backgroundColor: SURFACE_COLOR, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: TEXT_PRIMARY, },
     inputRow: { flexDirection: 'row' },
     inputGroup: { marginBottom: 20 },
     inputLabel: { fontSize: 13, fontWeight: '600', color: TEXT_SECONDARY, marginBottom: 8 },

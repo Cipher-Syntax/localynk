@@ -84,10 +84,8 @@ const MyBookings = () => {
         try {
             await api.patch(`/api/bookings/${bookingIdToCancel}/status/`, { status: 'Cancelled' });
             
-            // 1. Update Main Bookings List
             setBookings(prev => prev.map(b => b.id === bookingIdToCancel ? { ...b, status: 'Cancelled' } : b));
             
-            // 2. Update Destination Modal if it is open
             if (selectedDestinationGroup) {
                 setSelectedDestinationGroup(prev => ({
                     ...prev,
@@ -95,14 +93,12 @@ const MyBookings = () => {
                 }));
             }
             
-            // 3. Update Details Modal if it is open
             if (selectedBooking && selectedBooking.id === bookingIdToCancel) {
                 setSelectedBooking(prev => ({ ...prev, status: 'Cancelled' }));
             }
 
             showToast("Booking cancelled successfully.", "success");
             
-            // 4. Background sync to guarantee database alignment
             fetchBookings();
         } catch (error) {
             console.error('Failed to cancel:', error);
@@ -126,10 +122,8 @@ const MyBookings = () => {
             
             const updates = { status: 'Completed', balance_due: 0, balance_paid_at: new Date().toISOString() };
             
-            // 1. Update Main List
             setBookings(prev => prev.map(b => b.id === bookingIdToMarkPaid ? { ...b, ...updates } : b));
             
-            // 2. Update Destination Modal
             if (selectedDestinationGroup) {
                 setSelectedDestinationGroup(prev => ({
                     ...prev,
@@ -137,7 +131,6 @@ const MyBookings = () => {
                 }));
             }
             
-            // 3. Update Details Modal
             if (selectedBooking && selectedBooking.id === bookingIdToMarkPaid) {
                 setSelectedBooking(prev => ({ ...prev, ...updates }));
             }
@@ -224,14 +217,6 @@ const MyBookings = () => {
 
     const tabBookings = useMemo(() => {
         return bookings.filter((booking) => {
-            const isPending = String(booking.status || '').toLowerCase() === 'pending_payment';
-            const isAgencyBooking = !!(booking.agency || booking.agency_detail);
-            
-            if (isPending && !isAgencyBooking) {
-                return false;
-            }
-            // ---------------------------------------------------------
-
             const mine = isMyTripBooking(booking);
             return activeTab === 'my_trip' ? mine : !mine;
         });
@@ -263,7 +248,14 @@ const MyBookings = () => {
 
         const groups = Object.values(groupedMap)
             .map((group) => {
-                const sortedBookings = [...group.bookings].sort((a, b) => getBookingSortTimestamp(b) - getBookingSortTimestamp(a));
+                const sortedBookings = [...group.bookings].sort((a, b) => {
+                    const aPending = String(a.status || '').toLowerCase() === 'pending_payment';
+                    const bPending = String(b.status || '').toLowerCase() === 'pending_payment';
+                    if (aPending && !bPending) return -1;
+                    if (!aPending && bPending) return 1;
+                    
+                    return getBookingSortTimestamp(b) - getBookingSortTimestamp(a);
+                });
                 const latestBooking = sortedBookings[0] || null;
 
                 return {
@@ -271,9 +263,13 @@ const MyBookings = () => {
                     bookings: sortedBookings,
                     latestBooking,
                     latestTimestamp: latestBooking ? getBookingSortTimestamp(latestBooking) : 0,
+                    hasPending: sortedBookings.some(b => String(b.status || '').toLowerCase() === 'pending_payment')
                 };
             })
             .sort((a, b) => {
+                if (a.hasPending && !b.hasPending) return -1;
+                if (!a.hasPending && b.hasPending) return 1;
+
                 if (b.latestTimestamp !== a.latestTimestamp) return b.latestTimestamp - a.latestTimestamp;
                 return a.title.localeCompare(b.title);
             });
@@ -314,7 +310,14 @@ const MyBookings = () => {
             const textPass = !normalizedSearch || title.includes(normalizedSearch) || touristName.includes(normalizedSearch);
 
             return statusPass && datePass && textPass;
-        }).sort((a, b) => getBookingSortTimestamp(b) - getBookingSortTimestamp(a));
+        }).sort((a, b) => {
+            const aPending = String(a.status || '').toLowerCase() === 'pending_payment';
+            const bPending = String(b.status || '').toLowerCase() === 'pending_payment';
+            if (aPending && !bPending) return -1;
+            if (!aPending && bPending) return 1;
+
+            return getBookingSortTimestamp(b) - getBookingSortTimestamp(a);
+        });
     }, [selectedDestinationGroup, modalSearchFilter, modalStatusFilter, modalDateFilter, matchesDatePreset, getBookingTitle]);
 
     const getStatusStyle = (status) => {
@@ -723,13 +726,6 @@ const MyBookings = () => {
                         <Text style={styles.groupMetaText}>Completed: {completedCount}</Text>
                         <Text style={styles.groupMetaText}>Pending Payment: {pendingCount}</Text>
                     </View>
-
-                    {/* {!!payableBooking && (
-                        <TouchableOpacity style={styles.groupProceedButton} onPress={() => handleProceedToPayment(payableBooking)}>
-                            <Ionicons name="card-outline" size={16} color="#FFFFFF" />
-                            <Text style={styles.groupProceedButtonText}>Proceed to Payment</Text>
-                        </TouchableOpacity>
-                    )} */}
 
                     <TouchableOpacity style={styles.expandButton} onPress={() => openDestinationModal(item)}>
                         <Text style={styles.expandButtonText}>

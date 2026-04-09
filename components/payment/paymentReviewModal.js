@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput, Platform, Dimensions, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Receipt, MapPin, Calendar, CreditCard, User, Mail, Users, AlertCircle } from 'lucide-react-native';
+import { Receipt, MapPin, Calendar, CreditCard, User, Mail, Users, AlertCircle, Phone } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../api/api'; 
@@ -20,7 +20,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
     
     const { 
         bookingId, guide, agency, startDate, endDate,
-        firstName, lastName, email, totalPrice: initialConfirmedPrice, 
+        firstName, lastName, email, phoneNumber, totalPrice: initialConfirmedPrice, 
         downPayment, balanceDue, tourCost, accomCost, extraPersonFee,
         accommodation, accommodationId, tourPackageId,
         paymentMethod, groupType, numberOfPeople,
@@ -34,13 +34,15 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
     
     const isPaymentMode = !!bookingId;
     const isAgencyRequestMode = !isPaymentMode && !!agency && !guide;
-    const [numPeople, setNumPeople] = useState(String(paymentData.numberOfPeople || '1')); 
+    const [numPeople, setNumPeople] = useState(String(paymentData?.numberOfPeople || '1')); 
     const [currentTotalPrice, setCurrentTotalPrice] = useState(parseFloat(initialConfirmedPrice || '0'));
     
     const [showConfirmationScreen, setShowConfirmationScreen] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false); 
     const [isLoading, setIsLoading] = useState(false);
-    const [createdBookingId, setCreatedBookingId] = useState(null);
+    
+    const [createdBookingId, setCreatedBookingId] = useState(null); 
+    
     const [paymentId, setPaymentId] = useState(null);
     const [isAwaitingExternalPayment, setIsAwaitingExternalPayment] = useState(false);
     const [errorModalVisible, setErrorModalVisible] = useState(false);
@@ -185,6 +187,14 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         }
     };
 
+    const handleCloseModal = () => {
+        stopPolling();
+        setIsModalOpen(false);
+        if (createdBookingId && !isPaymentMode) {
+            router.replace('/(protected)/bookings');
+        }
+    };
+
     const startPollingPaymentStatus = (id) => {
         stopPolling();
 
@@ -193,21 +203,21 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                 const statusResp = await api.get(`/api/payments/status/${id}/`);
                 const status = statusResp.data?.status;
 
-                if (status === 'succeeded') {
+                if (status === 'succeeded' || status === 'paid') {
                     stopPolling();
                     setIsAwaitingExternalPayment(false);
                     setIsSuccess(true);
                     setShowConfirmationScreen(true);
-                } else if (status === 'failed' || status === 'refund_required') {
+                } else if (status === 'failed' || status === 'refund_required' || status === 'cancelled' || status === 'expired') {
                     stopPolling();
                     setIsAwaitingExternalPayment(false);
                     setIsSuccess(false);
-                    showError('Transaction Failed: The payment could not be completed.');
+                    setShowConfirmationScreen(true); 
                 }
             } catch (err) {
                 console.error('Payment status polling failed:', err);
             }
-        }, 3000);
+        }, 1000);
     };
 
     useEffect(() => {
@@ -333,28 +343,39 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         setIsLoading(true);
 
         try {
-            if (!isPaymentMode) {
-                const newBooking = await createBooking();
-                setCreatedBookingId(newBooking.id);
-
-                // Refresh profile so persisted KYC fields are available in the next booking flow.
-                if (refreshUser) {
-                    await refreshUser();
+            if (isAgencyRequestMode) {
+                if (!createdBookingId) {
+                    const newBooking = await createBooking();
+                    setCreatedBookingId(newBooking.id);
+                    if (refreshUser) await refreshUser();
                 }
-
-                if (isAgencyRequestMode) {
-                    setIsSuccess(true);
-                    setShowConfirmationScreen(true);
-                } else {
-                    const payableNow = parseFloat(newBooking.down_payment || dpFloat || 0);
-                    await initiateDownPayment(newBooking.id, payableNow);
-                }
-            } else {
-                if (!bookingId) {
-                    throw new Error("Missing booking ID for payment.");
-                }
-                await initiateDownPayment(bookingId, dpFloat);
+                setIsSuccess(true);
+                setShowConfirmationScreen(true);
+                return;
             }
+
+            // Figure out which Booking ID to pay for
+            let targetBookingId = bookingId;
+
+            if (!isPaymentMode) {
+                if (!createdBookingId) {
+                    // Create booking for the FIRST TIME
+                    const newBooking = await createBooking();
+                    setCreatedBookingId(newBooking.id);
+                    targetBookingId = newBooking.id;
+                    if (refreshUser) await refreshUser();
+                } else {
+                    // Booking was already created, but payment failed earlier and they clicked "Pay" again
+                    targetBookingId = createdBookingId;
+                }
+            }
+
+            if (!targetBookingId) {
+                throw new Error("Missing booking ID for payment.");
+            }
+
+            await initiateDownPayment(targetBookingId, dpFloat);
+            
         } catch (error) {
             console.error('Payment/Booking error:', error);
             const msg = error.response?.data?.detail 
@@ -367,11 +388,20 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         }
     };
 
+    // Redirects user properly based on success/fail
     const handleConfirmationDismiss = () => {
         stopPolling();
         setShowConfirmationScreen(false);
         if(setIsModalOpen) setIsModalOpen(false);
-        router.replace(isSuccess ? '/(protected)/home' : '/(protected)/bookings');
+        
+        if (isSuccess) {
+            router.replace('/(protected)/home');
+        } else {
+            // If failed, but we DID save the booking, go to Bookings
+            if (createdBookingId || isPaymentMode) {
+                router.replace('/(protected)/bookings');
+            }
+        }
     };
 
     const DashedLine = () => (
@@ -387,7 +417,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         : "30";
 
     return (
-        <Modal visible={isModalOpen} animationType="fade" transparent={true} onRequestClose={() => setIsModalOpen(false)}>
+        <Modal visible={isModalOpen} animationType="fade" transparent={true} onRequestClose={handleCloseModal}>
             <View style={styles.overlay}>
                 
                 <View style={styles.receiptContainer}>
@@ -399,7 +429,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                             <Text style={styles.receiptTitle}>
                                 {isPaymentMode ? "PAYMENT REVIEW" : "BOOKING SUMMARY"}
                             </Text>
-                            <TouchableOpacity style={styles.closeButton} onPress={() => setIsModalOpen(false)}>
+                            <TouchableOpacity style={styles.closeButton} onPress={handleCloseModal}>
                                 <Ionicons name="close" size={20} color="#94A3B8" />
                             </TouchableOpacity>
                         </View>
@@ -499,6 +529,10 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                                 <View style={styles.itemIcon}><Mail size={16} color="#64748B" /></View>
                                 <Text style={styles.itemText}>{email}</Text>
                             </View>
+                            <View style={styles.itemRow}>
+                                <View style={styles.itemIcon}><Phone size={16} color="#64748B" /></View>
+                                <Text style={styles.itemText}>{phoneNumber || 'No phone number provided'}</Text>
+                            </View>
                         </View>
 
                         <DashedLine />
@@ -588,6 +622,16 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                                 {paymentId && (
                                     <Text style={styles.pendingInfoRef}>Payment Ref: #{paymentId}</Text>
                                 )}
+                                
+                                {/* I'll Pay Later Button */}
+                                <TouchableOpacity 
+                                    style={styles.payLaterButton}
+                                    onPress={handleCloseModal}
+                                >
+                                    <Text style={styles.payLaterText}>I&apos;ll pay later / Cancel</Text>
+
+                                    <Text style={{ fontSize: 10, color: '#1D4ED8', fontWeight: '600' }}>Note: You only have 30 minutes to pay before this is cancelled</Text>
+                                </TouchableOpacity>
                             </View>
                         )}
                         <TouchableOpacity 
@@ -648,7 +692,9 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                                 ? (isAgencyRequestMode
                                     ? "Your agency booking request has been sent successfully."
                                     : "Your booking has been secured.")
-                                : "Please check your details and try again."}
+                                : ((createdBookingId || isPaymentMode) 
+                                    ? "Payment failed or was cancelled. Your booking is saved as 'Pending'. You can retry paying from your Bookings." 
+                                    : "Please check your details and try again.")}
                         </Text>
                         
                         {isSuccess && (
@@ -676,7 +722,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 
                         <TouchableOpacity style={styles.homeButton} onPress={handleConfirmationDismiss}>
                             <Text style={[styles.homeButtonText, !isSuccess && {color: '#EF4444'}]}>
-                                {isSuccess ? "Return Home" : "Try Again"}
+                                {isSuccess ? "Return Home" : ((createdBookingId || isPaymentMode) ? "View Bookings" : "Try Again")}
                             </Text>
                         </TouchableOpacity>
                     </View>
@@ -723,6 +769,8 @@ const styles = StyleSheet.create({
     pendingInfoTitle: { fontSize: 12, fontWeight: '700', color: '#1D4ED8', marginBottom: 4 },
     pendingInfoText: { fontSize: 11, color: '#1E3A8A', lineHeight: 16 },
     pendingInfoRef: { marginTop: 6, fontSize: 11, color: '#1E40AF', fontWeight: '700' },
+    payLaterButton: { marginTop: 10, paddingVertical: 8, backgroundColor: '#DBEAFE', borderRadius: 8, alignItems: 'center' },
+    payLaterText: { color: '#1D4ED8', fontWeight: '700', fontSize: 12 },
     payButton: { backgroundColor: '#0072FF', paddingVertical: 16, borderRadius: 14, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', shadowColor: '#0072FF', shadowOffset: {width:0, height:4}, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4, marginBottom: 10 },
     payButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
     secureText: { textAlign: 'center', fontSize: 10, color: '#94A3B8' },
