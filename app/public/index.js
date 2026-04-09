@@ -5,6 +5,7 @@ import PublicHeader from "../../components/home/PublicHeader";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../api/api";
 import { useRouter, useFocusEffect } from "expo-router";
+import { useNetworkStatus } from "../../utils/useNetworkStatus";
 
 const PublicHome = () => {
     const [loading, setLoading] = useState(true);
@@ -13,6 +14,7 @@ const PublicHome = () => {
     const router = useRouter();
     
     const [destinations, setDestinations] = useState([]);
+    const isConnected = useNetworkStatus();
     
     useFocusEffect(
         useCallback(() => {
@@ -50,6 +52,10 @@ const PublicHome = () => {
         fetchPublicData();
     }, []);
 
+    useEffect(() => {
+        fetchPublicData();
+    }, [isConnected])
+
     const onRefresh = useCallback(() => {
         setRefreshing(true);
         fetchPublicData();
@@ -58,10 +64,8 @@ const PublicHome = () => {
     if (loading) {
         return (
             <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, backgroundColor: '#fff' }}>
-                {/* Header Skeleton */}
                 <View style={{ height: 380, backgroundColor: '#E0E6ED' }} />
                 
-                {/* Body Skeletons (Mimicking Featured Places & Browse) */}
                 <View style={{ padding: 16, marginTop: 10 }}>
                     <View style={{ height: 24, width: 180, backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 16 }} />
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>

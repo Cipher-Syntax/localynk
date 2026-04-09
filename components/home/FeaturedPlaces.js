@@ -185,8 +185,8 @@ const styles = StyleSheet.create({
         bottom: 0, 
         left: 0, 
         right: 0, 
-        height: '65%', 
-        backgroundColor: 'rgba(0,0,0,0.4)'
+        height: '35%', 
+        backgroundColor: 'rgba(0,0,0,0.1)'
     },
     cardContent: {
         position: 'absolute',

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, ImageBackground, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, ImageBackground, StyleSheet, TouchableOpacity, Dimensions, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Swiper from 'react-native-swiper';
 import MaskedView from '@react-native-masked-view/masked-view';
@@ -167,6 +167,12 @@ const Header = ({ destinations = [], unreadCount = 0 }) => {
                     </Swiper>
                 ) : (
                     <View style={{flex:1, justifyContent:'center', alignItems:'center', backgroundColor:'#eee'}}>
+                        <View>
+                            <Image 
+                                source={require("../../assets/localynk_images/logo.png")}  
+                                resizeMode="cover" 
+                            />
+                            </View>
                         <Text style={{color:'#666'}}>No destinations found.</Text>
                     </View>
                 )}

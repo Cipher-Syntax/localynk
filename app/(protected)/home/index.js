@@ -4,6 +4,8 @@ import { Header, FeaturedPlaces, About, HomePlacesBrowse, DiscoverWhatYouWant } 
 import { ScreenSafeArea } from "../../../components";
 import api from "../../../api/api"; 
 import { useAuth } from "../../../context/AuthContext";
+import { useNetworkStatus } from '../../../utils/useNetworkStatus';
+import { useFocusEffect } from "expo-router";
 
 const Home = () => {
     const { user } = useAuth();
@@ -11,6 +13,7 @@ const Home = () => {
     const [refreshing, setRefreshing] = useState(false);
     const [destinations, setDestinations] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
+    const isConnected = useNetworkStatus()
 
     const fetchAllData = async () => {
         try {
@@ -78,6 +81,25 @@ const Home = () => {
     useEffect(() => {
         fetchAllData();
     }, [user]);
+
+    useEffect(() => {
+        if (isConnected) {
+            console.log("Internet is back! Auto-refreshing data...");
+            fetchAllData();
+        }
+    }, [isConnected])
+
+    useFocusEffect(
+        useCallback(() => {
+            api.get('/api/alerts/unread-count/')
+                .then(res => {
+                    if (res.data && res.data.unread_count !== undefined) {
+                        setUnreadCount(res.data.unread_count);
+                    }
+                })
+                .catch(err => console.log("Failed to refresh unread count:", err));
+        }, [])
+    );
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);

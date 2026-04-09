@@ -18,7 +18,6 @@ const FeatureItem = ({ icon: Icon, title, description }) => (
 const About = () => {
     return (
         <View style={styles.container}>
-            {/* Header Section */}
             <View style={styles.headerContainer}>
                 <Text style={styles.overline}>OUR MISSION</Text>
                 <Text style={styles.title}>
