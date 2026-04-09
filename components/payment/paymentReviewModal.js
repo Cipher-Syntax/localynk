@@ -378,10 +378,30 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
             
         } catch (error) {
             console.error('Payment/Booking error:', error);
-            const msg = error.response?.data?.detail 
-                        || error.response?.data?.message 
-                        || (error.response?.data ? JSON.stringify(error.response.data) : error.message);
-            showError("Transaction Failed: " + msg);
+            
+            let errorMsg = "An unexpected error occurred.";
+            
+            if (error.response?.data) {
+                const responseData = error.response.data;
+                
+                // Check if Django sent back a massive HTML debug page
+                if (typeof responseData === 'string' && responseData.includes('DEBUG = True')) {
+                    // Extract the specific Python exception from the HTML title
+                    const titleMatch = responseData.match(/<title>(.*?)<\/title>/i);
+                    if (titleMatch && titleMatch[1]) {
+                        errorMsg = "Backend Crash: " + titleMatch[1].replace('Django Error', '').trim();
+                    } else {
+                        errorMsg = "Server crashed (500 Error). Please check your Django terminal.";
+                    }
+                } else {
+                    // It's a normal JSON error
+                    errorMsg = responseData.detail || responseData.message || JSON.stringify(responseData);
+                }
+            } else {
+                errorMsg = error.message;
+            }
+            
+            showError("Transaction Failed: \n" + errorMsg);
             setIsSuccess(false);
         } finally {
             setIsLoading(false);
