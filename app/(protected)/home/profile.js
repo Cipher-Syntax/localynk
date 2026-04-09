@@ -18,7 +18,8 @@ import api from "../../../api/api";
 import { ScreenSafeArea } from "../../../components";
 import {
     getLatestBookingTimestamp,
-    hasUnseenBookings,
+    getSeenBookingTabTimestamp,
+    setSeenBookingTabTimestamp,
     setSeenBookingTimestamp,
     getLatestEarningsTimestamp,
     hasUnseenEarnings,
@@ -44,7 +45,6 @@ const Profile = () => {
     const [completedCount, setCompletedCount] = useState(0);
     const [hasNewBookingDot, setHasNewBookingDot] = useState(false);
     const [hasNewEarningsDot, setHasNewEarningsDot] = useState(false);
-    const [latestBookingTs, setLatestBookingTs] = useState(0);
     const [latestEarningsTs, setLatestEarningsTs] = useState(0);
     
     const router = useRouter();
@@ -90,12 +90,21 @@ const Profile = () => {
             }
 
             const latestTs = getLatestBookingTimestamp(bookingsList);
-            setLatestBookingTs(latestTs);
+            const myTrips = bookingsList.filter((booking) => Number(booking?.tourist_id) === Number(user.id));
+            const clientBookings = bookingsList.filter((booking) => Number(booking?.tourist_id) !== Number(user.id));
+            const latestMyTripTs = getLatestBookingTimestamp(myTrips);
+            const latestClientBookingTs = getLatestBookingTimestamp(clientBookings);
 
             const earningsTs = getLatestEarningsTimestamp(bookingsList, user.id);
             setLatestEarningsTs(earningsTs);
 
             if (markSeen) {
+                if (latestMyTripTs > 0) {
+                    await setSeenBookingTabTimestamp(user.id, 'my_trip', latestMyTripTs);
+                }
+                if (latestClientBookingTs > 0) {
+                    await setSeenBookingTabTimestamp(user.id, 'client_booking', latestClientBookingTs);
+                }
                 if (latestTs > 0) {
                     await setSeenBookingTimestamp(user.id, latestTs);
                 }
@@ -105,8 +114,11 @@ const Profile = () => {
                 }
                 setHasNewEarningsDot(false);
             } else {
-                const unseen = await hasUnseenBookings(user.id, bookingsList);
-                setHasNewBookingDot(unseen);
+                const seenMyTripTs = await getSeenBookingTabTimestamp(user.id, 'my_trip');
+                const seenClientBookingTs = await getSeenBookingTabTimestamp(user.id, 'client_booking');
+                const hasUnseenBookingTabs =
+                    latestMyTripTs > seenMyTripTs || latestClientBookingTs > seenClientBookingTs;
+                setHasNewBookingDot(hasUnseenBookingTabs);
                 const unseenEarnings = await hasUnseenEarnings(user.id, bookingsList);
                 setHasNewEarningsDot(unseenEarnings);
             }
@@ -257,13 +269,6 @@ const Profile = () => {
 
     const handleMenuPress = async (item) => {
         if (!item.route) return;
-
-        if (item.label === 'My Bookings' && user?.id) {
-            if (latestBookingTs > 0) {
-                await setSeenBookingTimestamp(user.id, latestBookingTs);
-            }
-            setHasNewBookingDot(false);
-        }
 
         if (item.label === 'Earnings & Payments' && user?.id) {
             if (latestEarningsTs > 0) {

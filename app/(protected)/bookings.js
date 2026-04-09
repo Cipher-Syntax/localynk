@@ -9,8 +9,16 @@ import api from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
 import BookingDetailsModal from '../../components/booking/BookingDetailsModal';
 import ConfirmationModal from '../../components/ConfirmationModal';
-import { getBookingSortTimestamp, getLatestBookingTimestamp, setSeenBookingTimestamp, hasUnseenBookings } from '../../utils/bookingNotifications';
+import {
+    getBookingSortTimestamp,
+    getLatestBookingTimestamp,
+    setSeenBookingTimestamp,
+    getSeenBookingTabTimestamp,
+    setSeenBookingTabTimestamp,
+} from '../../utils/bookingNotifications';
 import { buildPricingBreakdown } from '../../utils/pricingBreakdown';
+
+const REFUND_MIN_DAYS_BEFORE_CHECKIN = 3;
 
 const MyBookings = () => {
     const { user } = useAuth();
@@ -42,6 +50,9 @@ const MyBookings = () => {
     // --- NEW: State for Tab Notification Dots ---
     const [hasNewMyTrip, setHasNewMyTrip] = useState(false);
     const [hasNewClientBooking, setHasNewClientBooking] = useState(false);
+    const [latestMyTripTs, setLatestMyTripTs] = useState(0);
+    const [latestClientBookingTs, setLatestClientBookingTs] = useState(0);
+    const activeTabRef = useRef('my_trip');
 
     const showToast = (message, type = 'success') => {
         setToast({ show: true, message, type });
@@ -65,15 +76,34 @@ const MyBookings = () => {
                 const myTrips = sorted.filter(b => b.tourist_id === user.id);
                 const clientBookings = sorted.filter(b => b.tourist_id !== user.id);
 
-                const unseenMyTrips = await hasUnseenBookings(user.id, myTrips);
-                const unseenClientBookings = await hasUnseenBookings(user.id, clientBookings);
+                const latestMyTs = getLatestBookingTimestamp(myTrips);
+                const latestClientTs = getLatestBookingTimestamp(clientBookings);
+                setLatestMyTripTs(latestMyTs);
+                setLatestClientBookingTs(latestClientTs);
 
-                setHasNewMyTrip(prev => prev || unseenMyTrips);
-                setHasNewClientBooking(prev => prev || unseenClientBookings);
+                const seenMyTs = await getSeenBookingTabTimestamp(user.id, 'my_trip');
+                const seenClientTs = await getSeenBookingTabTimestamp(user.id, 'client_booking');
 
-                // Update global seen timestamp so the notification in profile disappears
+                let unseenMyTrips = latestMyTs > seenMyTs;
+                let unseenClientBookings = latestClientTs > seenClientTs;
+
+                // Opening a tab is what marks that tab as seen.
+                const currentTab = activeTabRef.current;
+                if (currentTab === 'my_trip' && unseenMyTrips && latestMyTs > 0) {
+                    await setSeenBookingTabTimestamp(user.id, 'my_trip', latestMyTs);
+                    unseenMyTrips = false;
+                }
+                if (currentTab === 'client_booking' && unseenClientBookings && latestClientTs > 0) {
+                    await setSeenBookingTabTimestamp(user.id, 'client_booking', latestClientTs);
+                    unseenClientBookings = false;
+                }
+
+                setHasNewMyTrip(unseenMyTrips);
+                setHasNewClientBooking(unseenClientBookings);
+
+                // Keep global booking badge aligned only when both tab queues were seen.
                 const latestTs = getLatestBookingTimestamp(sorted);
-                if (latestTs > 0) {
+                if (!unseenMyTrips && !unseenClientBookings && latestTs > 0) {
                     await setSeenBookingTimestamp(user.id, latestTs);
                 }
             }
@@ -89,10 +119,35 @@ const MyBookings = () => {
     const onRefresh = useCallback(() => { setRefreshing(true); fetchBookings(); }, [fetchBookings]);
 
     // Handle switching tabs and clearing the dot for that tab
-    const switchTab = (tab) => {
+    const switchTab = async (tab) => {
         setActiveTab(tab);
-        if (tab === 'my_trip') setHasNewMyTrip(false);
-        if (tab === 'client_booking') setHasNewClientBooking(false);
+        activeTabRef.current = tab;
+
+        if (!user?.id) return;
+
+        let nextHasNewMyTrip = hasNewMyTrip;
+        let nextHasNewClientBooking = hasNewClientBooking;
+
+        if (tab === 'my_trip') {
+            if (latestMyTripTs > 0) {
+                await setSeenBookingTabTimestamp(user.id, 'my_trip', latestMyTripTs);
+            }
+            nextHasNewMyTrip = false;
+            setHasNewMyTrip(false);
+        }
+
+        if (tab === 'client_booking') {
+            if (latestClientBookingTs > 0) {
+                await setSeenBookingTabTimestamp(user.id, 'client_booking', latestClientBookingTs);
+            }
+            nextHasNewClientBooking = false;
+            setHasNewClientBooking(false);
+        }
+
+        const latestTs = getLatestBookingTimestamp(bookings);
+        if (!nextHasNewMyTrip && !nextHasNewClientBooking && latestTs > 0) {
+            await setSeenBookingTimestamp(user.id, latestTs);
+        }
     };
 
     const initiateCancellation = (bookingId) => {
@@ -230,6 +285,8 @@ const MyBookings = () => {
                 bookingId: String(booking.id),
                 bookingTitle: getBookingTitle(booking),
                 downPayment: String(booking.down_payment || 0),
+                checkInDate: String(booking.check_in || ''),
+                refundMinDays: String(REFUND_MIN_DAYS_BEFORE_CHECKIN),
             },
         });
     };
@@ -439,6 +496,21 @@ const MyBookings = () => {
             packageDetail: item?.tour_package_detail,
             accommodationDetail: item?.accommodation_detail,
         });
+
+        const normalizedStatus = String(item.status || '').toLowerCase();
+        const refundState = String(item?.refund_status || 'none').toLowerCase();
+        const hasOpenRefund = ['requested', 'under_review', 'approved'].includes(refundState);
+        const isRefundCompleted = refundState === 'completed' || normalizedStatus === 'refunded';
+        const refundStateLabel =
+            refundState === 'requested'
+                ? 'Refund Requested'
+                : refundState === 'under_review'
+                    ? 'Refund Under Review'
+                    : refundState === 'approved'
+                        ? 'Refund Approved'
+                        : isRefundCompleted
+                            ? 'Refunded'
+                            : '';
         
         let balanceDisplayColor = '#B45309'; 
         let balanceIconColor = '#F59E0B'; 
@@ -454,13 +526,24 @@ const MyBookings = () => {
             balanceIconColor = '#22C55E';
         }
 
+        if (isMyClient && hasOpenRefund) {
+            balanceText = `Payout Locked: ${refundStateLabel}`;
+            balanceDisplayColor = '#1D4ED8';
+            balanceIconColor = '#2563EB';
+        } else if (isMyClient && isRefundCompleted) {
+            balanceText = 'Payout Closed: Refunded';
+            balanceDisplayColor = '#0F766E';
+            balanceIconColor = '#14B8A6';
+        }
+
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const checkInDate = new Date(item.check_in);
         checkInDate.setHours(0, 0, 0, 0);
         const hasTripStartedOrPassed = today >= checkInDate;
-
-        const normalizedStatus = String(item.status || '').toLowerCase();
+        const daysUntilCheckIn = Number.isNaN(checkInDate.getTime())
+            ? null
+            : Math.round((checkInDate - today) / (1000 * 60 * 60 * 24));
 
         const canCancel = isMyTrip 
             ? ['confirmed', 'pending_payment'].includes(normalizedStatus) && !hasTripStartedOrPassed
@@ -476,7 +559,7 @@ const MyBookings = () => {
         const hasAssignedAgencyGuide = assignedGuides.length > 0 || assignedGuideIds.length > 0;
 
         const isAgencyPartner = !!item?.agency;
-        const canMarkPaid = isMyClient && item.status === 'Confirmed' && currentBalanceDue > 0;
+        const canMarkPaid = isMyClient && normalizedStatus === 'confirmed' && currentBalanceDue > 0 && !hasOpenRefund && !isRefundCompleted;
         const canReview = isMyTrip && normalizedStatus === 'completed'; 
         const canProceedToPayment =
             isMyTrip
@@ -484,10 +567,23 @@ const MyBookings = () => {
             && currentBalanceDue > 0
             && (!isAgencyPartner || hasAssignedAgencyGuide);
         const canMessageProvider = isMyTrip && Number(item?.agency || item?.guide || 0) > 0;
-        const canRequestRefund =
+
+        const hasPaidDownPayment = Boolean(item?.downpayment_paid_at) || normalizedStatus === 'confirmed';
+        const hasRefundableWorkflowStatus = ['accepted', 'confirmed'].includes(normalizedStatus);
+        const meetsAgencyRefundRequirements = !isAgencyPartner || hasAssignedAgencyGuide;
+        const refundPrerequisitesMet =
             isMyTrip
             && Number(item.down_payment || 0) > 0
-            && !['completed', 'refunded', 'declined'].includes(normalizedStatus);
+            && hasPaidDownPayment
+            && hasRefundableWorkflowStatus
+            && meetsAgencyRefundRequirements
+            && !['completed', 'refunded', 'declined', 'cancelled'].includes(normalizedStatus);
+
+        const canRequestRefund =
+            refundPrerequisitesMet
+            && (daysUntilCheckIn === null || daysUntilCheckIn >= REFUND_MIN_DAYS_BEFORE_CHECKIN);
+        const showRefundWindowHint = refundPrerequisitesMet;
+        const refundWindowClosed = showRefundWindowHint && daysUntilCheckIn !== null && daysUntilCheckIn < REFUND_MIN_DAYS_BEFORE_CHECKIN;
 
         const titleName = getBookingTitle(item);
         const typeLabel = item.destination_detail ? 'Tour' : (item.accommodation_detail ? 'Stay' : 'Tour');
@@ -680,7 +776,22 @@ const MyBookings = () => {
                             )}
                         </View>
 
+                        {showRefundWindowHint && (
+                            <Text style={[styles.refundPolicyText, refundWindowClosed && styles.refundPolicyTextWarning]}>
+                                {refundWindowClosed
+                                    ? `Refund window closed. Requests must be made at least ${REFUND_MIN_DAYS_BEFORE_CHECKIN} days before check-in.`
+                                    : `Refund requests are allowed until ${REFUND_MIN_DAYS_BEFORE_CHECKIN} days before check-in.`}
+                            </Text>
+                        )}
+
                         <View style={styles.cardFooter}>
+                            {isMyClient && (hasOpenRefund || isRefundCompleted) && (
+                                <View style={styles.clientRefundStatePill}>
+                                    <Ionicons name="return-down-back-outline" size={14} color="#1D4ED8" style={{marginRight: 6}} />
+                                    <Text style={styles.clientRefundStateText}>{refundStateLabel}</Text>
+                                </View>
+                            )}
+
                             {canProceedToPayment && (
                                 <TouchableOpacity style={styles.proceedButton} onPress={() => handleProceedToPayment(item)}>
                                     <Ionicons name="card-outline" size={14} color="#fff" style={{marginRight: 6}} />
@@ -1250,8 +1361,12 @@ const styles = StyleSheet.create({
     messageButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
     refundButton: { flexDirection:'row', alignItems:'center', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#0F766E', borderRadius: 8, shadowColor: '#0F766E', shadowOpacity: 0.3, elevation: 3, flexShrink: 1 },
     refundButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+    clientRefundStatePill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 8, backgroundColor: '#DBEAFE', borderRadius: 8, borderWidth: 1, borderColor: '#BFDBFE', flexShrink: 1 },
+    clientRefundStateText: { color: '#1D4ED8', fontSize: 12, fontWeight: '700' },
     reviewButton: { flexDirection:'row', alignItems:'center', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#F59E0B', borderRadius: 8, shadowColor: "#F59E0B", shadowOpacity: 0.3, elevation: 3, flexShrink: 1 },
     reviewButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+    refundPolicyText: { marginBottom: 10, color: '#0F766E', fontSize: 11, fontWeight: '700' },
+    refundPolicyTextWarning: { color: '#B45309' },
     emptyContainer: { alignItems: 'center', marginTop: 60 },
     emptyText: { fontSize: 18, fontWeight: '700', color: '#374151', marginTop: 10 },
     destinationModalBackdrop: {

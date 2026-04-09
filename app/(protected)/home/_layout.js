@@ -4,7 +4,7 @@ import { User, Map, Home } from "lucide-react-native";
 import { View, Platform } from "react-native";
 import { useAuth } from "../../../context/AuthContext";
 import api from "../../../api/api";
-import { getLatestBookingTimestamp, getSeenBookingTimestamp } from "../../../utils/bookingNotifications";
+import { getLatestBookingTimestamp, getSeenBookingTabTimestamp } from "../../../utils/bookingNotifications";
 import { ScreenSafeArea } from "../../../components";
 
 const HomeLayout = () => {
@@ -38,9 +38,17 @@ const HomeLayout = () => {
                 ? response.data
                 : (Array.isArray(response.data?.results) ? response.data.results : []);
 
-            const latestTs = getLatestBookingTimestamp(bookings);
-            const seenTs = await getSeenBookingTimestamp(user.id);
-            setHasNewBookingDot(latestTs > seenTs);
+            const myTrips = bookings.filter((booking) => Number(booking?.tourist_id) === Number(user.id));
+            const clientBookings = bookings.filter((booking) => Number(booking?.tourist_id) !== Number(user.id));
+
+            const latestMyTripTs = getLatestBookingTimestamp(myTrips);
+            const latestClientBookingTs = getLatestBookingTimestamp(clientBookings);
+            const seenMyTripTs = await getSeenBookingTabTimestamp(user.id, 'my_trip');
+            const seenClientBookingTs = await getSeenBookingTabTimestamp(user.id, 'client_booking');
+
+            setHasNewBookingDot(
+                latestMyTripTs > seenMyTripTs || latestClientBookingTs > seenClientBookingTs
+            );
         } catch (_error) {
             setHasNewBookingDot(false);
         }
@@ -88,13 +96,6 @@ const HomeLayout = () => {
                     <Tabs.Screen
                         key={tab.name}
                         name={tab.name}
-                        listeners={{
-                            tabPress: () => {
-                                if (tab.name === 'profile') {
-                                    setHasNewBookingDot(false);
-                                }
-                            },
-                        }}
                         options={{
                             title: tab.title,
                             tabBarIcon: ({ color, focused }) => {

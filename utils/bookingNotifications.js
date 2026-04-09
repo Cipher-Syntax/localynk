@@ -1,7 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BOOKING_SEEN_KEY_PREFIX = 'booking_last_seen_ts_';
+const BOOKING_TAB_SEEN_KEY_PREFIX = 'booking_tab_last_seen_ts_';
 const EARNINGS_SEEN_KEY_PREFIX = 'earnings_last_seen_ts_';
+
+function getBookingTabSeenKey(userId, tabKey) {
+    return `${BOOKING_TAB_SEEN_KEY_PREFIX}${userId}_${tabKey}`;
+}
 
 export function getBookingSortTimestamp(booking) {
     const createdAt = booking?.created_at ? new Date(booking.created_at).getTime() : 0;
@@ -36,6 +41,21 @@ export async function getSeenBookingTimestamp(userId) {
 export async function setSeenBookingTimestamp(userId, timestamp) {
     if (!userId) return;
     const key = `${BOOKING_SEEN_KEY_PREFIX}${userId}`;
+    const safeTs = Number(timestamp || 0);
+    await AsyncStorage.setItem(key, String(Number.isFinite(safeTs) ? safeTs : 0));
+}
+
+export async function getSeenBookingTabTimestamp(userId, tabKey) {
+    if (!userId || !tabKey) return 0;
+    const key = getBookingTabSeenKey(userId, tabKey);
+    const raw = await AsyncStorage.getItem(key);
+    const parsed = Number(raw || 0);
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export async function setSeenBookingTabTimestamp(userId, tabKey, timestamp) {
+    if (!userId || !tabKey) return;
+    const key = getBookingTabSeenKey(userId, tabKey);
     const safeTs = Number(timestamp || 0);
     await AsyncStorage.setItem(key, String(Number.isFinite(safeTs) ? safeTs : 0));
 }

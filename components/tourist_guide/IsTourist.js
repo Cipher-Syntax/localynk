@@ -24,6 +24,41 @@ const normalizeDisplayName = (rawValue, fallback = 'User') => {
         .join(' ');
 };
 
+const parseDateOnly = (rawValue) => {
+    const raw = String(rawValue || '').trim();
+    if (!raw) return null;
+
+    const datePart = raw.includes('T') ? raw.split('T')[0] : raw;
+    const parts = datePart.split('-').map((value) => Number(value));
+    if (parts.length === 3 && parts.every((value) => Number.isFinite(value))) {
+        const [year, month, day] = parts;
+        const parsed = new Date(year, month - 1, day);
+        if (!Number.isNaN(parsed.getTime())) {
+            parsed.setHours(0, 0, 0, 0);
+            return parsed;
+        }
+    }
+
+    const fallback = new Date(raw);
+    if (Number.isNaN(fallback.getTime())) return null;
+    fallback.setHours(0, 0, 0, 0);
+    return fallback;
+};
+
+const getTripTimingState = (booking, today) => {
+    const normalizedStatus = String(booking?.status || '').toLowerCase();
+    const checkInDate = parseDateOnly(booking?.check_in);
+    const checkOutDate = parseDateOnly(booking?.check_out) || checkInDate;
+    const tripEndDate = checkOutDate || checkInDate;
+    const hasEnded = tripEndDate ? tripEndDate.getTime() < today.getTime() : false;
+
+    const isUpcomingStatus = ['pending_payment', 'accepted', 'confirmed'].includes(normalizedStatus);
+    const isUpcoming = isUpcomingStatus && !hasEnded;
+    const isCompleted = normalizedStatus === 'completed' || (isUpcomingStatus && hasEnded);
+
+    return { isUpcoming, isCompleted };
+};
+
 const IsTourist = () => {
     const router = useRouter();
     const { user, refreshUser } = useAuth();
@@ -67,15 +102,29 @@ const IsTourist = () => {
             const bookingRes = await api.get('/api/bookings/', {
                 params: { view_as: 'guide' }
             });
+
+            const incoming = Array.isArray(bookingRes.data)
+                ? bookingRes.data
+                : Array.isArray(bookingRes.data?.results)
+                    ? bookingRes.data.results
+                    : [];
+
+            const guideDashboardStatuses = new Set([
+                'pending_payment',
+                'accepted',
+                'confirmed',
+                'completed',
+            ]);
             
             // Keep guide-side trips only for dashboard analytics and filtering.
-            const sorted = bookingRes.data
+            const sorted = incoming
                 .filter(b => {
                     const isMyOwnTrip = Number(b.tourist_id) === Number(user?.id);
-                    const isValidStatus = b.status === 'Confirmed' || b.status === 'Completed';
+                    const normalizedStatus = String(b?.status || '').toLowerCase();
+                    const isValidStatus = guideDashboardStatuses.has(normalizedStatus);
                     return isValidStatus && !isMyOwnTrip; 
                 })
-                .sort((a,b) => new Date(b.check_in) - new Date(a.check_in));
+                .sort((a, b) => new Date(a.check_in) - new Date(b.check_in));
                 
             setBookings(sorted);
         } catch (error) {
@@ -164,6 +213,10 @@ const IsTourist = () => {
 
     const getStatusStyles = (status) => {
         switch (status) {
+            case 'Pending_Payment':
+                return { color: '#EA580C', bg: 'rgba(251, 146, 60, 0.16)', icon: 'wallet-outline', label: 'Pending Payment' };
+            case 'Accepted':
+                return { color: '#2563EB', bg: 'rgba(37, 99, 235, 0.14)', icon: 'thumbs-up-outline', label: 'Accepted' };
             case 'Confirmed':
                 return { color: '#00E676', bg: 'rgba(0, 230, 118, 0.15)', icon: 'checkmark-circle', label: 'Confirmed Trip' };
             case 'Completed':
@@ -176,23 +229,38 @@ const IsTourist = () => {
     };
 
     const totalBookings = bookings.length;
-    const confirmedBookings = bookings.filter(b => b.status === 'Confirmed').length;
-    const completedBookings = bookings.filter(b => b.status === 'Completed').length;
+    const tripCounts = useMemo(() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        return bookings.reduce((acc, booking) => {
+            const timing = getTripTimingState(booking, today);
+            if (timing.isUpcoming) acc.upcoming += 1;
+            if (timing.isCompleted) acc.completed += 1;
+            return acc;
+        }, { upcoming: 0, completed: 0 });
+    }, [bookings]);
+
+    const upcomingBookings = tripCounts.upcoming;
+    const completedBookings = tripCounts.completed;
     const ratingValue = user?.average_rating ? parseFloat(user.average_rating).toFixed(1) : "0.0";
 
     const filteredTrips = useMemo(() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
         return bookings.filter((booking) => {
-            const normalized = String(booking.status || '').toLowerCase();
+            const timing = getTripTimingState(booking, today);
             if (tripFilter === 'all') return true;
-            if (tripFilter === 'upcoming') return normalized === 'confirmed';
-            if (tripFilter === 'completed') return normalized === 'completed';
+            if (tripFilter === 'upcoming') return timing.isUpcoming;
+            if (tripFilter === 'completed') return timing.isCompleted;
             return true;
         });
     }, [bookings, tripFilter]);
 
     const statsData = [
         { label: "Total Trips", value: totalBookings.toString(), icon: "stats-chart", color: "#00C6FF", subtext: "All time" },
-        { label: "Upcoming", value: confirmedBookings.toString(), icon: "calendar", color: "#00E676", subtext: "Locked dates" },
+        { label: "Upcoming", value: upcomingBookings.toString(), icon: "calendar", color: "#00E676", subtext: "Locked dates" },
         { label: "Completed", value: completedBookings.toString(), icon: "checkmark-done-circle", color: "#FFD700", subtext: "Successful tours" },
         { label: "Rating", value: ratingValue, icon: "star", color: "#FFAB00", subtext: "Average" }
     ];
@@ -295,7 +363,7 @@ const IsTourist = () => {
 
                     <View style={styles.tripFilterRowWrap}>
                         {[
-                            { value: 'upcoming', label: `Upcoming (${confirmedBookings})` },
+                            { value: 'upcoming', label: `Upcoming (${upcomingBookings})` },
                             { value: 'completed', label: `Completed (${completedBookings})` },
                             { value: 'all', label: `All (${totalBookings})` },
                         ].map((option) => (
@@ -491,7 +559,7 @@ const IsTourist = () => {
 
                         <View style={[styles.tripFilterRowWrap, { paddingBottom: 8 }]}> 
                             {[
-                                { value: 'upcoming', label: `Upcoming (${confirmedBookings})` },
+                                { value: 'upcoming', label: `Upcoming (${upcomingBookings})` },
                                 { value: 'completed', label: `Completed (${completedBookings})` },
                                 { value: 'all', label: `All (${totalBookings})` },
                             ].map((option) => (

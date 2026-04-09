@@ -5,6 +5,7 @@ import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import api from '../../api/api'; 
+import { useAuth } from '../../context/AuthContext';
 import Toast from '../Toast';
 
 const PAGE_SIZE = 12;
@@ -19,6 +20,7 @@ const FILTERS = [
 
 const Notifications = () => {
     const router = useRouter();
+    const { user } = useAuth();
     const [notifications, setNotifications] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -358,21 +360,34 @@ const Notifications = () => {
                 try {
                     const refundRes = await api.get(`/api/payments/refunds/${item.related_object_id}/`);
                     const refund = refundRes.data || {};
+                    const isRequestOwner = Number(refund?.requested_by) === Number(user?.id);
+
+                    if (!isRequestOwner) {
+                        openInfoDialog('Refund Update', item.message || 'A refund status update was received.');
+                        return;
+                    }
+
                     if (refund.booking_id) {
                         router.push({
                             pathname: '/(protected)/refundRequest',
                             params: {
                                 bookingId: String(refund.booking_id),
+                                bookingTitle: String(refund.booking_label || `Booking #${refund.booking_id}`),
                                 downPayment: String(refund.payment_amount || 0),
+                                refundId: String(refund.id || item.related_object_id),
                             },
                         });
                         return;
                     }
                 } catch (error) {
                     console.error('Failed to open refund context from notification:', error);
+                    if (error?.response?.status === 403) {
+                        openInfoDialog('Refund Update', item.message || 'A refund status update was received.');
+                        return;
+                    }
                 }
             }
-            router.push('/(protected)/bookings');
+            openInfoDialog('Refund Update', item.message || 'A refund status update was received.');
         }
         else {
             openInfoDialog(item.title, item.message);
