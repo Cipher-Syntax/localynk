@@ -1,12 +1,14 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, TextInput, Modal, StatusBar } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../api/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ConfirmationModal from '../../components/ConfirmationModal';
 
 const PREFS_KEY = 'conversation_list_prefs_v1';
+const DELETE_UNDO_MS = 5000;
 
 const normalizeConversationList = (payload) => {
     if (Array.isArray(payload)) return payload;
@@ -33,7 +35,20 @@ const ConversationList = () => {
     const [errorText, setErrorText] = useState('');
     const [selectedConversation, setSelectedConversation] = useState(null);
     const [menuVisible, setMenuVisible] = useState(false);
+    const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+    const [deleteTargetConversation, setDeleteTargetConversation] = useState(null);
+    const [pendingConversationUndo, setPendingConversationUndo] = useState(null);
+    const deleteConversationTimerRef = useRef(null);
     const router = useRouter();
+
+    useEffect(() => {
+        return () => {
+            if (deleteConversationTimerRef.current) {
+                clearTimeout(deleteConversationTimerRef.current);
+                deleteConversationTimerRef.current = null;
+            }
+        };
+    }, []);
 
     const handleGoBack = useCallback(() => {
         if (typeof router.canGoBack === 'function' && router.canGoBack()) {
@@ -167,6 +182,7 @@ const ConversationList = () => {
     };
 
     const decoratedConversations = useMemo(() => {
+        const pendingDeleteId = Number(pendingConversationUndo?.partnerId || 0);
         const normalized = conversations.map((item) => {
             const id = Number(item.id ?? item.partner_id ?? item.user_id);
             const serverUnread = Number(item.unread_count || 0);
@@ -184,7 +200,7 @@ const ConversationList = () => {
                 _isMuted: prefs.muted.includes(id),
                 _isArchived: prefs.archived.includes(id),
             };
-        });
+        }).filter((item) => Number(item._id) !== pendingDeleteId);
 
         const queryLower = query.trim().toLowerCase();
 
@@ -206,7 +222,7 @@ const ConversationList = () => {
         });
 
         return filtered;
-    }, [conversations, prefs, query, activeFilter]);
+    }, [conversations, prefs, query, activeFilter, pendingConversationUndo]);
 
     const handlePressConversation = (partner) => {
         const displayName = getDisplayName(partner);
@@ -228,6 +244,126 @@ const ConversationList = () => {
     const openConversationMenu = (conversation) => {
         setSelectedConversation(conversation);
         setMenuVisible(true);
+    };
+
+    const requestDeleteConversationForMe = (conversation) => {
+        const partnerId = Number(conversation?._id ?? conversation?.id ?? conversation?.partner_id ?? conversation?.user_id);
+        if (!Number.isFinite(partnerId) || partnerId <= 0) {
+            setMenuVisible(false);
+            return;
+        }
+
+        if (pendingConversationUndo) {
+            setMenuVisible(false);
+            setErrorText('Undo the pending deletion first or wait a few seconds.');
+            return;
+        }
+
+        const partnerLabel = String(conversation?._name || getDisplayName(conversation) || 'This conversation').trim();
+        const snapshot = conversations.find((item) => Number(item.id ?? item.partner_id ?? item.user_id) === partnerId) || conversation;
+
+        setMenuVisible(false);
+        setDeleteTargetConversation({
+            partnerId,
+            partnerLabel,
+            snapshot,
+            prefsSnapshot: {
+                pinned: [...(prefs.pinned || [])],
+                muted: [...(prefs.muted || [])],
+                archived: [...(prefs.archived || [])],
+                forceUnread: [...(prefs.forceUnread || [])],
+            },
+        });
+        setDeleteConfirmVisible(true);
+    };
+
+    const confirmDeleteConversationForMe = () => {
+        const target = deleteTargetConversation;
+        setDeleteConfirmVisible(false);
+        setDeleteTargetConversation(null);
+
+        if (!target) return;
+
+        const { partnerId, snapshot, prefsSnapshot } = target;
+
+        setConversations((prev) => prev.filter((item) => {
+            const itemId = Number(item.id ?? item.partner_id ?? item.user_id);
+            return itemId !== partnerId;
+        }));
+
+        const nextPrefs = {
+            pinned: (prefs.pinned || []).filter((id) => id !== partnerId),
+            muted: (prefs.muted || []).filter((id) => id !== partnerId),
+            archived: (prefs.archived || []).filter((id) => id !== partnerId),
+            forceUnread: (prefs.forceUnread || []).filter((id) => id !== partnerId),
+        };
+        persistPrefs(nextPrefs);
+
+        setPendingConversationUndo({
+            partnerId,
+            snapshot,
+            prefsSnapshot,
+        });
+
+        if (deleteConversationTimerRef.current) {
+            clearTimeout(deleteConversationTimerRef.current);
+            deleteConversationTimerRef.current = null;
+        }
+
+        deleteConversationTimerRef.current = setTimeout(async () => {
+            try {
+                await api.delete(`/api/conversations/${partnerId}/delete/`);
+            } catch (error) {
+                const detail =
+                    error?.response?.data?.detail ||
+                    error?.response?.data?.message ||
+                    error?.message ||
+                    'Could not delete conversation.';
+
+                if (snapshot) {
+                    setConversations((prev) => {
+                        const exists = prev.some((item) => Number(item.id ?? item.partner_id ?? item.user_id) === partnerId);
+                        if (exists) return prev;
+                        return [snapshot, ...prev];
+                    });
+                }
+
+                persistPrefs(prefsSnapshot || prefs);
+                setErrorText(String(detail));
+            } finally {
+                if (deleteConversationTimerRef.current) {
+                    clearTimeout(deleteConversationTimerRef.current);
+                    deleteConversationTimerRef.current = null;
+                }
+
+                setPendingConversationUndo((current) => (
+                    Number(current?.partnerId) === Number(partnerId) ? null : current
+                ));
+            }
+        }, DELETE_UNDO_MS);
+    };
+
+    const undoDeleteConversationForMe = () => {
+        const pending = pendingConversationUndo;
+        if (!pending) return;
+
+        if (deleteConversationTimerRef.current) {
+            clearTimeout(deleteConversationTimerRef.current);
+            deleteConversationTimerRef.current = null;
+        }
+
+        if (pending.snapshot) {
+            const pendingId = Number(pending.partnerId);
+            setConversations((prev) => {
+                const exists = prev.some((item) => Number(item.id ?? item.partner_id ?? item.user_id) === pendingId);
+                if (exists) return prev;
+                return [pending.snapshot, ...prev];
+            });
+        }
+
+        persistPrefs(pending.prefsSnapshot || prefs);
+        setPendingConversationUndo(null);
+        setErrorText('');
     };
 
     if (loading) {
@@ -361,9 +497,37 @@ const ConversationList = () => {
                         <TouchableOpacity style={styles.menuAction} onPress={() => { setReadState(selectedConversation?._id, selectedConversation?._unreadCount === 0); setMenuVisible(false); }}>
                             <Text style={styles.menuActionText}>{selectedConversation?._unreadCount > 0 ? 'Mark as read' : 'Mark as unread'}</Text>
                         </TouchableOpacity>
+                        <TouchableOpacity style={[styles.menuAction, styles.menuActionDanger]} onPress={() => requestDeleteConversationForMe(selectedConversation)}>
+                            <Text style={[styles.menuActionText, styles.menuActionTextDanger]}>Delete conversation</Text>
+                        </TouchableOpacity>
                     </SafeAreaView>
                 </TouchableOpacity>
             </Modal>
+
+            <ConfirmationModal
+                visible={deleteConfirmVisible}
+                title="Delete conversation?"
+                description={`${deleteTargetConversation?.partnerLabel || 'This conversation'} will be removed only for you. You can undo for a few seconds.`}
+                onCancel={() => {
+                    setDeleteConfirmVisible(false);
+                    setDeleteTargetConversation(null);
+                }}
+                onConfirm={confirmDeleteConversationForMe}
+                confirmText="Delete"
+                cancelText="Cancel"
+                isDestructive
+            />
+
+            {pendingConversationUndo && (
+                <SafeAreaView edges={['bottom']} style={styles.undoBarWrap}>
+                    <View style={styles.undoBar}>
+                        <Text style={styles.undoText}>Conversation deleted.</Text>
+                        <TouchableOpacity style={styles.undoButton} onPress={undoDeleteConversationForMe}>
+                            <Text style={styles.undoButtonText}>UNDO</Text>
+                        </TouchableOpacity>
+                    </View>
+                </SafeAreaView>
+            )}
         </SafeAreaView>
     );
 };
@@ -593,6 +757,45 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#1E293B',
         fontWeight: '600',
+    },
+    menuActionDanger: {
+        borderBottomWidth: 0,
+    },
+    menuActionTextDanger: {
+        color: '#B91C1C',
+    },
+    undoBarWrap: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        paddingHorizontal: 14,
+        paddingBottom: 8,
+    },
+    undoBar: {
+        backgroundColor: '#0F172A',
+        borderRadius: 12,
+        paddingVertical: 12,
+        paddingHorizontal: 14,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    undoText: {
+        color: '#E2E8F0',
+        fontSize: 13,
+        fontWeight: '600',
+        flex: 1,
+    },
+    undoButton: {
+        marginLeft: 12,
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+    },
+    undoButtonText: {
+        color: '#38BDF8',
+        fontWeight: '800',
+        fontSize: 13,
     },
 });
 

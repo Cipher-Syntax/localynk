@@ -8,6 +8,9 @@ import api from '../../api/api';
 import { useAuth } from "../../context/AuthContext";
 import Toast from '../../components/Toast';
 import ScreenSafeArea from "../../components/ScreenSafeArea";
+import ConfirmationModal from '../../components/ConfirmationModal';
+
+const DELETE_UNDO_MS = 5000;
 
 export default function Message() {
     const isIOS = Platform.OS === 'ios';
@@ -20,9 +23,24 @@ export default function Message() {
     const [selectedReason, setSelectedReason] = useState("");
     const [customReason, setCustomReason] = useState("");
     const [toast, setToast] = useState({ visible: false, message: '', type: 'error' });
+    const [deleteActionSheetVisible, setDeleteActionSheetVisible] = useState(false);
+    const [deleteActionTargetMessage, setDeleteActionTargetMessage] = useState(null);
+    const [deleteMessageConfirmVisible, setDeleteMessageConfirmVisible] = useState(false);
+    const [deleteTargetMessage, setDeleteTargetMessage] = useState(null);
+    const [pendingMessageUndo, setPendingMessageUndo] = useState(null);
     const { user } = useAuth();
     const scrollViewRef = useRef();
+    const deleteMessageTimerRef = useRef(null);
     const router = useRouter();
+
+    useEffect(() => {
+        return () => {
+            if (deleteMessageTimerRef.current) {
+                clearTimeout(deleteMessageTimerRef.current);
+                deleteMessageTimerRef.current = null;
+            }
+        };
+    }, []);
 
     const { partnerId, partnerName, partnerImage } = useLocalSearchParams();
     const normalizedPartnerId = useMemo(() => {
@@ -74,7 +92,13 @@ export default function Message() {
         }
         try {
             const response = await api.get(`/api/conversations/${normalizedPartnerId}/messages/`);
-            setMessages(response.data);
+            const thread = Array.isArray(response.data) ? response.data : [];
+            const pendingIdText = pendingMessageUndo?.message ? String(pendingMessageUndo.message.id) : null;
+            if (pendingIdText) {
+                setMessages(thread.filter((item) => String(item.id) !== pendingIdText));
+            } else {
+                setMessages(thread);
+            }
         } catch (error) {
             console.error('Failed to fetch messages:', error);
 
@@ -88,7 +112,7 @@ export default function Message() {
         } finally {
             setLoading(false);
         }
-    }, [normalizedPartnerId]);
+    }, [normalizedPartnerId, pendingMessageUndo]);
 
     useEffect(() => {
         fetchMessages();
@@ -192,6 +216,108 @@ export default function Message() {
             )));
             setToast({ visible: true, message: 'Retry failed. Please try again.', type: 'error' });
         }
+    };
+
+    const restoreDeletedMessage = (message, index) => {
+        if (!message) return;
+        const messageIdText = String(message.id);
+
+        setMessages((prev) => {
+            const alreadyExists = prev.some((item) => String(item.id) === messageIdText);
+            if (alreadyExists) return prev;
+
+            const next = [...prev];
+            const insertAt = Number.isFinite(index) && index >= 0 ? Math.min(index, next.length) : next.length;
+            next.splice(insertAt, 0, message);
+            return next;
+        });
+    };
+
+    const requestDeleteMessage = (targetMessage) => {
+        if (!targetMessage) return;
+
+        if (pendingMessageUndo) {
+            setToast({ visible: true, message: 'Undo the pending deletion first or wait a few seconds.', type: 'error' });
+            return;
+        }
+
+        setDeleteActionTargetMessage(targetMessage);
+        setDeleteActionSheetVisible(true);
+    };
+
+    const openDeleteConfirmWithScope = (scope) => {
+        const targetMessage = deleteActionTargetMessage;
+        if (!targetMessage) return;
+
+        setDeleteActionSheetVisible(false);
+        setDeleteActionTargetMessage(null);
+
+        setDeleteTargetMessage({
+            message: targetMessage,
+            scope: scope === 'everyone' ? 'everyone' : 'me',
+        });
+        setDeleteMessageConfirmVisible(true);
+    };
+
+    const confirmDeleteMessageForMe = () => {
+        const deleteTarget = deleteTargetMessage;
+        const targetMessage = deleteTarget?.message;
+        const scope = deleteTarget?.scope === 'everyone' ? 'everyone' : 'me';
+
+        setDeleteMessageConfirmVisible(false);
+        setDeleteTargetMessage(null);
+
+        if (!targetMessage) return;
+
+        const messageIdText = String(targetMessage.id);
+        const removedIndex = messages.findIndex((item) => String(item.id) === messageIdText);
+
+        setMessages((prev) => prev.filter((item) => String(item.id) !== messageIdText));
+        setPendingMessageUndo({ message: targetMessage, index: removedIndex, scope });
+
+        if (deleteMessageTimerRef.current) {
+            clearTimeout(deleteMessageTimerRef.current);
+            deleteMessageTimerRef.current = null;
+        }
+
+        deleteMessageTimerRef.current = setTimeout(async () => {
+            if (messageIdText.startsWith('temp-')) {
+                setPendingMessageUndo(null);
+                deleteMessageTimerRef.current = null;
+                return;
+            }
+
+            try {
+                await api.delete(`/api/messages/${targetMessage.id}/delete/?scope=${scope}`);
+            } catch (error) {
+                const detail =
+                    error?.response?.data?.detail ||
+                    error?.response?.data?.message ||
+                    error?.message ||
+                    'Failed to delete message.';
+                restoreDeletedMessage(targetMessage, removedIndex);
+                setToast({ visible: true, message: String(detail), type: 'error' });
+            } finally {
+                setPendingMessageUndo((current) => (
+                    String(current?.message?.id || '') === messageIdText ? null : current
+                ));
+                deleteMessageTimerRef.current = null;
+            }
+        }, DELETE_UNDO_MS);
+    };
+
+    const undoDeleteMessage = () => {
+        const pending = pendingMessageUndo;
+        if (!pending?.message) return;
+
+        if (deleteMessageTimerRef.current) {
+            clearTimeout(deleteMessageTimerRef.current);
+            deleteMessageTimerRef.current = null;
+        }
+
+        restoreDeletedMessage(pending.message, pending.index);
+        setPendingMessageUndo(null);
+        setToast({ visible: true, message: 'Delete undone.', type: 'success' });
     };
 
     const handleReportConfirm = async () => {
@@ -342,12 +468,15 @@ export default function Message() {
                                             : 'Delivered';
 
                                 return (
-                                    <View
+                                    <TouchableOpacity
                                         key={message.id}
                                         style={[
                                             styles.messageBox,
                                             isSent ? styles.sentMessage : styles.receivedMessage,
                                         ]}
+                                        activeOpacity={0.9}
+                                        delayLongPress={260}
+                                        onLongPress={() => requestDeleteMessage(message)}
                                     >
                                         {!isSent && (
                                             <Text style={styles.senderName}>{normalizeDisplayName(message.sender_display_name || partnerName)}</Text>
@@ -378,7 +507,7 @@ export default function Message() {
                                                 )}
                                             </View>
                                         )}
-                                    </View>
+                                    </TouchableOpacity>
                                 );
                             })}
                         </ScrollView>
@@ -534,12 +663,15 @@ export default function Message() {
                                     : 'Delivered';
 
                         return (
-                            <View
+                            <TouchableOpacity
                                 key={message.id}
                                 style={[
                                     styles.messageBox,
                                     isSent ? styles.sentMessage : styles.receivedMessage,
                                 ]}
+                                activeOpacity={0.9}
+                                delayLongPress={260}
+                                onLongPress={() => requestDeleteMessage(message)}
                             >
                                 {!isSent && (
                                     <Text style={styles.senderName}>{normalizeDisplayName(message.sender_display_name || partnerName)}</Text>
@@ -570,7 +702,7 @@ export default function Message() {
                                         )}
                                     </View>
                                 )}
-                            </View>
+                            </TouchableOpacity>
                         );
                     })}
                 </ScrollView>
@@ -658,6 +790,83 @@ export default function Message() {
                 </SafeAreaView>
                 </View>
             )}
+
+            <ConfirmationModal
+                visible={deleteMessageConfirmVisible}
+                title="Delete message?"
+                description={deleteTargetMessage?.scope === 'everyone'
+                    ? 'This message will be removed for both of you. You can undo for a few seconds.'
+                    : 'This message will be removed only for you. You can undo for a few seconds.'}
+                onCancel={() => {
+                    setDeleteMessageConfirmVisible(false);
+                    setDeleteTargetMessage(null);
+                }}
+                onConfirm={confirmDeleteMessageForMe}
+                confirmText="Delete"
+                cancelText="Cancel"
+                isDestructive
+            />
+
+            {pendingMessageUndo?.message && (
+                <SafeAreaView edges={['bottom']} style={styles.undoBarWrap}>
+                    <View style={styles.undoBar}>
+                        <Text style={styles.undoText}>
+                            {pendingMessageUndo?.scope === 'everyone' ? 'Message deleted for everyone.' : 'Message deleted.'}
+                        </Text>
+                        <TouchableOpacity style={styles.undoButton} onPress={undoDeleteMessage}>
+                            <Text style={styles.undoButtonText}>UNDO</Text>
+                        </TouchableOpacity>
+                    </View>
+                </SafeAreaView>
+            )}
+
+            <Modal
+                visible={deleteActionSheetVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={() => {
+                    setDeleteActionSheetVisible(false);
+                    setDeleteActionTargetMessage(null);
+                }}
+            >
+                <TouchableOpacity
+                    style={styles.deleteActionOverlay}
+                    activeOpacity={1}
+                    onPress={() => {
+                        setDeleteActionSheetVisible(false);
+                        setDeleteActionTargetMessage(null);
+                    }}
+                >
+                    <SafeAreaView edges={['bottom']} style={styles.deleteActionCard}>
+                        <Text style={styles.deleteActionTitle}>Message actions</Text>
+                        <TouchableOpacity
+                            style={styles.deleteActionButton}
+                            onPress={() => openDeleteConfirmWithScope('me')}
+                        >
+                            <Text style={styles.deleteActionText}>Delete for me</Text>
+                        </TouchableOpacity>
+
+                        {Number(deleteActionTargetMessage?.sender) === Number(user?.id) && !String(deleteActionTargetMessage?.id || '').startsWith('temp-') && (
+                            <TouchableOpacity
+                                style={styles.deleteActionButton}
+                                onPress={() => openDeleteConfirmWithScope('everyone')}
+                            >
+                                <Text style={[styles.deleteActionText, styles.deleteActionDangerText]}>Delete for everyone</Text>
+                            </TouchableOpacity>
+                        )}
+
+                        <TouchableOpacity
+                            style={styles.deleteActionButton}
+                            onPress={() => {
+                                setDeleteActionSheetVisible(false);
+                                setDeleteActionTargetMessage(null);
+                            }}
+                        >
+                            <Text style={styles.deleteActionCancelText}>Cancel</Text>
+                        </TouchableOpacity>
+                    </SafeAreaView>
+                </TouchableOpacity>
+            </Modal>
         </ScreenSafeArea>
     );
 }
@@ -755,4 +964,75 @@ const styles = StyleSheet.create({
     textInputWrapper: { flex: 1, marginHorizontal: 8, backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
     input: { fontSize: 15, maxHeight: 100 },
     sendButton: { backgroundColor: "#007AFF", borderRadius: 20, width: 36, height: 36, justifyContent: "center", alignItems: "center" },
+    undoBarWrap: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        paddingHorizontal: 14,
+        paddingBottom: 8,
+    },
+    undoBar: {
+        backgroundColor: '#0F172A',
+        borderRadius: 12,
+        paddingVertical: 12,
+        paddingHorizontal: 14,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    undoText: {
+        color: '#E2E8F0',
+        fontSize: 13,
+        fontWeight: '600',
+        flex: 1,
+    },
+    undoButton: {
+        marginLeft: 12,
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+    },
+    undoButtonText: {
+        color: '#38BDF8',
+        fontWeight: '800',
+        fontSize: 13,
+    },
+    deleteActionOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.45)',
+        justifyContent: 'flex-end',
+        padding: 16,
+    },
+    deleteActionCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        paddingVertical: 8,
+    },
+    deleteActionTitle: {
+        fontSize: 14,
+        fontWeight: '800',
+        color: '#0F172A',
+        paddingHorizontal: 16,
+        paddingTop: 8,
+        paddingBottom: 6,
+    },
+    deleteActionButton: {
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderTopWidth: 1,
+        borderTopColor: '#E2E8F0',
+    },
+    deleteActionText: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#1E293B',
+    },
+    deleteActionDangerText: {
+        color: '#B91C1C',
+    },
+    deleteActionCancelText: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: '#334155',
+    },
 });
