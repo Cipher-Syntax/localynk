@@ -5,11 +5,13 @@ import { View, Platform } from "react-native";
 import { useAuth } from "../../../context/AuthContext";
 import api from "../../../api/api";
 import { getLatestBookingTimestamp, getSeenBookingTabTimestamp } from "../../../utils/bookingNotifications";
+import { isCoreProfileIncomplete } from "../../../utils/profileCompleteness";
 import { ScreenSafeArea } from "../../../components";
 
 const HomeLayout = () => {
     const { role, user } = useAuth();
     const [hasNewBookingDot, setHasNewBookingDot] = useState(false);
+    const hasIncompleteProfileDot = isCoreProfileIncomplete(user);
 
     const guideTabTitle = role === 'guide' ? "Dashboard" : "Apply";
 
@@ -120,7 +122,7 @@ const HomeLayout = () => {
                                             size={22}
                                             fill={focused ? color : "transparent"}
                                         />
-                                        {tab.name === 'profile' && hasNewBookingDot && !focused && (
+                                        {tab.name === 'profile' && (hasNewBookingDot || hasIncompleteProfileDot) && !focused && (
                                             <View
                                                 style={{
                                                     position: 'absolute',

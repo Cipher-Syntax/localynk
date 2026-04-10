@@ -26,6 +26,7 @@ import {
     setSeenEarningsTimestamp,
 } from "../../../utils/bookingNotifications";
 import { formatPHPhoneLocal } from "../../../utils/phoneNumber";
+import { isCoreProfileIncomplete } from "../../../utils/profileCompleteness";
 
 const Profile = () => {
     const [loading, setLoading] = useState(true);
@@ -231,6 +232,7 @@ const Profile = () => {
 
     const isOwnProfile = !userId || (user && profile && user.id === profile.id);
     const isGuide = profile.is_local_guide && profile.guide_approved;
+    const hasIncompleteProfileSetup = isOwnProfile && isCoreProfileIncomplete(profile || user);
 
     const profileData = {
         name: profile.first_name && profile.last_name 
@@ -412,6 +414,7 @@ const Profile = () => {
                                             <Ionicons name="person-circle" size={22} color="#64748B" />
                                         </View>
                                         <Text style={styles.menuLabel}>Edit Profile</Text>
+                                        {hasIncompleteProfileSetup && <View style={styles.menuBadgeDot} />}
                                         <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
                                     </TouchableOpacity>
 
