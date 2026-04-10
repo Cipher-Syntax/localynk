@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, Image, TextInput, TouchableOpacity, ActivityIndicator, Alert, Modal, Platform, KeyboardAvoidingView } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Image, TextInput, TouchableOpacity, ActivityIndicator, Modal, Platform, KeyboardAvoidingView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { User, AlertCircle, CheckCircle2, UploadCloud, Calendar as CalendarIcon, Bed } from 'lucide-react-native'; 
@@ -13,6 +13,7 @@ import StopDetailsModal from '../../components/itinerary/StopDetailsModal';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api/api';
 import { formatPHPhoneLocal, normalizePHPhone } from '../../utils/phoneNumber';
+import { NAME_REGEX, NAME_ERROR_MESSAGE, PHONE_ERROR_MESSAGE } from '../../utils/validation';
 import { buildPricingBreakdown } from '../../utils/pricingBreakdown';
 import ScreenSafeArea from '../../components/ScreenSafeArea';
 
@@ -583,6 +584,7 @@ const Payment = () => {
     const [phoneNumber, setPhoneNumber] = useState('');
     const [country, setCountry] = useState('');
     const [email, setEmail] = useState('');
+    const [billingErrors, setBillingErrors] = useState({});
     
     const [validIdImage, setValidIdImage] = useState(null);
     const [validIdPreviewImage, setValidIdPreviewImage] = useState(null);
@@ -930,6 +932,13 @@ const Payment = () => {
     
     const showError = (message) => { setErrorMessage(message); setErrorModalVisible(true); };
 
+    const clearBillingError = (field) => {
+        setBillingErrors((prev) => {
+            if (!prev[field]) return prev;
+            return { ...prev, [field]: '' };
+        });
+    };
+
     const checkDateBlockages = (checkStart, checkEnd) => {
         let curr = new Date(checkStart);
         let hasBlock = false;
@@ -1045,7 +1054,10 @@ const Payment = () => {
 
     const takeSelfie = async () => {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
-        if (status !== 'granted') { Alert.alert("Permission Denied", "Camera permission is required to take a selfie."); return; }
+        if (status !== 'granted') {
+            showError('Camera permission is required to take a selfie.');
+            return;
+        }
         let result = await ImagePicker.launchCameraAsync({
             mediaTypes: pickerMediaTypes,
             allowsEditing: true, aspect: [1, 1], quality: 0.8, cameraType: ImagePicker.CameraType.front,
@@ -1055,11 +1067,37 @@ const Payment = () => {
 
     // MAKE THIS FUNCTION ASYNC TO AWAIT THE PROFILE UPDATE
     const handleReviewPress = async () => {
+        const trimmedFirstName = String(firstName || '').trim();
+        const trimmedLastName = String(lastName || '').trim();
         const normalizedPhone = normalizePHPhone(phoneNumber);
+
+        const nextBillingErrors = {};
+
+        if (!NAME_REGEX.test(trimmedFirstName)) {
+            nextBillingErrors.firstName = NAME_ERROR_MESSAGE;
+        }
+
+        if (!NAME_REGEX.test(trimmedLastName)) {
+            nextBillingErrors.lastName = NAME_ERROR_MESSAGE;
+        }
+
         if (!normalizedPhone) {
-            showError('Please enter a valid PH mobile number.');
+            nextBillingErrors.phoneNumber = PHONE_ERROR_MESSAGE;
+        }
+
+        if (selectedOption === 'group' && parseInt(numPeople) > 1) {
+            const invalidGuestIndex = guestNames.findIndex((name) => !NAME_REGEX.test(String(name || '').trim()));
+            if (invalidGuestIndex >= 0) {
+                nextBillingErrors.guestNames = `Guest ${invalidGuestIndex + 2}: ${NAME_ERROR_MESSAGE}`;
+            }
+        }
+
+        if (Object.values(nextBillingErrors).some(Boolean)) {
+            setBillingErrors(nextBillingErrors);
             return;
         }
+
+        setBillingErrors({});
 
         const startStr = formatDateForCalendar(startDate);
         const endStr = formatDateForCalendar(endDate);
@@ -1077,14 +1115,6 @@ const Payment = () => {
             const maxPax = parseInt(selectedPackage?.max_group_size, 10);
             if (Number.isFinite(maxPax) && maxPax > 0 && enteredGuests > maxPax) {
                 showError(`Maximum guests for this package is ${maxPax}.`);
-                return;
-            }
-        }
-        
-        if (selectedOption === 'group' && parseInt(numPeople) > 1) {
-            const hasEmptyName = guestNames.some(name => name.trim() === '');
-            if (hasEmptyName) {
-                showError("Please provide the full names of all additional guests.");
                 return;
             }
         }
@@ -1519,10 +1549,12 @@ const Payment = () => {
                                                             const newNames = [...guestNames];
                                                             newNames[index] = text;
                                                             setGuestNames(newNames);
+                                                            clearBillingError('guestNames');
                                                         }}
                                                         editable={!isPayable}
                                                     />
                                                 ))}
+                                                {!!billingErrors.guestNames && <Text style={styles.fieldErrorText}>{billingErrors.guestNames}</Text>}
                                             </View>
                                         )}
                                     </View>
@@ -1589,11 +1621,27 @@ const Payment = () => {
                                 <>
                                     <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Billing Details</Text>
                                     <View style={styles.inputRow}>
-                                        <TextInput style={[styles.modernInput, {flex:1}]} placeholder="First Name" placeholderTextColor="#64748B" value={firstName} onChangeText={setFirstName} />
+                                        <View style={{ flex: 1 }}>
+                                            <TextInput style={[styles.modernInput, {flex:1}]} placeholder="First Name" placeholderTextColor="#64748B" value={firstName} onChangeText={(value) => {
+                                                setFirstName(value);
+                                                clearBillingError('firstName');
+                                            }} />
+                                            {!!billingErrors.firstName && <Text style={styles.fieldErrorText}>{billingErrors.firstName}</Text>}
+                                        </View>
                                         <View style={{width: 10}}/>
-                                        <TextInput style={[styles.modernInput, {flex:1}]} placeholder="Last Name" placeholderTextColor="#64748B" value={lastName} onChangeText={setLastName} />
+                                        <View style={{ flex: 1 }}>
+                                            <TextInput style={[styles.modernInput, {flex:1}]} placeholder="Last Name" placeholderTextColor="#64748B" value={lastName} onChangeText={(value) => {
+                                                setLastName(value);
+                                                clearBillingError('lastName');
+                                            }} />
+                                            {!!billingErrors.lastName && <Text style={styles.fieldErrorText}>{billingErrors.lastName}</Text>}
+                                        </View>
                                     </View>
-                                    <TextInput style={[styles.modernInput, {marginTop: 10}]} placeholder="Phone Number" placeholderTextColor="#64748B" keyboardType="phone-pad" value={phoneNumber} onChangeText={(value) => setPhoneNumber(formatPHPhoneLocal(value))} />
+                                    <TextInput style={[styles.modernInput, {marginTop: 10}]} placeholder="Phone Number" placeholderTextColor="#64748B" keyboardType="phone-pad" value={phoneNumber} onChangeText={(value) => {
+                                        setPhoneNumber(formatPHPhoneLocal(value));
+                                        clearBillingError('phoneNumber');
+                                    }} />
+                                    {!!billingErrors.phoneNumber && <Text style={styles.fieldErrorText}>{billingErrors.phoneNumber}</Text>}
 
                                     <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Identity Verification (ID & Selfie)</Text>
                                     <View style={styles.kycRow}>
@@ -1981,6 +2029,7 @@ const styles = StyleSheet.create({
     switchTextActive: { color: '#FFFFFF', fontWeight: '700' },
     modernInput: { backgroundColor: SURFACE_COLOR, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: TEXT_PRIMARY, },
     inputRow: { flexDirection: 'row' },
+    fieldErrorText: { color: '#DC2626', fontSize: 12, lineHeight: 16, marginTop: 6, marginBottom: 8, fontWeight: '600' },
     inputGroup: { marginBottom: 20 },
     inputLabel: { fontSize: 13, fontWeight: '600', color: TEXT_SECONDARY, marginBottom: 8 },
     

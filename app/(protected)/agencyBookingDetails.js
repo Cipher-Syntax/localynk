@@ -11,6 +11,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import AgencyPaymentReviewModal from './agencyPaymentReviewModal'; 
 import api from '../../api/api'; 
 import { formatPHPhoneLocal, normalizePHPhone } from '../../utils/phoneNumber';
+import { NAME_REGEX, NAME_ERROR_MESSAGE, EMAIL_REGEX, EMAIL_ERROR_MESSAGE, PHONE_ERROR_MESSAGE } from '../../utils/validation';
 
 const PRIMARY_COLOR = '#0072FF';
 const SURFACE_COLOR = '#FFFFFF';
@@ -30,6 +31,7 @@ const AgencyBookingDetails = () => {
     const [isLoadingImage, setIsLoadingImage] = useState(false);
     const [errorModalVisible, setErrorModalVisible] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
+    const [billingErrors, setBillingErrors] = useState({});
 
     const agency = {
         id: agencyId,
@@ -153,6 +155,13 @@ const AgencyBookingDetails = () => {
         setErrorModalVisible(true);
     };
 
+    const clearBillingError = (field) => {
+        setBillingErrors((prev) => {
+            if (!prev[field]) return prev;
+            return { ...prev, [field]: '' };
+        });
+    };
+
     useEffect(() => {
         if (user) {
             setFirstName(user.first_name || '');
@@ -269,11 +278,42 @@ const AgencyBookingDetails = () => {
     };
 
     const handleReviewPress = () => {
+        const trimmedFirstName = String(firstName || '').trim();
+        const trimmedLastName = String(lastName || '').trim();
+        const trimmedEmail = String(email || '').trim();
         const normalizedPhone = normalizePHPhone(phoneNumber);
+
+        const nextBillingErrors = {};
+
+        if (!NAME_REGEX.test(trimmedFirstName)) {
+            nextBillingErrors.firstName = NAME_ERROR_MESSAGE;
+        }
+
+        if (!NAME_REGEX.test(trimmedLastName)) {
+            nextBillingErrors.lastName = NAME_ERROR_MESSAGE;
+        }
+
         if (!normalizedPhone) {
-            showError("Please enter a valid PH mobile number.");
+            nextBillingErrors.phoneNumber = PHONE_ERROR_MESSAGE;
+        }
+
+        if (!EMAIL_REGEX.test(trimmedEmail)) {
+            nextBillingErrors.email = EMAIL_ERROR_MESSAGE;
+        }
+
+        if (selectedOption === 'group' && parseInt(numPeople) > 1) {
+            const invalidGuestIndex = guestNames.findIndex((name) => !NAME_REGEX.test(String(name || '').trim()));
+            if (invalidGuestIndex >= 0) {
+                nextBillingErrors.guestNames = `Guest ${invalidGuestIndex + 2}: ${NAME_ERROR_MESSAGE}`;
+            }
+        }
+
+        if (Object.values(nextBillingErrors).some(Boolean)) {
+            setBillingErrors(nextBillingErrors);
             return;
         }
+
+        setBillingErrors({});
 
         const startStr = formatDateForCalendar(startDate);
         const endStr = formatDateForCalendar(endDate);
@@ -285,14 +325,6 @@ const AgencyBookingDetails = () => {
         if (startDate > endDate) {
             showError("End date cannot be before start date.");
             return;
-        }
-        
-        if (selectedOption === 'group' && parseInt(numPeople) > 1) {
-            const hasEmptyName = guestNames.some(name => name.trim() === '');
-            if (hasEmptyName) {
-                showError("Please provide the full names of all additional guests.");
-                return;
-            }
         }
         
         if (!isPaymentMode) {
@@ -410,10 +442,12 @@ const AgencyBookingDetails = () => {
                                                             const newNames = [...guestNames];
                                                             newNames[index] = text;
                                                             setGuestNames(newNames);
+                                                            clearBillingError('guestNames');
                                                         }}
                                                         editable={!isPaymentMode}
                                                     />
                                                 ))}
+                                                {!!billingErrors.guestNames && <Text style={styles.fieldErrorText}>{billingErrors.guestNames}</Text>}
                                             </View>
                                         )}
                                     </View>
@@ -424,16 +458,38 @@ const AgencyBookingDetails = () => {
                                 <>
                                     <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Billing Details</Text>
                                     <View style={styles.inputRow}>
-                                        <TextInput style={[styles.modernInput, {flex:1}]} placeholder="First Name" value={firstName} onChangeText={setFirstName} />
+                                        <View style={{ flex: 1 }}>
+                                            <TextInput style={[styles.modernInput, {flex:1}]} placeholder="First Name" value={firstName} onChangeText={(value) => {
+                                                setFirstName(value);
+                                                clearBillingError('firstName');
+                                            }} />
+                                            {!!billingErrors.firstName && <Text style={styles.fieldErrorText}>{billingErrors.firstName}</Text>}
+                                        </View>
                                         <View style={{width: 10}}/>
-                                        <TextInput style={[styles.modernInput, {flex:1}]} placeholder="Last Name" value={lastName} onChangeText={setLastName} />
+                                        <View style={{ flex: 1 }}>
+                                            <TextInput style={[styles.modernInput, {flex:1}]} placeholder="Last Name" value={lastName} onChangeText={(value) => {
+                                                setLastName(value);
+                                                clearBillingError('lastName');
+                                            }} />
+                                            {!!billingErrors.lastName && <Text style={styles.fieldErrorText}>{billingErrors.lastName}</Text>}
+                                        </View>
                                     </View>
                                     <View style={styles.inputRow}>
-                                        <TextInput style={[styles.modernInput, {flex:1}]} placeholder="Phone Number" keyboardType="phone-pad" value={phoneNumber} onChangeText={(value) => setPhoneNumber(formatPHPhoneLocal(value))} />
+                                        <View style={{ flex: 1 }}>
+                                            <TextInput style={[styles.modernInput, {flex:1}]} placeholder="Phone Number" keyboardType="phone-pad" value={phoneNumber} onChangeText={(value) => {
+                                                setPhoneNumber(formatPHPhoneLocal(value));
+                                                clearBillingError('phoneNumber');
+                                            }} />
+                                            {!!billingErrors.phoneNumber && <Text style={styles.fieldErrorText}>{billingErrors.phoneNumber}</Text>}
+                                        </View>
                                         <View style={{width: 10}}/>
                                         <TextInput style={[styles.modernInput, {flex:1}]} placeholder="Country" value={country} onChangeText={setCountry} />
                                     </View>
-                                    <TextInput style={[styles.modernInput, {marginTop: 10}]} placeholder="Email" keyboardType="email-address" value={email} onChangeText={setEmail} />
+                                    <TextInput style={[styles.modernInput, {marginTop: 10}]} placeholder="Email" keyboardType="email-address" value={email} onChangeText={(value) => {
+                                        setEmail(value);
+                                        clearBillingError('email');
+                                    }} />
+                                    {!!billingErrors.email && <Text style={styles.fieldErrorText}>{billingErrors.email}</Text>}
 
                                     <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Identity Verification</Text>
                                     <View style={styles.kycRow}>
@@ -680,6 +736,7 @@ const styles = StyleSheet.create({
     switchTextActive: { color: PRIMARY_COLOR, fontWeight: '700' },
     modernInput: { backgroundColor: SURFACE_COLOR, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: TEXT_PRIMARY, marginBottom: 10 },
     inputRow: { flexDirection: 'row', marginBottom: 10 },
+    fieldErrorText: { color: '#DC2626', fontSize: 12, lineHeight: 16, marginTop: -6, marginBottom: 8, fontWeight: '600' },
     inputGroup: { marginBottom: 20 },
     inputLabel: { fontSize: 13, fontWeight: '600', color: TEXT_SECONDARY, marginBottom: 8 },
     

@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ImageBackground, StatusBar, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ImageBackground, StatusBar, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useForm, Controller } from 'react-hook-form';
 import { useRouter } from 'expo-router';
 import api from '../../api/api';
+import { EMAIL_REGEX, EMAIL_ERROR_MESSAGE } from '../../utils/validation';
 
 const ForgotPassword = () => {
     const router = useRouter();
     const { control, handleSubmit, formState: { errors, isSubmitting } } = useForm();
     const [successMessage, setSuccessMessage] = useState('');
+    const [submitError, setSubmitError] = useState('');
 
     const onSubmit = async (data) => {
         setSuccessMessage('');
+        setSubmitError('');
         try {
             await api.post('/api/password-reset/', { email: data.email });
             setSuccessMessage(`Reset link sent to ${data.email}. Check your inbox!`);
@@ -22,7 +25,7 @@ const ForgotPassword = () => {
         } catch (error) {
             console.error("Forgot Password Error:", error);
             const msg = error.response?.data?.detail || "Something went wrong. Please try again.";
-            Alert.alert("Error", msg);
+            setSubmitError(msg);
         }
     };
 
@@ -65,6 +68,12 @@ const ForgotPassword = () => {
                                         </View>
                                     ) : (
                                         <>
+                                            {!!submitError && (
+                                                <View style={styles.submitErrorBox}>
+                                                    <Text style={styles.submitErrorText}>{submitError}</Text>
+                                                </View>
+                                            )}
+
                                             <Text style={styles.label}>Email Address</Text>
                                             <View style={styles.inputWrapper}>
                                                 <Controller
@@ -72,7 +81,7 @@ const ForgotPassword = () => {
                                                     name="email"
                                                     rules={{ 
                                                         required: 'Email is required',
-                                                        pattern: { value: /^\S+@\S+$/i, message: "Invalid email format" } 
+                                                        pattern: { value: EMAIL_REGEX, message: EMAIL_ERROR_MESSAGE }
                                                     }}
                                                     render={({ field: { onChange, value } }) => (
                                                         <View style={[styles.inputContainer, errors.email && styles.inputError]}>
@@ -211,6 +220,20 @@ const styles = StyleSheet.create({
         marginLeft: 5,
         marginTop: 4,
         fontWeight: '500'
+    },
+    submitErrorBox: {
+        borderWidth: 1,
+        borderColor: '#FCA5A5',
+        backgroundColor: '#FEF2F2',
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        marginBottom: 16,
+    },
+    submitErrorText: {
+        color: '#B91C1C',
+        fontSize: 13,
+        fontWeight: '600',
     },
     mainButtonShadow: {
         shadowColor: '#0072FF',

@@ -10,6 +10,7 @@ import * as ImagePicker from 'expo-image-picker';
 import api from '../../../api/api';
 import Toast from '../../../components/Toast';
 import { formatPHPhoneLocal, normalizePHPhone } from '../../../utils/phoneNumber';
+import { NAME_REGEX, NAME_ERROR_MESSAGE, PHONE_ERROR_MESSAGE } from '../../../utils/validation';
 
 const ProfileSetupScreen = () => {
     const { user, refreshUser } = useAuth(); 
@@ -137,7 +138,13 @@ const ProfileSetupScreen = () => {
                             <Controller
                                 control={control}
                                 name="first_name"
-                                rules={{ required: 'First Name is required' }}
+                                rules={{
+                                    validate: (value) => {
+                                        const trimmed = String(value || '').trim();
+                                        if (!trimmed) return 'First Name is required';
+                                        return NAME_REGEX.test(trimmed) || NAME_ERROR_MESSAGE;
+                                    }
+                                }}
                                 render={({ field: { onChange, value } }) => (
                                     <TextInput
                                         style={styles.input}
@@ -153,6 +160,13 @@ const ProfileSetupScreen = () => {
                             <Controller
                                 control={control}
                                 name="middle_name"
+                                rules={{
+                                    validate: (value) => {
+                                        const trimmed = String(value || '').trim();
+                                        if (!trimmed) return true;
+                                        return NAME_REGEX.test(trimmed) || NAME_ERROR_MESSAGE;
+                                    }
+                                }}
                                 render={({ field: { onChange, value } }) => (
                                     <TextInput
                                         style={styles.input}
@@ -162,12 +176,19 @@ const ProfileSetupScreen = () => {
                                     />
                                 )}
                             />
+                            {errors.middle_name && <Text style={styles.errorText}>{errors.middle_name.message}</Text>}
 
                             <Text style={styles.label}>Last Name</Text>
                             <Controller
                                 control={control}
                                 name="last_name"
-                                rules={{ required: 'Last Name is required' }}
+                                rules={{
+                                    validate: (value) => {
+                                        const trimmed = String(value || '').trim();
+                                        if (!trimmed) return 'Last Name is required';
+                                        return NAME_REGEX.test(trimmed) || NAME_ERROR_MESSAGE;
+                                    }
+                                }}
                                 render={({ field: { onChange, value } }) => (
                                     <TextInput
                                         style={styles.input}
@@ -183,7 +204,13 @@ const ProfileSetupScreen = () => {
                             <Controller
                                 control={control}
                                 name="phone_number"
-                                rules={{ required: 'Phone Number is required' }}
+                                rules={{
+                                    validate: (value) => {
+                                        const trimmed = String(value || '').trim();
+                                        if (!trimmed) return 'Phone Number is required';
+                                        return normalizePHPhone(trimmed) ? true : PHONE_ERROR_MESSAGE;
+                                    }
+                                }}
                                 render={({ field: { onChange, value } }) => (
                                     <TextInput
                                         style={styles.input}

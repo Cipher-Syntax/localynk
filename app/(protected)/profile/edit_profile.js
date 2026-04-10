@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import api from '../../../api/api';
 import Toast from '../../../components/Toast';
 import { formatPHPhoneLocal, normalizePHPhone } from '../../../utils/phoneNumber';
+import { NAME_REGEX, NAME_ERROR_MESSAGE, PHONE_ERROR_MESSAGE } from '../../../utils/validation';
 import ScreenSafeArea from '../../../components/ScreenSafeArea';
 
 const EditProfile = () => {
@@ -141,7 +142,13 @@ const EditProfile = () => {
                         <Controller
                             control={control}
                             name="first_name"
-                            rules={{ required: 'First Name is required' }}
+                            rules={{
+                                validate: (value) => {
+                                    const trimmed = String(value || '').trim();
+                                    if (!trimmed) return 'First Name is required';
+                                    return NAME_REGEX.test(trimmed) || NAME_ERROR_MESSAGE;
+                                }
+                            }}
                             render={({ field: { onChange, value } }) => (
                                 <View style={styles.inputContainer}>
                                     <Ionicons name="person-outline" size={20} color="#6B7280" style={styles.inputIcon} />
@@ -160,6 +167,13 @@ const EditProfile = () => {
                         <Controller
                             control={control}
                             name="middle_name"
+                            rules={{
+                                validate: (value) => {
+                                    const trimmed = String(value || '').trim();
+                                    if (!trimmed) return true;
+                                    return NAME_REGEX.test(trimmed) || NAME_ERROR_MESSAGE;
+                                }
+                            }}
                             render={({ field: { onChange, value } }) => (
                                 <View style={styles.inputContainer}>
                                     <Ionicons name="person-outline" size={20} color="#6B7280" style={styles.inputIcon} />
@@ -172,12 +186,19 @@ const EditProfile = () => {
                                 </View>
                             )}
                         />
+                        {errors.middle_name && <Text style={styles.errorText}>{errors.middle_name.message}</Text>}
 
                         <Text style={styles.label}>Last Name</Text>
                         <Controller
                             control={control}
                             name="last_name"
-                            rules={{ required: 'Last Name is required' }}
+                            rules={{
+                                validate: (value) => {
+                                    const trimmed = String(value || '').trim();
+                                    if (!trimmed) return 'Last Name is required';
+                                    return NAME_REGEX.test(trimmed) || NAME_ERROR_MESSAGE;
+                                }
+                            }}
                             render={({ field: { onChange, value } }) => (
                                 <View style={styles.inputContainer}>
                                     <Ionicons name="person-outline" size={20} color="#6B7280" style={styles.inputIcon} />
@@ -196,6 +217,13 @@ const EditProfile = () => {
                         <Controller
                             control={control}
                             name="phone_number"
+                            rules={{
+                                validate: (value) => {
+                                    const trimmed = String(value || '').trim();
+                                    if (!trimmed) return true;
+                                    return normalizePHPhone(trimmed) ? true : PHONE_ERROR_MESSAGE;
+                                }
+                            }}
                             render={({ field: { onChange, value } }) => (
                                 <View style={styles.inputContainer}>
                                     <Ionicons name="call-outline" size={20} color="#6B7280" style={styles.inputIcon} />
@@ -209,6 +237,7 @@ const EditProfile = () => {
                                 </View>
                             )}
                         />
+                        {errors.phone_number && <Text style={styles.errorText}>{errors.phone_number.message}</Text>}
 
                         <Text style={styles.label}>Location</Text>
                         <Controller

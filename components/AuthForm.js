@@ -11,6 +11,7 @@ import { useRouter } from 'expo-router';
 import * as Linking from 'expo-linking'; 
 import { useAuth } from '../context/AuthContext'; 
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
+import { EMAIL_REGEX, EMAIL_ERROR_MESSAGE } from '../utils/validation';
 
 const AuthForm = ({ method }) => {
     const { login, register, googleLogin, resendVerificationEmail, reactivateAccount, message, messageType, clearMessage, setMessage } = useAuth(); 
@@ -281,7 +282,7 @@ const AuthForm = ({ method }) => {
                                         
                                         {method === 'register' && renderInput('email', 'Email Address', 'envelope', false, null, null, { 
                                             required: 'Email is required', 
-                                            pattern: { value: /^\S+@\S+$/i, message: "Invalid email format" } 
+                                            pattern: { value: EMAIL_REGEX, message: EMAIL_ERROR_MESSAGE } 
                                         })}
 
                                         {renderInput('password', 'Password', 'lock', true, showPassword, setShowPassword, { 
