@@ -151,6 +151,7 @@ const ProfileSetupScreen = () => {
                                         placeholder="e.g. John"
                                         value={value}
                                         onChangeText={onChange}
+                                        placeholderTextColor="#6B7280"
                                     />
                                 )}
                             />
@@ -173,6 +174,7 @@ const ProfileSetupScreen = () => {
                                         placeholder="e.g. Quincy"
                                         value={value}
                                         onChangeText={onChange}
+                                        placeholderTextColor="#6B7280"
                                     />
                                 )}
                             />
@@ -195,6 +197,7 @@ const ProfileSetupScreen = () => {
                                         placeholder="e.g. Doe"
                                         value={value}
                                         onChangeText={onChange}
+                                        placeholderTextColor="#6B7280"
                                     />
                                 )}
                             />
@@ -218,6 +221,7 @@ const ProfileSetupScreen = () => {
                                         keyboardType="phone-pad"
                                         value={value}
                                         onChangeText={(text) => onChange(formatPHPhoneLocal(text))}
+                                        placeholderTextColor="#6B7280"
                                     />
                                 )}
                             />
@@ -234,6 +238,7 @@ const ProfileSetupScreen = () => {
                                         placeholder="City, Province"
                                         value={value}
                                         onChangeText={onChange}
+                                        placeholderTextColor="#6B7280"
                                     />
                                 )}
                             />
@@ -252,6 +257,7 @@ const ProfileSetupScreen = () => {
                                         value={value}
                                         onChangeText={onChange}
                                         textAlignVertical="top"
+                                        placeholderTextColor="#6B7280"
                                     />
                                 )}
                             />

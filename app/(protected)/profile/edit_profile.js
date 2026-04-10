@@ -190,6 +190,7 @@ const EditProfile = () => {
                                         style={styles.input}
                                         value={value}
                                         onChangeText={onChange}
+                                        placeholderTextColor="#6B7280"
                                     />
                                 </View>
                             )}
@@ -215,6 +216,7 @@ const EditProfile = () => {
                                         style={styles.input}
                                         value={value}
                                         onChangeText={onChange}
+                                        placeholderTextColor="#6B7280"
                                     />
                                 </View>
                             )}
@@ -241,6 +243,7 @@ const EditProfile = () => {
                                         value={value}
                                         onChangeText={(text) => onChange(formatPHPhoneLocal(text))}
                                         keyboardType="phone-pad"
+                                        placeholderTextColor="#6B7280"
                                     />
                                 </View>
                             )}
@@ -261,6 +264,7 @@ const EditProfile = () => {
                                         style={styles.input}
                                         value={value}
                                         onChangeText={onChange}
+                                        placeholderTextColor="#6B7280"
                                     />
                                 </View>
                             )}
@@ -278,6 +282,7 @@ const EditProfile = () => {
                                         style={styles.input}
                                         value={value}
                                         onChangeText={onChange}
+                                        placeholderTextColor="#6B7280"
                                     />
                                 </View>
                             )}
@@ -295,6 +300,7 @@ const EditProfile = () => {
                                         style={styles.input}
                                         value={value}
                                         onChangeText={onChange}
+                                        placeholderTextColor="#6B7280"
                                     />
                                 </View>
                             )}
@@ -315,6 +321,7 @@ const EditProfile = () => {
                                         multiline
                                         numberOfLines={3}
                                         textAlignVertical="top"
+                                        placeholderTextColor="#6B7280"
                                     />
                                 </View>
                             )}
@@ -332,6 +339,7 @@ const EditProfile = () => {
                                         style={styles.input}
                                         value={value}
                                         onChangeText={onChange}
+                                        placeholderTextColor="#6B7280"
                                     />
                                 </View>
                             )}
@@ -352,6 +360,7 @@ const EditProfile = () => {
                                         multiline
                                         numberOfLines={4}
                                         textAlignVertical="top"
+                                        placeholderTextColor="#6B7280"
                                     />
                                 </View>
                             )}
