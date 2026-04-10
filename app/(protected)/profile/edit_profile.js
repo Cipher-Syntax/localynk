@@ -26,6 +26,10 @@ const EditProfile = () => {
             middle_name: user?.middle_name || '',
             last_name: user?.last_name || '',
             phone_number: formatPHPhoneLocal(user?.phone_number || ''),
+            payout_account_type: user?.payout_account_type || '',
+            payout_account_name: user?.payout_account_name || '',
+            payout_account_number: user?.payout_account_number || '',
+            payout_account_notes: user?.payout_account_notes || '',
             location: user?.location || '',
             bio: user?.bio || '',
         }
@@ -66,6 +70,10 @@ const EditProfile = () => {
                 return;
             }
             formData.append('phone_number', normalizedPhone || '');
+            formData.append('payout_account_type', String(data.payout_account_type || '').trim());
+            formData.append('payout_account_name', String(data.payout_account_name || '').trim());
+            formData.append('payout_account_number', String(data.payout_account_number || '').trim());
+            formData.append('payout_account_notes', String(data.payout_account_notes || '').trim());
             formData.append('location', data.location);
             formData.append('bio', data.bio);
 
@@ -239,6 +247,79 @@ const EditProfile = () => {
                         />
                         {errors.phone_number && <Text style={styles.errorText}>{errors.phone_number.message}</Text>}
 
+                        <Text style={styles.sectionLabel}>Payout Account (For Guide Earnings)</Text>
+
+                        <Text style={styles.label}>Payout Channel</Text>
+                        <Controller
+                            control={control}
+                            name="payout_account_type"
+                            render={({ field: { onChange, value } }) => (
+                                <View style={styles.inputContainer}>
+                                    <Ionicons name="wallet-outline" size={20} color="#6B7280" style={styles.inputIcon} />
+                                    <TextInput
+                                        placeholder="GCash, Bank, Maya, or Other"
+                                        style={styles.input}
+                                        value={value}
+                                        onChangeText={onChange}
+                                    />
+                                </View>
+                            )}
+                        />
+
+                        <Text style={styles.label}>Account Name</Text>
+                        <Controller
+                            control={control}
+                            name="payout_account_name"
+                            render={({ field: { onChange, value } }) => (
+                                <View style={styles.inputContainer}>
+                                    <Ionicons name="person-circle-outline" size={20} color="#6B7280" style={styles.inputIcon} />
+                                    <TextInput
+                                        placeholder="Name on account"
+                                        style={styles.input}
+                                        value={value}
+                                        onChangeText={onChange}
+                                    />
+                                </View>
+                            )}
+                        />
+
+                        <Text style={styles.label}>Account Number</Text>
+                        <Controller
+                            control={control}
+                            name="payout_account_number"
+                            render={({ field: { onChange, value } }) => (
+                                <View style={styles.inputContainer}>
+                                    <Ionicons name="card-outline" size={20} color="#6B7280" style={styles.inputIcon} />
+                                    <TextInput
+                                        placeholder="GCash/Bank account number"
+                                        style={styles.input}
+                                        value={value}
+                                        onChangeText={onChange}
+                                    />
+                                </View>
+                            )}
+                        />
+
+                        <Text style={styles.label}>Payout Notes</Text>
+                        <Controller
+                            control={control}
+                            name="payout_account_notes"
+                            render={({ field: { onChange, value } }) => (
+                                <View style={[styles.inputContainer, { alignItems: 'flex-start' }]}>
+                                    <Ionicons name="document-text-outline" size={20} color="#6B7280" style={[styles.inputIcon, { marginTop: 12 }]} />
+                                    <TextInput
+                                        placeholder="Optional payout instructions"
+                                        style={[styles.input, styles.notesInput]}
+                                        value={value}
+                                        onChangeText={onChange}
+                                        multiline
+                                        numberOfLines={3}
+                                        textAlignVertical="top"
+                                    />
+                                </View>
+                            )}
+                        />
+
                         <Text style={styles.label}>Location</Text>
                         <Controller
                             control={control}
@@ -317,10 +398,12 @@ const styles = StyleSheet.create({
     editBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#0072FF', width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#fff' },
     formContainer: { paddingHorizontal: 20, backgroundColor: '#fff', marginHorizontal: 15, borderRadius: 16, paddingVertical: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
     label: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6, marginTop: 4 },
+    sectionLabel: { fontSize: 12, fontWeight: '700', color: '#1E40AF', marginTop: 8, marginBottom: 8, textTransform: 'uppercase' },
     inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9FAFB', borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 12, paddingHorizontal: 12 },
     inputIcon: { marginRight: 10 },
     input: { flex: 1, height: 48, fontSize: 15, color: '#1F2937' },
     bioInput: { height: 100, paddingTop: 12 },
+    notesInput: { height: 82, paddingTop: 12 },
     errorText: { color: '#EF4444', fontSize: 12, marginTop: -8, marginBottom: 10, marginLeft: 4 },
     submitButtonContainer: { marginTop: 20, height: 50, borderRadius: 12, overflow: 'hidden', shadowColor: '#0072FF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 5 },
     gradientBtn: { flex: 1, justifyContent: 'center', alignItems: 'center' },

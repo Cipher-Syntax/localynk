@@ -1,6 +1,6 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { 
-    View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, RefreshControl } from 'react-native';
+    View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, RefreshControl, TextInput, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient'; 
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -9,23 +9,100 @@ import api from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
 import ScreenSafeArea from '../../components/ScreenSafeArea';
 
+const DEFAULT_SERVER_FILTERS = {
+    statusFilter: 'all',
+    dateRangeFilter: 'all',
+    sortBy: 'latest',
+    minAmount: '',
+    maxAmount: '',
+};
+
 const Earnings = () => {
     useAuth();
     const router = useRouter();
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState(DEFAULT_SERVER_FILTERS.statusFilter);
+    const [dateRangeFilter, setDateRangeFilter] = useState(DEFAULT_SERVER_FILTERS.dateRangeFilter);
+    const [sortBy, setSortBy] = useState(DEFAULT_SERVER_FILTERS.sortBy);
+    const [minAmount, setMinAmount] = useState(DEFAULT_SERVER_FILTERS.minAmount);
+    const [maxAmount, setMaxAmount] = useState(DEFAULT_SERVER_FILTERS.maxAmount);
+    const [appliedFilters, setAppliedFilters] = useState(DEFAULT_SERVER_FILTERS);
+    const filtersRef = useRef(DEFAULT_SERVER_FILTERS);
     
     // Stats
     const [totalEarnings, setTotalEarnings] = useState(0);
     const [pendingPayout, setPendingPayout] = useState(0);
     const [settledPayout, setSettledPayout] = useState(0);
 
-    const fetchEarningsData = useCallback(async () => {
+    const getDateRangeStart = (range) => {
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        const start = new Date(now);
+
+        if (range === '7d') start.setDate(now.getDate() - 7);
+        if (range === '30d') start.setDate(now.getDate() - 30);
+        if (range === '90d') start.setDate(now.getDate() - 90);
+
+        return start.toISOString().split('T')[0];
+    };
+
+    const hasPendingFilterChanges = useMemo(() => {
+        const normalize = (value) => String(value || '').trim();
+        return (
+            statusFilter !== appliedFilters.statusFilter
+            || dateRangeFilter !== appliedFilters.dateRangeFilter
+            || sortBy !== appliedFilters.sortBy
+            || normalize(minAmount) !== normalize(appliedFilters.minAmount)
+            || normalize(maxAmount) !== normalize(appliedFilters.maxAmount)
+        );
+    }, [appliedFilters, dateRangeFilter, maxAmount, minAmount, sortBy, statusFilter]);
+
+    const fetchEarningsData = useCallback(async (filters = {}, options = {}) => {
+        const { showLoader = false, showRefresh = false } = options;
+
+        if (showLoader) setLoading(true);
+        if (showRefresh) setRefreshing(true);
+
         try {
-            // Fetch bookings specifically for the guide view
-            const response = await api.get('/api/bookings/?view_as=guide');
-            const data = response.data || [];
+            // Fetch financial records for guide payouts with user-selected filters.
+            const {
+                statusFilter: selectedStatus = 'all',
+                dateRangeFilter: selectedDateRange = 'all',
+                sortBy: selectedSortBy = 'latest',
+                minAmount: selectedMinAmount = '',
+                maxAmount: selectedMaxAmount = '',
+            } = filters;
+
+            const params = {
+                view_as: 'guide',
+                financial_only: '1',
+                sort: selectedSortBy,
+            };
+
+            if (selectedStatus !== 'all') {
+                params.payout_status = selectedStatus;
+            }
+
+            if (selectedDateRange !== 'all') {
+                params.date_from = getDateRangeStart(selectedDateRange);
+                params.date_to = new Date().toISOString().split('T')[0];
+            }
+
+            const trimmedMinAmount = String(selectedMinAmount || '').trim();
+            const trimmedMaxAmount = String(selectedMaxAmount || '').trim();
+            if (trimmedMinAmount) {
+                params.min_amount = trimmedMinAmount;
+            }
+            if (trimmedMaxAmount) {
+                params.max_amount = trimmedMaxAmount;
+            }
+
+            const response = await api.get('/api/bookings/', { params });
+            const raw = response.data;
+            const data = Array.isArray(raw) ? raw : (Array.isArray(raw?.results) ? raw.results : []);
             
             setBookings(data);
             calculateStats(data);
@@ -36,6 +113,27 @@ const Earnings = () => {
             setRefreshing(false);
         }
     }, []);
+
+    const filteredBookings = useMemo(() => {
+        const query = String(searchTerm || '').trim().toLowerCase();
+        if (!query) return bookings;
+
+        return bookings.filter((item) => {
+            const touristName = [
+                String(item?.tourist_detail?.first_name || '').trim(),
+                String(item?.tourist_detail?.last_name || '').trim(),
+            ].filter(Boolean).join(' ').toLowerCase();
+
+            const destinationName = String(item?.destination_detail?.name || '').toLowerCase();
+            const accommodationTitle = String(item?.accommodation_detail?.title || '').toLowerCase();
+            const bookingId = String(item?.id || '');
+
+            return touristName.includes(query)
+                || destinationName.includes(query)
+                || accommodationTitle.includes(query)
+                || bookingId.includes(query);
+        });
+    }, [bookings, searchTerm]);
 
     const calculateStats = (data) => {
         let total = 0;
@@ -76,15 +174,42 @@ const Earnings = () => {
         setSettledPayout(settled);
     };
 
-    useFocusEffect(useCallback(() => { 
-        setLoading(true); 
-        fetchEarningsData(); 
+    useFocusEffect(useCallback(() => {
+        fetchEarningsData(filtersRef.current, { showLoader: true });
     }, [fetchEarningsData]));
 
     const onRefresh = useCallback(() => { 
-        setRefreshing(true); 
-        fetchEarningsData(); 
+        fetchEarningsData(filtersRef.current, { showRefresh: true }); 
     }, [fetchEarningsData]);
+
+    const handleApplyFilters = () => {
+        const selectedFilters = {
+            statusFilter,
+            dateRangeFilter,
+            sortBy,
+            minAmount: String(minAmount || '').trim(),
+            maxAmount: String(maxAmount || '').trim(),
+        };
+        setMinAmount(selectedFilters.minAmount);
+        setMaxAmount(selectedFilters.maxAmount);
+        setAppliedFilters(selectedFilters);
+        filtersRef.current = selectedFilters;
+        fetchEarningsData(selectedFilters, { showRefresh: true });
+    };
+
+    const handleResetFilters = () => {
+        const defaults = { ...DEFAULT_SERVER_FILTERS };
+
+        setSearchTerm('');
+        setStatusFilter(defaults.statusFilter);
+        setDateRangeFilter(defaults.dateRangeFilter);
+        setSortBy(defaults.sortBy);
+        setMinAmount(defaults.minAmount);
+        setMaxAmount(defaults.maxAmount);
+        setAppliedFilters(defaults);
+        filtersRef.current = defaults;
+        fetchEarningsData(defaults, { showRefresh: true });
+    };
 
     const renderPayoutItem = ({ item }) => {
         // Skip bookings that aren't financially relevant (e.g. Cancelled/Declined or no downpayment)
@@ -104,8 +229,16 @@ const Earnings = () => {
         if (payoutAmount <= 0) return null;
 
         const isSettled = item.is_payout_settled;
-        const touristName = item.tourist_username || "Guest";
-        const date = new Date(item.created_at).toLocaleDateString();
+        const touristName = [
+            String(item?.tourist_detail?.first_name || '').trim(),
+            String(item?.tourist_detail?.last_name || '').trim(),
+        ].filter(Boolean).join(' ') || 'Guest';
+        const createdAt = item.created_at ? new Date(item.created_at) : null;
+        const date = createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt.toLocaleDateString() : 'N/A';
+        const settledAt = item.payout_settled_at ? new Date(item.payout_settled_at) : null;
+        const settledAtText = settledAt && !Number.isNaN(settledAt.getTime()) ? settledAt.toLocaleString() : null;
+        const payoutChannel = item.payout_channel || null;
+        const payoutReference = String(item.payout_reference_id || '').trim();
 
         return (
             <View style={styles.transactionCard}>
@@ -151,6 +284,14 @@ const Earnings = () => {
                         <Text style={styles.netPayoutLabel}>Net Payout ({isSettled ? "Received" : "Incoming"})</Text>
                         <Text style={styles.netPayoutValue}>+ ₱{payoutAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
                     </View>
+
+                    {isSettled && (payoutChannel || payoutReference || settledAtText) && (
+                        <View style={styles.payoutMetaBox}>
+                            {!!payoutChannel && <Text style={styles.payoutMetaText}>Channel: {payoutChannel}</Text>}
+                            {!!payoutReference && <Text style={styles.payoutMetaText}>Reference: {payoutReference}</Text>}
+                            {!!settledAtText && <Text style={styles.payoutMetaText}>Settled At: {settledAtText}</Text>}
+                        </View>
+                    )}
                 </View>
             </View>
         );
@@ -177,13 +318,15 @@ const Earnings = () => {
             </View>
 
             <FlatList
-                data={bookings}
+                data={filteredBookings}
                 renderItem={renderPayoutItem}
                 keyExtractor={(item) => item.id.toString()}
                 contentContainerStyle={styles.listContent}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#00A8FF"]} />}
                 ListHeaderComponent={
                     <View style={styles.dashboardContainer}>
+                        
+
                         {/* Total Balance Card */}
                         <LinearGradient
                             colors={['#00A8FF', '#0072FF']}
@@ -215,6 +358,117 @@ const Earnings = () => {
                             </View>
                         </View>
 
+                        <View style={styles.filterCard}>
+                            <Text style={styles.filterCardTitle}>Quick Filters</Text>
+                            {hasPendingFilterChanges && (
+                                <View style={styles.pendingChangesBadge}>
+                                    <Ionicons name="alert-circle" size={12} color="#92400E" />
+                                    <Text style={styles.pendingChangesText}>Changes not applied</Text>
+                                </View>
+                            )}
+                            <TextInput
+                                style={styles.searchInput}
+                                placeholder="Search by tourist, destination, or booking ID"
+                                placeholderTextColor="#94A3B8"
+                                value={searchTerm}
+                                onChangeText={setSearchTerm}
+                            />
+
+                            <Text style={styles.filterLabel}>Payout Status</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                                {[
+                                    { key: 'all', label: 'All' },
+                                    { key: 'pending', label: 'Pending' },
+                                    { key: 'settled', label: 'Settled' },
+                                ].map((option) => (
+                                    <TouchableOpacity
+                                        key={option.key}
+                                        onPress={() => setStatusFilter(option.key)}
+                                        style={[styles.filterChip, statusFilter === option.key && styles.filterChipActive]}
+                                    >
+                                        <Text style={[styles.filterChipText, statusFilter === option.key && styles.filterChipTextActive]}>{option.label}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+
+                            <Text style={styles.filterLabel}>Date Range</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                                {[
+                                    { key: 'all', label: 'All Time' },
+                                    { key: '7d', label: 'Last 7 Days' },
+                                    { key: '30d', label: 'Last 30 Days' },
+                                    { key: '90d', label: 'Last 90 Days' },
+                                ].map((option) => (
+                                    <TouchableOpacity
+                                        key={option.key}
+                                        onPress={() => setDateRangeFilter(option.key)}
+                                        style={[styles.filterChip, dateRangeFilter === option.key && styles.filterChipActive]}
+                                    >
+                                        <Text style={[styles.filterChipText, dateRangeFilter === option.key && styles.filterChipTextActive]}>{option.label}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+
+                            <Text style={styles.filterLabel}>Sort</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                                {[
+                                    { key: 'latest', label: 'Latest' },
+                                    { key: 'oldest', label: 'Oldest' },
+                                    { key: 'amount_desc', label: 'Highest Amount' },
+                                    { key: 'amount_asc', label: 'Lowest Amount' },
+                                ].map((option) => (
+                                    <TouchableOpacity
+                                        key={option.key}
+                                        onPress={() => setSortBy(option.key)}
+                                        style={[styles.filterChip, sortBy === option.key && styles.filterChipActive]}
+                                    >
+                                        <Text style={[styles.filterChipText, sortBy === option.key && styles.filterChipTextActive]}>{option.label}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+
+                            <Text style={styles.filterLabel}>Payout Amount Range</Text>
+                            <View style={styles.amountRow}>
+                                <TextInput
+                                    style={[styles.searchInput, styles.amountInput]}
+                                    placeholder="Min amount"
+                                    placeholderTextColor="#94A3B8"
+                                    keyboardType="numeric"
+                                    value={minAmount}
+                                    onChangeText={setMinAmount}
+                                />
+                                <TextInput
+                                    style={[styles.searchInput, styles.amountInput]}
+                                    placeholder="Max amount"
+                                    placeholderTextColor="#94A3B8"
+                                    keyboardType="numeric"
+                                    value={maxAmount}
+                                    onChangeText={setMaxAmount}
+                                />
+                            </View>
+
+                            <View style={styles.filterActionsRow}>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.applyFiltersButton,
+                                        (!hasPendingFilterChanges || refreshing) && styles.applyFiltersButtonDisabled,
+                                    ]}
+                                    onPress={handleApplyFilters}
+                                    disabled={refreshing || !hasPendingFilterChanges}
+                                >
+                                    <Text style={styles.applyFiltersText}>{hasPendingFilterChanges ? 'Apply Filters' : 'Applied'}</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.clearFiltersButton}
+                                    onPress={handleResetFilters}
+                                    disabled={refreshing}
+                                >
+                                    <Text style={styles.clearFiltersText}>Reset Filters</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
                         <Text style={styles.sectionTitle}>Transaction History</Text>
                         <Text style={styles.sectionDesc}>Payouts from down payments collected by the app.</Text>
                     </View>
@@ -222,7 +476,7 @@ const Earnings = () => {
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Ionicons name="receipt-outline" size={48} color="#CBD5E1" />
-                        <Text style={styles.emptyText}>No transactions yet.</Text>
+                        <Text style={styles.emptyText}>{String(searchTerm || '').trim() ? 'No matching transactions found.' : 'No transactions yet.'}</Text>
                     </View>
                 }
             />
@@ -242,6 +496,26 @@ const styles = StyleSheet.create({
 
     listContent: { paddingBottom: 40 },
     dashboardContainer: { padding: 20 },
+
+    filterCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: '#E2E8F0' },
+    filterCardTitle: { fontSize: 14, fontWeight: '700', color: '#0F172A', marginBottom: 10 },
+    pendingChangesBadge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 6, backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#FCD34D', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, marginBottom: 10 },
+    pendingChangesText: { fontSize: 11, fontWeight: '700', color: '#92400E' },
+    searchInput: { borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 13, color: '#0F172A', marginBottom: 10, backgroundColor: '#F8FAFC' },
+    filterLabel: { fontSize: 12, fontWeight: '700', color: '#475569', textTransform: 'uppercase', marginBottom: 8, marginTop: 6 },
+    chipRow: { flexDirection: 'row', gap: 8, paddingBottom: 2 },
+    amountRow: { flexDirection: 'row', gap: 8 },
+    amountInput: { flex: 1, marginBottom: 0 },
+    filterChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#E2E8F0' },
+    filterChipActive: { backgroundColor: '#DBEAFE', borderColor: '#93C5FD' },
+    filterChipText: { fontSize: 12, fontWeight: '600', color: '#475569' },
+    filterChipTextActive: { color: '#1D4ED8' },
+    filterActionsRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
+    applyFiltersButton: { alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, backgroundColor: '#1D4ED8' },
+    applyFiltersButtonDisabled: { backgroundColor: '#93C5FD' },
+    applyFiltersText: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
+    clearFiltersButton: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8, backgroundColor: '#EFF6FF' },
+    clearFiltersText: { fontSize: 12, fontWeight: '700', color: '#1D4ED8' },
 
     totalCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderRadius: 20, marginBottom: 20, shadowColor: '#0072FF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
     totalLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 14, fontWeight: '600', marginBottom: 4 },
@@ -286,6 +560,8 @@ const styles = StyleSheet.create({
     netPayoutRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
     netPayoutLabel: { fontSize: 13, color: '#00A8FF', fontWeight: '700', textTransform: 'uppercase' },
     netPayoutValue: { fontSize: 16, color: '#00A8FF', fontWeight: '800' },
+    payoutMetaBox: { marginTop: 8, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 },
+    payoutMetaText: { fontSize: 11, color: '#475569', fontWeight: '600', marginBottom: 2 },
 
     emptyContainer: { alignItems: 'center', marginTop: 40, opacity: 0.5 },
     emptyText: { marginTop: 10, fontSize: 14, color: '#64748B' }
