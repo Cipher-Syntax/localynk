@@ -243,7 +243,9 @@ const IsTourist = () => {
 
     const upcomingBookings = tripCounts.upcoming;
     const completedBookings = tripCounts.completed;
-    const ratingValue = user?.average_rating ? parseFloat(user.average_rating).toFixed(1) : "0.0";
+    const rawGuideRating = user?.guide_rating ?? user?.average_rating;
+    const parsedGuideRating = Number.parseFloat(rawGuideRating);
+    const ratingValue = Number.isFinite(parsedGuideRating) ? parsedGuideRating.toFixed(1) : "0.0";
 
     const filteredTrips = useMemo(() => {
         const today = new Date();
