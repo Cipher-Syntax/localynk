@@ -197,9 +197,9 @@ const Favorites = () => {
     }
 
     return (
-        <View style={{ flex: 1 }}> 
+        <View style={{ flex: 1}}> 
             <ScrollView style={styles.container}>
-                
+
                 <View style={styles.header}>
                     <Image
                         source={require('../../assets/localynk_images/header.png')}

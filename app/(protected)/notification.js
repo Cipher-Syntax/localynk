@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { View } from "react-native";
 import { Notifications } from "../../components/notifications";
-import { SafeAreaView } from "react-native-safe-area-context";
+import ScreenSafeArea from "../../components/ScreenSafeArea";
 
 export default function Notification() {
     const [loading, setLoading] = useState(true);
@@ -30,8 +30,8 @@ export default function Notification() {
         );
     }
     return (
-        <SafeAreaView edges={['bottom']} style={{ flex: 1 }}>
+        <ScreenSafeArea statusBarStyle="light-content" edges={['bottom']} style={{ flex: 1 }}>
             <Notifications />
-        </SafeAreaView>
+        </ScreenSafeArea>
     );
 }

@@ -5,8 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { User } from 'lucide-react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { PaymentReviewModal } from '../../components/payment';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatPHPhoneLocal } from '../../utils/phoneNumber';
+import ScreenSafeArea from '../../components/ScreenSafeArea';
 
 const fetchBookingDetails = async (bookingId) => {
     console.log("Fetching data for booking:", bookingId);
@@ -84,7 +84,7 @@ const CompletePayment = () => {
 
     return (
         <ScrollView style={styles.container}>
-            <SafeAreaView edges={['bottom']}>
+            <ScreenSafeArea edges={['bottom', 'top']} statusBarStyle='dark-content'>
 
                 <View style={styles.header}>
                     <Image
@@ -205,7 +205,7 @@ const CompletePayment = () => {
                         }} 
                     />
                 )}
-            </SafeAreaView>
+            </ScreenSafeArea>
         </ScrollView>
     );
 };

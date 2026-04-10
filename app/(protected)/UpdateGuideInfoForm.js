@@ -2,15 +2,15 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Keyboard, Modal } from 'react-native';
 import api from '../../api/api'; 
 import { Calendar } from 'react-native-calendars';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import ScreenSafeArea from '../../components/ScreenSafeArea';
 
 const UpdateGuideInfoForm = () => {
     const router = useRouter();
     const { user, isLoading: authLoading, refreshUser } = useAuth();
-    const insets = useSafeAreaInsets(); 
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     // Dynamic Specialty Options
@@ -214,7 +214,7 @@ const UpdateGuideInfoForm = () => {
     }
 
     return (
-        <SafeAreaView style={styles.safeArea} edges={['bottom']}>
+        <ScreenSafeArea style={styles.safeArea} edges={['bottom', 'top']}>
             <View style={styles.headerContainer}>
                 <TouchableOpacity onPress={handleCancel} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color="#1F2937" />
@@ -357,7 +357,7 @@ const UpdateGuideInfoForm = () => {
                 </ScrollView>
             </KeyboardAvoidingView>
 
-            <View style={[styles.footer, { paddingBottom: insets.bottom > 0 ? insets.bottom : 20 }]}>
+            <ScreenSafeArea style={[styles.footer]}>
                 <TouchableOpacity 
                     style={styles.cancelButton} 
                     onPress={handleCancel}
@@ -377,7 +377,7 @@ const UpdateGuideInfoForm = () => {
                         <Text style={styles.saveButtonText}>Save Changes</Text>
                     )}
                 </TouchableOpacity>
-            </View>
+            </ScreenSafeArea>
 
             {/* Specialty Selection Modal */}
             <Modal
@@ -432,7 +432,7 @@ const UpdateGuideInfoForm = () => {
                     <Text style={styles.toastText}>{toast.message}</Text>
                 </View>
             )}
-        </SafeAreaView>
+        </ScreenSafeArea>
     );
 };
 
@@ -595,6 +595,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         paddingHorizontal: 20,
         paddingTop: 15,
+        paddingBottom: 15,
         flexDirection: 'row',
         gap: 15,
         borderTopWidth: 1,

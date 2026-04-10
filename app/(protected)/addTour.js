@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import api from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
+import ScreenSafeArea from '../../components/ScreenSafeArea';
 
 const { width } = Dimensions.get('window');
 
@@ -583,7 +584,7 @@ const AddTour = () => {
 
     return (
         <View style={styles.container}>
-            <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+            <ScreenSafeArea style={{ flex: 1 }} edges={['top', 'bottom']}>
                 
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -632,7 +633,7 @@ const AddTour = () => {
                     </View>
                 )}
 
-            </SafeAreaView>
+            </ScreenSafeArea>
 
             {/* Destination Selection Modal */}
             <Modal visible={destModalVisible} animationType="slide" transparent={true}>

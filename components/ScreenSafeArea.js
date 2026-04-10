@@ -5,7 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 const ScreenSafeArea = ({
     children,
     style,
-    edges = ["bottom"],
+    edges = ["bottom",],
     showStatusBar = true,
     statusBarStyle = "dark-content",
     statusBarBackgroundColor = "transparent",

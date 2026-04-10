@@ -4,10 +4,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import { User, Calendar as CalendarIcon, Map, Star, Bed, CheckCircle } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router'; 
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar } from 'react-native-calendars';
 import api from '../../api/api';
 import StopDetailsModal from '../../components/itinerary/StopDetailsModal';
+import ScreenSafeArea from '../../components/ScreenSafeArea';
 
 const TouristGuideDetails = () => {
     const [guide, setGuide] = useState(null);
@@ -236,7 +236,7 @@ const TouristGuideDetails = () => {
 
     return (
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-            <SafeAreaView edges={['bottom']} style={{backgroundColor: '#fff'}}>
+            <ScreenSafeArea statusBarStyle='light-cotnent' edges={['bottom']} style={{backgroundColor: '#fff'}}>
                 
                 <View style={styles.header}>
                     <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} />
@@ -472,7 +472,7 @@ const TouristGuideDetails = () => {
                     accommodationCatalog={accommodations}
                     getImageUrl={getImageUrl}
                 />
-            </SafeAreaView>
+            </ScreenSafeArea>
         </ScrollView>
     );
 };

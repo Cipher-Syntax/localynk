@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, TextInput, Modal } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, TextInput, Modal, StatusBar } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,6 +34,17 @@ const ConversationList = () => {
     const [selectedConversation, setSelectedConversation] = useState(null);
     const [menuVisible, setMenuVisible] = useState(false);
     const router = useRouter();
+
+    const handleGoBack = useCallback(() => {
+        if (typeof router.canGoBack === 'function' && router.canGoBack()) {
+            router.back();
+            return;
+        }
+        router.replace('/(protected)/home');
+    }, [router]);
+
+    const statusBarStyle = menuVisible ? 'light-content' : 'dark-content';
+    const statusBarBackgroundColor = menuVisible ? '#0F172A' : '#FFFFFF';
 
     const fetchConversations = useCallback(async () => {
         try {
@@ -221,7 +232,7 @@ const ConversationList = () => {
 
     if (loading) {
         return (
-            <SafeAreaView edges={['bottom']} style={{ flex: 1, backgroundColor: '#fff' }}>
+            <SafeAreaView edges={['bottom', 'top']} style={{ flex: 1, backgroundColor: '#fff' }}>
                 <View style={{ padding: 20, borderBottomWidth: 1, borderBottomColor: '#eee' }}>
                     <View style={{ width: 150, height: 28, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
                 </View>
@@ -236,10 +247,18 @@ const ConversationList = () => {
     }
 
     return (
-        <SafeAreaView edges={['bottom']} style={styles.container}>
+        <SafeAreaView edges={['bottom', 'top']} style={styles.container}>
+            <StatusBar barStyle={statusBarStyle} backgroundColor={statusBarBackgroundColor} translucent={false} />
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>Conversations</Text>
-                <Text style={styles.headerSubtitle}>{decoratedConversations.length} thread{decoratedConversations.length === 1 ? '' : 's'}</Text>
+                <View style={styles.headerTopRow}>
+                    <TouchableOpacity onPress={handleGoBack} style={styles.headerBackButton}>
+                        <Ionicons name="arrow-back" size={20} color="#0F172A" />
+                    </TouchableOpacity>
+                    <View style={styles.headerHeadingWrap}>
+                        <Text style={styles.headerTitle}>Conversations</Text>
+                        <Text style={styles.headerSubtitle}>{decoratedConversations.length} thread{decoratedConversations.length === 1 ? '' : 's'}</Text>
+                    </View>
+                </View>
                 <View style={styles.searchWrap}>
                     <Ionicons name="search" size={16} color="#64748B" />
                     <TextInput
@@ -359,12 +378,31 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: '#eee',
     },
+    headerTopRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    headerBackButton: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        backgroundColor: '#F8FAFC',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    headerHeadingWrap: {
+        flex: 1,
+    },
     headerTitle: {
         fontSize: 24,
         fontWeight: 'bold',
     },
     headerSubtitle: {
-        marginTop: 4,
+        marginTop: 2,
         color: '#64748B',
         fontSize: 12,
         fontWeight: '600',

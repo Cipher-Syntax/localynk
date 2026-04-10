@@ -3,11 +3,11 @@ import {
     View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient'; 
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 
 import api from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
+import ScreenSafeArea from '../../components/ScreenSafeArea';
 
 const Earnings = () => {
     useAuth();
@@ -165,7 +165,7 @@ const Earnings = () => {
     }
 
     return (
-        <SafeAreaView edges={['top']} style={styles.container}>
+        <ScreenSafeArea edges={['top', 'bottom']} style={styles.container}>
             
             {/* Header */}
             <View style={styles.header}>
@@ -226,7 +226,7 @@ const Earnings = () => {
                     </View>
                 }
             />
-        </SafeAreaView>
+        </ScreenSafeArea>
     );
 };
 

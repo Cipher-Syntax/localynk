@@ -3,13 +3,13 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Image,
 import { useForm, Controller } from 'react-hook-form';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../../context/AuthContext';
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import api from '../../../api/api';
 import Toast from '../../../components/Toast';
 import { formatPHPhoneLocal, normalizePHPhone } from '../../../utils/phoneNumber';
+import ScreenSafeArea from '../../../components/ScreenSafeArea';
 
 const EditProfile = () => {
     const { user, refreshUser } = useAuth(); 
@@ -107,7 +107,7 @@ const EditProfile = () => {
             style={{ flex: 1 }} 
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-            <SafeAreaView edges={['bottom']} style={{ flex: 1, backgroundColor: '#F9FAFB' }}>
+            <ScreenSafeArea edges={['bottom', 'top']} style={{ flex: 1, backgroundColor: '#F9FAFB' }}>
                 <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={() => setToast({ ...toast, visible: false })} />
                 <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
                     
@@ -268,7 +268,7 @@ const EditProfile = () => {
 
                     </View>
                 </ScrollView>
-            </SafeAreaView>
+            </ScreenSafeArea>
         </KeyboardAvoidingView>
     );
 }

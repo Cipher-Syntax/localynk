@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, RefreshControl, Modal, TextInput, KeyboardAvoidingView, Platform, Alert, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
@@ -10,6 +9,7 @@ import api from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
 import Toast from '../../components/Toast';
 import ConfirmationModal from '../../components/ConfirmationModal';
+import ScreenSafeArea from '../../components/ScreenSafeArea';
 
 const { width } = Dimensions.get('window');
 
@@ -398,7 +398,7 @@ const MyTourPackages = () => {
     const filteredTimeline = timeline.filter(r => r.day === currentDayTab || (!r.day && currentDayTab === 1));
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
+        <ScreenSafeArea style={styles.container} edges={['top']}>
             <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={() => setToast({ ...toast, visible: false })} />
             <ConfirmationModal visible={confirmModal.visible} title="Remove Destination" description={`Are you sure you want to delete all your tour packages for ${confirmModal.destName}?`} confirmText="Delete" onConfirm={executeDelete} onCancel={() => setConfirmModal({ visible: false, destId: null, destName: '' })} />
             
@@ -602,7 +602,7 @@ const MyTourPackages = () => {
                 </TouchableOpacity>
             </Modal>
 
-        </SafeAreaView>
+        </ScreenSafeArea>
     );
 };
 

@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import ScreenSafeArea from '../../components/ScreenSafeArea';
 
 const BookingChoice = () => {
     const router = useRouter();
@@ -99,7 +99,7 @@ const BookingChoice = () => {
     );
 
     return (
-        <SafeAreaView edges={['bottom']} style={styles.fullContainer}>
+        <ScreenSafeArea edges={['bottom']} statusBarStyle='light-content' style={styles.fullContainer}>
 
             <ScrollView 
                 style={styles.container} 
@@ -190,7 +190,7 @@ const BookingChoice = () => {
                     <Text style={styles.trustText}>Trusted by 10K+ travelers</Text>
                 </View>
             </ScrollView>
-        </SafeAreaView>
+        </ScreenSafeArea>
     );
 };
 

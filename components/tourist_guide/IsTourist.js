@@ -258,6 +258,8 @@ const IsTourist = () => {
         });
     }, [bookings, tripFilter]);
 
+    console.log(filteredTrips)
+
     const statsData = [
         { label: "Total Trips", value: totalBookings.toString(), icon: "stats-chart", color: "#00C6FF", subtext: "All time" },
         { label: "Upcoming", value: upcomingBookings.toString(), icon: "calendar", color: "#00E676", subtext: "Locked dates" },
@@ -388,7 +390,10 @@ const IsTourist = () => {
                         <View style={styles.tripCardsColumn}>
                         {filteredTrips.slice(0, 2).map((booking) => {
                             const statusStyle = getStatusStyles(booking.status);
-                            const touristDisplayName = normalizeDisplayName(booking.tourist_username, 'Unknown User');
+                            const touristDisplayName = normalizeDisplayName(
+                                `${booking.tourist_detail?.first_name || ''} ${booking.tourist_detail?.last_name || ''}`.trim(),
+                                'Unknown User'
+                            );
                             return (
                                 <View key={booking.id} style={styles.bookingCardWhite}>
                                     <View style={styles.cardHeaderWhite}>

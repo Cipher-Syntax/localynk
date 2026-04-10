@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, Image, TouchableOpacity, Pressable, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import FeePaymentReviewModal from '../../components/payment/FeePaymentReviewModal'; 
 import { useAuth } from '../../context/AuthContext'; 
 import Toast from '../../components/Toast';
 import { formatPHPhoneLocal, normalizePHPhone } from '../../utils/phoneNumber';
+import ScreenSafeArea from '../../components/ScreenSafeArea';
 
 const REGISTRATION_FEE_DETAILS = {
     amount: 500.00,
@@ -57,7 +57,7 @@ const CompleteRegistrationFee = () => {
 
     return (
         <ScrollView style={styles.container}>
-            <SafeAreaView edges={['bottom']}>
+            <ScreenSafeArea edges={['bottom', 'top']}>
                 <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={() => setToast({ ...toast, visible: false })} />
 
                 <View style={styles.header}>
@@ -143,7 +143,7 @@ const CompleteRegistrationFee = () => {
                         }}
                     />
                 )}
-            </SafeAreaView>
+            </ScreenSafeArea>
         </ScrollView>
     );
 };

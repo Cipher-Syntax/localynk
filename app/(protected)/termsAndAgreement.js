@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { ScrollView, View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import RegisterModalForm from '../../components/tourist_guide/RegisterOpenModalForm';
 import IsTourist from '../../components/tourist_guide/IsTourist';
+import ScreenSafeArea from '../../components/ScreenSafeArea';
 
 const TermsAndAgreement = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -33,7 +33,7 @@ const TermsAndAgreement = () => {
     };
 
     return (
-        <SafeAreaView edges={['bottom']} style={styles.safeArea}>
+        <ScreenSafeArea edges={['bottom']} style={styles.safeArea}>
             <ScrollView style={styles.container}>
                 <View style={styles.header}>
                     <Image
@@ -118,7 +118,7 @@ const TermsAndAgreement = () => {
                 setIsOpenModal={setIsModalOpen}
                 onSubmit={handleFormSubmit}
             />
-        </SafeAreaView>
+        </ScreenSafeArea>
     );
 };
 

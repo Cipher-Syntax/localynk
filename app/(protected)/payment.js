@@ -14,6 +14,7 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../api/api';
 import { formatPHPhoneLocal, normalizePHPhone } from '../../utils/phoneNumber';
 import { buildPricingBreakdown } from '../../utils/pricingBreakdown';
+import ScreenSafeArea from '../../components/ScreenSafeArea';
 
 const PRIMARY_COLOR = '#0072FF';
 const SURFACE_COLOR = '#FFFFFF';
@@ -1252,7 +1253,7 @@ const Payment = () => {
 
     return (
         <View style={{ flex: 1, backgroundColor: BACKGROUND_COLOR }}>
-            <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
+            <ScreenSafeArea statusBarStyle='light-content' style={{ flex: 1 }} edges={['bottom']}>
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
                     <ScrollView style={styles.container} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
                         
@@ -1881,7 +1882,7 @@ const Payment = () => {
                         }}
                     />
                 )}
-            </SafeAreaView>
+            </ScreenSafeArea>
         </View>
     );
 };

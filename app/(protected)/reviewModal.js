@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, StatusBar } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../api/api';
@@ -35,6 +35,14 @@ const ReviewModal = () => {
     const [destinationRating, setDestinationRating] = useState(0);
     const [destinationComment, setDestinationComment] = useState('');
     const [toast, setToast] = useState({ visible: false, message: '', type: 'error' });
+
+    const handleBackPress = () => {
+        if (typeof router.canGoBack === 'function' && router.canGoBack()) {
+            router.back();
+            return;
+        }
+        router.replace('/(protected)/bookings');
+    };
 
     useEffect(() => {
         const fetchBookingDetails = async () => {
@@ -125,7 +133,6 @@ const ReviewModal = () => {
             }
             
             setToast({ visible: true, message: errorMessage, type: 'error' });
-            // ----------------------------------------------------------------------------------
 
         } finally {
             setSubmitting(false);
@@ -136,24 +143,40 @@ const ReviewModal = () => {
 
 
     if (loading) {
-        return <ActivityIndicator style={styles.centered} size="large" />;
+        return (
+            <SafeAreaView edges={['bottom', 'top']} style={styles.safeArea}>
+                <StatusBar barStyle="dark-content" backgroundColor="#F7F7F7" translucent={false} />
+                <View style={[styles.header, styles.loadingHeader]}>
+                    <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
+                        <Ionicons name="arrow-back" size={22} color="#111827" />
+                    </TouchableOpacity>
+                    <Text style={styles.title}>Leave a Review</Text>
+                    <View style={styles.closeButton} />
+                </View>
+                <ActivityIndicator style={styles.centered} size="large" />
+            </SafeAreaView>
+        );
     }
 
     return (
-        <SafeAreaView edges={['bottom']} style={styles.safeArea}>
+        <SafeAreaView edges={['bottom', 'top']} style={styles.safeArea}>
+            <StatusBar barStyle="dark-content" backgroundColor="#F7F7F7" translucent={false} />
             <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={() => setToast({ ...toast, visible: false })} />
             <ScrollView contentContainerStyle={styles.container}>
                 <View style={styles.header}>
+                    <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
+                        <Ionicons name="arrow-back" size={22} color="#111827" />
+                    </TouchableOpacity>
                     <Text style={styles.title}>Leave a Review</Text>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.closeButton}>
-                        <Ionicons name="close-circle" size={28} color="#C0C0C0" />
+                    <TouchableOpacity onPress={handleBackPress} style={styles.closeButton}>
+                        <Ionicons name="close" size={22} color="#9CA3AF" />
                     </TouchableOpacity>
                 </View>
 
                 {booking?.guide && (
                     <View style={styles.reviewSection}>
                         <Text style={styles.sectionTitle}>Review Your Guide</Text>
-                        <Text style={styles.sectionSubtitle}>{booking.guide_detail?.username || 'Guide'}</Text>
+                        <Text style={styles.sectionSubtitle}>{booking.guide_detail?.first_name + ' ' + booking.guide_detail?.last_name || 'Guide'}</Text>
                         <StarRating rating={guideRating} onRate={setGuideRating} />
                         <TextInput
                             style={styles.textInput}
@@ -212,8 +235,28 @@ const styles = StyleSheet.create({
     container: { padding: 20 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-    title: { fontSize: 24, fontWeight: 'bold' },
-    closeButton: { padding: 5 },
+    loadingHeader: { paddingHorizontal: 20, paddingTop: 20, marginBottom: 0 },
+    title: { flex: 1, textAlign: 'center', fontSize: 24, fontWeight: 'bold', color: '#111827' },
+    backButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        backgroundColor: '#FFFFFF',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    closeButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        backgroundColor: '#FFFFFF',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     reviewSection: { backgroundColor: '#fff', borderRadius: 10, padding: 15, marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2 },
     sectionTitle: { fontSize: 18, fontWeight: '600', marginBottom: 5 },
     sectionSubtitle: { fontSize: 16, color: '#666', marginBottom: 15 },

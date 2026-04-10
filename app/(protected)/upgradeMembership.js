@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import api from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
 import Toast from '../../components/Toast';
+import ScreenSafeArea from '../../components/ScreenSafeArea';
 
 const UpgradeMembership = () => {
     const [isLoading, setIsLoading] = useState(false);
@@ -139,7 +140,7 @@ const UpgradeMembership = () => {
 
     if (showConfirmation) {
         return (
-            <SafeAreaView edges={['bottom']} style={styles.container}>
+            <ScreenSafeArea edges={['bottom']} style={styles.container}>
                 <LinearGradient
                     colors={['#FFFFFF', '#F9FAFB']}
                     style={styles.gradientBackground}
@@ -158,7 +159,7 @@ const UpgradeMembership = () => {
                         </TouchableOpacity>
                     </View>
                 </LinearGradient>
-            </SafeAreaView>
+            </ScreenSafeArea>
         );
     }
 

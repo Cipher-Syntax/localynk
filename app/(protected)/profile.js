@@ -10,6 +10,7 @@ import { Calendar } from 'react-native-calendars';
 import StopDetailsModal from '../../components/itinerary/StopDetailsModal';
 
 import { useAuth } from '../../context/AuthContext'; 
+import ScreenSafeArea from '../../components/ScreenSafeArea';
 
 const GuideProfile = () => {
     const { user } = useAuth(); 
@@ -229,7 +230,7 @@ const GuideProfile = () => {
 
     return (
         <ScrollView style={styles.container}>
-            <SafeAreaView edges={['bottom']}>
+            <ScreenSafeArea statusBarStyle='light-content' edges={['bottom']}>
                 
                 <View style={styles.header}>
                     <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} />
@@ -516,7 +517,7 @@ const GuideProfile = () => {
                     accommodationCatalog={accommodations}
                     getImageUrl={getImageUrl}
                 />
-            </SafeAreaView>
+            </ScreenSafeArea>
         </ScrollView>
     );
 };

@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Map, Calendar as CalendarIcon, CheckCircle, Bed, ArrowRight, User } from "lucide-react-native";
 import api from '../../api/api';
 import StopDetailsModal from '../../components/itinerary/StopDetailsModal';
+import ScreenSafeArea from '../../components/ScreenSafeArea';
 
 const GuideAvailability = () => {
     const router = useRouter();
@@ -188,7 +189,7 @@ const GuideAvailability = () => {
     if (!guide) return <View style={styles.container}><Text>No Data</Text></View>;
 
     return (
-        <SafeAreaView edges={['bottom']} style={styles.container}>
+        <ScreenSafeArea edges={['bottom']} style={styles.container}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
                     <Ionicons name="arrow-back" size={24} color="#333" />
@@ -368,7 +369,7 @@ const GuideAvailability = () => {
                 accommodationCatalog={accommodations}
                 getImageUrl={getImageUrl}
             />
-        </SafeAreaView>
+        </ScreenSafeArea>
     );
 };
 

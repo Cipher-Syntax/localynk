@@ -40,10 +40,13 @@ export default function PlacesDetails() {
                 // Note: Ensure your backend filters by destination, otherwise we filter client-side if needed
                 const reviewsResponse = await api.get(`/api/destination_reviews/?destination=${id}`);
                 const allReviews = Array.isArray(reviewsResponse.data) ? reviewsResponse.data : reviewsResponse.data.results || [];
+
                 
                 // If backend doesn't support ?destination=ID filtering directly yet, filter here:
                 const filteredReviews = allReviews.filter(r => r.destination === parseInt(id));
                 setReviews(filteredReviews);
+
+                console.log(filteredReviews)
 
             } catch (error) {
                 console.error("Error fetching data:", error);

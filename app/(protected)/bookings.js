@@ -17,6 +17,7 @@ import {
     setSeenBookingTabTimestamp,
 } from '../../utils/bookingNotifications';
 import { buildPricingBreakdown } from '../../utils/pricingBreakdown';
+import ScreenSafeArea from '../../components/ScreenSafeArea';
 
 const REFUND_MIN_DAYS_BEFORE_CHECKIN = 3;
 
@@ -913,7 +914,7 @@ const MyBookings = () => {
     }
 
     return (
-        <SafeAreaView edges={['bottom']} style={styles.mainContainer}>
+        <ScreenSafeArea edges={['bottom', 'top']} style={styles.mainContainer}>
             <FlatList
                 data={groupedBookings}
                 renderItem={renderGroupItem}
@@ -1152,7 +1153,7 @@ const MyBookings = () => {
                     <Text style={styles.toastText}>{toast.message}</Text>
                 </Animated.View>
             )}
-        </SafeAreaView>
+        </ScreenSafeArea>
     );
 };
 

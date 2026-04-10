@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api/api';
+import ScreenSafeArea from '../../components/ScreenSafeArea';
 
 const StarDisplay = ({ rating, size = 16, color = '#FFD700' }) => (
     <View style={styles.starContainer}>
@@ -131,7 +132,7 @@ const MyReviews = () => {
 
     if (loading) {
         return (
-            <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+            <ScreenSafeArea edges={['top']} style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
                 <View style={{ paddingHorizontal: 20, paddingVertical: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F1F5F9' }}>
                      <View style={{ width: 120, height: 20, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
                 </View>
@@ -157,7 +158,7 @@ const MyReviews = () => {
                          </View>
                      ))}
                 </View>
-            </SafeAreaView>
+            </ScreenSafeArea>
         );
     }
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { View, Text, ScrollView, StyleSheet, Image, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, Keyboard } from "react-native";
+import { View, Text, ScrollView, StyleSheet, Image, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, Keyboard, StatusBar } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -7,6 +7,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import api from '../../api/api';
 import { useAuth } from "../../context/AuthContext";
 import Toast from '../../components/Toast';
+import ScreenSafeArea from "../../components/ScreenSafeArea";
 
 export default function Message() {
     const isIOS = Platform.OS === 'ios';
@@ -49,7 +50,14 @@ export default function Message() {
 
     const displayPartnerName = useMemo(() => normalizeDisplayName(partnerName, 'Conversation'), [partnerName]);
 
-    
+    const handleBackPress = React.useCallback(() => {
+        if (typeof router.canGoBack === 'function' && router.canGoBack()) {
+            router.back();
+            return;
+        }
+        router.replace('/(protected)/conversations');
+    }, [router]);
+
 
     const getImageUrl = (imgPath) => {
         if (!imgPath) return null;
@@ -211,12 +219,17 @@ export default function Message() {
     if (!normalizedPartnerId) {
         return (
             <SafeAreaView style={styles.container} edges={['bottom']}>
-                <View style={styles.header}>
-                    <Text style={styles.headerTitle}>Message</Text>
+                <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" translucent={false} />
+                <View style={styles.simpleHeader}>
+                    <TouchableOpacity onPress={handleBackPress} style={styles.simpleBackButton}>
+                        <Ionicons name="arrow-back" size={20} color="#0F172A" />
+                    </TouchableOpacity>
+                    <Text style={styles.simpleHeaderTitle}>Message</Text>
+                    <View style={styles.simpleHeaderSpacer} />
                 </View>
                 <View style={styles.loadingContainer}>
                     <Text>No conversation selected.</Text>
-                    <TouchableOpacity onPress={() => router.replace('/(protected)/conversations')}>
+                    <TouchableOpacity onPress={handleBackPress}>
                         <Text style={{color: 'blue', marginTop: 10}}>Go to conversations</Text>
                     </TouchableOpacity>
                 </View>
@@ -227,6 +240,14 @@ export default function Message() {
     if (loading) {
         return (
             <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['bottom']}>
+                <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" translucent={false} />
+                <View style={styles.simpleHeader}>
+                    <TouchableOpacity onPress={handleBackPress} style={styles.simpleBackButton}>
+                        <Ionicons name="arrow-back" size={20} color="#0F172A" />
+                    </TouchableOpacity>
+                    <Text style={styles.simpleHeaderTitle}>Message</Text>
+                    <View style={styles.simpleHeaderSpacer} />
+                </View>
                 <View style={{ height: 120, backgroundColor: '#E0E6ED', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 }} />
                 <View style={{ flexDirection: 'row', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: '#ddd' }}>
                      <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#E0E6ED', marginRight: 10 }} />
@@ -246,7 +267,7 @@ export default function Message() {
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={['left', 'right']}>
+        <ScreenSafeArea style={styles.container} statusBarStyle="light-content" edges={['left', 'right']}>
             <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={() => setToast({ ...toast, visible: false })} />
             {isIOS ? (
                 <KeyboardAvoidingView
@@ -264,6 +285,9 @@ export default function Message() {
                                 colors={["rgba(0,0,0,0.6)", "rgba(0,0,0,0.2)", "transparent"]}
                                 style={styles.overlay}
                             />
+                            <TouchableOpacity onPress={handleBackPress} style={styles.headerBackButton}>
+                                <Ionicons name="arrow-back" size={22} color="#fff" />
+                            </TouchableOpacity>
                             <Text style={styles.headerTitle}>Message</Text>
                         </View>
 
@@ -453,6 +477,9 @@ export default function Message() {
                         colors={["rgba(0,0,0,0.6)", "rgba(0,0,0,0.2)", "transparent"]}
                         style={styles.overlay}
                     />
+                    <TouchableOpacity onPress={handleBackPress} style={styles.headerBackButton}>
+                        <Ionicons name="arrow-back" size={22} color="#fff" />
+                    </TouchableOpacity>
                     <Text style={styles.headerTitle}>Message</Text>
                 </View>
 
@@ -631,17 +658,58 @@ export default function Message() {
                 </SafeAreaView>
                 </View>
             )}
-        </SafeAreaView>
+        </ScreenSafeArea>
     );
 }
 
 const styles = StyleSheet.create({
     loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" },
     container: { flex: 1, backgroundColor: "#fff" },
+    simpleHeader: {
+        height: 56,
+        paddingHorizontal: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#E5E7EB',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#fff',
+    },
+    simpleBackButton: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        backgroundColor: '#F8FAFC',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    simpleHeaderTitle: {
+        fontSize: 17,
+        fontWeight: '700',
+        color: '#0F172A',
+    },
+    simpleHeaderSpacer: {
+        width: 34,
+        height: 34,
+    },
     header: { position: "relative", height: 120, justifyContent: "center" },
     headerImage: { width: "100%", height: "100%", resizeMode: "cover", borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
-    headerTitle: { position: "absolute", bottom: 15, left: 20, color: "#fff", fontSize: 18, fontWeight: "700", letterSpacing: 1 },
+    headerBackButton: {
+        position: 'absolute',
+        top: 12,
+        left: 14,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: 'rgba(15, 23, 42, 0.45)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 3,
+    },
+    headerTitle: { position: "absolute", bottom: 15, left: 62, color: "#fff", fontSize: 18, fontWeight: "700", letterSpacing: 1 },
     guideInfo: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#fff", paddingVertical: 10, paddingHorizontal: 15, borderBottomWidth: 1, borderColor: "#ddd" },
     guideName: { fontSize: 14, fontWeight: "700", color: "#00051A" },
     headerAvatar: { width: 32, height: 32, borderRadius: 16, marginRight: 10, backgroundColor: '#eee' },

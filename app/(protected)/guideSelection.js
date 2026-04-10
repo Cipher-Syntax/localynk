@@ -7,6 +7,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
+import ScreenSafeArea from '../../components/ScreenSafeArea';
 
 const GuideSelection = () => {
     const { placeId, placeName } = useLocalSearchParams();
@@ -249,7 +250,7 @@ const GuideSelection = () => {
     
     if (loading) {
         return (
-            <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['bottom']}>
+            <ScreenSafeArea style={{ flex: 1, backgroundColor: '#fff' }} edges={['bottom']}>
                 <View style={{ height: 120, backgroundColor: '#E0E6ED', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 }} />
                 <View style={{ paddingHorizontal: 16, paddingVertical: 16, backgroundColor: '#F5F7FA', borderBottomWidth: 1, borderBottomColor: '#E0E6ED' }}>
                     <View style={{ width: 150, height: 20, backgroundColor: '#E0E6ED', borderRadius: 4, marginBottom: 8 }} />
@@ -275,7 +276,7 @@ const GuideSelection = () => {
                         </View>
                     ))}
                 </View>
-            </SafeAreaView>
+            </ScreenSafeArea>
         );
     }
 

@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../api/api';
 import { formatPHPhoneLocal } from '../../utils/phoneNumber';
+import ScreenSafeArea from '../../components/ScreenSafeArea';
 
 const DAY_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -499,7 +500,7 @@ const AgencySelection = () => {
     if (loading) {
         return (
             <View style={styles.container}>
-                <SafeAreaView edges={['bottom']} style={{ flex: 1 }}>
+                <ScreenSafeArea edges={['bottom', 'top']} style={{ flex: 1 }}>
                     <View style={styles.header}>
                         <View style={[styles.headerImage, { backgroundColor: '#E0E6ED', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 }]} />
                     </View>
@@ -530,7 +531,7 @@ const AgencySelection = () => {
                             </View>
                         ))}
                     </ScrollView>
-                </SafeAreaView>
+                </ScreenSafeArea>
             </View>
         );
     }

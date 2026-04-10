@@ -3,9 +3,10 @@ import {ScrollView,View,Text,Image,StyleSheet,TextInput,TouchableOpacity,Activit
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import api from '../../api/api';
+import ScreenSafeArea from '../../components/ScreenSafeArea';
 
 const { width } = Dimensions.get('window');
 
@@ -370,8 +371,7 @@ const AddAccommodation = () => {
 
     return (
         <View style={styles.container}>
-            <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
-                
+            <ScreenSafeArea style={{ flex: 1 }} edges={['bottom', 'top']}>
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                         <Ionicons name="arrow-back" size={24} color="#1F2937" />
@@ -435,7 +435,7 @@ const AddAccommodation = () => {
                     </View>
                 )}
 
-            </SafeAreaView>
+            </ScreenSafeArea>
         </View>
     );
 };

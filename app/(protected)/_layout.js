@@ -1,11 +1,12 @@
 import { Stack, useRouter, useSegments } from "expo-router";
-import { View, Text, ActivityIndicator, StyleSheet, StatusBar } from "react-native";
+import { View, Text, ActivityIndicator, StyleSheet, StatusBar, useColorScheme } from "react-native";
 import React, { useEffect } from 'react';
 import { useAuth } from "../../context/AuthContext"; 
 
 export default function ProtectedLayout() {
     const { isAuthenticated, isLoading, user, hasSkippedOnboarding } = useAuth();
     const router = useRouter();
+    const colorScheme = useColorScheme();
     // useSegments gives us an array of the path, e.g., ['(protected)', 'home']
     const segments = useSegments(); 
 
@@ -19,6 +20,8 @@ export default function ProtectedLayout() {
         String(user.last_name).trim() === ""
     );
     const hasAcceptedTerms = user?.has_accepted_terms;
+    const defaultStatusBarStyle = colorScheme === 'dark' ? 'light-content' : 'dark-content';
+    const defaultStatusBarBackground = colorScheme === 'dark' ? '#0F172A' : '#FFFFFF';
 
     // Helper to check if onboarding is complete in the user profile
     const isOnboardingComplete = user?.personalization_profile?.onboarding_completed;
@@ -83,7 +86,7 @@ export default function ProtectedLayout() {
 
     return (
         <>
-            <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
+            <StatusBar translucent={false} backgroundColor={defaultStatusBarBackground} barStyle={defaultStatusBarStyle} />
             <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
                 <Stack.Screen name="home" />
                 <Stack.Screen name="onboarding/personalization" />

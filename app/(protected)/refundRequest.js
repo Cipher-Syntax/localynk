@@ -18,6 +18,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 
 import api from '../../api/api';
+import ScreenSafeArea from '../../components/ScreenSafeArea';
 
 const BLOCKING_STATUSES = ['requested', 'under_review', 'approved', 'completed'];
 const REFUND_MIN_DAYS_BEFORE_CHECKIN_DEFAULT = 3;
@@ -261,7 +262,7 @@ export default function RefundRequestScreen() {
     }
 
     return (
-        <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
+        <ScreenSafeArea edges={['top']} style={styles.container}>
             <StatusBar barStyle="dark-content" />
             <View style={styles.headerRow}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -451,7 +452,7 @@ export default function RefundRequestScreen() {
                     <Text style={styles.toastText}>{toast.message}</Text>
                 </View>
             )}
-        </SafeAreaView>
+        </ScreenSafeArea>
     );
 }
 

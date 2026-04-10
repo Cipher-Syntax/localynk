@@ -4,12 +4,12 @@ import {
     Image, Dimensions, TouchableOpacity, Modal, TextInput, 
     KeyboardAvoidingView, Platform 
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import api from '../../api/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
+import ScreenSafeArea from '../../components/ScreenSafeArea';
 
 const { width } = Dimensions.get('window');
 
@@ -17,9 +17,20 @@ export default function ViewAccommodations() {
     const params = useLocalSearchParams();
     const router = useRouter();
     const { user: currentUser } = useAuth();
-    const userId = params.userId || currentUser?.id;
 
-    const isOwner = currentUser?.id === userId;
+    const normalizeRouteId = (value) => {
+        const raw = Array.isArray(value) ? value[0] : value;
+        const parsed = Number(raw);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    };
+
+    const currentUserId = normalizeRouteId(currentUser?.id);
+    const requestedUserId = normalizeRouteId(params.userId);
+    const userId = currentUserId;
+
+    const isOwner = currentUserId !== null && (requestedUserId === null || requestedUserId === currentUserId);
+    const canManageAccommodations = Boolean(currentUser?.is_local_guide || currentUser?.agency_profile);
+    const canEditAccommodations = isOwner && canManageAccommodations;
 
     const [loading, setLoading] = useState(true);
     const [guide, setGuide] = useState(null);
@@ -90,30 +101,42 @@ export default function ViewAccommodations() {
             setError(null);
 
             try {
-                const guideRes = await api.get(`/api/guides/${userId}/`);
-                setGuide(guideRes.data);
-
-                let accs = [];
-                const tryEndpoints = [
-                    `/api/guides/${userId}/accommodations/`,
-                    `/api/accommodations/?guide=${userId}`,
-                    `/api/accommodations/?owner=${userId}`,
-                    `/api/accommodations/`
-                ];
-
-                for (const ep of tryEndpoints) {
-                    try {
-                        const r = await api.get(ep);
-                        if (Array.isArray(r.data)) accs = r.data;
-                        else if (Array.isArray(r.data.results)) accs = r.data.results;
-                        else if (r.data && typeof r.data === 'object') {
-                            if (Array.isArray(r.data.results)) accs = r.data.results;
-                            else if (Array.isArray(r.data.data)) accs = r.data.data;
-                            else accs = [r.data];
-                        }
-                        if (accs.length > 0) break;
-                    } catch (e) { console.log(e) }
+                if (!canManageAccommodations) {
+                    setGuide(null);
+                    setAccommodations([]);
+                    setError('Only accommodation owners can access this screen.');
+                    return;
                 }
+
+                if (!isOwner) {
+                    setGuide(null);
+                    setAccommodations([]);
+                    setError('You can only view accommodations for your own account.');
+                    return;
+                }
+
+                try {
+                    const guideRes = await api.get(`/api/guides/${userId}/`);
+                    setGuide(guideRes.data);
+                } catch (_guideError) {
+                    setGuide({
+                        first_name: currentUser?.first_name || '',
+                        last_name: currentUser?.last_name || '',
+                        location: currentUser?.location || '',
+                        profile_picture: currentUser?.profile_picture || null,
+                    });
+                }
+
+                const r = await api.get('/api/accommodations/');
+                let accs = [];
+                if (Array.isArray(r.data)) accs = r.data;
+                else if (Array.isArray(r.data.results)) accs = r.data.results;
+                else if (r.data && typeof r.data === 'object') {
+                    if (Array.isArray(r.data.results)) accs = r.data.results;
+                    else if (Array.isArray(r.data.data)) accs = r.data.data;
+                    else accs = [r.data];
+                }
+
                 setAccommodations(accs || []);
 
             } catch (err) {
@@ -124,7 +147,7 @@ export default function ViewAccommodations() {
             }
         };
         loadData();
-    }, [userId]);
+    }, [userId, isOwner, canManageAccommodations, currentUser]);
 
     const promptDelete = (id) => {
         setItemToDelete(id);
@@ -275,7 +298,7 @@ export default function ViewAccommodations() {
     }
 
     return (
-        <SafeAreaView edges={['top']} style={styles.container}>
+        <ScreenSafeArea edges={['top']} style={styles.container}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 
                 <View style={styles.headerRow}>
@@ -343,7 +366,7 @@ export default function ViewAccommodations() {
                             <View style={styles.cardContent}>
                                 <View style={styles.cardHeaderRow}>
                                     <Text style={styles.cardTitle}>{acc.title || acc.name || 'Untitled Accommodation'}</Text>
-                                    {isOwner && (
+                                    {canEditAccommodations && (
                                         <View style={{flexDirection: 'row', gap: 8}}>
                                             <TouchableOpacity onPress={() => openEditModal(acc)} style={styles.iconBtn}>
                                                 <Ionicons name="pencil" size={18} color="#00A8FF" />
@@ -357,7 +380,7 @@ export default function ViewAccommodations() {
                                 
                                 {acc.location && (
                                     <View style={styles.locationRow}>
-                                        <Ionicons name="location-sharp" size={12} color="#888" />
+                                        <Ionicons name="location-sfcvharp" size={12} color="#888" />
                                         <Text style={styles.locationText} numberOfLines={1}>{acc.location}</Text>
                                     </View>
                                 )}
@@ -628,7 +651,7 @@ export default function ViewAccommodations() {
                 </View>
             )}
 
-        </SafeAreaView>
+        </ScreenSafeArea>
     );
 }
 

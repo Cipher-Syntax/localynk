@@ -1,7 +1,7 @@
 import { View } from "react-native";
 import { ExplorePlaces } from '../../components/explore'
 import React, { useState, useEffect } from 'react';
-import { SafeAreaView } from "react-native-safe-area-context";
+import ScreenSafeArea from "../../components/ScreenSafeArea";
 
 export default function Explore() {
     const [loading, setLoading] = useState(true);
@@ -29,9 +29,9 @@ export default function Explore() {
     }
     return (
         <View style={{ flex: 1 }}>
-            <SafeAreaView edges={['bottom']} style={{ flex: 1 }}>
+            <ScreenSafeArea edges={['bottom']} statusBarStyle="light-content" style={{ flex: 1 }}>
                 <ExplorePlaces />
-            </SafeAreaView>
+            </ScreenSafeArea>
         </View>
     );
 }
