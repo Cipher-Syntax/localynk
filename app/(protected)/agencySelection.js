@@ -476,7 +476,7 @@ const AgencySelection = () => {
                     </View>
                 </ScrollView>
 
-                <SafeAreaView edges={['bottom']} style={styles.modalFooter}>
+                <ScreenSafeArea statusBarStyle='light-content' edges={['bottom', 'top']} style={styles.modalFooter}>
                     <TouchableOpacity style={styles.cancelBtn} onPress={handleCloseModal}>
                         <Text style={styles.cancelBtnText}>Cancel</Text>
                     </TouchableOpacity>
@@ -492,7 +492,7 @@ const AgencySelection = () => {
                             <Ionicons name="arrow-forward" size={18} color="#fff" />
                         </LinearGradient>
                     </TouchableOpacity>
-                </SafeAreaView>
+                </ScreenSafeArea>
             </ScrollView>
         );
     };
@@ -1035,7 +1035,7 @@ const styles = StyleSheet.create({
     modalFooter: {
         flexDirection: 'row',
         gap: 16,
-        marginTop: 10,
+        marginBottom: 10,
     },
     cancelBtn: {
         flex: 1,

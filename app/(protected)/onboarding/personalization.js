@@ -17,6 +17,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons'; 
 import { useAuth } from '../../../context/AuthContext';
 import api from '../../../api/api';
+import ScreenSafeArea from '../../../components/ScreenSafeArea';
 
 // Enable LayoutAnimation on Android
 if (
@@ -201,7 +202,7 @@ export default function PersonalizationScreen() {
 
     if (loading) {
         return (
-            <SafeAreaView edges={['bottom']} style={styles.safeArea}>
+            <ScreenSafeArea statusBarStyle='dark-content' edges={['bottom']} style={styles.safeArea}>
                 <View style={styles.container}>
                     <View style={styles.header}>
                         <View style={styles.headerContent}>
@@ -227,7 +228,7 @@ export default function PersonalizationScreen() {
                         ))}
                     </ScrollView>
                 </View>
-            </SafeAreaView>
+            </ScreenSafeArea>
         );
     }
 
