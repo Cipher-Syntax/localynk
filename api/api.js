@@ -37,6 +37,11 @@ api.interceptors.request.use(
         // Ensure headers object exists
         config.headers = config.headers || {};
 
+        if (config.skipAuth) {
+            delete config.headers['Authorization'];
+            return config;
+        }
+
         if (logoutInProgress) {
             delete config.headers['Authorization'];
             return config;
@@ -60,6 +65,10 @@ api.interceptors.response.use(
         }
 
         if (logoutInProgress) {
+            return Promise.reject(error);
+        }
+
+        if (originalRequest.skipAuth) {
             return Promise.reject(error);
         }
 

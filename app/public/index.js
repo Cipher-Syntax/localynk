@@ -27,7 +27,7 @@ const PublicHome = () => {
     const fetchPublicData = async () => {
         try {
             console.log("Fetching Public Home data...");
-            const response = await api.get('/api/destinations/');
+            const response = await api.get('/api/destinations/', { skipAuth: true });
 
             let safeDestinations = [];
             if (Array.isArray(response.data)) {

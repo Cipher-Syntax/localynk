@@ -352,8 +352,9 @@ export function AuthProvider({ children }) {
         const user = await fetchProfile();
 
         if (!user) {
-             await AsyncStorage.multiRemove([ACCESS_TOKEN, REFRESH_TOKEN]);
-             setState(prev => ({
+            await AsyncStorage.multiRemove([ACCESS_TOKEN, REFRESH_TOKEN]);
+            setApiToken(null);
+            setState(prev => ({
                 ...prev,
                 isLoading: false,
                 isAuthenticated: false,
@@ -496,20 +497,50 @@ export function AuthProvider({ children }) {
         }
     }, []);
 
-    const resendVerificationEmail = useCallback(async (email) => {
-        try {
-            const response = await api.post("/api/resend-verify-email/", { email });
+    const resendVerificationEmail = useCallback(async (identifier) => {
+        const normalizedIdentifier = String(identifier || '').trim();
+
+        if (!normalizedIdentifier) {
             setState(prev => ({
                 ...prev,
-                message: response.data.detail,
+                message: 'Username or email is required.',
+                messageType: 'error'
+            }));
+            return false;
+        }
+
+        try {
+            const response = await api.post(
+                '/api/resend-verify-email/',
+                {
+                    identifier: normalizedIdentifier,
+                    email: normalizedIdentifier,
+                    username: normalizedIdentifier,
+                },
+                { skipAuth: true }
+            );
+            setState(prev => ({
+                ...prev,
+                message: response?.data?.detail || 'Verification email resent successfully. Please check your inbox.',
                 messageType: "success"
             }));
-        } catch (_error) {
+            return true;
+        } catch (error) {
+            const detail =
+                error?.response?.data?.detail ||
+                error?.response?.data?.message ||
+                error?.message ||
+                'Failed to resend email';
+            const resendErrorMessage = detail
+                ? `Resend failed: ${detail}`
+                : 'Failed to resend verification email';
+
             setState(prev => ({
                 ...prev,
-                message: "Failed to resend email",
+                message: resendErrorMessage,
                 messageType: "error"
             }));
+            return false;
         }
     }, []);
 

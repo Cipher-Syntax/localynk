@@ -16,6 +16,19 @@ const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ACTIVE_WIDTH = SCREEN_WIDTH * (4 / 7);
 const INACTIVE_WIDTH = SCREEN_WIDTH * (1 / 7);
+const LOCAL_IMAGES = [DiscoverPlace1, DiscoverPlace2, DiscoverPlace3, DiscoverPlace4];
+const FALLBACK_CATEGORIES = ['Cultural', 'Historical', 'Adventure', 'Nature'];
+
+const buildDiscoverItems = (categories = []) => (
+    categories
+        .filter((category) => typeof category === 'string' && category.trim().length > 0)
+        .map((category, index) => ({
+            id: index + 1,
+            originalName: category,
+            name: category.toUpperCase(),
+            image: LOCAL_IMAGES[index % LOCAL_IMAGES.length],
+        }))
+);
 
 const DiscoverWhatYouWant = ({ isPublic = false }) => {
     const router = useRouter();
@@ -37,37 +50,40 @@ const DiscoverWhatYouWant = ({ isPublic = false }) => {
 
     useEffect(() => {
         const fetchCategories = async () => {
-            try {
-                const response = await api.get('/api/categories/');
-                const fetchedCategories = response.data; 
+            const applyItems = (nextItems) => {
+                widthAnimations.current = {};
 
-                const localImages = [DiscoverPlace1, DiscoverPlace2, DiscoverPlace3, DiscoverPlace4];
-
-                const dynamicItems = fetchedCategories.map((cat, index) => ({
-                    id: index + 1,
-                    originalName: cat, 
-                    name: cat.toUpperCase(),
-                    image: localImages[index % localImages.length],
-                }));
-
-                dynamicItems.forEach((item, index) => {
+                nextItems.forEach((item, index) => {
                     const isFirst = index === 0;
                     widthAnimations.current[item.id] = new Animated.Value(isFirst ? ACTIVE_WIDTH : INACTIVE_WIDTH);
                 });
 
-                setItems(dynamicItems);
-                if (dynamicItems.length > 0) {
-                    setIsActive(dynamicItems[0].id);
-                }
-            } catch (error) {
-                console.error("Error fetching categories for Discover section:", error);
+                setItems(nextItems);
+                setIsActive(nextItems.length > 0 ? nextItems[0].id : null);
+            };
+
+            const fallbackItems = buildDiscoverItems(FALLBACK_CATEGORIES);
+
+            if (isPublic && !isAuthenticated) {
+                applyItems(fallbackItems);
+                setLoading(false);
+                return;
+            }
+
+            try {
+                const response = await api.get('/api/categories/');
+                const fetchedCategories = Array.isArray(response?.data) ? response.data : [];
+                const dynamicItems = buildDiscoverItems(fetchedCategories);
+                applyItems(dynamicItems.length > 0 ? dynamicItems : fallbackItems);
+            } catch (_error) {
+                applyItems(fallbackItems);
             } finally {
                 setLoading(false);
             }
         };
 
         fetchCategories();
-    }, []);
+    }, [isAuthenticated, isPublic]);
 
     useEffect(() => {
         if (!isActive || items.length === 0) return;

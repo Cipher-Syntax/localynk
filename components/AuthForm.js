@@ -33,6 +33,8 @@ const AuthForm = ({ method }) => {
 
     const titleText = method === 'login' ? 'Welcome Back' : 'Start Journey';
     const subtitleText = method === 'login' ? 'Continue your adventure' : 'Join the community of explorers';
+    const usernamePlaceholder = method === 'login' ? 'Username/Email' : 'Username';
+    const normalizedMessage = typeof message === 'string' ? message.toLowerCase() : '';
 
     // Check if the current error means we need to reactivate
     const isDeactivatedError = message && (
@@ -40,6 +42,13 @@ const AuthForm = ({ method }) => {
         message.toLowerCase().includes('deactivated') || 
         message.toLowerCase().includes('reactivate')
     ) && method === 'login' && messageType === 'error';
+
+    const shouldShowResendButton =
+        method === 'login' &&
+        messageType === 'error' &&
+        (normalizedMessage.includes('verify') ||
+            normalizedMessage.includes('verification') ||
+            normalizedMessage.includes('resend'));
 
     useEffect(() => {
         if (method !== 'login') return;
@@ -178,12 +187,13 @@ const AuthForm = ({ method }) => {
     };
 
     const handleResendVerification = async () => {
-        const usernameOrEmail = watch('username'); 
+        const usernameOrEmail = String(watch('username') || '').trim();
         if (!usernameOrEmail) {
             clearMessage();
-            setMessage("Please enter your email in the username field to resend verification.", "error");
+            setMessage("Please enter your username or email to resend verification.", "error");
             return;
         }
+
         clearMessage(); 
         await resendVerificationEmail(usernameOrEmail);
     };
@@ -268,7 +278,7 @@ const AuthForm = ({ method }) => {
                                                     {message}
                                                 </Text>
                                                 
-                                                {(message.includes('verify') || message.includes('verification')) && method === 'login' && messageType === 'error' && (
+                                                {shouldShowResendButton && (
                                                     <View style={styles.actionButtonsRow}>
                                                         <TouchableOpacity onPress={handleResendVerification} style={styles.actionButton}>
                                                             <Text style={styles.actionText}>Resend Email</Text>
@@ -278,7 +288,7 @@ const AuthForm = ({ method }) => {
                                             </View>
                                         ) : null}
 
-                                        {renderInput('username', 'Username', 'user', false, null, null, { required: 'Username is required' })}
+                                        {renderInput('username', usernamePlaceholder, 'user', false, null, null, { required: 'Username or email is required' })}
                                         
                                         {method === 'register' && renderInput('email', 'Email Address', 'envelope', false, null, null, { 
                                             required: 'Email is required', 
