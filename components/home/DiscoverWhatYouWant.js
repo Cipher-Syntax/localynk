@@ -17,7 +17,24 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ACTIVE_WIDTH = SCREEN_WIDTH * (4 / 7);
 const INACTIVE_WIDTH = SCREEN_WIDTH * (1 / 7);
 const LOCAL_IMAGES = [DiscoverPlace1, DiscoverPlace2, DiscoverPlace3, DiscoverPlace4];
-const FALLBACK_CATEGORIES = ['Cultural', 'Historical', 'Adventure', 'Nature'];
+
+const extractCategoriesFromDestinations = (destinations = []) => {
+    const categories = [];
+    const seen = new Set();
+
+    destinations.forEach((destination) => {
+        const category = String(destination?.category || '').trim();
+        if (!category) return;
+
+        const key = category.toLowerCase();
+        if (seen.has(key)) return;
+
+        seen.add(key);
+        categories.push(category);
+    });
+
+    return categories;
+};
 
 const buildDiscoverItems = (categories = []) => (
     categories
@@ -62,24 +79,31 @@ const DiscoverWhatYouWant = ({ isPublic = false }) => {
                 setIsActive(nextItems.length > 0 ? nextItems[0].id : null);
             };
 
-            const fallbackItems = buildDiscoverItems(FALLBACK_CATEGORIES);
-
-            if (isPublic && !isAuthenticated) {
-                applyItems(fallbackItems);
-                setLoading(false);
-                return;
-            }
+            const requestConfig = isPublic && !isAuthenticated ? { skipAuth: true } : undefined;
+            let categories = [];
 
             try {
-                const response = await api.get('/api/categories/');
-                const fetchedCategories = Array.isArray(response?.data) ? response.data : [];
-                const dynamicItems = buildDiscoverItems(fetchedCategories);
-                applyItems(dynamicItems.length > 0 ? dynamicItems : fallbackItems);
+                const response = await api.get('/api/categories/', requestConfig);
+                categories = Array.isArray(response?.data) ? response.data : [];
             } catch (_error) {
-                applyItems(fallbackItems);
-            } finally {
-                setLoading(false);
+                categories = [];
             }
+
+            if (categories.length === 0) {
+                try {
+                    const response = await api.get('/api/destinations/', requestConfig);
+                    const destinations = Array.isArray(response?.data)
+                        ? response.data
+                        : (Array.isArray(response?.data?.results) ? response.data.results : []);
+                    categories = extractCategoriesFromDestinations(destinations);
+                } catch (_destinationsError) {
+                    categories = [];
+                }
+            }
+
+            const dynamicItems = buildDiscoverItems(categories);
+            applyItems(dynamicItems);
+            setLoading(false);
         };
 
         fetchCategories();

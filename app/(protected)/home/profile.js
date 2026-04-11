@@ -26,7 +26,7 @@ import {
     setSeenEarningsTimestamp,
 } from "../../../utils/bookingNotifications";
 import { formatPHPhoneLocal } from "../../../utils/phoneNumber";
-import { isCoreProfileIncomplete } from "../../../utils/profileCompleteness";
+import { hasProfileAttentionDot, isPayoutAccountIncomplete } from "../../../utils/profileCompleteness";
 
 const Profile = () => {
     const [loading, setLoading] = useState(true);
@@ -232,7 +232,9 @@ const Profile = () => {
 
     const isOwnProfile = !userId || (user && profile && user.id === profile.id);
     const isGuide = profile.is_local_guide && profile.guide_approved;
-    const hasIncompleteProfileSetup = isOwnProfile && isCoreProfileIncomplete(profile || user);
+    const profileTarget = profile || user;
+    const hasMissingPayoutSetup = isOwnProfile && isPayoutAccountIncomplete(profileTarget);
+    const hasIncompleteProfileSetup = isOwnProfile && hasProfileAttentionDot(profileTarget);
 
     const profileData = {
         name: profile.first_name && profile.last_name 
@@ -401,7 +403,7 @@ const Profile = () => {
                                             </View>
                                             <Text style={styles.menuLabel}>{item.label}</Text>
                                             {item.label === 'My Bookings' && hasNewBookingDot && <View style={styles.menuBadgeDot} />}
-                                            {item.label === 'Earnings & Payments' && hasNewEarningsDot && <View style={styles.menuBadgeDot} />}
+                                            {item.label === 'Earnings & Payments' && (hasNewEarningsDot || hasMissingPayoutSetup) && <View style={styles.menuBadgeDot} />}
                                             <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
                                         </TouchableOpacity>
                                     ))}

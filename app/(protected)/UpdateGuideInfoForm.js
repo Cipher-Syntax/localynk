@@ -32,29 +32,45 @@ const UpdateGuideInfoForm = () => {
 
     const daysOptions = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+    const buildSpecialtyOptions = useCallback((categories = []) => {
+        const normalized = [];
+        const seen = new Set();
+
+        categories.forEach((raw) => {
+            const category = String(raw || '').trim();
+            if (!category) return;
+
+            const key = category.toLowerCase();
+            if (seen.has(key)) return;
+
+            seen.add(key);
+            normalized.push(category);
+        });
+
+        if (!seen.has('other')) {
+            normalized.push('Other');
+        }
+
+        return normalized;
+    }, []);
+
     // 1. Fetch Categories from the Backend API
     useEffect(() => {
         const fetchCategories = async () => {
             try {
-                // Adjust this URL if your main urls.py uses a different prefix for destinations
                 const response = await api.get('/api/categories/');
-                if (response.data && Array.isArray(response.data)) {
-                    setSpecialtyOptions([...response.data, 'Other']);
-                }
+                const categories = Array.isArray(response?.data) ? response.data : [];
+                setSpecialtyOptions(buildSpecialtyOptions(categories));
             } catch (error) {
                 console.log('Failed to fetch destination categories from API:', error);
-                // Fallback to the choices defined in your models.py if API fails
-                setSpecialtyOptions([
-                    'Cultural', 'Historical', 'Adventure', 'Nature', 
-                    'Beaches', 'Mountains', 'Rivers', 'Islands', 'Other'
-                ]);
+                setSpecialtyOptions(buildSpecialtyOptions([]));
             } finally {
                 setIsCategoriesLoaded(true);
             }
         };
 
         fetchCategories();
-    }, []);
+    }, [buildSpecialtyOptions]);
 
     // 2. Populate form only after user data AND categories are loaded
     useEffect(() => {

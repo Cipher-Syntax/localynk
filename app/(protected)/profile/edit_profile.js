@@ -10,11 +10,18 @@ import api from '../../../api/api';
 import Toast from '../../../components/Toast';
 import { formatPHPhoneLocal, normalizePHPhone } from '../../../utils/phoneNumber';
 import { NAME_REGEX, NAME_ERROR_MESSAGE, PHONE_ERROR_MESSAGE } from '../../../utils/validation';
+import { isPayoutAccountIncomplete } from '../../../utils/profileCompleteness';
 import ScreenSafeArea from '../../../components/ScreenSafeArea';
 
 const EditProfile = () => {
     const { user, refreshUser } = useAuth(); 
     const router = useRouter();
+    const hasMissingPayoutSetup = isPayoutAccountIncomplete(user);
+    const isGuideUser = Boolean(user?.is_local_guide && user?.guide_approved);
+    const payoutSectionTitle = isGuideUser ? 'Payout Account (For Guide Earnings)' : 'Payout Account';
+    const payoutSectionHint = isGuideUser
+        ? 'Required to receive earnings payouts. Please complete the 3 payout fields below.'
+        : 'Please complete your payout account details so disbursements can be processed when needed.';
     
     const [isLoading, setIsLoading] = useState(false);
     const [profileImage, setProfileImage] = useState(null);
@@ -250,7 +257,17 @@ const EditProfile = () => {
                         />
                         {errors.phone_number && <Text style={styles.errorText}>{errors.phone_number.message}</Text>}
 
-                        <Text style={styles.sectionLabel}>Payout Account (For Guide Earnings)</Text>
+                        <View style={styles.sectionHeaderRow}>
+                            <Text style={[styles.sectionLabel, hasMissingPayoutSetup && styles.sectionLabelAlert]}>
+                                {payoutSectionTitle}
+                            </Text>
+                            {hasMissingPayoutSetup && <View style={styles.alertDot} />}
+                        </View>
+                        {hasMissingPayoutSetup && (
+                            <Text style={styles.sectionHintAlert}>
+                                {payoutSectionHint}
+                            </Text>
+                        )}
 
                         <Text style={styles.label}>Payout Channel</Text>
                         <Controller
@@ -407,7 +424,11 @@ const styles = StyleSheet.create({
     editBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#0072FF', width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#fff' },
     formContainer: { paddingHorizontal: 20, backgroundColor: '#fff', marginHorizontal: 15, borderRadius: 16, paddingVertical: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
     label: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6, marginTop: 4 },
+    sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     sectionLabel: { fontSize: 12, fontWeight: '700', color: '#1E40AF', marginTop: 8, marginBottom: 8, textTransform: 'uppercase' },
+    sectionLabelAlert: { color: '#DC2626' },
+    sectionHintAlert: { color: '#DC2626', fontSize: 12, fontWeight: '600', marginTop: -2, marginBottom: 8 },
+    alertDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#EF4444' },
     inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9FAFB', borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 12, paddingHorizontal: 12 },
     inputIcon: { marginRight: 10 },
     input: { flex: 1, height: 48, fontSize: 15, color: '#1F2937' },

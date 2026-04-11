@@ -42,7 +42,7 @@ export default function PersonalizationScreen() {
     const [scrollProgress] = useState(new Animated.Value(0));
 
     const isEditMode = params.mode === 'edit';
-    const categoryOrder = ['Beach', 'Mountain', 'City', 'Adventure', 'Cultural', 'Relaxation', 'Others'];
+    const preferredDestinations = user?.personalization_profile?.preferred_destinations;
 
     useEffect(() => {
         const fetchData = async () => {
@@ -73,9 +73,8 @@ export default function PersonalizationScreen() {
                     setExpandedCategory(categories[0]);
                 }
 
-                if (isEditMode && user?.personalization_profile?.preferred_destinations) {
-                    const currentPrefs = user.personalization_profile.preferred_destinations;
-                    const currentIds = currentPrefs.map(d => typeof d === 'object' ? d.id : d);
+                if (isEditMode && Array.isArray(preferredDestinations)) {
+                    const currentIds = preferredDestinations.map(d => typeof d === 'object' ? d.id : d);
                     setSelectedIds(currentIds);
                 }
             } catch (error) {
@@ -85,7 +84,7 @@ export default function PersonalizationScreen() {
             }
         };
         fetchData();
-    }, [isEditMode, user.personalization_profile.preferred_destinations]);
+    }, [isEditMode, preferredDestinations]);
 
     
     const toggleCategory = (category) => {
@@ -233,7 +232,13 @@ export default function PersonalizationScreen() {
     }
 
     const sortedCategories = Object.keys(groupedDestinations).sort((a, b) => {
-        return categoryOrder.indexOf(a) - categoryOrder.indexOf(b);
+        const left = String(a || '').toLowerCase();
+        const right = String(b || '').toLowerCase();
+
+        if (left === 'others' && right !== 'others') return 1;
+        if (right === 'others' && left !== 'others') return -1;
+
+        return left.localeCompare(right);
     });
 
     return (
