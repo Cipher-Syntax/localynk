@@ -36,6 +36,8 @@ export function AuthProvider({ children }) {
     const router = useRouter();
     const notificationListenerRef = useRef(null);
     const notificationResponseListenerRef = useRef(null);
+    const lastHandledNotificationKeyRef = useRef(null);
+    const hasCheckedInitialNotificationRef = useRef(false);
     const pushRegistrationRef = useRef({
         inFlight: false,
         hasRegistered: false,
@@ -58,24 +60,50 @@ export function AuthProvider({ children }) {
         }, delayMs);
     }, [clearPushRetryTimer]);
 
+    const isPushEnabledForUser = useCallback((userProfile) => {
+        if (!userProfile) return true;
+        if (typeof userProfile.push_enabled === 'boolean') {
+            return userProfile.push_enabled;
+        }
+        return true;
+    }, []);
+
     useEffect(() => {
         configureForegroundNotificationHandler();
         ensureAndroidNotificationChannel();
         requestPushPermissionAsync().catch(() => null);
     }, []);
 
-    const handleNotificationNavigation = useCallback((response) => {
+    const handleNotificationNavigation = useCallback(async (response) => {
         const data = response?.notification?.request?.content?.data || {};
+        const identifier = response?.notification?.request?.identifier;
+        const responseKey = identifier || JSON.stringify(data || {});
+
+        if (responseKey && lastHandledNotificationKeyRef.current === responseKey) {
+            return false;
+        }
+
         console.log('Notification tap payload:', data);
         const route = resolveNotificationRoute(data);
         console.log('Resolved notification route:', route);
         if (route) {
+            lastHandledNotificationKeyRef.current = responseKey;
             router.push(route);
+            await Notifications.clearLastNotificationResponseAsync().catch(() => null);
+            return true;
         }
+
+        await Notifications.clearLastNotificationResponseAsync().catch(() => null);
+        return false;
     }, [router]);
 
-    const registerPushTokenWithBackend = useCallback(async () => {
+    const registerPushTokenWithBackend = useCallback(async ({ force = false } = {}) => {
         if (pushRegistrationRef.current.inFlight || pushRegistrationRef.current.hasRegistered) {
+            return;
+        }
+
+        if (!force && !isPushEnabledForUser(state.user)) {
+            console.log('Push token registration skipped: push preference is disabled.');
             return;
         }
 
@@ -151,7 +179,7 @@ export function AuthProvider({ children }) {
         } finally {
             pushRegistrationRef.current.inFlight = false;
         }
-    }, [clearPushRetryTimer, schedulePushRegistrationRetry]);
+    }, [clearPushRetryTimer, schedulePushRegistrationRetry, isPushEnabledForUser, state.user]);
 
     const unregisterPushTokenFromBackend = useCallback(async () => {
         try {
@@ -167,6 +195,23 @@ export function AuthProvider({ children }) {
             await clearPersistedPushToken();
         }
     }, []);
+
+    const syncPushNotificationPreference = useCallback(async (isEnabled) => {
+        const enabled = Boolean(isEnabled);
+
+        clearPushRetryTimer();
+        pushRegistrationRef.current.hasRegistered = false;
+        pushRegistrationRef.current.retryCount = 0;
+        pushRegistrationRef.current.inFlight = false;
+
+        if (!enabled) {
+            await unregisterPushTokenFromBackend();
+            return true;
+        }
+
+        await registerPushTokenWithBackend({ force: true });
+        return true;
+    }, [clearPushRetryTimer, registerPushTokenWithBackend, unregisterPushTokenFromBackend]);
 
     const clearMessage = useCallback(() => {
         setState(prev => ({ ...prev, message: null, messageType: null }));
@@ -294,7 +339,11 @@ export function AuthProvider({ children }) {
     useEffect(() => {
         if (!state.isAuthenticated) return;
 
-        registerPushTokenWithBackend();
+        if (isPushEnabledForUser(state.user)) {
+            registerPushTokenWithBackend();
+        } else {
+            unregisterPushTokenFromBackend().catch(() => null);
+        }
 
         if (!notificationListenerRef.current) {
             notificationListenerRef.current = Notifications.addNotificationReceivedListener(() => {
@@ -304,21 +353,33 @@ export function AuthProvider({ children }) {
 
         if (!notificationResponseListenerRef.current) {
             notificationResponseListenerRef.current = Notifications.addNotificationResponseReceivedListener((response) => {
-                handleNotificationNavigation(response);
+                handleNotificationNavigation(response).catch(() => null);
             });
         }
 
-        Notifications.getLastNotificationResponseAsync().then((response) => {
-            if (response) {
-                handleNotificationNavigation(response);
-            }
-        });
-    }, [state.isAuthenticated, registerPushTokenWithBackend, handleNotificationNavigation]);
+        if (!hasCheckedInitialNotificationRef.current) {
+            hasCheckedInitialNotificationRef.current = true;
+            Notifications.getLastNotificationResponseAsync().then((response) => {
+                if (response) {
+                    handleNotificationNavigation(response).catch(() => null);
+                }
+            });
+        }
+    }, [
+        state.isAuthenticated,
+        state.user,
+        registerPushTokenWithBackend,
+        unregisterPushTokenFromBackend,
+        handleNotificationNavigation,
+        isPushEnabledForUser,
+    ]);
 
     useEffect(() => {
         if (state.isAuthenticated) return;
 
         clearPushRetryTimer();
+        hasCheckedInitialNotificationRef.current = false;
+        lastHandledNotificationKeyRef.current = null;
         pushRegistrationRef.current.inFlight = false;
         pushRegistrationRef.current.hasRegistered = false;
         pushRegistrationRef.current.retryCount = 0;
@@ -637,6 +698,7 @@ export function AuthProvider({ children }) {
             logout,
             refreshUser,
             updateUserProfile,
+            syncPushNotificationPreference,
             resendVerificationEmail,
             reactivateAccount,
             clearMessage,
@@ -651,6 +713,7 @@ export function AuthProvider({ children }) {
         register,
         logout,
         refreshUser,
+        syncPushNotificationPreference,
         resendVerificationEmail,
         reactivateAccount,
         clearMessage,

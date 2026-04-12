@@ -8,7 +8,9 @@ import {
     TouchableOpacity, 
     RefreshControl, 
     Alert,
-    Modal 
+    Modal,
+    Switch,
+    ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, AntDesign } from "@expo/vector-icons";
@@ -37,7 +39,7 @@ const Profile = () => {
     const [successModalVisible, setSuccessModalVisible] = useState(false); 
     const [logoutModalVisible, setLogoutModalVisible] = useState(false);
     
-    const { user, logout, refreshUser } = useAuth(); 
+    const { user, logout, refreshUser, updateUserProfile, syncPushNotificationPreference } = useAuth(); 
     const params = useLocalSearchParams();
     const userId = params.userId;
     const [profile, setProfile] = useState(null);
@@ -47,8 +49,11 @@ const Profile = () => {
     const [hasNewBookingDot, setHasNewBookingDot] = useState(false);
     const [hasNewEarningsDot, setHasNewEarningsDot] = useState(false);
     const [latestEarningsTs, setLatestEarningsTs] = useState(0);
+    const [notificationPrefs, setNotificationPrefs] = useState({ push: true, email: true });
+    const [notificationSaving, setNotificationSaving] = useState({ push: false, email: false });
     
     const router = useRouter();
+    const isOwnProfile = !userId || (user && profile && user.id === profile.id);
 
     const fetchProfileData = useCallback(async () => {
         try {
@@ -136,6 +141,15 @@ const Profile = () => {
         fetchBookingStats();
     }, [fetchBookingStats]);
 
+    useEffect(() => {
+        if (!isOwnProfile || !profile) return;
+
+        setNotificationPrefs({
+            push: typeof profile.push_enabled === 'boolean' ? profile.push_enabled : true,
+            email: typeof profile.email_enabled === 'boolean' ? profile.email_enabled : true,
+        });
+    }, [isOwnProfile, profile]);
+
     useFocusEffect(
         useCallback(() => {
             const loadInitialData = async () => {
@@ -195,6 +209,33 @@ const Profile = () => {
         await logout();
     };
 
+    const handleNotificationPreferenceToggle = useCallback(async (channel, nextValue) => {
+        if (!isOwnProfile) return;
+
+        const prefKey = channel === 'push' ? 'push_enabled' : 'email_enabled';
+        const stateKey = channel === 'push' ? 'push' : 'email';
+        const previousValue = notificationPrefs[stateKey];
+
+        setNotificationPrefs(prev => ({ ...prev, [stateKey]: nextValue }));
+        setNotificationSaving(prev => ({ ...prev, [stateKey]: true }));
+
+        const updated = await updateUserProfile({ [prefKey]: nextValue });
+
+        if (!updated) {
+            setNotificationPrefs(prev => ({ ...prev, [stateKey]: previousValue }));
+            setNotificationSaving(prev => ({ ...prev, [stateKey]: false }));
+            Alert.alert('Update Failed', 'Unable to save notification preference. Please try again.');
+            return;
+        }
+
+        if (channel === 'push') {
+            await syncPushNotificationPreference(nextValue);
+        }
+
+        await fetchProfileData();
+        setNotificationSaving(prev => ({ ...prev, [stateKey]: false }));
+    }, [fetchProfileData, isOwnProfile, notificationPrefs, syncPushNotificationPreference, updateUserProfile]);
+
     if (loading && !profile) {
         return (
             <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
@@ -230,7 +271,6 @@ const Profile = () => {
         );
     }
 
-    const isOwnProfile = !userId || (user && profile && user.id === profile.id);
     const isGuide = profile.is_local_guide && profile.guide_approved;
     const profileTarget = profile || user;
     const hasMissingPayoutSetup = isOwnProfile && isPayoutAccountIncomplete(profileTarget);
@@ -270,6 +310,7 @@ const Profile = () => {
     ];
 
     const menuItems = isGuide ? guideSettingsItems : touristSettingsItems;
+    const notificationControlsDisabled = notificationSaving.push || notificationSaving.email;
 
     const handleMenuPress = async (item) => {
         if (!item.route) return;
@@ -411,6 +452,46 @@ const Profile = () => {
 
                                 <Text style={[styles.menuTitle, {marginTop: 25}]}>Settings</Text>
                                 <View style={styles.menuContainer}>
+                                    <View style={styles.notificationPreferenceWrap}>
+                                        <Text style={styles.notificationPreferenceTitle}>Notification Preferences</Text>
+
+                                        <View style={styles.notificationPreferenceRow}>
+                                            <View style={styles.notificationPreferenceTextWrap}>
+                                                <Text style={styles.notificationPreferenceLabel}>Push Notifications</Text>
+                                                <Text style={styles.notificationPreferenceHint}>Receive in-app push alerts for new activity.</Text>
+                                            </View>
+                                            {notificationSaving.push ? (
+                                                <ActivityIndicator size="small" color="#2563EB" />
+                                            ) : (
+                                                <Switch
+                                                    value={notificationPrefs.push}
+                                                    onValueChange={(value) => handleNotificationPreferenceToggle('push', value)}
+                                                    disabled={notificationControlsDisabled}
+                                                    trackColor={{ false: '#CBD5E1', true: '#93C5FD' }}
+                                                    thumbColor={notificationPrefs.push ? '#2563EB' : '#F8FAFC'}
+                                                />
+                                            )}
+                                        </View>
+
+                                        <View style={[styles.notificationPreferenceRow, styles.notificationPreferenceRowLast]}>
+                                            <View style={styles.notificationPreferenceTextWrap}>
+                                                <Text style={styles.notificationPreferenceLabel}>Email Notifications</Text>
+                                                <Text style={styles.notificationPreferenceHint}>Receive activity updates through email.</Text>
+                                            </View>
+                                            {notificationSaving.email ? (
+                                                <ActivityIndicator size="small" color="#2563EB" />
+                                            ) : (
+                                                <Switch
+                                                    value={notificationPrefs.email}
+                                                    onValueChange={(value) => handleNotificationPreferenceToggle('email', value)}
+                                                    disabled={notificationControlsDisabled}
+                                                    trackColor={{ false: '#CBD5E1', true: '#93C5FD' }}
+                                                    thumbColor={notificationPrefs.email ? '#2563EB' : '#F8FAFC'}
+                                                />
+                                            )}
+                                        </View>
+                                    </View>
+
                                     <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/profile/edit_profile')}>
                                         <View style={[styles.menuIconBox, { backgroundColor: '#F1F5F9' }]}>
                                             <Ionicons name="person-circle" size={22} color="#64748B" />
@@ -571,6 +652,13 @@ const styles = StyleSheet.create({
     menuSection: { flex: 1 },
     menuTitle: { fontSize: 16, fontWeight: '700', color: '#1E293B', marginBottom: 10, marginLeft: 5 },
     menuContainer: { backgroundColor: '#fff', borderRadius: 16, paddingVertical: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 5, elevation: 2 },
+    notificationPreferenceWrap: { paddingHorizontal: 15, paddingTop: 12, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+    notificationPreferenceTitle: { fontSize: 13, fontWeight: '800', color: '#334155', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 10 },
+    notificationPreferenceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F8FAFC' },
+    notificationPreferenceRowLast: { borderBottomWidth: 0 },
+    notificationPreferenceTextWrap: { flex: 1, paddingRight: 12 },
+    notificationPreferenceLabel: { fontSize: 14, fontWeight: '700', color: '#0F172A', marginBottom: 2 },
+    notificationPreferenceHint: { fontSize: 12, fontWeight: '500', color: '#64748B' },
     menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15, paddingHorizontal: 15, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
     menuItemLast: { borderBottomWidth: 0 },
     menuIconBox: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 15 },
