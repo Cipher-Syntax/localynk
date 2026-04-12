@@ -248,6 +248,11 @@ const MyBookings = () => {
         setConfirmVisible(true);
     };
 
+    const cancelCancellation = () => {
+        setConfirmVisible(false);
+        setBookingIdToCancel(null);
+    };
+
     const confirmCancellation = async () => {
         setConfirmVisible(false);
         if (!bookingIdToCancel) return;
@@ -1228,7 +1233,7 @@ const MyBookings = () => {
                 confirmText="Yes, Cancel"
                 cancelText="Keep it"
                 onConfirm={confirmCancellation}
-                onCancel={() => setConfirmVisible(false)}
+                onCancel={cancelCancellation}
             />
 
             <ConfirmationModal 
