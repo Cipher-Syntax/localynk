@@ -22,6 +22,7 @@ import ScrollToTopButton from '../../components/ScrollToTopButton';
 
 const REFUND_MIN_DAYS_BEFORE_CHECKIN = 3;
 const BOOKING_PAGE_SIZE = 10;
+const MODAL_BOOKING_PAGE_SIZE = 8;
 const SCROLL_TO_TOP_THRESHOLD = 320;
 
 const extractPaginatedItems = (payload) => {
@@ -85,6 +86,8 @@ const MyBookings = () => {
     const [modalStatusFilter, setModalStatusFilter] = useState('all');
     const [modalDateFilter, setModalDateFilter] = useState('all');
     const [modalSearchFilter, setModalSearchFilter] = useState('');
+    const [modalVisibleCount, setModalVisibleCount] = useState(MODAL_BOOKING_PAGE_SIZE);
+    const [showDestinationScrollTopButton, setShowDestinationScrollTopButton] = useState(false);
 
     // --- NEW: State for Tab Notification Dots ---
     const [hasNewMyTrip, setHasNewMyTrip] = useState(false);
@@ -93,6 +96,7 @@ const MyBookings = () => {
     const [latestClientBookingTs, setLatestClientBookingTs] = useState(0);
     const activeTabRef = useRef('my_trip');
     const bookingsListRef = useRef(null);
+    const destinationModalListRef = useRef(null);
     const [showScrollTopButton, setShowScrollTopButton] = useState(false);
 
     const showToast = (message, type = 'success') => {
@@ -207,6 +211,21 @@ const MyBookings = () => {
 
     const handleScrollToTop = useCallback(() => {
         bookingsListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    }, []);
+
+    const resetDestinationModalListState = useCallback(() => {
+        setModalVisibleCount(MODAL_BOOKING_PAGE_SIZE);
+        setShowDestinationScrollTopButton(false);
+        destinationModalListRef.current?.scrollToOffset({ offset: 0, animated: false });
+    }, []);
+
+    const handleDestinationModalListScroll = useCallback((event) => {
+        const offsetY = Number(event?.nativeEvent?.contentOffset?.y || 0);
+        setShowDestinationScrollTopButton(offsetY > SCROLL_TO_TOP_THRESHOLD);
+    }, []);
+
+    const handleDestinationModalScrollToTop = useCallback(() => {
+        destinationModalListRef.current?.scrollToOffset({ offset: 0, animated: true });
     }, []);
 
     // Handle switching tabs and clearing the dot for that tab
@@ -469,6 +488,8 @@ const MyBookings = () => {
         setModalStatusFilter('all');
         setModalDateFilter('all');
         setModalSearchFilter('');
+        setModalVisibleCount(MODAL_BOOKING_PAGE_SIZE);
+        setShowDestinationScrollTopButton(false);
         setDestinationModalVisible(true);
     };
 
@@ -478,10 +499,17 @@ const MyBookings = () => {
         setModalStatusFilter('all');
         setModalDateFilter('all');
         setModalSearchFilter('');
+        setModalVisibleCount(MODAL_BOOKING_PAGE_SIZE);
+        setShowDestinationScrollTopButton(false);
     };
 
+    const activeDestinationGroup = useMemo(() => {
+        if (!selectedDestinationGroup?.key) return selectedDestinationGroup;
+        return groupedBookings.find((group) => group.key === selectedDestinationGroup.key) || selectedDestinationGroup;
+    }, [groupedBookings, selectedDestinationGroup]);
+
     const modalFilteredBookings = useMemo(() => {
-        const source = selectedDestinationGroup?.bookings || [];
+        const source = activeDestinationGroup?.bookings || [];
         const normalizedSearch = modalSearchFilter.trim().toLowerCase();
 
         return source.filter((booking) => {
@@ -495,7 +523,40 @@ const MyBookings = () => {
 
             return statusPass && datePass && textPass;
         }).sort(compareBookingsByPriority);
-    }, [selectedDestinationGroup, modalSearchFilter, modalStatusFilter, modalDateFilter, matchesDatePreset, getBookingTitle]);
+    }, [activeDestinationGroup, modalSearchFilter, modalStatusFilter, modalDateFilter, matchesDatePreset, getBookingTitle]);
+
+    const modalVisibleBookings = useMemo(() => {
+        return modalFilteredBookings.slice(0, modalVisibleCount);
+    }, [modalFilteredBookings, modalVisibleCount]);
+
+    const hasMoreModalBookings = modalVisibleBookings.length < modalFilteredBookings.length;
+
+    const onDestinationModalEndReached = useCallback(() => {
+        if (!destinationModalVisible) return;
+
+        if (hasMoreModalBookings) {
+            setModalVisibleCount((previous) => previous + MODAL_BOOKING_PAGE_SIZE);
+            return;
+        }
+
+        if (loading || refreshing || loadingMore || !hasMorePages) return;
+        fetchBookings({ page: currentPage + 1, reset: false });
+    }, [destinationModalVisible, hasMoreModalBookings, loading, refreshing, loadingMore, hasMorePages, fetchBookings, currentPage]);
+
+    const handleModalStatusFilterChange = useCallback((value) => {
+        setModalStatusFilter(value);
+        resetDestinationModalListState();
+    }, [resetDestinationModalListState]);
+
+    const handleModalDateFilterChange = useCallback((value) => {
+        setModalDateFilter(value);
+        resetDestinationModalListState();
+    }, [resetDestinationModalListState]);
+
+    const handleModalSearchFilterChange = useCallback((value) => {
+        setModalSearchFilter(value);
+        resetDestinationModalListState();
+    }, [resetDestinationModalListState]);
 
     const getStatusStyle = (status) => {
         const normalized = String(status || '').toLowerCase();
@@ -997,7 +1058,7 @@ const MyBookings = () => {
     }
 
     return (
-        <ScreenSafeArea edges={['bottom', 'top']} style={styles.mainContainer}>
+        <ScreenSafeArea edges={['bottom']} statusBarStyle='light-content' style={styles.mainContainer}>
             <FlatList
                 ref={bookingsListRef}
                 data={groupedBookings}
@@ -1144,10 +1205,10 @@ const MyBookings = () => {
                         <View style={styles.destinationModalHeader}>
                             <View style={{ flex: 1 }}>
                                 <Text style={styles.destinationModalTitle} numberOfLines={2}>
-                                    {selectedDestinationGroup?.title || 'Destination'}
+                                    {activeDestinationGroup?.title || 'Destination'}
                                 </Text>
                                 <Text style={styles.destinationModalSubtitle}>
-                                    {modalFilteredBookings.length} of {selectedDestinationGroup?.bookings?.length || 0} booking{(selectedDestinationGroup?.bookings?.length || 0) === 1 ? '' : 's'}
+                                    Showing {modalVisibleBookings.length} of {modalFilteredBookings.length} booking{modalFilteredBookings.length === 1 ? '' : 's'}
                                 </Text>
                             </View>
                             <TouchableOpacity onPress={closeDestinationModal} style={styles.destinationCloseButton}>
@@ -1170,7 +1231,7 @@ const MyBookings = () => {
                                     <TouchableOpacity
                                         key={option.value}
                                         style={[styles.modalFilterChip, modalStatusFilter === option.value && styles.modalFilterChipActive]}
-                                        onPress={() => setModalStatusFilter(option.value)}
+                                        onPress={() => handleModalStatusFilterChange(option.value)}
                                     >
                                         <Text style={[styles.modalFilterChipText, modalStatusFilter === option.value && styles.modalFilterChipTextActive]}>{option.label}</Text>
                                     </TouchableOpacity>
@@ -1187,7 +1248,7 @@ const MyBookings = () => {
                                     <TouchableOpacity
                                         key={option.value}
                                         style={[styles.modalFilterChip, modalDateFilter === option.value && styles.modalFilterChipActive]}
-                                        onPress={() => setModalDateFilter(option.value)}
+                                        onPress={() => handleModalDateFilterChange(option.value)}
                                     >
                                         <Text style={[styles.modalFilterChipText, modalDateFilter === option.value && styles.modalFilterChipTextActive]}>{option.label}</Text>
                                     </TouchableOpacity>
@@ -1198,13 +1259,13 @@ const MyBookings = () => {
                                 <Ionicons name="search" size={15} color="#64748B" style={styles.searchIcon} />
                                 <TextInput
                                     value={modalSearchFilter}
-                                    onChangeText={setModalSearchFilter}
+                                    onChangeText={handleModalSearchFilterChange}
                                     placeholder="Search guest or booking"
                                     placeholderTextColor="#94A3B8"
                                     style={styles.modalSearchInput}
                                 />
                                 {!!modalSearchFilter && (
-                                    <TouchableOpacity onPress={() => setModalSearchFilter('')} style={styles.searchClearButton}>
+                                    <TouchableOpacity onPress={() => handleModalSearchFilterChange('')} style={styles.searchClearButton}>
                                         <Ionicons name="close-circle" size={17} color="#64748B" />
                                     </TouchableOpacity>
                                 )}
@@ -1212,10 +1273,26 @@ const MyBookings = () => {
                         </View>
 
                         <FlatList
-                            data={modalFilteredBookings}
+                            ref={destinationModalListRef}
+                            data={modalVisibleBookings}
                             keyExtractor={(item) => String(item.id)}
                             renderItem={({ item }) => renderBookingItem(item)}
                             contentContainerStyle={styles.destinationModalList}
+                            onScroll={handleDestinationModalListScroll}
+                            scrollEventThrottle={16}
+                            onEndReached={onDestinationModalEndReached}
+                            onEndReachedThreshold={0.3}
+                            ListFooterComponent={
+                                loadingMore ? (
+                                    <View style={styles.destinationModalFooterLoader}>
+                                        <ActivityIndicator size="small" color="#00A8FF" />
+                                    </View>
+                                ) : ((hasMoreModalBookings || hasMorePages) ? (
+                                    <View style={styles.destinationModalFooterHint}>
+                                        <Text style={styles.destinationModalFooterHintText}>Scroll to load more</Text>
+                                    </View>
+                                ) : null)
+                            }
                             ListEmptyComponent={
                                 <View style={styles.emptyModalContainer}>
                                     <Text style={styles.emptyModalText}>No bookings match your modal filters.</Text>
@@ -1224,6 +1301,13 @@ const MyBookings = () => {
                         />
                     </View>
                 </View>
+
+                <ScrollToTopButton
+                    visible={destinationModalVisible && showDestinationScrollTopButton}
+                    onPress={handleDestinationModalScrollToTop}
+                    bottom={32}
+                    right={16}
+                />
             </Modal>
 
             <ConfirmationModal 
@@ -1516,6 +1600,9 @@ const styles = StyleSheet.create({
         marginLeft: 12,
     },
     destinationModalList: { paddingTop: 8, paddingBottom: 22 },
+    destinationModalFooterLoader: { paddingVertical: 12 },
+    destinationModalFooterHint: { paddingVertical: 8, alignItems: 'center' },
+    destinationModalFooterHintText: { fontSize: 12, fontWeight: '700', color: '#64748B' },
     destinationFiltersWrap: {
         paddingHorizontal: 16,
         paddingBottom: 4,
