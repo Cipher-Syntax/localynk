@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Image, Animated, ScrollView, Modal, TextInput } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Image, Animated, ScrollView, Modal, TextInput, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient'; 
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,8 +18,43 @@ import {
 } from '../../utils/bookingNotifications';
 import { buildPricingBreakdown } from '../../utils/pricingBreakdown';
 import ScreenSafeArea from '../../components/ScreenSafeArea';
+import ScrollToTopButton from '../../components/ScrollToTopButton';
 
 const REFUND_MIN_DAYS_BEFORE_CHECKIN = 3;
+const BOOKING_PAGE_SIZE = 10;
+const SCROLL_TO_TOP_THRESHOLD = 320;
+
+const extractPaginatedItems = (payload) => {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.results)) return payload.results;
+    return [];
+};
+
+const getHasMoreFromPayload = (payload, fallbackCount = 0) => {
+    if (Array.isArray(payload)) {
+        return fallbackCount >= BOOKING_PAGE_SIZE;
+    }
+    return Boolean(payload?.next);
+};
+
+const isUnreadBooking = (booking) => {
+    if (!booking || typeof booking !== 'object') return false;
+
+    if (booking.unread === true) return true;
+    if (booking.is_read === false) return true;
+    if (booking.read === false) return true;
+    if (booking.is_seen === false) return true;
+    if (booking.seen === false) return true;
+
+    const unreadCount = Number(booking.unread_count || 0);
+    return Number.isFinite(unreadCount) && unreadCount > 0;
+};
+
+const compareBookingsByPriority = (a, b) => {
+    const unreadDelta = Number(isUnreadBooking(b)) - Number(isUnreadBooking(a));
+    if (unreadDelta !== 0) return unreadDelta;
+    return getBookingSortTimestamp(b) - getBookingSortTimestamp(a);
+};
 
 const MyBookings = () => {
     const { user } = useAuth();
@@ -27,6 +62,9 @@ const MyBookings = () => {
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [hasMorePages, setHasMorePages] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
     
     const [detailsModalVisible, setDetailsModalVisible] = useState(false);
     const [selectedBooking, setSelectedBooking] = useState(null);
@@ -54,6 +92,8 @@ const MyBookings = () => {
     const [latestMyTripTs, setLatestMyTripTs] = useState(0);
     const [latestClientBookingTs, setLatestClientBookingTs] = useState(0);
     const activeTabRef = useRef('my_trip');
+    const bookingsListRef = useRef(null);
+    const [showScrollTopButton, setShowScrollTopButton] = useState(false);
 
     const showToast = (message, type = 'success') => {
         setToast({ show: true, message, type });
@@ -65,17 +105,45 @@ const MyBookings = () => {
         Animated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => setToast(prev => ({ ...prev, show: false })));
     };
 
-    const fetchBookings = useCallback(async () => {
+    const fetchBookings = useCallback(async ({ page = 1, reset = true } = {}) => {
+        if (!reset) {
+            setLoadingMore(true);
+        }
+
         try {
-            const response = await api.get('/api/bookings/');
-            const incoming = Array.isArray(response.data) ? response.data : [];
-            const sorted = [...incoming].sort((a, b) => getBookingSortTimestamp(b) - getBookingSortTimestamp(a));
-            setBookings(sorted);
+            const response = await api.get('/api/bookings/', {
+                params: {
+                    page,
+                    page_size: BOOKING_PAGE_SIZE,
+                },
+            });
+
+            const incoming = extractPaginatedItems(response.data);
+            const hasMore = getHasMoreFromPayload(response.data, incoming.length);
+
+            let nextBookings = [];
+            setBookings((previous) => {
+                if (reset) {
+                    nextBookings = [...incoming];
+                } else {
+                    const byId = new Map(previous.map((item) => [String(item.id), item]));
+                    incoming.forEach((item) => {
+                        byId.set(String(item.id), item);
+                    });
+                    nextBookings = Array.from(byId.values());
+                }
+
+                nextBookings.sort(compareBookingsByPriority);
+                return nextBookings;
+            });
+
+            setCurrentPage(page);
+            setHasMorePages(hasMore);
 
             if (user?.id) {
                 // Separate bookings to check unseen status independently
-                const myTrips = sorted.filter(b => b.tourist_id === user.id);
-                const clientBookings = sorted.filter(b => b.tourist_id !== user.id);
+                const myTrips = nextBookings.filter(b => b.tourist_id === user.id);
+                const clientBookings = nextBookings.filter(b => b.tourist_id !== user.id);
 
                 const latestMyTs = getLatestBookingTimestamp(myTrips);
                 const latestClientTs = getLatestBookingTimestamp(clientBookings);
@@ -103,7 +171,7 @@ const MyBookings = () => {
                 setHasNewClientBooking(unseenClientBookings);
 
                 // Keep global booking badge aligned only when both tab queues were seen.
-                const latestTs = getLatestBookingTimestamp(sorted);
+                const latestTs = getLatestBookingTimestamp(nextBookings);
                 if (!unseenMyTrips && !unseenClientBookings && latestTs > 0) {
                     await setSeenBookingTimestamp(user.id, latestTs);
                 }
@@ -113,16 +181,40 @@ const MyBookings = () => {
         } finally {
             setLoading(false);
             setRefreshing(false);
+            setLoadingMore(false);
         }
     }, [user?.id]);
 
-    useFocusEffect(useCallback(() => { setLoading(true); fetchBookings(); }, [fetchBookings]));
-    const onRefresh = useCallback(() => { setRefreshing(true); fetchBookings(); }, [fetchBookings]);
+    useFocusEffect(useCallback(() => {
+        setLoading(true);
+        fetchBookings({ page: 1, reset: true });
+    }, [fetchBookings]));
+
+    const onRefresh = useCallback(() => {
+        setRefreshing(true);
+        fetchBookings({ page: 1, reset: true });
+    }, [fetchBookings]);
+
+    const onEndReached = useCallback(() => {
+        if (loading || refreshing || loadingMore || !hasMorePages) return;
+        fetchBookings({ page: currentPage + 1, reset: false });
+    }, [loading, refreshing, loadingMore, hasMorePages, currentPage, fetchBookings]);
+
+    const handleMainListScroll = useCallback((event) => {
+        const offsetY = Number(event?.nativeEvent?.contentOffset?.y || 0);
+        setShowScrollTopButton(offsetY > SCROLL_TO_TOP_THRESHOLD);
+    }, []);
+
+    const handleScrollToTop = useCallback(() => {
+        bookingsListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    }, []);
 
     // Handle switching tabs and clearing the dot for that tab
     const switchTab = async (tab) => {
         setActiveTab(tab);
         activeTabRef.current = tab;
+        setShowScrollTopButton(false);
+        bookingsListRef.current?.scrollToOffset({ offset: 0, animated: false });
 
         if (!user?.id) return;
 
@@ -342,14 +434,7 @@ const MyBookings = () => {
 
         const groups = Object.values(groupedMap)
             .map((group) => {
-                const sortedBookings = [...group.bookings].sort((a, b) => {
-                    const aPending = String(a.status || '').toLowerCase() === 'pending_payment';
-                    const bPending = String(b.status || '').toLowerCase() === 'pending_payment';
-                    if (aPending && !bPending) return -1;
-                    if (!aPending && bPending) return 1;
-                    
-                    return getBookingSortTimestamp(b) - getBookingSortTimestamp(a);
-                });
+                const sortedBookings = [...group.bookings].sort(compareBookingsByPriority);
                 const latestBooking = sortedBookings[0] || null;
 
                 return {
@@ -357,12 +442,12 @@ const MyBookings = () => {
                     bookings: sortedBookings,
                     latestBooking,
                     latestTimestamp: latestBooking ? getBookingSortTimestamp(latestBooking) : 0,
-                    hasPending: sortedBookings.some(b => String(b.status || '').toLowerCase() === 'pending_payment')
+                    hasUnread: sortedBookings.some(isUnreadBooking),
                 };
             })
             .sort((a, b) => {
-                if (a.hasPending && !b.hasPending) return -1;
-                if (!a.hasPending && b.hasPending) return 1;
+                if (a.hasUnread && !b.hasUnread) return -1;
+                if (!a.hasUnread && b.hasUnread) return 1;
 
                 if (b.latestTimestamp !== a.latestTimestamp) return b.latestTimestamp - a.latestTimestamp;
                 return a.title.localeCompare(b.title);
@@ -404,14 +489,7 @@ const MyBookings = () => {
             const textPass = !normalizedSearch || title.includes(normalizedSearch) || touristName.includes(normalizedSearch);
 
             return statusPass && datePass && textPass;
-        }).sort((a, b) => {
-            const aPending = String(a.status || '').toLowerCase() === 'pending_payment';
-            const bPending = String(b.status || '').toLowerCase() === 'pending_payment';
-            if (aPending && !bPending) return -1;
-            if (!aPending && bPending) return 1;
-
-            return getBookingSortTimestamp(b) - getBookingSortTimestamp(a);
-        });
+        }).sort(compareBookingsByPriority);
     }, [selectedDestinationGroup, modalSearchFilter, modalStatusFilter, modalDateFilter, matchesDatePreset, getBookingTitle]);
 
     const getStatusStyle = (status) => {
@@ -916,10 +994,15 @@ const MyBookings = () => {
     return (
         <ScreenSafeArea edges={['bottom', 'top']} style={styles.mainContainer}>
             <FlatList
+                ref={bookingsListRef}
                 data={groupedBookings}
                 renderItem={renderGroupItem}
                 keyExtractor={(item) => item.key}
                 contentContainerStyle={styles.listContainer}
+                onScroll={handleMainListScroll}
+                scrollEventThrottle={16}
+                onEndReached={onEndReached}
+                onEndReachedThreshold={0.4}
                 ListHeaderComponent={
                     <View>
                         <View style={styles.header}>
@@ -1011,7 +1094,7 @@ const MyBookings = () => {
                             <Text style={styles.sectionSummaryText}>
                                 Showing {filteredBookings.length} booking{filteredBookings.length === 1 ? '' : 's'} in {groupedBookings.length} place{groupedBookings.length === 1 ? '' : 's'}
                             </Text>
-                            <Text style={styles.sortHintText}>Sorted by newest booking first.</Text>
+                            <Text style={styles.sortHintText}>Sorted by unread and newest request first.</Text>
                         </View>
                     </View>
                 }
@@ -1023,7 +1106,19 @@ const MyBookings = () => {
                         </Text>
                     </View>
                 }
+                ListFooterComponent={
+                    loadingMore ? (
+                        <View style={styles.listFooterLoader}>
+                            <ActivityIndicator size="small" color="#00A8FF" />
+                        </View>
+                    ) : null
+                }
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#00A8FF"]} />}
+            />
+
+            <ScrollToTopButton
+                visible={showScrollTopButton}
+                onPress={handleScrollToTop}
             />
 
             <BookingDetailsModal 
@@ -1233,6 +1328,7 @@ const styles = StyleSheet.create({
     sectionSummaryText: { fontSize: 12, color: '#0F172A', fontWeight: '600', marginTop: 4 },
     sortHintText: { fontSize: 11, color: '#64748B', fontWeight: '600', marginTop: 4 },
     listContainer: { paddingBottom: 40 },
+    listFooterLoader: { paddingVertical: 18, alignItems: 'center' },
     groupContainer: { marginBottom: 10 },
     groupHeaderCard: {
         marginHorizontal: 16,

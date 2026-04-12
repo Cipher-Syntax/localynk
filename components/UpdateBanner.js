@@ -1,6 +1,5 @@
 import React from "react";
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { ActivityIndicator, Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 const UpdateBanner = ({
@@ -13,89 +12,143 @@ const UpdateBanner = ({
     if (!visible) return null;
 
     return (
-        <SafeAreaView edges={["top"]} style={styles.safeArea}>
-            <View style={styles.banner}>
-                <View style={styles.headerRow}>
-                    <Ionicons name="cloud-download-outline" size={16} color="#FFFFFF" />
-                    <Text style={styles.title}>{title}</Text>
-                </View>
+        <Modal
+            visible={visible}
+            transparent
+            animationType="fade"
+            statusBarTranslucent
+            onRequestClose={typeof onDismissPress === "function" ? onDismissPress : undefined}
+        >
+            <View style={styles.backdrop}>
+                <View style={styles.modalCard}>
+                    <View style={styles.iconWrap}>
+                        <Ionicons name="cloud-download-outline" size={34} color="#1D4ED8" />
+                    </View>
 
-                <View style={styles.actionsRow}>
-                    <TouchableOpacity
-                        style={[styles.updateButton, isUpdating && styles.updateButtonDisabled]}
-                        onPress={onUpdatePress}
-                        disabled={isUpdating}
-                        activeOpacity={0.85}
-                    >
-                        {isUpdating ? (
-                            <View style={styles.updatingContent}>
-                                <ActivityIndicator size="small" color="#0F172A" />
-                                <Text style={styles.updateButtonText}>Updating...</Text>
-                            </View>
-                        ) : (
-                            <Text style={styles.updateButtonText}>Update now</Text>
-                        )}
-                    </TouchableOpacity>
+                    <View style={styles.headerRow}>
+                        <Text style={styles.title}>{title}</Text>
+                        <Text style={styles.subtitle}>A newer version is ready. Update now for the latest fixes and features. </Text>
+                    </View>
 
-                    {typeof onDismissPress === "function" ? (
+                    <View style={styles.actionsRow}>
+                        {typeof onDismissPress === "function" ? (
+                            <TouchableOpacity
+                                style={[styles.dismissButton, isUpdating && styles.dismissButtonDisabled]}
+                                onPress={onDismissPress}
+                                disabled={isUpdating}
+                                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                                activeOpacity={0.8}
+                            >
+                                <Text style={styles.dismissText}>Later</Text>
+                            </TouchableOpacity>
+                        ) : null}
+
                         <TouchableOpacity
-                            style={[styles.dismissButton, isUpdating && styles.dismissButtonDisabled]}
-                            onPress={onDismissPress}
+                            style={[
+                                styles.updateButton,
+                                typeof onDismissPress !== "function" && styles.singleButton,
+                                isUpdating && styles.updateButtonDisabled,
+                            ]}
+                            onPress={onUpdatePress}
                             disabled={isUpdating}
-                            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                            activeOpacity={0.7}
+                            activeOpacity={0.9}
                         >
-                            <Text style={styles.dismissText}>Later</Text>
+                            {isUpdating ? (
+                                <View style={styles.updatingContent}>
+                                    <ActivityIndicator size="small" color="#FFFFFF" />
+                                    <Text style={styles.updateButtonText}>Updating...</Text>
+                                </View>
+                            ) : (
+                                <Text style={styles.updateButtonText}>Update now</Text>
+                            )}
                         </TouchableOpacity>
-                    ) : null}
+                    </View>
                 </View>
             </View>
-        </SafeAreaView>
+        </Modal>
     );
 };
 
 export default UpdateBanner;
 
 const styles = StyleSheet.create({
-    safeArea: {
-        backgroundColor: "#0F766E",
-        zIndex: 998,
+    backdrop: {
+        flex: 1,
+        backgroundColor: "rgba(15, 23, 42, 0.45)",
+        justifyContent: "center",
+        alignItems: "center",
+        paddingHorizontal: 20,
     },
-    banner: {
-        paddingHorizontal: 12,
-        paddingTop: 8,
-        paddingBottom: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: "rgba(255,255,255,0.18)",
+    modalCard: {
+        width: "100%",
+        maxWidth: 360,
+        borderRadius: 18,
+        backgroundColor: "#FFFFFF",
+        borderWidth: 1,
+        borderColor: "#E2E8F0",
+        paddingHorizontal: 16,
+        paddingTop: 18,
+        paddingBottom: 16,
+        shadowColor: "#0F172A",
+        shadowOpacity: 0.18,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 8 },
+        elevation: 10,
+    },
+    iconWrap: {
+        width: 70,
+        height: 70,
+        borderRadius: 35,
+        backgroundColor: "#DBEAFE",
+        alignItems: "center",
+        justifyContent: "center",
+        marginBottom: 14,
+        alignSelf: "center",
     },
     headerRow: {
-        flexDirection: "row",
+        marginBottom: 16,
         alignItems: "center",
-        marginBottom: 8,
     },
     title: {
-        color: "#FFFFFF",
-        marginLeft: 8,
-        fontWeight: "700",
-        fontSize: 14,
+        color: "#0F172A",
+        fontWeight: "800",
+        fontSize: 18,
+        marginBottom: 6,
+        textAlign: "center",
+    },
+    subtitle: {
+        color: "#475569",
+        fontWeight: "500",
+        fontSize: 13,
+        lineHeight: 18,
+        textAlign: "center",
     },
     actionsRow: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
+        gap: 10,
+        width: "100%",
     },
     updateButton: {
-        minHeight: 34,
-        paddingHorizontal: 12,
-        borderRadius: 8,
-        backgroundColor: "#F8FAFC",
+        minHeight: 42,
+        paddingHorizontal: 14,
+        borderRadius: 10,
+        backgroundColor: "#2563EB",
         justifyContent: "center",
+        alignItems: "center",
+        flex: 1,
+    },
+    singleButton: {
+        flex: 0,
+        minWidth: 160,
+        alignSelf: "center",
     },
     updateButtonDisabled: {
-        opacity: 0.8,
+        opacity: 0.75,
     },
     updateButtonText: {
-        color: "#0F172A",
+        color: "#FFFFFF",
         fontWeight: "700",
         fontSize: 13,
     },
@@ -105,16 +158,22 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     dismissButton: {
-        minHeight: 34,
+        minHeight: 42,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: "#CBD5E1",
+        backgroundColor: "#F8FAFC",
         justifyContent: "center",
-        paddingHorizontal: 8,
+        alignItems: "center",
+        paddingHorizontal: 14,
+        flex: 1,
     },
     dismissButtonDisabled: {
         opacity: 0.6,
     },
     dismissText: {
-        color: "#E2E8F0",
-        fontWeight: "600",
+        color: "#334155",
+        fontWeight: "700",
         fontSize: 13,
     },
 });

@@ -1,11 +1,28 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl, Image } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, FlatList, RefreshControl, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api/api';
 import ScreenSafeArea from '../../components/ScreenSafeArea';
+import ScrollToTopButton from '../../components/ScrollToTopButton';
+
+const REVIEWS_PAGE_SIZE = 10;
+const SCROLL_TO_TOP_THRESHOLD = 280;
+
+const getPagedReviews = (payload) => {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.results)) return payload.results;
+    return [];
+};
+
+const hasNextReviewsPage = (payload, fallbackCount = 0) => {
+    if (Array.isArray(payload)) {
+        return fallbackCount >= REVIEWS_PAGE_SIZE;
+    }
+    return Boolean(payload?.next);
+};
 
 const StarDisplay = ({ rating, size = 16, color = '#FFD700' }) => (
     <View style={styles.starContainer}>
@@ -60,41 +77,84 @@ const MyReviews = () => {
     const [reviews, setReviews] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [hasMorePages, setHasMorePages] = useState(true);
+    const reviewsListRef = useRef(null);
+    const [showScrollTopButton, setShowScrollTopButton] = useState(false);
 
     
 
     // Move fetchReviews outside useEffect so it can be reused
-    const fetchReviews = useCallback(async () => {
+    const fetchReviews = useCallback(async ({ page = 1, reset = true } = {}) => {
         if (!user) return;
+
+        if (reset) {
+            setLoading(true);
+        } else {
+            setLoadingMore(true);
+        }
+
         try {
             if (refreshUser) await refreshUser();
 
-            const response = await api.get('/api/reviews/');
-            const reviewList = response.data.results || response.data || [];
+            const response = await api.get('/api/reviews/', {
+                params: {
+                    page,
+                    page_size: REVIEWS_PAGE_SIZE,
+                },
+            });
+            const reviewList = getPagedReviews(response.data);
+            const hasMore = hasNextReviewsPage(response.data, reviewList.length);
             
             const receivedReviews = reviewList.filter(review => {
                 const reviewedUserId = review.reviewed_user?.id || review.reviewed_user;
                 return reviewedUserId === user.id;
             });
-            
-            setReviews(receivedReviews);
+
+            setReviews((previous) => {
+                if (reset) return receivedReviews;
+                const byId = new Map(previous.map((item) => [String(item.id), item]));
+                receivedReviews.forEach((item) => {
+                    byId.set(String(item.id), item);
+                });
+                return Array.from(byId.values());
+            });
+
+            setCurrentPage(page);
+            setHasMorePages(hasMore);
 
         } catch (error) {
             console.error("Failed to fetch reviews:", error);
         } finally {
             setLoading(false);
             setRefreshing(false);
+            setLoadingMore(false);
         }
     }, [user, refreshUser]);
 
     useEffect(() => {
-        fetchReviews();
+        fetchReviews({ page: 1, reset: true });
     }, [fetchReviews]);
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
-        fetchReviews();
+        fetchReviews({ page: 1, reset: true });
     }, [fetchReviews]);
+
+    const onEndReached = useCallback(() => {
+        if (loading || refreshing || loadingMore || !hasMorePages) return;
+        fetchReviews({ page: currentPage + 1, reset: false });
+    }, [loading, refreshing, loadingMore, hasMorePages, currentPage, fetchReviews]);
+
+    const handleReviewsScroll = useCallback((event) => {
+        const offsetY = Number(event?.nativeEvent?.contentOffset?.y || 0);
+        setShowScrollTopButton(offsetY > SCROLL_TO_TOP_THRESHOLD);
+    }, []);
+
+    const handleScrollToTop = useCallback(() => {
+        reviewsListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    }, []);
 
     const renderHeader = () => {
         const rating = user?.guide_rating ? parseFloat(user.guide_rating).toFixed(1) : '0.0';
@@ -169,10 +229,15 @@ const MyReviews = () => {
             </View>
 
             <FlatList
+                ref={reviewsListRef}
                 data={reviews}
                 renderItem={({ item }) => <ReviewCard review={item} />}
                 keyExtractor={(item) => item.id.toString()}
                 ListHeaderComponent={renderHeader}
+                onScroll={handleReviewsScroll}
+                scrollEventThrottle={16}
+                onEndReached={onEndReached}
+                onEndReachedThreshold={0.35}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Image 
@@ -189,8 +254,20 @@ const MyReviews = () => {
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#007AFF"]} />
                 }
+                ListFooterComponent={
+                    loadingMore ? (
+                        <View style={styles.listFooterLoader}>
+                            <ActivityIndicator size="small" color="#007AFF" />
+                        </View>
+                    ) : null
+                }
                 contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}
+            />
+
+            <ScrollToTopButton
+                visible={showScrollTopButton}
+                onPress={handleScrollToTop}
             />
         </SafeAreaView>
     );
@@ -221,6 +298,10 @@ const styles = StyleSheet.create({
     },
     listContent: {
         paddingBottom: 30,
+    },
+    listFooterLoader: {
+        paddingVertical: 16,
+        alignItems: 'center',
     },
     headerContainer: {
         padding: 20,

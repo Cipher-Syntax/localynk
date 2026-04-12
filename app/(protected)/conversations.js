@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, TextInput, Modal, StatusBar } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, TextInput, Modal, StatusBar, ActivityIndicator } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../api/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ConfirmationModal from '../../components/ConfirmationModal';
+import ScrollToTopButton from '../../components/ScrollToTopButton';
 
 const PREFS_KEY = 'conversation_list_prefs_v1';
 const DELETE_UNDO_MS = 5000;
+const CONVERSATION_PAGE_SIZE = 10;
+const SCROLL_TO_TOP_THRESHOLD = 280;
 
 const normalizeConversationList = (payload) => {
     if (Array.isArray(payload)) return payload;
@@ -26,9 +29,19 @@ const normalizeConversationList = (payload) => {
     return [];
 };
 
+const hasNextConversationPage = (payload, fallbackCount = 0) => {
+    if (Array.isArray(payload)) {
+        return fallbackCount >= CONVERSATION_PAGE_SIZE;
+    }
+    return Boolean(payload?.next);
+};
+
 const ConversationList = () => {
     const [conversations, setConversations] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [hasMorePages, setHasMorePages] = useState(true);
     const [query, setQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState('all');
     const [prefs, setPrefs] = useState({ pinned: [], muted: [], archived: [], forceUnread: [] });
@@ -39,6 +52,8 @@ const ConversationList = () => {
     const [deleteTargetConversation, setDeleteTargetConversation] = useState(null);
     const [pendingConversationUndo, setPendingConversationUndo] = useState(null);
     const deleteConversationTimerRef = useRef(null);
+    const conversationListRef = useRef(null);
+    const [showScrollTopButton, setShowScrollTopButton] = useState(false);
     const router = useRouter();
 
     useEffect(() => {
@@ -61,11 +76,37 @@ const ConversationList = () => {
     const statusBarStyle = menuVisible ? 'light-content' : 'dark-content';
     const statusBarBackgroundColor = menuVisible ? '#0F172A' : '#FFFFFF';
 
-    const fetchConversations = useCallback(async () => {
+    const fetchConversations = useCallback(async ({ page = 1, reset = true } = {}) => {
+        if (reset) {
+            setLoading(true);
+        } else {
+            setLoadingMore(true);
+        }
+
         try {
             setErrorText('');
-            const response = await api.get('/api/conversations/');
-            setConversations(normalizeConversationList(response.data));
+            const response = await api.get('/api/conversations/', {
+                params: {
+                    page,
+                    page_size: CONVERSATION_PAGE_SIZE,
+                },
+            });
+
+            const incoming = normalizeConversationList(response.data);
+            const hasMore = hasNextConversationPage(response.data, incoming.length);
+
+            setConversations((previous) => {
+                if (reset) return incoming;
+
+                const byId = new Map(previous.map((item) => [String(item.id ?? item.partner_id ?? item.user_id), item]));
+                incoming.forEach((item) => {
+                    byId.set(String(item.id ?? item.partner_id ?? item.user_id), item);
+                });
+                return Array.from(byId.values());
+            });
+
+            setCurrentPage(page);
+            setHasMorePages(hasMore);
         } catch (error) {
             console.error('Failed to fetch conversations:', error);
             const detail =
@@ -74,21 +115,38 @@ const ConversationList = () => {
                 error?.message ||
                 'Could not load conversations.';
             setErrorText(String(detail));
-            setConversations([]);
+            if (reset) {
+                setConversations([]);
+            }
         } finally {
             setLoading(false);
+            setLoadingMore(false);
         }
     }, []);
 
     useEffect(() => {
-        fetchConversations();
+        fetchConversations({ page: 1, reset: true });
     }, [fetchConversations]);
 
     useFocusEffect(
         useCallback(() => {
-            fetchConversations();
+            fetchConversations({ page: 1, reset: true });
         }, [fetchConversations])
     );
+
+    const handleLoadMore = useCallback(() => {
+        if (loading || loadingMore || !hasMorePages) return;
+        fetchConversations({ page: currentPage + 1, reset: false });
+    }, [loading, loadingMore, hasMorePages, currentPage, fetchConversations]);
+
+    const handleConversationListScroll = useCallback((event) => {
+        const offsetY = Number(event?.nativeEvent?.contentOffset?.y || 0);
+        setShowScrollTopButton(offsetY > SCROLL_TO_TOP_THRESHOLD);
+    }, []);
+
+    const handleScrollToTop = useCallback(() => {
+        conversationListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    }, []);
 
     useEffect(() => {
         const loadPrefs = async () => {
@@ -423,8 +481,13 @@ const ConversationList = () => {
                 </View>
             </View>
             <FlatList
+                ref={conversationListRef}
                 data={decoratedConversations}
                 keyExtractor={(item) => String(item._id || item.id || item.partner_id || item.user_id)}
+                onScroll={handleConversationListScroll}
+                scrollEventThrottle={16}
+                onEndReached={handleLoadMore}
+                onEndReachedThreshold={0.4}
                 renderItem={({ item }) => (
                     <TouchableOpacity
                         style={[styles.conversationItem, item._unreadCount > 0 && styles.conversationUnread]}
@@ -473,12 +536,24 @@ const ConversationList = () => {
                         <Text style={styles.emptyText}>{errorText ? 'Unable to load conversations.' : 'No conversations yet.'}</Text>
                         {!!errorText && <Text style={styles.emptySubtext}>{errorText}</Text>}
                         {!!errorText && (
-                            <TouchableOpacity style={styles.retryButton} onPress={fetchConversations}>
+                            <TouchableOpacity style={styles.retryButton} onPress={() => fetchConversations({ page: 1, reset: true })}>
                                 <Text style={styles.retryButtonText}>Retry</Text>
                             </TouchableOpacity>
                         )}
                     </View>
                 }
+                ListFooterComponent={
+                    loadingMore ? (
+                        <View style={styles.listFooterLoader}>
+                            <ActivityIndicator size="small" color="#2563EB" />
+                        </View>
+                    ) : null
+                }
+            />
+
+            <ScrollToTopButton
+                visible={showScrollTopButton}
+                onPress={handleScrollToTop}
             />
 
             <Modal visible={menuVisible} transparent animationType="fade" onRequestClose={() => setMenuVisible(false)}>
@@ -541,6 +616,10 @@ const styles = StyleSheet.create({
         padding: 20,
         borderBottomWidth: 1,
         borderBottomColor: '#eee',
+    },
+    listFooterLoader: {
+        paddingVertical: 16,
+        alignItems: 'center',
     },
     headerTopRow: {
         flexDirection: 'row',

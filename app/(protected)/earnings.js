@@ -8,6 +8,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import api from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
 import ScreenSafeArea from '../../components/ScreenSafeArea';
+import ScrollToTopButton from '../../components/ScrollToTopButton';
 
 const DEFAULT_SERVER_FILTERS = {
     statusFilter: 'all',
@@ -17,12 +18,31 @@ const DEFAULT_SERVER_FILTERS = {
     maxAmount: '',
 };
 
+const EARNINGS_PAGE_SIZE = 10;
+const SCROLL_TO_TOP_THRESHOLD = 320;
+
+const getPagedItems = (payload) => {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.results)) return payload.results;
+    return [];
+};
+
+const hasNextEarningsPage = (payload, fallbackCount = 0) => {
+    if (Array.isArray(payload)) {
+        return fallbackCount >= EARNINGS_PAGE_SIZE;
+    }
+    return Boolean(payload?.next);
+};
+
 const Earnings = () => {
     useAuth();
     const router = useRouter();
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [hasMorePages, setHasMorePages] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState(DEFAULT_SERVER_FILTERS.statusFilter);
     const [dateRangeFilter, setDateRangeFilter] = useState(DEFAULT_SERVER_FILTERS.dateRangeFilter);
@@ -31,6 +51,8 @@ const Earnings = () => {
     const [maxAmount, setMaxAmount] = useState(DEFAULT_SERVER_FILTERS.maxAmount);
     const [appliedFilters, setAppliedFilters] = useState(DEFAULT_SERVER_FILTERS);
     const filtersRef = useRef(DEFAULT_SERVER_FILTERS);
+    const earningsListRef = useRef(null);
+    const [showScrollTopButton, setShowScrollTopButton] = useState(false);
     
     // Stats
     const [totalEarnings, setTotalEarnings] = useState(0);
@@ -61,10 +83,11 @@ const Earnings = () => {
     }, [appliedFilters, dateRangeFilter, maxAmount, minAmount, sortBy, statusFilter]);
 
     const fetchEarningsData = useCallback(async (filters = {}, options = {}) => {
-        const { showLoader = false, showRefresh = false } = options;
+        const { showLoader = false, showRefresh = false, page = 1, reset = true } = options;
 
         if (showLoader) setLoading(true);
         if (showRefresh) setRefreshing(true);
+        if (!reset) setLoadingMore(true);
 
         try {
             // Fetch financial records for guide payouts with user-selected filters.
@@ -100,17 +123,38 @@ const Earnings = () => {
                 params.max_amount = trimmedMaxAmount;
             }
 
+            params.page = page;
+            params.page_size = EARNINGS_PAGE_SIZE;
+
             const response = await api.get('/api/bookings/', { params });
-            const raw = response.data;
-            const data = Array.isArray(raw) ? raw : (Array.isArray(raw?.results) ? raw.results : []);
-            
-            setBookings(data);
-            calculateStats(data);
+            const data = getPagedItems(response.data);
+            const hasMore = hasNextEarningsPage(response.data, data.length);
+
+            setCurrentPage(page);
+            setHasMorePages(hasMore);
+
+            setBookings((previous) => {
+                let next = [];
+
+                if (reset) {
+                    next = [...data];
+                } else {
+                    const byId = new Map(previous.map((item) => [String(item.id), item]));
+                    data.forEach((item) => {
+                        byId.set(String(item.id), item);
+                    });
+                    next = Array.from(byId.values());
+                }
+
+                calculateStats(next);
+                return next;
+            });
         } catch (error) {
             console.error('Failed to fetch earnings:', error);
         } finally {
             setLoading(false);
             setRefreshing(false);
+            setLoadingMore(false);
         }
     }, []);
 
@@ -175,12 +219,26 @@ const Earnings = () => {
     };
 
     useFocusEffect(useCallback(() => {
-        fetchEarningsData(filtersRef.current, { showLoader: true });
+        fetchEarningsData(filtersRef.current, { showLoader: true, page: 1, reset: true });
     }, [fetchEarningsData]));
 
     const onRefresh = useCallback(() => { 
-        fetchEarningsData(filtersRef.current, { showRefresh: true }); 
+        fetchEarningsData(filtersRef.current, { showRefresh: true, page: 1, reset: true }); 
     }, [fetchEarningsData]);
+
+    const handleLoadMore = useCallback(() => {
+        if (loading || refreshing || loadingMore || !hasMorePages) return;
+        fetchEarningsData(filtersRef.current, { page: currentPage + 1, reset: false });
+    }, [loading, refreshing, loadingMore, hasMorePages, currentPage, fetchEarningsData]);
+
+    const handleEarningsScroll = useCallback((event) => {
+        const offsetY = Number(event?.nativeEvent?.contentOffset?.y || 0);
+        setShowScrollTopButton(offsetY > SCROLL_TO_TOP_THRESHOLD);
+    }, []);
+
+    const handleScrollToTop = useCallback(() => {
+        earningsListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    }, []);
 
     const handleApplyFilters = () => {
         const selectedFilters = {
@@ -194,7 +252,7 @@ const Earnings = () => {
         setMaxAmount(selectedFilters.maxAmount);
         setAppliedFilters(selectedFilters);
         filtersRef.current = selectedFilters;
-        fetchEarningsData(selectedFilters, { showRefresh: true });
+        fetchEarningsData(selectedFilters, { showRefresh: true, page: 1, reset: true });
     };
 
     const handleResetFilters = () => {
@@ -208,7 +266,7 @@ const Earnings = () => {
         setMaxAmount(defaults.maxAmount);
         setAppliedFilters(defaults);
         filtersRef.current = defaults;
-        fetchEarningsData(defaults, { showRefresh: true });
+        fetchEarningsData(defaults, { showRefresh: true, page: 1, reset: true });
     };
 
     const renderPayoutItem = ({ item }) => {
@@ -318,11 +376,23 @@ const Earnings = () => {
             </View>
 
             <FlatList
+                ref={earningsListRef}
                 data={filteredBookings}
                 renderItem={renderPayoutItem}
                 keyExtractor={(item) => item.id.toString()}
                 contentContainerStyle={styles.listContent}
+                onScroll={handleEarningsScroll}
+                scrollEventThrottle={16}
+                onEndReached={handleLoadMore}
+                onEndReachedThreshold={0.35}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#00A8FF"]} />}
+                ListFooterComponent={
+                    loadingMore ? (
+                        <View style={styles.listFooterLoader}>
+                            <ActivityIndicator size="small" color="#00A8FF" />
+                        </View>
+                    ) : null
+                }
                 ListHeaderComponent={
                     <View style={styles.dashboardContainer}>
                         
@@ -480,6 +550,11 @@ const Earnings = () => {
                     </View>
                 }
             />
+
+            <ScrollToTopButton
+                visible={showScrollTopButton}
+                onPress={handleScrollToTop}
+            />
         </ScreenSafeArea>
     );
 };
@@ -495,6 +570,7 @@ const styles = StyleSheet.create({
     backButton: { padding: 4 },
 
     listContent: { paddingBottom: 40 },
+    listFooterLoader: { paddingVertical: 16, alignItems: 'center' },
     dashboardContainer: { padding: 20 },
 
     filterCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: '#E2E8F0' },

@@ -14,12 +14,17 @@ export function getBookingSortTimestamp(booking) {
     const checkInAt = booking?.check_in ? new Date(booking.check_in).getTime() : 0;
     const idFallback = Number(booking?.id || 0);
 
-    return Math.max(
-        Number.isFinite(createdAt) ? createdAt : 0,
-        Number.isFinite(updatedAt) ? updatedAt : 0,
-        Number.isFinite(checkInAt) ? checkInAt : 0,
-        Number.isFinite(idFallback) ? idFallback : 0
-    );
+    const createdTs = Number.isFinite(createdAt) ? createdAt : 0;
+    const updatedTs = Number.isFinite(updatedAt) ? updatedAt : 0;
+    const checkInTs = Number.isFinite(checkInAt) ? checkInAt : 0;
+    const idTs = Number.isFinite(idFallback) ? idFallback : 0;
+
+    // Keep ordering based on booking activity (created/updated) instead of trip date.
+    // check_in is used only as a fallback when event timestamps are unavailable.
+    const activityTs = Math.max(createdTs, updatedTs);
+    if (activityTs > 0) return activityTs;
+    if (checkInTs > 0) return checkInTs;
+    return idTs;
 }
 
 export function getLatestBookingTimestamp(bookings = []) {

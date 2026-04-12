@@ -6,17 +6,39 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../api/api';
+import ScrollToTopButton from '../../components/ScrollToTopButton';
+
+const REVIEWS_PAGE_SIZE = 10;
+const SCROLL_TO_TOP_THRESHOLD = 320;
+
+const extractReviewItems = (payload) => {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.results)) return payload.results;
+    return [];
+};
+
+const hasNextReviewPage = (payload, fallbackCount = 0) => {
+    if (Array.isArray(payload)) {
+        return fallbackCount >= REVIEWS_PAGE_SIZE;
+    }
+    return Boolean(payload?.next);
+};
 
 export default function PlacesDetails() {
     const [loading, setLoading] = useState(true);
     const [destination, setDestination] = useState(null);
     const [reviews, setReviews] = useState([]);
+    const [reviewPage, setReviewPage] = useState(1);
+    const [hasMoreReviews, setHasMoreReviews] = useState(true);
+    const [loadingMoreReviews, setLoadingMoreReviews] = useState(false);
     const [activeImageIndex, setActiveImageIndex] = useState(0);
+    const [showScrollTopButton, setShowScrollTopButton] = useState(false);
     
     const router = useRouter();
     const { id } = useLocalSearchParams();
 
     const bounceValue = useRef(new Animated.Value(0)).current;
+    const placeDetailsScrollRef = useRef(null);
 
     const startBounce = useCallback(() => {
         Animated.loop(
@@ -27,6 +49,39 @@ export default function PlacesDetails() {
         ).start();
     }, [bounceValue]);
 
+    const fetchReviewsPage = useCallback(async ({ page = 1, reset = true } = {}) => {
+        if (!id) return;
+        if (!reset) setLoadingMoreReviews(true);
+
+        try {
+            const reviewsResponse = await api.get('/api/destination_reviews/', {
+                params: {
+                    destination: id,
+                    page,
+                    page_size: REVIEWS_PAGE_SIZE,
+                },
+            });
+
+            const incoming = extractReviewItems(reviewsResponse.data);
+            const hasMore = hasNextReviewPage(reviewsResponse.data, incoming.length);
+
+            setReviews((previous) => {
+                if (reset) return incoming;
+                const byId = new Map(previous.map((item) => [String(item.id), item]));
+                incoming.forEach((item) => byId.set(String(item.id), item));
+                return Array.from(byId.values());
+            });
+
+            setReviewPage(page);
+            setHasMoreReviews(hasMore);
+        } catch (error) {
+            console.error('Error fetching destination reviews:', error);
+            if (reset) setReviews([]);
+        } finally {
+            setLoadingMoreReviews(false);
+        }
+    }, [id]);
+
     useEffect(() => {
         startBounce();
         const loadData = async () => {
@@ -35,18 +90,7 @@ export default function PlacesDetails() {
                 // Fetch Destination Details
                 const destResponse = await api.get(`/api/destinations/${id}/`);
                 setDestination(destResponse.data);
-
-                // Fetch Reviews for this Destination
-                // Note: Ensure your backend filters by destination, otherwise we filter client-side if needed
-                const reviewsResponse = await api.get(`/api/destination_reviews/?destination=${id}`);
-                const allReviews = Array.isArray(reviewsResponse.data) ? reviewsResponse.data : reviewsResponse.data.results || [];
-
-                
-                // If backend doesn't support ?destination=ID filtering directly yet, filter here:
-                const filteredReviews = allReviews.filter(r => r.destination === parseInt(id));
-                setReviews(filteredReviews);
-
-                console.log(filteredReviews)
+                await fetchReviewsPage({ page: 1, reset: true });
 
             } catch (error) {
                 console.error("Error fetching data:", error);
@@ -55,7 +99,25 @@ export default function PlacesDetails() {
             }
         };
         loadData();
-    }, [id, startBounce]);
+    }, [id, startBounce, fetchReviewsPage]);
+
+    const handleLoadMoreReviews = useCallback((event) => {
+        const offsetY = Number(event?.nativeEvent?.contentOffset?.y || 0);
+        setShowScrollTopButton(offsetY > SCROLL_TO_TOP_THRESHOLD);
+
+        if (loading || loadingMoreReviews || !hasMoreReviews) return;
+
+        const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+        const distanceToBottom = contentSize.height - (layoutMeasurement.height + contentOffset.y);
+
+        if (distanceToBottom < 160) {
+            fetchReviewsPage({ page: reviewPage + 1, reset: false });
+        }
+    }, [loading, loadingMoreReviews, hasMoreReviews, reviewPage, fetchReviewsPage]);
+
+    const handleScrollToTop = useCallback(() => {
+        placeDetailsScrollRef.current?.scrollTo({ y: 0, animated: true });
+    }, []);
 
     if (loading) {
         return (
@@ -91,8 +153,15 @@ export default function PlacesDetails() {
         : (destination.average_rating || "New");
 
     return (
-        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-            <SafeAreaView edges={['bottom']}>
+        <View style={styles.container}>
+            <ScrollView
+                ref={placeDetailsScrollRef}
+                style={styles.container}
+                showsVerticalScrollIndicator={false}
+                onScroll={handleLoadMoreReviews}
+                scrollEventThrottle={16}
+            >
+                <SafeAreaView edges={['bottom']}>
 
                 <View style={styles.header}>
                     <Image
@@ -217,34 +286,41 @@ export default function PlacesDetails() {
                             <Text style={styles.emptyReviewsText}>Be the first to share your experience!</Text>
                         </View>
                     ) : (
-                        reviews.map((review) => (
-                            <View key={review.id} style={styles.reviewCard}>
-                                <View style={styles.reviewHeader}>
-                                    <View style={styles.reviewerInfo}>
-                                        <View style={styles.avatarPlaceholder}>
-                                            <Text style={styles.avatarText}>
-                                                {review.reviewer_username ? review.reviewer_username.charAt(0).toUpperCase() : "A"}
-                                            </Text>
+                        <>
+                            {reviews.map((review) => (
+                                <View key={review.id} style={styles.reviewCard}>
+                                    <View style={styles.reviewHeader}>
+                                        <View style={styles.reviewerInfo}>
+                                            <View style={styles.avatarPlaceholder}>
+                                                <Text style={styles.avatarText}>
+                                                    {review.reviewer_username ? review.reviewer_username.charAt(0).toUpperCase() : "A"}
+                                                </Text>
+                                            </View>
+                                            <View>
+                                                <Text style={styles.reviewerName}>{review.reviewer_username || "Traveler"}</Text>
+                                                <Text style={styles.reviewDate}>{new Date(review.timestamp).toLocaleDateString()}</Text>
+                                            </View>
                                         </View>
-                                        <View>
-                                            <Text style={styles.reviewerName}>{review.reviewer_username || "Traveler"}</Text>
-                                            <Text style={styles.reviewDate}>{new Date(review.timestamp).toLocaleDateString()}</Text>
+                                        <View style={styles.starsRow}>
+                                            {[...Array(5)].map((_, i) => (
+                                                <Ionicons 
+                                                    key={i} 
+                                                    name={i < review.rating ? "star" : "star-outline"} 
+                                                    size={14} 
+                                                    color="#FACC15" 
+                                                />
+                                            ))}
                                         </View>
                                     </View>
-                                    <View style={styles.starsRow}>
-                                        {[...Array(5)].map((_, i) => (
-                                            <Ionicons 
-                                                key={i} 
-                                                name={i < review.rating ? "star" : "star-outline"} 
-                                                size={14} 
-                                                color="#FACC15" 
-                                            />
-                                        ))}
-                                    </View>
+                                    <Text style={styles.reviewComment}>{review.comment}</Text>
                                 </View>
-                                <Text style={styles.reviewComment}>{review.comment}</Text>
-                            </View>
-                        ))
+                            ))}
+                            {loadingMoreReviews && (
+                                <View style={{ paddingVertical: 12 }}>
+                                    <Ionicons name="reload" size={18} color="#3B82F6" style={{ alignSelf: 'center' }} />
+                                </View>
+                            )}
+                        </>
                     )}
                 </View>
 
@@ -271,8 +347,14 @@ export default function PlacesDetails() {
                     </TouchableOpacity>
                 </View>
 
-            </SafeAreaView>
-        </ScrollView>
+                </SafeAreaView>
+            </ScrollView>
+
+            <ScrollToTopButton
+                visible={showScrollTopButton}
+                onPress={handleScrollToTop}
+            />
+        </View>
     );
 }
 

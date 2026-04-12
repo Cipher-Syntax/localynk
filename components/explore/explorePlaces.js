@@ -6,6 +6,7 @@ import { User } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import api from '../../api/api';
+import ScrollToTopButton from '../ScrollToTopButton';
 
 const FALLBACK_IMAGE = require('../../assets/localynk_images/discover1.png'); 
 
@@ -15,6 +16,8 @@ const LARGE_HEIGHT = 280;
 const SMALL_HEIGHT = (LARGE_HEIGHT - GAP) / 2;
 const SEARCH_DEBOUNCE_MS = 400;
 const MIN_SEARCH_CHARS = 2;
+const EXPLORE_PAGE_SIZE = 10;
+const SCROLL_TO_TOP_THRESHOLD = 320;
 
 const getParamValue = (value) => (Array.isArray(value) ? value[0] : value);
 
@@ -49,6 +52,19 @@ const toGuideIdPayload = (guideIdKey) => {
     return Number.isFinite(numericId) ? numericId : guideIdKey;
 };
 
+const extractPageItems = (payload) => {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.results)) return payload.results;
+    return [];
+};
+
+const hasNextPage = (payload, fallbackCount = 0) => {
+    if (Array.isArray(payload)) {
+        return fallbackCount >= EXPLORE_PAGE_SIZE;
+    }
+    return Boolean(payload?.next);
+};
+
 const ExplorePlaces = () => {
     const router = useRouter();
     const params = useLocalSearchParams();
@@ -75,10 +91,18 @@ const ExplorePlaces = () => {
     const [guides, setGuides] = useState([]);
     const [places, setPlaces] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [guidesPage, setGuidesPage] = useState(1);
+    const [placesPage, setPlacesPage] = useState(1);
+    const [hasMoreGuides, setHasMoreGuides] = useState(true);
+    const [hasMorePlaces, setHasMorePlaces] = useState(true);
+    const [loadingMoreGuides, setLoadingMoreGuides] = useState(false);
+    const [loadingMorePlaces, setLoadingMorePlaces] = useState(false);
     const [guideImageErrors, setGuideImageErrors] = useState({});
     const [favorites, setFavorites] = useState(new Set());
 
     const bounceValue = useRef(new Animated.Value(0)).current;
+    const exploreListRef = useRef(null);
+    const [showScrollTopButton, setShowScrollTopButton] = useState(false);
 
     
 
@@ -168,21 +192,91 @@ const ExplorePlaces = () => {
 
     const shouldApplySearchFilter = normalizedSearchQuery.length >= MIN_SEARCH_CHARS;
 
+    const fetchGuidesPage = useCallback(async ({ page = 1, reset = true } = {}) => {
+        if (!reset) setLoadingMoreGuides(true);
+
+        try {
+            const response = await api.get('/api/guides/', {
+                params: {
+                    page,
+                    page_size: EXPLORE_PAGE_SIZE,
+                },
+            });
+
+            const incoming = extractPageItems(response.data);
+            const hasMore = hasNextPage(response.data, incoming.length);
+
+            setGuides((previous) => {
+                if (reset) return incoming;
+                const byId = new Map(previous.map((item) => [String(item.id ?? item.user_id), item]));
+                incoming.forEach((item) => {
+                    byId.set(String(item.id ?? item.user_id), item);
+                });
+                return Array.from(byId.values());
+            });
+
+            setGuidesPage(page);
+            setHasMoreGuides(hasMore);
+        } catch (error) {
+            console.error('Failed to fetch guides:', error);
+            if (reset) {
+                setGuides([]);
+            }
+        } finally {
+            setLoadingMoreGuides(false);
+        }
+    }, []);
+
+    const fetchPlacesPage = useCallback(async ({ page = 1, reset = true } = {}) => {
+        if (!reset) setLoadingMorePlaces(true);
+
+        try {
+            const response = await api.get('/api/destinations/', {
+                params: {
+                    page,
+                    page_size: EXPLORE_PAGE_SIZE,
+                },
+            });
+
+            const incoming = extractPageItems(response.data);
+            const hasMore = hasNextPage(response.data, incoming.length);
+
+            setPlaces((previous) => {
+                if (reset) return incoming;
+                const byId = new Map(previous.map((item) => [String(item.id), item]));
+                incoming.forEach((item) => {
+                    byId.set(String(item.id), item);
+                });
+                return Array.from(byId.values());
+            });
+
+            setPlacesPage(page);
+            setHasMorePlaces(hasMore);
+        } catch (error) {
+            console.error('Failed to fetch places:', error);
+            if (reset) {
+                setPlaces([]);
+            }
+        } finally {
+            setLoadingMorePlaces(false);
+        }
+    }, []);
+
     useEffect(() => {
         let isMounted = true;
 
         const fetchData = async () => {
             setLoading(true);
             try {
-                const guidesPromise = api.get('/api/guides/').catch(() => ({ data: [] }));
-                const placesPromise = api.get('/api/destinations/').catch(() => ({ data: [] }));
                 const favoritesPromise = api.get('/api/favorites/').catch(() => ({ data: [] }));
 
-                const [guidesRes, placesRes, favoritesRes] = await Promise.all([guidesPromise, placesPromise, favoritesPromise]);
+                const [favoritesRes] = await Promise.all([
+                    favoritesPromise,
+                    fetchGuidesPage({ page: 1, reset: true }),
+                    fetchPlacesPage({ page: 1, reset: true }),
+                ]);
 
                 if (isMounted) {
-                    const guidesData = Array.isArray(guidesRes.data) ? guidesRes.data : (guidesRes.data?.results || []);
-                    const placesData = Array.isArray(placesRes.data) ? placesRes.data : (placesRes.data?.results || []);
                     const favoritesData = Array.isArray(favoritesRes.data) ? favoritesRes.data : [];
                     const favoriteIds = new Set(
                         favoritesData
@@ -190,8 +284,6 @@ const ExplorePlaces = () => {
                             .filter(Boolean),
                     );
 
-                    setGuides(guidesData);
-                    setPlaces(placesData);
                     setFavorites(favoriteIds);
                 }
             } catch (error) {
@@ -204,7 +296,7 @@ const ExplorePlaces = () => {
         fetchData();
 
         return () => { isMounted = false };
-    }, []);
+    }, [fetchGuidesPage, fetchPlacesPage]);
 
     const refreshFavorites = useCallback(async () => {
         try {
@@ -707,18 +799,68 @@ const ExplorePlaces = () => {
     };
 
     const displayData = activeTab === 'guides' ? filteredGuides : chunkData(filteredPlaces, 3);
+    const isLoadingMore = activeTab === 'guides' ? loadingMoreGuides : loadingMorePlaces;
+
+    const handleEndReached = useCallback(() => {
+        if (loading || isLoadingMore) return;
+
+        if (activeTab === 'guides') {
+            if (!hasMoreGuides) return;
+            fetchGuidesPage({ page: guidesPage + 1, reset: false });
+            return;
+        }
+
+        if (!hasMorePlaces) return;
+        fetchPlacesPage({ page: placesPage + 1, reset: false });
+    }, [
+        loading,
+        isLoadingMore,
+        activeTab,
+        hasMoreGuides,
+        hasMorePlaces,
+        guidesPage,
+        placesPage,
+        fetchGuidesPage,
+        fetchPlacesPage,
+    ]);
+
+    const handleExploreScroll = useCallback((event) => {
+        const offsetY = Number(event?.nativeEvent?.contentOffset?.y || 0);
+        setShowScrollTopButton(offsetY > SCROLL_TO_TOP_THRESHOLD);
+    }, []);
+
+    const handleScrollToTop = useCallback(() => {
+        exploreListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    }, []);
 
     return (
         <View style={styles.container}>
             <FlatList
+                ref={exploreListRef}
                 key={activeTab}
                 data={displayData}
                 renderItem={renderItem}
                 keyExtractor={(item, index) => index.toString()}
                 contentContainerStyle={styles.contentContainer}
+                onScroll={handleExploreScroll}
+                scrollEventThrottle={16}
+                onEndReached={handleEndReached}
+                onEndReachedThreshold={0.35}
                 ListHeaderComponent={renderHeader()}
                 ListEmptyComponent={renderEmpty}
+                ListFooterComponent={
+                    isLoadingMore ? (
+                        <View style={styles.listFooterLoader}>
+                            <Ionicons name="reload" size={18} color="#00A8FF" />
+                        </View>
+                    ) : null
+                }
                 showsVerticalScrollIndicator={false}
+            />
+
+            <ScrollToTopButton
+                visible={showScrollTopButton}
+                onPress={handleScrollToTop}
             />
 
             {/* Filter Bottom Sheet Modal */}
@@ -838,6 +980,7 @@ const styles = StyleSheet.create({
     loadingContainer: { alignItems: 'center', marginTop: 50 },
     emptyContainer: { alignItems: 'center', marginTop: 50 },
     emptyText: { color: '#8B98A8', fontSize: 16 },
+    listFooterLoader: { paddingVertical: 16, alignItems: 'center' },
 
     header: { position: 'relative', height: 120, justifyContent: 'center', width: '100%' },
     headerImage: { width: '100%', height: '100%', resizeMode: 'cover', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },

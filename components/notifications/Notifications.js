@@ -7,8 +7,23 @@ import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeabl
 import api from '../../api/api'; 
 import { useAuth } from '../../context/AuthContext';
 import Toast from '../Toast';
+import ScrollToTopButton from '../ScrollToTopButton';
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 10;
+const SCROLL_TO_TOP_THRESHOLD = 280;
+
+const extractAlertItems = (payload) => {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.results)) return payload.results;
+    return [];
+};
+
+const hasNextAlertPage = (payload, fallbackCount = 0) => {
+    if (Array.isArray(payload)) {
+        return fallbackCount >= PAGE_SIZE;
+    }
+    return Boolean(payload?.next);
+};
 
 const FILTERS = [
     { key: 'all', label: 'All' },
@@ -23,9 +38,11 @@ const Notifications = () => {
     const { user } = useAuth();
     const [notifications, setNotifications] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [activeFilter, setActiveFilter] = useState('all');
-    const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [hasMorePages, setHasMorePages] = useState(true);
     const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
     const [undoState, setUndoState] = useState({ visible: false, items: [], message: '' });
     const [dialog, setDialog] = useState({
@@ -38,6 +55,8 @@ const Notifications = () => {
         onConfirm: null,
     });
     const undoTimerRef = useRef(null);
+    const notificationsScrollRef = useRef(null);
+    const [showScrollTopButton, setShowScrollTopButton] = useState(false);
 
     const notificationIcons = {
         "New Guide Application": <Ionicons name="person-add-outline" size={28} color="#F5A623" />,
@@ -101,26 +120,54 @@ const Notifications = () => {
         }
     }, [dialog, closeDialog]);
 
-    const fetchNotifications = useCallback(async () => {
+    const fetchNotifications = useCallback(async ({ page = 1, reset = true } = {}) => {
+        if (reset) {
+            setIsLoading(true);
+        } else {
+            setIsLoadingMore(true);
+        }
+
         try {
-            const response = await api.get('/api/alerts/');
-            if (response.data) {
-                const sortedData = response.data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-                setNotifications(sortedData);
-                setVisibleCount(PAGE_SIZE);
-            }
+            const response = await api.get('/api/alerts/', {
+                params: {
+                    page,
+                    page_size: PAGE_SIZE,
+                },
+            });
+
+            const incoming = extractAlertItems(response.data);
+            const hasMore = hasNextAlertPage(response.data, incoming.length);
+
+            setNotifications((previous) => {
+                const sortedIncoming = [...incoming].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+                if (reset) {
+                    return sortedIncoming;
+                }
+
+                const byId = new Map(previous.map((item) => [String(item.id), item]));
+                sortedIncoming.forEach((item) => {
+                    byId.set(String(item.id), item);
+                });
+
+                return Array.from(byId.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            });
+
+            setCurrentPage(page);
+            setHasMorePages(hasMore);
         } catch (error) {
             console.error('Backend notifications fetch failed:', error);
             showToast('Could not load notifications.', 'error');
         } finally {
             setIsLoading(false);
             setRefreshing(false);
+            setIsLoadingMore(false);
         }
     }, [showToast]);
 
     useFocusEffect(
         useCallback(() => {
-            fetchNotifications();
+            fetchNotifications({ page: 1, reset: true });
         }, [fetchNotifications])
     );
 
@@ -135,7 +182,7 @@ const Notifications = () => {
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
-        fetchNotifications();
+        fetchNotifications({ page: 1, reset: true });
     }, [fetchNotifications]);
 
     const restoreUndoSnapshot = useCallback(() => {
@@ -467,21 +514,21 @@ const Notifications = () => {
         });
     }, [activeFilter, groupedNotifications]);
 
-    const visibleNotifications = useMemo(() => {
-        return filteredNotifications.slice(0, visibleCount);
-    }, [filteredNotifications, visibleCount]);
-
-    useEffect(() => {
-        setVisibleCount(PAGE_SIZE);
-    }, [activeFilter]);
-
     const handleScrollLoadMore = useCallback((event) => {
+        const offsetY = Number(event?.nativeEvent?.contentOffset?.y || 0);
+        setShowScrollTopButton(offsetY > SCROLL_TO_TOP_THRESHOLD);
+
+        if (isLoading || isLoadingMore || !hasMorePages) return;
         const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
         const distanceToBottom = contentSize.height - (layoutMeasurement.height + contentOffset.y);
-        if (distanceToBottom < 120 && visibleCount < filteredNotifications.length) {
-            setVisibleCount(prev => Math.min(prev + PAGE_SIZE, filteredNotifications.length));
+        if (distanceToBottom < 120) {
+            fetchNotifications({ page: currentPage + 1, reset: false });
         }
-    }, [visibleCount, filteredNotifications.length]);
+    }, [isLoading, isLoadingMore, hasMorePages, currentPage, fetchNotifications]);
+
+    const handleScrollToTop = useCallback(() => {
+        notificationsScrollRef.current?.scrollTo({ y: 0, animated: true });
+    }, []);
 
     const categorizeNotifications = () => {
         const today = new Date();
@@ -490,7 +537,7 @@ const Notifications = () => {
         const todayList = [];
         const weekList = [];
 
-        visibleNotifications.forEach(item => {
+        filteredNotifications.forEach(item => {
             const itemDate = new Date(item.created_at);
             const timeDiff = today.getTime() - itemDate.getTime();
             const diffDays = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
@@ -598,6 +645,7 @@ const Notifications = () => {
                 </View>
             </View>
             <ScrollView 
+                ref={notificationsScrollRef}
                 contentContainerStyle={{ paddingBottom: 20 }}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
                 onScroll={handleScrollLoadMore}
@@ -642,10 +690,10 @@ const Notifications = () => {
                         {weekNotifications.map(renderNotification)}
                     </>
                 )}
-                {filteredNotifications.length > 0 && visibleCount < filteredNotifications.length && (
-                    <TouchableOpacity style={styles.loadMoreButton} onPress={() => setVisibleCount(prev => Math.min(prev + PAGE_SIZE, filteredNotifications.length))}>
-                        <Text style={styles.loadMoreText}>Load more</Text>
-                    </TouchableOpacity>
+                {isLoadingMore && (
+                    <View style={styles.loadingMoreWrap}>
+                        <ActivityIndicator size="small" color="#007AFF" />
+                    </View>
                 )}
 
                 {filteredNotifications.length === 0 && (
@@ -655,6 +703,12 @@ const Notifications = () => {
                     </View>
                 )}
             </ScrollView>
+
+            <ScrollToTopButton
+                visible={showScrollTopButton}
+                onPress={handleScrollToTop}
+                bottom={undoState.visible ? 84 : 26}
+            />
 
             {undoState.visible && (
                 <View style={styles.undoToast}>
@@ -750,8 +804,7 @@ const styles = StyleSheet.create({
     swipeRead: { backgroundColor: '#007AFF' },
     swipeDelete: { backgroundColor: '#FF3B30' },
     swipeActionText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-    loadMoreButton: { alignSelf: 'center', marginTop: 10, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: '#EAF0F7' },
-    loadMoreText: { color: '#0A2342', fontWeight: '700', fontSize: 12 },
+    loadingMoreWrap: { alignItems: 'center', paddingVertical: 14 },
     undoToast: { position: 'absolute', bottom: 24, left: 16, right: 16, backgroundColor: '#1F2937', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', zIndex: 20 },
     undoToastText: { color: '#fff', fontSize: 13, fontWeight: '600', flex: 1, marginRight: 10 },
     undoToastAction: { color: '#7DD3FC', fontSize: 13, fontWeight: '800' },
