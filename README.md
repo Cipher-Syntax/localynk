@@ -1,50 +1,94 @@
-# Welcome to your Expo app 👋
+# Localynk Mobile App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Localynk is the mobile client for the My Friendly Local Guide ecosystem. It is built with Expo + React Native and supports tourist, guide, and agency workflows such as discovery, booking, payments, messaging, and reviews.
 
-## Get started
+## Tech Stack
 
-1. Install dependencies
+- Expo SDK 54
+- React Native 0.81
+- Expo Router (file-based navigation)
+- Axios for API requests
+- AsyncStorage for local auth token handling
+- Expo Notifications and EAS Update support
+
+## Project Structure
+
+```
+localynk/
+  app/                 # Expo Router routes and screens
+  api/                 # Axios client and API helpers
+  components/          # Reusable UI components
+  context/             # Auth and app-level context
+  hooks/               # Reusable hooks
+  utils/               # Shared utility functions
+  assets/              # Images and static assets
+```
+
+## Prerequisites
+
+- Node.js 18 or newer (Node.js 20 LTS recommended)
+- npm 9+
+- Expo CLI (via npx, no global install required)
+- One of:
+  - Expo Go on Android/iOS device
+  - Android Studio emulator
+  - Xcode simulator (macOS only)
+
+## Installation and Local Setup
+
+1. Open a terminal in the app folder:
+
+   ```bash
+   cd localynk
+   ```
+
+2. Install dependencies:
 
    ```bash
    npm install
    ```
 
-2. Start the app
+3. Create a `.env` file in this folder:
 
-   ```bash
-   npx expo start
+   ```env
+   EXPO_PUBLIC_API_URL=http://127.0.0.1:8000
+   EXPO_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id_here
    ```
 
-In the output, you'll find options to open the app in a
+4. Start the Expo dev server:
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+   ```bash
+   npm run start
+   ```
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+5. Launch on your target platform from the Expo terminal menu:
 
-## Get a fresh project
+- Press `a` for Android
+- Press `i` for iOS (macOS only)
+- Press `w` for web
+- Scan the QR code for Expo Go
 
-When you're ready, run:
+## Available Scripts
 
-```bash
-npm run reset-project
-```
+- `npm run start` - Start Expo dev server
+- `npm run android` - Build/run Android locally
+- `npm run ios` - Build/run iOS locally
+- `npm run web` - Run Expo web target
+- `npm run lint` - Run lint checks
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Backend Connection
 
-## Learn more
+- Localynk sends API requests to `EXPO_PUBLIC_API_URL`.
+- Start the backend from the My Friendly Local Guide repository first.
+- If you use a physical device, set `EXPO_PUBLIC_API_URL` to a reachable host (for example your machine LAN IP), not only `localhost`.
 
-To learn more about developing your project with Expo, look at the following resources:
+## Common Troubleshooting
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+- If env changes are not picked up, restart Expo with:
 
-## Join the community
+  ```bash
+  npx expo start --clear
+  ```
 
-Join our community of developers creating universal apps.
+- If API requests fail, verify `EXPO_PUBLIC_API_URL` and ensure the backend is running.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
