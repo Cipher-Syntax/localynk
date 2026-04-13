@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Image, Platform, ActivityIndicator, KeyboardAvoidingView } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { useRouter } from 'expo-router';
+import { Picker } from '@react-native-picker/picker';
 import { useAuth } from '../../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -12,6 +13,126 @@ import { formatPHPhoneLocal, normalizePHPhone } from '../../../utils/phoneNumber
 import { NAME_REGEX, NAME_ERROR_MESSAGE, PHONE_ERROR_MESSAGE } from '../../../utils/validation';
 import { isPayoutAccountIncomplete } from '../../../utils/profileCompleteness';
 import ScreenSafeArea from '../../../components/ScreenSafeArea';
+
+const PAYOUT_CHANNEL_OPTIONS = [
+    { key: 'gcash', label: 'GCash' },
+    { key: 'paymaya', label: 'Maya' },
+    { key: 'qrph', label: 'QR Ph' },
+    { key: 'card', label: 'Card' },
+];
+
+const normalizePayoutChannel = (value) => {
+    const sanitized = String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[\s_-]+/g, '');
+
+    if (sanitized === 'gcash') return 'gcash';
+    if (sanitized === 'maya' || sanitized === 'paymaya') return 'paymaya';
+    if (sanitized === 'qrph') return 'qrph';
+    if (sanitized === 'other') return 'qrph';
+    if (sanitized === 'card') return 'card';
+    if (sanitized === 'bank') return 'card';
+
+    return '';
+};
+
+const mapPayoutChannelToBackendValue = (channel) => {
+    const normalizedChannel = normalizePayoutChannel(channel);
+
+    if (normalizedChannel === 'gcash') return 'GCash';
+    if (normalizedChannel === 'paymaya') return 'Maya';
+    if (normalizedChannel === 'card') return 'Bank';
+    if (normalizedChannel === 'qrph') return 'Other';
+
+    return '';
+};
+
+const formatPayoutAccountNumberInput = (channel, value) => {
+    const normalizedChannel = normalizePayoutChannel(channel);
+
+    if (normalizedChannel === 'gcash' || normalizedChannel === 'paymaya') {
+        const digits = String(value || '').replace(/\D/g, '').slice(0, 11);
+
+        if (digits.length <= 4) return digits;
+        if (digits.length <= 7) return `${digits.slice(0, 4)} ${digits.slice(4)}`;
+        return `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7)}`;
+    }
+
+    if (normalizedChannel === 'card') {
+        const digits = String(value || '').replace(/\D/g, '').slice(0, 19);
+        return digits.replace(/(\d{4})(?=\d)/g, '$1 ');
+    }
+
+    if (normalizedChannel === 'qrph') {
+        return String(value || '').slice(0, 64);
+    }
+
+    return String(value || '');
+};
+
+const getPayoutAccountPlaceholder = (channel) => {
+    const normalizedChannel = normalizePayoutChannel(channel);
+
+    if (normalizedChannel === 'gcash' || normalizedChannel === 'paymaya') {
+        return 'Mobile number (e.g., 0994 162 7819)';
+    }
+
+    if (normalizedChannel === 'card') {
+        return 'Card account number';
+    }
+
+    if (normalizedChannel === 'qrph') {
+        return 'QRPH account identifier';
+    }
+
+    return 'Account number';
+};
+
+const validatePayoutAccountNumber = (channel, value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return true;
+
+    const normalizedChannel = normalizePayoutChannel(channel);
+    if (!normalizedChannel) {
+        return 'Please select a payout channel first.';
+    }
+
+    if (normalizedChannel === 'qrph') {
+        return true;
+    }
+
+    const digits = raw.replace(/\D/g, '');
+
+    if (normalizedChannel === 'gcash' || normalizedChannel === 'paymaya') {
+        if (!/^09\d{9}$/.test(digits)) {
+            return 'Use an 11-digit PH mobile number (e.g., 0994 162 7819).';
+        }
+        return true;
+    }
+
+    if (normalizedChannel === 'card') {
+        if (!/^\d{12,19}$/.test(digits)) {
+            return 'Card account number must be 12 to 19 digits.';
+        }
+        return true;
+    }
+
+    return true;
+};
+
+const normalizePayoutAccountNumberForSubmit = (channel, value) => {
+    const normalizedChannel = normalizePayoutChannel(channel);
+    const raw = String(value || '').trim();
+
+    if (!raw) return '';
+
+    if (normalizedChannel === 'gcash' || normalizedChannel === 'paymaya' || normalizedChannel === 'card') {
+        return raw.replace(/\D/g, '');
+    }
+
+    return raw;
+};
 
 const EditProfile = () => {
     const { user, refreshUser } = useAuth(); 
@@ -27,13 +148,13 @@ const EditProfile = () => {
     const [profileImage, setProfileImage] = useState(null);
     const [toast, setToast] = useState({ visible: false, message: '', type: 'error' });
 
-    const { control, handleSubmit, formState: { errors } } = useForm({
+    const { control, handleSubmit, watch, formState: { errors } } = useForm({
         defaultValues: {
             first_name: user?.first_name || '',
             middle_name: user?.middle_name || '',
             last_name: user?.last_name || '',
             phone_number: formatPHPhoneLocal(user?.phone_number || ''),
-            payout_account_type: user?.payout_account_type || '',
+            payout_account_type: normalizePayoutChannel(user?.payout_account_type),
             payout_account_name: user?.payout_account_name || '',
             payout_account_number: user?.payout_account_number || '',
             payout_account_notes: user?.payout_account_notes || '',
@@ -41,6 +162,8 @@ const EditProfile = () => {
             bio: user?.bio || '',
         }
     });
+
+    const selectedPayoutChannel = watch('payout_account_type');
 
     const pickImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -76,10 +199,22 @@ const EditProfile = () => {
                 setIsLoading(false);
                 return;
             }
+
+            const payoutChannel = normalizePayoutChannel(data.payout_account_type);
+            const payoutChannelForBackend = mapPayoutChannelToBackendValue(payoutChannel);
+            const payoutAccountNumber = normalizePayoutAccountNumberForSubmit(payoutChannel, data.payout_account_number);
+            const payoutNumberValidation = validatePayoutAccountNumber(payoutChannel, payoutAccountNumber);
+
+            if (payoutNumberValidation !== true) {
+                setToast({ visible: true, message: payoutNumberValidation, type: 'error' });
+                setIsLoading(false);
+                return;
+            }
+
             formData.append('phone_number', normalizedPhone || '');
-            formData.append('payout_account_type', String(data.payout_account_type || '').trim());
+            formData.append('payout_account_type', payoutChannelForBackend);
             formData.append('payout_account_name', String(data.payout_account_name || '').trim());
-            formData.append('payout_account_number', String(data.payout_account_number || '').trim());
+            formData.append('payout_account_number', payoutAccountNumber);
             formData.append('payout_account_notes', String(data.payout_account_notes || '').trim());
             formData.append('location', data.location);
             formData.append('bio', data.bio);
@@ -273,19 +408,35 @@ const EditProfile = () => {
                         <Controller
                             control={control}
                             name="payout_account_type"
+                            rules={{
+                                validate: (value) => {
+                                    const hasAccountNumber = String(watch('payout_account_number') || '').trim().length > 0;
+                                    if (hasAccountNumber && !normalizePayoutChannel(value)) {
+                                        return 'Please select a payout channel.';
+                                    }
+                                    return true;
+                                }
+                            }}
                             render={({ field: { onChange, value } }) => (
                                 <View style={styles.inputContainer}>
                                     <Ionicons name="wallet-outline" size={20} color="#6B7280" style={styles.inputIcon} />
-                                    <TextInput
-                                        placeholder="GCash, Bank, Maya, or Other"
-                                        style={styles.input}
-                                        value={value}
-                                        onChangeText={onChange}
-                                        placeholderTextColor="#6B7280"
-                                    />
+                                    <View style={styles.pickerWrapper}>
+                                        <Picker
+                                            selectedValue={value || ''}
+                                            onValueChange={(itemValue) => onChange(itemValue)}
+                                            style={styles.picker}
+                                            dropdownIconColor="#6B7280"
+                                        >
+                                            <Picker.Item label="Select payout channel" value="" color="#6B7280" />
+                                            {PAYOUT_CHANNEL_OPTIONS.map((option) => (
+                                                <Picker.Item key={option.key} label={option.label} value={option.key} />
+                                            ))}
+                                        </Picker>
+                                    </View>
                                 </View>
                             )}
                         />
+                        {errors.payout_account_type && <Text style={styles.errorText}>{errors.payout_account_type.message}</Text>}
 
                         <Text style={styles.label}>Account Name</Text>
                         <Controller
@@ -309,19 +460,24 @@ const EditProfile = () => {
                         <Controller
                             control={control}
                             name="payout_account_number"
+                            rules={{
+                                validate: (value) => validatePayoutAccountNumber(selectedPayoutChannel, value),
+                            }}
                             render={({ field: { onChange, value } }) => (
                                 <View style={styles.inputContainer}>
                                     <Ionicons name="card-outline" size={20} color="#6B7280" style={styles.inputIcon} />
                                     <TextInput
-                                        placeholder="GCash/Bank account number"
+                                        placeholder={getPayoutAccountPlaceholder(selectedPayoutChannel)}
                                         style={styles.input}
                                         value={value}
-                                        onChangeText={onChange}
+                                        onChangeText={(text) => onChange(formatPayoutAccountNumberInput(selectedPayoutChannel, text))}
+                                        keyboardType={normalizePayoutChannel(selectedPayoutChannel) === 'qrph' ? 'default' : 'number-pad'}
                                         placeholderTextColor="#6B7280"
                                     />
                                 </View>
                             )}
                         />
+                        {errors.payout_account_number && <Text style={styles.errorText}>{errors.payout_account_number.message}</Text>}
 
                         <Text style={styles.label}>Payout Notes</Text>
                         <Controller
@@ -431,6 +587,8 @@ const styles = StyleSheet.create({
     alertDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#EF4444' },
     inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9FAFB', borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 12, paddingHorizontal: 12 },
     inputIcon: { marginRight: 10 },
+    pickerWrapper: { flex: 1, justifyContent: 'center' },
+    picker: { flex: 1, height: 48, color: '#1F2937', marginLeft: Platform.OS === 'android' ? -8 : 0 },
     input: { flex: 1, height: 48, fontSize: 15, color: '#1F2937' },
     bioInput: { height: 100, paddingTop: 12 },
     notesInput: { height: 82, paddingTop: 12 },
