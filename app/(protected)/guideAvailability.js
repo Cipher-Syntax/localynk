@@ -219,6 +219,7 @@ const GuideAvailability = () => {
                         <CalendarIcon size={18} color="#1A2332" />
                         <Text style={styles.cardTitle}>Availability Calendar</Text>
                     </View>
+                    <Text style={{ textAlign: 'justify', fontSize: 12, marginBottom: 5 }}>Note: This is for viewing purposes only for the guide&apos;s availability</Text>
                     
                     <Calendar
                         current={new Date().toISOString().split('T')[0]}

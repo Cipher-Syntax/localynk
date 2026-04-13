@@ -12,14 +12,12 @@ import {
     UIManager,
     Animated,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons'; 
 import { useAuth } from '../../../context/AuthContext';
 import api from '../../../api/api';
 import ScreenSafeArea from '../../../components/ScreenSafeArea';
 
-// Enable LayoutAnimation on Android
 if (
   Platform.OS === 'android' &&
   UIManager.setLayoutAnimationEnabledExperimental
@@ -242,7 +240,7 @@ export default function PersonalizationScreen() {
     });
 
     return (
-        <SafeAreaView edges={['bottom']} style={styles.safeArea}>
+        <ScreenSafeArea edges={['bottom']} statusBarStyle='dark-content' style={styles.safeArea}>
             <View style={styles.container}>
                 {/* Enhanced Header */}
                 <View style={styles.header}>
@@ -351,7 +349,7 @@ export default function PersonalizationScreen() {
                     </TouchableOpacity>
                 </View>
             </View>
-        </SafeAreaView>
+        </ScreenSafeArea>
     );
 }
 

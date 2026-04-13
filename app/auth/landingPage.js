@@ -17,9 +17,10 @@ const LandingPage = () => {
             <StatusBar barStyle="light-content" />
 
             <ImageBackground
-                source={require("../../assets/localynk_images/landingPage.png")}
+                source={require("../../assets/localynk_images/landingPage.jpg")}
                 style={styles.background}
                 resizeMode="cover"
+                blurRadius={4}
             >
                 <LinearGradient
                     colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.7)']}

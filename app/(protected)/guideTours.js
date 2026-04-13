@@ -6,7 +6,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MapPin, ArrowRight } from "lucide-react-native";
 import api from '../../api/api';
 
-const FALLBACK_DESTINATION_IMAGE = require('../../assets/localynk_images/login_background.png');
+const FALLBACK_DESTINATION_IMAGE = require('../../assets/localynk_images/login_background.jpg');
 
 const normalizeText = (value) => String(value || '').trim().toLowerCase();
 

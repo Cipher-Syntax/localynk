@@ -6,7 +6,7 @@ import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 
-import LoginBackground from '../../assets/localynk_images/login_background.png';
+import LoginBackground from '../../assets/localynk_images/login_background.jpg';
 
 const { width } = Dimensions.get('window');
 

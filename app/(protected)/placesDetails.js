@@ -184,7 +184,7 @@ export default function PlacesDetails() {
                 {/* HERO SECTION */}
                 <View style={styles.heroContainer}>
                     <Image 
-                        source={heroImageUri ? { uri: heroImageUri } : require('../../assets/localynk_images/login_background.png')} 
+                        source={heroImageUri ? { uri: heroImageUri } : require('../../assets/localynk_images/login_background.jpg')} 
                         style={styles.heroImage} 
                     />
                     <LinearGradient colors={['rgba(0,0,0,0.6)', 'transparent']} style={styles.heroOverlay} />

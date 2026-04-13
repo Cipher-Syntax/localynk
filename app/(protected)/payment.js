@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { View, Text, ScrollView, StyleSheet, Image, TextInput, TouchableOpacity, ActivityIndicator, Modal, Platform, KeyboardAvoidingView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { User, AlertCircle, CheckCircle2, UploadCloud, Calendar as CalendarIcon, Bed } from 'lucide-react-native'; 
+import { User, AlertCircle, CheckCircle2, UploadCloud, Calendar as CalendarIcon, Bed, Star } from 'lucide-react-native'; 
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -425,6 +425,47 @@ const Payment = () => {
         basePrice: tourCostGroup, 
         serviceFee: 50,
     };
+
+    const providerLocationLabel = useMemo(() => {
+        const rawLocation = isAgency
+            ? (
+                fetchedBooking?.agency_detail?.location
+                || fetchedBooking?.agency_detail?.address
+                || guideAvailability?.location
+                || guideAvailability?.address
+            )
+            : (
+                fetchedBooking?.guide_detail?.location
+                || guideAvailability?.location
+            );
+
+        const normalizedLocation = typeof rawLocation === 'string' ? rawLocation.trim() : '';
+        if (normalizedLocation) return normalizedLocation;
+
+        return isAgency ? 'Agency location not set' : 'Guide location not set';
+    }, [isAgency, fetchedBooking, guideAvailability]);
+
+    const providerRatingLabel = useMemo(() => {
+        const ratingCandidates = isAgency
+            ? [
+                fetchedBooking?.agency_detail?.guide_rating,
+                fetchedBooking?.agency_detail?.average_rating,
+                guideAvailability?.guide_rating,
+                guideAvailability?.average_rating,
+            ]
+            : [
+                fetchedBooking?.guide_detail?.guide_rating,
+                fetchedBooking?.guide_detail?.average_rating,
+                guideAvailability?.guide_rating,
+                guideAvailability?.average_rating,
+            ];
+
+        const parsedRating = ratingCandidates
+            .map((value) => Number.parseFloat(value))
+            .find((value) => Number.isFinite(value) && value >= 0);
+
+        return Number.isFinite(parsedRating) ? parsedRating.toFixed(1) : 'N/A';
+    }, [isAgency, fetchedBooking, guideAvailability]);
     
     const effectiveAccommodationId = accommodationInitialized
         ? (selectedAccommodation?.id || fetchedBooking?.accommodation_detail?.id || null)
@@ -1313,6 +1354,11 @@ const Payment = () => {
                                     </View>
                                     <View style={styles.guideInfo}>
                                         <Text style={styles.guideName}>{bookingEntity.name}</Text>
+                                        <Text style={styles.guideLocation}>{providerLocationLabel}</Text>
+                                        <View style={styles.guideRatingRow}>
+                                            <Star size={14} color="#C99700" />
+                                            <Text style={styles.guideRatingText}>{providerRatingLabel}</Text>
+                                        </View>
                                         <Text style={styles.guideSub}>{bookingEntity.purpose}</Text>
                                         {isAgency && (
                                             <View style={styles.providerScheduleWrap}>
@@ -1952,7 +1998,11 @@ const styles = StyleSheet.create({
     avatarContainer: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#1E293B', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
     avatarHasImage: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#E2E8F0', padding: 1 },
     avatarImage: { width: '100%', height: '100%', borderRadius: 28 },
+    guideInfo: { flex: 1 },
     guideName: { fontSize: 18, fontWeight: '700', color: TEXT_PRIMARY },
+    guideLocation: { fontSize: 13, color: '#8B98A8', marginTop: 2 },
+    guideRatingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+    guideRatingText: { fontSize: 13, color: '#C99700', marginLeft: 4, fontWeight: '600' },
     guideSub: { fontSize: 13, color: TEXT_SECONDARY },
     providerScheduleWrap: { marginTop: 8, gap: 2 },
     providerScheduleRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },

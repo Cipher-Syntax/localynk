@@ -17,7 +17,7 @@ const SEARCH_DEBOUNCE_MS = 400;
 const MIN_QUERY_LENGTH = 2;
 const RECENT_SEARCHES_KEY = '@localynk_home_recent_searches';
 const MAX_RECENT_SEARCHES = 6;
-const DEFAULT_IMAGE = require('../../assets/localynk_images/login_background.png');
+const DEFAULT_IMAGE = require('../../assets/localynk_images/login_background.jpg');
 
 const CATEGORY_ORDER = ['tourists', 'tourGuides', 'agencies', 'destinations'];
 

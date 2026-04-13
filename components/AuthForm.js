@@ -28,8 +28,8 @@ const AuthForm = ({ method }) => {
     const router = useRouter();
 
     const bgImage = method === 'login'
-        ? require('../assets/localynk_images/login_background.png')
-        : require('../assets/localynk_images/register_background.png');
+        ? require('../assets/localynk_images/login_background.jpg')
+        : require('../assets/localynk_images/register_background.jpg');
 
     const titleText = method === 'login' ? 'Welcome Back' : 'Start Journey';
     const subtitleText = method === 'login' ? 'Continue your adventure' : 'Join the community of explorers';

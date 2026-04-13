@@ -391,6 +391,7 @@ const TouristGuideDetails = () => {
                                 })}
                             </View>
                             <Text style={[styles.detailLabel, {marginTop: 15, marginBottom: 10}]}>Full Calendar:</Text>
+                            <Text style={{ textAlign: 'justify', fontSize: 12, marginBottom: 5 }}>Note: This is for viewing purposes only for the guide&apos;s availability</Text>
                             <View style={styles.calendarContainer}>
                                 <Calendar
                                     current={new Date().toISOString().split('T')[0]}

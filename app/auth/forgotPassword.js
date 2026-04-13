@@ -34,7 +34,7 @@ const ForgotPassword = () => {
             <View style={styles.container}>
                 <StatusBar barStyle="light-content" />
                 <ImageBackground 
-                    source={require('../../assets/localynk_images/login_background.png')} 
+                    source={require('../../assets/localynk_images/login_background.jpg')} 
                     style={styles.bgImage} 
                     resizeMode="cover"
                 >

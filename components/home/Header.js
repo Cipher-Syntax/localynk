@@ -116,7 +116,7 @@ const Header = ({ destinations = [], unreadCount = 0 }) => {
                         {destinations.map(item => (
                             <ImageBackground
                                 key={item.id}
-                                source={item.image ? { uri: item.image || item.first_image || item.thumbnail || '' } : require('../../assets/localynk_images/login_background.png')}
+                                source={item.image ? { uri: item.image || item.first_image || item.thumbnail || '' } : require('../../assets/localynk_images/login_background.jpg')}
                                 style={styles.slide}
                                 resizeMode="cover"
                                 fadeDuration={300}
