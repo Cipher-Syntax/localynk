@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Image, Platform, ActivityIndicator, KeyboardAvoidingView } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { useRouter } from 'expo-router';
-import { Picker } from '@react-native-picker/picker';
 import { useAuth } from '../../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -15,10 +14,10 @@ import { isPayoutAccountIncomplete } from '../../../utils/profileCompleteness';
 import ScreenSafeArea from '../../../components/ScreenSafeArea';
 
 const PAYOUT_CHANNEL_OPTIONS = [
-    { key: 'gcash', label: 'GCash' },
-    { key: 'paymaya', label: 'Maya' },
-    { key: 'qrph', label: 'QR Ph' },
-    { key: 'card', label: 'Card' },
+    { key: 'gcash', label: 'GCash', icon: 'wallet' },
+    { key: 'paymaya', label: 'Maya', icon: 'card' },
+    { key: 'qrph', label: 'QR Ph', icon: 'qr-code-outline' },
+    { key: 'card', label: 'Card', icon: 'card-outline' },
 ];
 
 const normalizePayoutChannel = (value) => {
@@ -60,8 +59,7 @@ const formatPayoutAccountNumberInput = (channel, value) => {
     }
 
     if (normalizedChannel === 'card') {
-        const digits = String(value || '').replace(/\D/g, '').slice(0, 19);
-        return digits.replace(/(\d{4})(?=\d)/g, '$1 ');
+        return String(value || '').replace(/\D/g, '').slice(0, 11);
     }
 
     if (normalizedChannel === 'qrph') {
@@ -79,7 +77,7 @@ const getPayoutAccountPlaceholder = (channel) => {
     }
 
     if (normalizedChannel === 'card') {
-        return 'Card account number';
+        return 'Bank/Card account number (11 digits)';
     }
 
     if (normalizedChannel === 'qrph') {
@@ -112,8 +110,8 @@ const validatePayoutAccountNumber = (channel, value) => {
     }
 
     if (normalizedChannel === 'card') {
-        if (!/^\d{12,19}$/.test(digits)) {
-            return 'Card account number must be 12 to 19 digits.';
+        if (!/^\d{11}$/.test(digits)) {
+            return 'Bank/Card account number must be exactly 11 digits.';
         }
         return true;
     }
@@ -148,7 +146,7 @@ const EditProfile = () => {
     const [profileImage, setProfileImage] = useState(null);
     const [toast, setToast] = useState({ visible: false, message: '', type: 'error' });
 
-    const { control, handleSubmit, watch, formState: { errors } } = useForm({
+    const { control, handleSubmit, watch, setValue, clearErrors, formState: { errors } } = useForm({
         defaultValues: {
             first_name: user?.first_name || '',
             middle_name: user?.middle_name || '',
@@ -164,6 +162,15 @@ const EditProfile = () => {
     });
 
     const selectedPayoutChannel = watch('payout_account_type');
+    const [payoutAccountNumberByChannel, setPayoutAccountNumberByChannel] = useState(() => {
+        const initialChannel = normalizePayoutChannel(user?.payout_account_type);
+
+        if (!initialChannel) return {};
+
+        return {
+            [initialChannel]: String(user?.payout_account_number || ''),
+        };
+    });
 
     const pickImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -418,22 +425,58 @@ const EditProfile = () => {
                                 }
                             }}
                             render={({ field: { onChange, value } }) => (
-                                <View style={styles.inputContainer}>
-                                    <Ionicons name="wallet-outline" size={20} color="#6B7280" style={styles.inputIcon} />
-                                    <View style={styles.pickerWrapper}>
-                                        <Picker
-                                            selectedValue={value || ''}
-                                            onValueChange={(itemValue) => onChange(itemValue)}
-                                            style={styles.picker}
-                                            dropdownIconColor="#6B7280"
-                                        >
-                                            <Picker.Item label="Select payout channel" value="" color="#6B7280" />
-                                            {PAYOUT_CHANNEL_OPTIONS.map((option) => (
-                                                <Picker.Item key={option.key} label={option.label} value={option.key} />
-                                            ))}
-                                        </Picker>
-                                    </View>
-                                </View>
+                                <ScrollView
+                                    horizontal
+                                    showsHorizontalScrollIndicator={false}
+                                    contentContainerStyle={styles.payoutOptionRow}
+                                    style={styles.payoutOptionScroll}
+                                >
+                                    {PAYOUT_CHANNEL_OPTIONS.map((option) => {
+                                        const isSelected = normalizePayoutChannel(value) === option.key;
+
+                                        return (
+                                            <TouchableOpacity
+                                                key={option.key}
+                                                style={[styles.payoutOption, isSelected && styles.payoutOptionActive]}
+                                                onPress={() => {
+                                                    const nextChannel = normalizePayoutChannel(option.key);
+                                                    const currentChannel = normalizePayoutChannel(value);
+
+                                                    if (nextChannel !== currentChannel) {
+                                                        const currentNumber = String(watch('payout_account_number') || '');
+
+                                                        if (currentChannel) {
+                                                            setPayoutAccountNumberByChannel((prev) => ({
+                                                                ...prev,
+                                                                [currentChannel]: currentNumber,
+                                                            }));
+                                                        }
+
+                                                        const nextNumber = String(payoutAccountNumberByChannel[nextChannel] || '');
+
+                                                        onChange(nextChannel);
+                                                        setValue('payout_account_number', nextNumber, { shouldValidate: true, shouldDirty: true });
+                                                        clearErrors('payout_account_number');
+                                                        return;
+                                                    }
+
+                                                    onChange(nextChannel);
+                                                }}
+                                            >
+                                                <View style={[styles.payoutIconCircle, isSelected && styles.payoutIconCircleActive]}>
+                                                    <Ionicons
+                                                        name={option.icon}
+                                                        size={18}
+                                                        color={isSelected ? '#fff' : '#64748B'}
+                                                    />
+                                                </View>
+                                                <Text style={[styles.payoutOptionText, isSelected && styles.payoutOptionTextActive]}>
+                                                    {option.label}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </ScrollView>
                             )}
                         />
                         {errors.payout_account_type && <Text style={styles.errorText}>{errors.payout_account_type.message}</Text>}
@@ -470,7 +513,18 @@ const EditProfile = () => {
                                         placeholder={getPayoutAccountPlaceholder(selectedPayoutChannel)}
                                         style={styles.input}
                                         value={value}
-                                        onChangeText={(text) => onChange(formatPayoutAccountNumberInput(selectedPayoutChannel, text))}
+                                        onChangeText={(text) => {
+                                            const formatted = formatPayoutAccountNumberInput(selectedPayoutChannel, text);
+                                            onChange(formatted);
+
+                                            const normalizedChannel = normalizePayoutChannel(selectedPayoutChannel);
+                                            if (normalizedChannel) {
+                                                setPayoutAccountNumberByChannel((prev) => ({
+                                                    ...prev,
+                                                    [normalizedChannel]: formatted,
+                                                }));
+                                            }
+                                        }}
                                         keyboardType={normalizePayoutChannel(selectedPayoutChannel) === 'qrph' ? 'default' : 'number-pad'}
                                         placeholderTextColor="#6B7280"
                                     />
@@ -585,10 +639,34 @@ const styles = StyleSheet.create({
     sectionLabelAlert: { color: '#DC2626' },
     sectionHintAlert: { color: '#DC2626', fontSize: 12, fontWeight: '600', marginTop: -2, marginBottom: 8 },
     alertDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#EF4444' },
+    payoutOptionScroll: { marginBottom: 12 },
+    payoutOptionRow: { paddingRight: 4 },
+    payoutOption: {
+        marginRight: 10,
+        width: 90,
+        height: 84,
+        backgroundColor: '#F8FAFC',
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    payoutOptionActive: { borderColor: '#0072FF', backgroundColor: '#EFF6FF' },
+    payoutIconCircle: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#EEF2FF',
+        marginBottom: 8,
+    },
+    payoutIconCircleActive: { backgroundColor: '#0072FF' },
+    payoutOptionText: { fontSize: 12, color: '#475569', fontWeight: '700' },
+    payoutOptionTextActive: { color: '#1E40AF' },
     inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9FAFB', borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 12, paddingHorizontal: 12 },
     inputIcon: { marginRight: 10 },
-    pickerWrapper: { flex: 1, justifyContent: 'center' },
-    picker: { flex: 1, height: 48, color: '#1F2937', marginLeft: Platform.OS === 'android' ? -8 : 0 },
     input: { flex: 1, height: 48, fontSize: 15, color: '#1F2937' },
     bioInput: { height: 100, paddingTop: 12 },
     notesInput: { height: 82, paddingTop: 12 },
