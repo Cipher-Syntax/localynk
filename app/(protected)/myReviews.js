@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl, Image, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList, RefreshControl, Image, ActivityIndicator, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api/api';
 import ScreenSafeArea from '../../components/ScreenSafeArea';
@@ -10,6 +11,14 @@ import ScrollToTopButton from '../../components/ScrollToTopButton';
 
 const REVIEWS_PAGE_SIZE = 10;
 const SCROLL_TO_TOP_THRESHOLD = 280;
+const RATING_FILTERS = [
+    { key: 'all', label: 'All' },
+    { key: '5', label: '5 stars' },
+    { key: '4', label: '4 stars' },
+    { key: '3', label: '3 stars' },
+    { key: '2', label: '2 stars' },
+    { key: '1', label: '1 star' },
+];
 
 const getPagedReviews = (payload) => {
     if (Array.isArray(payload)) return payload;
@@ -73,7 +82,9 @@ const ReviewCard = ({ review }) => {
 };
 
 const MyReviews = () => {
+    const router = useRouter();
     const { user, refreshUser } = useAuth();
+    const userId = Number(user?.id || 0);
     const [reviews, setReviews] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -82,12 +93,18 @@ const MyReviews = () => {
     const [hasMorePages, setHasMorePages] = useState(true);
     const reviewsListRef = useRef(null);
     const [showScrollTopButton, setShowScrollTopButton] = useState(false);
+    const [selectedRatingFilter, setSelectedRatingFilter] = useState('all');
 
     
 
     // Move fetchReviews outside useEffect so it can be reused
     const fetchReviews = useCallback(async ({ page = 1, reset = true } = {}) => {
-        if (!user) return;
+        if (!userId) {
+            setLoading(false);
+            setRefreshing(false);
+            setLoadingMore(false);
+            return;
+        }
 
         if (reset) {
             setLoading(true);
@@ -96,8 +113,6 @@ const MyReviews = () => {
         }
 
         try {
-            if (refreshUser) await refreshUser();
-
             const response = await api.get('/api/reviews/', {
                 params: {
                     page,
@@ -108,8 +123,8 @@ const MyReviews = () => {
             const hasMore = hasNextReviewsPage(response.data, reviewList.length);
             
             const receivedReviews = reviewList.filter(review => {
-                const reviewedUserId = review.reviewed_user?.id || review.reviewed_user;
-                return reviewedUserId === user.id;
+                const reviewedUserId = Number(review.reviewed_user?.id || review.reviewed_user || 0);
+                return reviewedUserId === userId;
             });
 
             setReviews((previous) => {
@@ -131,7 +146,7 @@ const MyReviews = () => {
             setRefreshing(false);
             setLoadingMore(false);
         }
-    }, [user, refreshUser]);
+    }, [userId]);
 
     useEffect(() => {
         fetchReviews({ page: 1, reset: true });
@@ -139,8 +154,14 @@ const MyReviews = () => {
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
-        fetchReviews({ page: 1, reset: true });
-    }, [fetchReviews]);
+        void (async () => {
+            try {
+                if (refreshUser) await refreshUser();
+            } finally {
+                fetchReviews({ page: 1, reset: true });
+            }
+        })();
+    }, [fetchReviews, refreshUser]);
 
     const onEndReached = useCallback(() => {
         if (loading || refreshing || loadingMore || !hasMorePages) return;
@@ -155,6 +176,22 @@ const MyReviews = () => {
     const handleScrollToTop = useCallback(() => {
         reviewsListRef.current?.scrollToOffset({ offset: 0, animated: true });
     }, []);
+
+    const filteredReviews = useMemo(() => {
+        if (selectedRatingFilter === 'all') return reviews;
+
+        const expectedRating = Number.parseInt(selectedRatingFilter, 10);
+        if (!Number.isFinite(expectedRating)) return reviews;
+
+        return reviews.filter((review) => {
+            const ratingValue = Number.parseInt(review?.rating, 10);
+            return ratingValue === expectedRating;
+        });
+    }, [reviews, selectedRatingFilter]);
+
+    const handleBackPress = useCallback(() => {
+        router.back();
+    }, [router]);
 
     const renderHeader = () => {
         const rating = user?.guide_rating ? parseFloat(user.guide_rating).toFixed(1) : '0.0';
@@ -186,6 +223,26 @@ const MyReviews = () => {
                 </LinearGradient>
                 
                 <Text style={styles.sectionTitle}>Recent Feedback</Text>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.filterRow}
+                >
+                    {RATING_FILTERS.map((filterItem) => {
+                        const isActive = selectedRatingFilter === filterItem.key;
+                        return (
+                            <TouchableOpacity
+                                key={filterItem.key}
+                                style={[styles.filterChip, isActive && styles.filterChipActive]}
+                                onPress={() => setSelectedRatingFilter(filterItem.key)}
+                            >
+                                <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
+                                    {filterItem.label}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </ScrollView>
             </View>
         );
     };
@@ -193,8 +250,12 @@ const MyReviews = () => {
     if (loading) {
         return (
             <ScreenSafeArea edges={['top']} style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-                <View style={{ paddingHorizontal: 20, paddingVertical: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F1F5F9' }}>
-                     <View style={{ width: 120, height: 20, backgroundColor: '#E0E6ED', borderRadius: 4 }} />
+                <View style={styles.topHeader}>
+                    <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+                        <Ionicons name="arrow-back" size={20} color="#1E293B" />
+                    </TouchableOpacity>
+                    <Text style={styles.screenTitle}>My Reviews</Text>
+                    <View style={styles.headerSpacer} />
                 </View>
                 <View style={{ padding: 20 }}>
                      <View style={{ height: 140, backgroundColor: '#E0E6ED', borderRadius: 20, marginBottom: 25 }} />
@@ -225,12 +286,16 @@ const MyReviews = () => {
     return (
         <SafeAreaView edges={['top']} style={styles.safeArea}>
             <View style={styles.topHeader}>
+                <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+                    <Ionicons name="arrow-back" size={20} color="#1E293B" />
+                </TouchableOpacity>
                 <Text style={styles.screenTitle}>My Reviews</Text>
+                <View style={styles.headerSpacer} />
             </View>
 
             <FlatList
                 ref={reviewsListRef}
-                data={reviews}
+                data={filteredReviews}
                 renderItem={({ item }) => <ReviewCard review={item} />}
                 keyExtractor={(item) => item.id.toString()}
                 ListHeaderComponent={renderHeader}
@@ -245,9 +310,15 @@ const MyReviews = () => {
                             style={{width: 80, height: 80, opacity: 0.5, marginBottom: 15}}
                             resizeMode="contain"
                         />
-                        <Text style={styles.emptyTitle}>No Reviews Yet</Text>
+                        <Text style={styles.emptyTitle}>
+                            {selectedRatingFilter === 'all'
+                                ? 'No Reviews Yet'
+                                : `No ${selectedRatingFilter}-Star Reviews`}
+                        </Text>
                         <Text style={styles.emptyText}>
-                            Complete more tours to start earning reputation!
+                            {selectedRatingFilter === 'all'
+                                ? 'Complete more tours to start earning reputation!'
+                                : 'Try another filter to view more feedback.'}
                         </Text>
                     </View>
                 }
@@ -285,11 +356,28 @@ const styles = StyleSheet.create({
         backgroundColor: '#F8FAFC',
     },
     topHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
         paddingHorizontal: 20,
         paddingVertical: 15,
         backgroundColor: '#fff',
         borderBottomWidth: 1,
         borderBottomColor: '#F1F5F9',
+    },
+    backButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#F8FAFC',
+    },
+    headerSpacer: {
+        width: 36,
+        height: 36,
     },
     screenTitle: {
         fontSize: 18,
@@ -357,6 +445,32 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#1E293B',
         marginBottom: 5,
+    },
+    filterRow: {
+        paddingTop: 8,
+        paddingBottom: 4,
+        gap: 10,
+    },
+    filterChip: {
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        borderRadius: 999,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        backgroundColor: '#FFFFFF',
+    },
+    filterChipActive: {
+        borderColor: '#0072FF',
+        backgroundColor: '#EFF6FF',
+    },
+    filterChipText: {
+        color: '#475569',
+        fontSize: 13,
+        fontWeight: '600',
+    },
+    filterChipTextActive: {
+        color: '#0072FF',
+        fontWeight: '700',
     },
     starContainer: {
         flexDirection: 'row',
