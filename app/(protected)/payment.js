@@ -145,7 +145,8 @@ const Payment = () => {
     const isPayable = bookingId && (currentStatus === 'Accepted' || currentStatus === 'Pending_Payment');
     const isRequestMode = !bookingId;
 
-    const isAgency = bookingType === 'agency';
+    const normalizedBookingType = String(bookingType || '').trim().toLowerCase();
+    const isAgency = normalizedBookingType === 'agency' || (!!fetchedBooking?.agency && !fetchedBooking?.guide);
     const isAgencyRequestMode = isAgency && !bookingId;
     const resolvedName =
         fetchedBooking?.guide_detail?.full_name ||
@@ -512,6 +513,39 @@ const Payment = () => {
         return computed;
     };
 
+    const isDateWithinOperatingSchedule = useCallback((dateObj) => {
+        if (!guideAvailability) return true;
+
+        const dateStr = formatDateForCalendar(dateObj);
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const specificDates = guideAvailability?.specific_available_dates || [];
+        const recurringDays = guideAvailability?.available_days || [];
+        const normalizedRecurringDays = new Set(
+            (Array.isArray(recurringDays) ? recurringDays : [])
+                .map(normalizeScheduleDay)
+                .filter(Boolean)
+        );
+
+        const dayName = dayNames[dateObj.getDay()];
+        const isSpecific = specificDates.includes(dateStr);
+        const isRecurring = normalizedRecurringDays.has('All') || normalizedRecurringDays.has(dayName);
+
+        return specificDates.length > 0
+            ? isSpecific
+            : (normalizedRecurringDays.size > 0 ? isRecurring : isAgency);
+    }, [guideAvailability, normalizeScheduleDay, isAgency]);
+
+    const isRangeWithinOperatingSchedule = useCallback((rangeStart, rangeEnd) => {
+        const cursor = new Date(rangeStart);
+
+        while (cursor <= rangeEnd) {
+            if (!isDateWithinOperatingSchedule(cursor)) return false;
+            cursor.setDate(cursor.getDate() + 1);
+        }
+
+        return true;
+    }, [isDateWithinOperatingSchedule]);
+
     const formatTime = (timeStr) => {
         if (!timeStr) return '';
         const parts = timeStr.split(':');
@@ -737,25 +771,11 @@ const Payment = () => {
     useEffect(() => {
         if (isPayable || isConfirmed || fetchedBooking) return;
 
-        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        const specificDates = guideAvailability?.specific_available_dates || [];
-        const recurringDays = guideAvailability?.available_days || [];
-        const normalizedRecurringDays = new Set(
-            (Array.isArray(recurringDays) ? recurringDays : [])
-                .map(normalizeScheduleDay)
-                .filter(Boolean)
-        );
-
         const isDateSelectable = (dateObj) => {
             const dateStr = formatDateForCalendar(dateObj);
             if (!isAgency && blockedDates.includes(dateStr)) return false;
 
-            const dayName = dayNames[dateObj.getDay()];
-            const isSpecific = specificDates.includes(dateStr);
-            const isRecurring = normalizedRecurringDays.has('All') || normalizedRecurringDays.has(dayName);
-            return specificDates.length > 0
-                ? isSpecific
-                : (normalizedRecurringDays.size > 0 ? isRecurring : isAgency);
+            return isDateWithinOperatingSchedule(dateObj);
         };
 
         const tomorrow = new Date();
@@ -790,7 +810,7 @@ const Payment = () => {
         blockedDates,
         startDate,
         activeDuration,
-        normalizeScheduleDay,
+        isDateWithinOperatingSchedule,
     ]);
 
     useEffect(() => {
@@ -924,15 +944,6 @@ const Payment = () => {
         const startCalc = new Date();
         const endCalc = new Date();
         endCalc.setFullYear(startCalc.getFullYear() + 1);
-        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        
-        const specificDates = guideAvailability?.specific_available_dates || [];
-        const recurringDays = guideAvailability?.available_days || [];
-        const normalizedRecurringDays = new Set(
-            (Array.isArray(recurringDays) ? recurringDays : [])
-                .map(normalizeScheduleDay)
-                .filter(Boolean)
-        );
 
         for (let d = new Date(startCalc); d <= endCalc; d.setDate(d.getDate() + 1)) {
             const year = d.getFullYear();
@@ -954,12 +965,7 @@ const Payment = () => {
                 continue;
             }
 
-            const dayName = dayNames[d.getDay()];
-            const isSpecific = specificDates.includes(dateStr);
-            const isRecurring = normalizedRecurringDays.has('All') || normalizedRecurringDays.has(dayName);
-            const isAvailable = specificDates.length > 0
-                ? isSpecific
-                : (normalizedRecurringDays.size > 0 ? isRecurring : isAgency);
+            const isAvailable = isDateWithinOperatingSchedule(d);
 
             if (isAvailable) marked[dateStr] = { disabled: false, textColor: TEXT_PRIMARY };
             else marked[dateStr] = { disabled: true, disableTouchEvent: true, textColor: '#d9d9d9', color: '#f9f9f9' };
@@ -989,7 +995,14 @@ const Payment = () => {
         }
         
         return marked;
-    }, [guideAvailability, startDate, endDate, isAgency, blockedDates, activeDuration, normalizeScheduleDay]);
+    }, [
+        startDate,
+        endDate,
+        isAgency,
+        blockedDates,
+        activeDuration,
+        isDateWithinOperatingSchedule,
+    ]);
 
     const openCalendar = (type) => { 
         if (type === 'end' && activeDuration > 1) {
@@ -1024,38 +1037,13 @@ const Payment = () => {
              setTimeout(() => showError("Your selected package range overlaps with dates that are already booked."), 300);
              return true;
         }
-        
-        if (guideAvailability) {
-            let checkCurr = new Date(checkStart);
-            let hasUnavailable = false;
-            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-            const specificDates = guideAvailability.specific_available_dates || [];
-            const recurringDays = guideAvailability.available_days || [];
-            const normalizedRecurringDays = new Set(
-                (Array.isArray(recurringDays) ? recurringDays : [])
-                    .map(normalizeScheduleDay)
-                    .filter(Boolean)
-            );
 
-            while(checkCurr <= checkEnd) {
-                const dStr = formatDateForCalendar(checkCurr);
-                const dayName = dayNames[checkCurr.getDay()];
-                const isSpecific = specificDates.includes(dStr);
-                const isRecurring = normalizedRecurringDays.has('All') || normalizedRecurringDays.has(dayName);
-                const isAvailable = specificDates.length > 0
-                    ? isSpecific
-                    : (normalizedRecurringDays.size > 0 ? isRecurring : isAgency);
-
-                if (!isAvailable) { hasUnavailable = true; break; }
-                checkCurr.setDate(checkCurr.getDate() + 1);
-            }
-
-            if (hasUnavailable) {
-                setCalendarVisible(false);
-                setTimeout(() => showError(`Your selected dates include days when the ${isAgency ? 'agency' : 'guide'} is unavailable.`), 300);
-                return true;
-            }
+        if (!isAgency && !isRangeWithinOperatingSchedule(checkStart, checkEnd)) {
+            setCalendarVisible(false);
+            setTimeout(() => showError('Your selected dates include days when the agency is unavailable.'), 300);
+            return true;
         }
+
         return false;
     }
 
