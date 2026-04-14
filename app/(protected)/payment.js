@@ -205,8 +205,23 @@ const Payment = () => {
     }, [guideAvailability, isAgency]);
 
     useEffect(() => {
+        let isEffectActive = true;
+
         const fetchAvailabilityAndPackages = async () => {
-            if (resolvedId) { 
+            if (resolvedId) {
+                if (isAgency) {
+                    setBlockedDates([]);
+                    setGuideAvailability((previous) => ({
+                        ...(previous || {}),
+                        available_days: Array.isArray(initialAgencyAvailability.available_days)
+                            ? initialAgencyAvailability.available_days
+                            : [],
+                        specific_available_dates: [],
+                        opening_time: initialAgencyAvailability.opening_time || null,
+                        closing_time: initialAgencyAvailability.closing_time || null,
+                    }));
+                }
+
                 try {
                     const destinationIdForTours = selectedDestinationId || null;
                     const fetchAgencyAvailability = async () => {
@@ -240,6 +255,7 @@ const Payment = () => {
                                         specific_available_dates: [],
                                         opening_time: matchedAgency.opening_time || initialAgencyAvailability.opening_time || null,
                                         closing_time: matchedAgency.closing_time || initialAgencyAvailability.closing_time || null,
+                                        rating: matchedAgency.rating ?? null,
                                         logo: matchedAgency.logo || null,
                                         profile_picture: matchedAgency.profile_picture || null,
                                     },
@@ -273,6 +289,8 @@ const Payment = () => {
                     const [availRes, blockedRes, toursRes, accomRes] = await Promise.all([
                         availPromise, blockedPromise, toursPromise, accomPromise
                     ]);
+
+                    if (!isEffectActive) return;
                     
                     setGuideAvailability(availRes.data);
                     setBlockedDates(blockedRes.data || []);
@@ -336,6 +354,10 @@ const Payment = () => {
             }
         };
         fetchAvailabilityAndPackages();
+
+        return () => {
+            isEffectActive = false;
+        };
     }, [resolvedId, isAgency, selectedDestinationId, tourPackageId, accommodationId, selectedAgencyProfileId, fetchedBooking, initialAgencyAvailability]);
 
     const bookingDurationFromFetched = useMemo(() => {
@@ -443,14 +465,18 @@ const Payment = () => {
     const providerRatingLabel = useMemo(() => {
         const ratingCandidates = isAgency
             ? [
+                fetchedBooking?.agency_detail?.rating,
                 fetchedBooking?.agency_detail?.guide_rating,
                 fetchedBooking?.agency_detail?.average_rating,
+                guideAvailability?.rating,
                 guideAvailability?.guide_rating,
                 guideAvailability?.average_rating,
             ]
             : [
+                fetchedBooking?.guide_detail?.rating,
                 fetchedBooking?.guide_detail?.guide_rating,
                 fetchedBooking?.guide_detail?.average_rating,
+                guideAvailability?.rating,
                 guideAvailability?.guide_rating,
                 guideAvailability?.average_rating,
             ];
@@ -714,6 +740,11 @@ const Payment = () => {
         const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const specificDates = guideAvailability?.specific_available_dates || [];
         const recurringDays = guideAvailability?.available_days || [];
+        const normalizedRecurringDays = new Set(
+            (Array.isArray(recurringDays) ? recurringDays : [])
+                .map(normalizeScheduleDay)
+                .filter(Boolean)
+        );
 
         const isDateSelectable = (dateObj) => {
             const dateStr = formatDateForCalendar(dateObj);
@@ -721,10 +752,10 @@ const Payment = () => {
 
             const dayName = dayNames[dateObj.getDay()];
             const isSpecific = specificDates.includes(dateStr);
-            const isRecurring = recurringDays.includes('All') || recurringDays.includes(dayName);
+            const isRecurring = normalizedRecurringDays.has('All') || normalizedRecurringDays.has(dayName);
             return specificDates.length > 0
                 ? isSpecific
-                : (recurringDays.length > 0 ? isRecurring : isAgency);
+                : (normalizedRecurringDays.size > 0 ? isRecurring : isAgency);
         };
 
         const tomorrow = new Date();
@@ -759,6 +790,7 @@ const Payment = () => {
         blockedDates,
         startDate,
         activeDuration,
+        normalizeScheduleDay,
     ]);
 
     useEffect(() => {
@@ -896,6 +928,11 @@ const Payment = () => {
         
         const specificDates = guideAvailability?.specific_available_dates || [];
         const recurringDays = guideAvailability?.available_days || [];
+        const normalizedRecurringDays = new Set(
+            (Array.isArray(recurringDays) ? recurringDays : [])
+                .map(normalizeScheduleDay)
+                .filter(Boolean)
+        );
 
         for (let d = new Date(startCalc); d <= endCalc; d.setDate(d.getDate() + 1)) {
             const year = d.getFullYear();
@@ -919,10 +956,10 @@ const Payment = () => {
 
             const dayName = dayNames[d.getDay()];
             const isSpecific = specificDates.includes(dateStr);
-            const isRecurring = recurringDays.includes("All") || recurringDays.includes(dayName);
+            const isRecurring = normalizedRecurringDays.has('All') || normalizedRecurringDays.has(dayName);
             const isAvailable = specificDates.length > 0
                 ? isSpecific
-                : (recurringDays.length > 0 ? isRecurring : isAgency);
+                : (normalizedRecurringDays.size > 0 ? isRecurring : isAgency);
 
             if (isAvailable) marked[dateStr] = { disabled: false, textColor: TEXT_PRIMARY };
             else marked[dateStr] = { disabled: true, disableTouchEvent: true, textColor: '#d9d9d9', color: '#f9f9f9' };
@@ -952,7 +989,7 @@ const Payment = () => {
         }
         
         return marked;
-    }, [guideAvailability, startDate, endDate, isAgency, blockedDates, activeDuration]);
+    }, [guideAvailability, startDate, endDate, isAgency, blockedDates, activeDuration, normalizeScheduleDay]);
 
     const openCalendar = (type) => { 
         if (type === 'end' && activeDuration > 1) {
@@ -994,15 +1031,20 @@ const Payment = () => {
             const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
             const specificDates = guideAvailability.specific_available_dates || [];
             const recurringDays = guideAvailability.available_days || [];
+            const normalizedRecurringDays = new Set(
+                (Array.isArray(recurringDays) ? recurringDays : [])
+                    .map(normalizeScheduleDay)
+                    .filter(Boolean)
+            );
 
             while(checkCurr <= checkEnd) {
                 const dStr = formatDateForCalendar(checkCurr);
                 const dayName = dayNames[checkCurr.getDay()];
                 const isSpecific = specificDates.includes(dStr);
-                const isRecurring = recurringDays.includes("All") || recurringDays.includes(dayName);
+                const isRecurring = normalizedRecurringDays.has('All') || normalizedRecurringDays.has(dayName);
                 const isAvailable = specificDates.length > 0
                     ? isSpecific
-                    : (recurringDays.length > 0 ? isRecurring : isAgency);
+                    : (normalizedRecurringDays.size > 0 ? isRecurring : isAgency);
 
                 if (!isAvailable) { hasUnavailable = true; break; }
                 checkCurr.setDate(checkCurr.getDate() + 1);
