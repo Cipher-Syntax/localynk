@@ -164,11 +164,6 @@ const Payment = () => {
         return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
     }, [fetchedBooking, placeId]);
 
-    const selectedDestinationName = useMemo(() => {
-        const rawName = fetchedBooking?.destination_detail?.name || placeName || '';
-        return String(rawName).trim().toLowerCase();
-    }, [fetchedBooking, placeName]);
-
     const selectedAgencyProfileId = useMemo(() => {
         const rawId = agencyId || fetchedBooking?.accommodation_detail?.agency_id;
         const parsed = Number(rawId);
@@ -851,49 +846,46 @@ const Payment = () => {
         if (!isAgency || !resolvedId) return; 
 
         const fetchConcurrentBookings = async () => {
+            const agencyUserId = Number(resolvedId);
+            if (!Number.isFinite(agencyUserId) || agencyUserId <= 0) {
+                setConcurrentBookings([]);
+                return;
+            }
+
             setLoadingConcurrent(true);
             try {
-                const res = await api.get('/api/bookings/');
-                const relevant = (res.data || []).filter(b => {
-                    if (bookingId && b.id === parseInt(bookingId)) return false; 
-                    
-                    const isSameProvider = b.agency === parseInt(resolvedId) || b.agency_detail?.id === parseInt(resolvedId);
-                    if (!isSameProvider) return false;
+                const requestParams = {
+                    agency_id: agencyUserId,
+                    check_in: formatDateForCalendar(startDate),
+                    check_out: formatDateForCalendar(endDate),
+                };
 
-                    const bookingDestinationId = Number(b.destination || b.destination_detail?.id || 0);
-                    const bookingDestinationName = String(b.destination_detail?.name || '').trim().toLowerCase();
+                if (bookingId) {
+                    requestParams.exclude_booking_id = Number(bookingId);
+                }
 
-                    const hasDestinationContext = !!selectedDestinationId || !!selectedDestinationName;
-                    if (hasDestinationContext) {
-                        const idMatches = selectedDestinationId ? bookingDestinationId === selectedDestinationId : false;
-                        const nameMatches = selectedDestinationName ? bookingDestinationName === selectedDestinationName : false;
-                        if (!idMatches && !nameMatches) return false;
-                    } else if (isRequestMode) {
-                        return false;
-                    }
-                    
-                    const bStart = new Date(b.check_in);
-                    const bEnd = new Date(b.check_out || b.check_in);
-                    bStart.setHours(0,0,0,0); bEnd.setHours(0,0,0,0);
-                    
-                    const selStart = new Date(startDate);
-                    const selEnd = new Date(endDate);
-                    selStart.setHours(0,0,0,0); selEnd.setHours(0,0,0,0);
-                    
-                    const overlaps = (bStart <= selEnd && bEnd >= selStart);
-                    const isConfirmedStatus = ['confirmed', 'completed', 'pending_payment', 'accepted'].includes((b.status || '').toLowerCase());
-                    
-                    return overlaps && isConfirmedStatus;
+                if (selectedDestinationId) {
+                    requestParams.destination_id = selectedDestinationId;
+                }
+
+                const res = await api.get('/api/bookings/agency-concurrent-bookings/', {
+                    params: requestParams,
                 });
-                setConcurrentBookings(relevant);
+
+                const payload = Array.isArray(res.data)
+                    ? res.data
+                    : (Array.isArray(res.data?.results) ? res.data.results : []);
+
+                setConcurrentBookings(payload);
             } catch (e) {
                 console.error("Failed to fetch concurrent bookings", e);
+                setConcurrentBookings([]);
             } finally {
                 setLoadingConcurrent(false);
             }
         };
         fetchConcurrentBookings();
-    }, [startDate, endDate, resolvedId, isAgency, bookingId, selectedDestinationId, selectedDestinationName, isRequestMode]);
+    }, [startDate, endDate, resolvedId, isAgency, bookingId, selectedDestinationId]);
 
     const getMarkedDates = useMemo(() => {
         const marked = {};
