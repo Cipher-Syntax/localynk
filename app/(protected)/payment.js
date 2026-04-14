@@ -717,7 +717,7 @@ const Payment = () => {
 
         const isDateSelectable = (dateObj) => {
             const dateStr = formatDateForCalendar(dateObj);
-            if (blockedDates.includes(dateStr)) return false;
+            if (!isAgency && blockedDates.includes(dateStr)) return false;
 
             const dayName = dayNames[dateObj.getDay()];
             const isSpecific = specificDates.includes(dateStr);
@@ -912,7 +912,7 @@ const Payment = () => {
                 continue;
             }
 
-            if (blockedDates.includes(dateStr)) {
+            if (!isAgency && blockedDates.includes(dateStr)) {
                 marked[dateStr] = { disabled: true, disableTouchEvent: true, color: '#FFEBEE', textColor: '#D32F2F', marked: true, dotColor: '#D32F2F' };
                 continue;
             }
@@ -975,10 +975,12 @@ const Payment = () => {
     const checkDateBlockages = (checkStart, checkEnd) => {
         let curr = new Date(checkStart);
         let hasBlock = false;
-        while(curr <= checkEnd) {
-            const checkStr = formatDateForCalendar(curr);
-            if(blockedDates.includes(checkStr)) { hasBlock = true; break; }
-            curr.setDate(curr.getDate() + 1);
+        if (!isAgency) {
+            while(curr <= checkEnd) {
+                const checkStr = formatDateForCalendar(curr);
+                if(blockedDates.includes(checkStr)) { hasBlock = true; break; }
+                curr.setDate(curr.getDate() + 1);
+            }
         }
         if(hasBlock) {
              setCalendarVisible(false);
@@ -1024,7 +1026,7 @@ const Payment = () => {
             return;
         }
 
-        if (blockedDates.includes(day.dateString)) { 
+        if (!isAgency && blockedDates.includes(day.dateString)) { 
             showError("This date has already been booked by another traveler."); 
             return; 
         }
