@@ -17,6 +17,8 @@ import { NAME_REGEX, NAME_ERROR_MESSAGE, PHONE_ERROR_MESSAGE } from '../../utils
 import { buildPricingBreakdown } from '../../utils/pricingBreakdown';
 import ScreenSafeArea from '../../components/ScreenSafeArea';
 import CompactMapCard from '../../components/location/CompactMapCard';
+import NewPackageHighlightsModal from '../../components/NewPackageHighlightsModal';
+import { fetchDestinationHighlights } from '../../utils/newPackageHighlights';
 
 const PRIMARY_COLOR = '#0072FF';
 const SURFACE_COLOR = '#FFFFFF';
@@ -91,6 +93,10 @@ const Payment = () => {
     const [accommodationOptions, setAccommodationOptions] = useState([]);
     const [selectedAccommodation, setSelectedAccommodation] = useState(null);
     const [accommodationInitialized, setAccommodationInitialized] = useState(false);
+    const [highlightPackages, setHighlightPackages] = useState([]);
+    const [highlightTargetDate, setHighlightTargetDate] = useState(null);
+    const [highlightCount, setHighlightCount] = useState(0);
+    const [highlightModalVisible, setHighlightModalVisible] = useState(false);
 
     const getPackageDurationDays = (pkg) => {
         if (!pkg) return 1;
@@ -330,9 +336,12 @@ const Payment = () => {
                             ? api.get('/api/accommodations/', { params: { agency_id: selectedAgencyProfileId } })
                             : api.get('/api/accommodations/'))
                         : api.get('/api/accommodations/', { params: { host_id: resolvedId } });
+                    const highlightsPromise = destinationIdForTours
+                        ? fetchDestinationHighlights({ destinationId: destinationIdForTours, limitPerDestination: 5 }).catch(() => null)
+                        : Promise.resolve(null);
 
-                    const [availRes, blockedRes, toursRes, accomRes] = await Promise.all([
-                        availPromise, blockedPromise, toursPromise, accomPromise
+                    const [availRes, blockedRes, toursRes, accomRes, highlightsRes] = await Promise.all([
+                        availPromise, blockedPromise, toursPromise, accomPromise, highlightsPromise
                     ]);
 
                     if (!isEffectActive) return;
@@ -361,6 +370,23 @@ const Payment = () => {
                             const defaultTour = myTours.find(t => Number(t.id) === preferredTourId) || myTours[0];
                             setSelectedPackage(defaultTour);
                         }
+
+                        const destinationKey = String(destinationIdForTours).trim();
+                        const destinationEntry = highlightsRes?.byDestinationId?.[destinationKey];
+                        const destinationPackages = Array.isArray(destinationEntry?.packages) ? destinationEntry.packages : [];
+                        const destinationCount = Number(
+                            highlightsRes?.countsByDestinationId?.[destinationKey]
+                            || destinationEntry?.new_packages_count
+                            || 0
+                        );
+
+                        setHighlightPackages(destinationPackages);
+                        setHighlightCount(destinationCount);
+                        setHighlightTargetDate(highlightsRes?.targetDate || null);
+                    } else {
+                        setHighlightPackages([]);
+                        setHighlightCount(0);
+                        setHighlightTargetDate(null);
                     }
 
                     const accomData = Array.isArray(accomRes.data) ? accomRes.data : (accomRes.data?.results || []);
@@ -404,6 +430,44 @@ const Payment = () => {
             isEffectActive = false;
         };
     }, [resolvedId, isAgency, selectedDestinationId, tourPackageId, accommodationId, selectedAgencyProfileId, fetchedBooking, initialAgencyAvailability]);
+
+    const handleSelectHighlightedPackage = useCallback((highlightedPackage) => {
+        const highlightedId = Number(highlightedPackage?.id);
+        const matchedPackage = guidePackages.find((pkg) => Number(pkg.id) === highlightedId);
+
+        if (matchedPackage) {
+            setSelectedPackage(matchedPackage);
+            setHighlightModalVisible(false);
+            return;
+        }
+
+        const ownerType = String(highlightedPackage?.owner_type || '').toLowerCase();
+        const highlightedGuideId = Number(highlightedPackage?.guide_id);
+
+        if (ownerType === 'guide' && Number.isFinite(highlightedGuideId) && highlightedGuideId > 0) {
+            setHighlightModalVisible(false);
+            router.push({
+                pathname: '/(protected)/touristGuideDetails',
+                params: {
+                    guideId: highlightedGuideId,
+                    placeId: selectedDestinationId,
+                    highlightTourId: highlightedPackage?.id,
+                },
+            });
+            return;
+        }
+
+        if (ownerType === 'agency') {
+            setHighlightModalVisible(false);
+            router.push({
+                pathname: '/(protected)/agencySelection',
+                params: {
+                    placeId: selectedDestinationId,
+                    placeName: fetchedBooking?.destination_detail?.name || placeName || '',
+                },
+            });
+        }
+    }, [guidePackages, router, selectedDestinationId, fetchedBooking, placeName]);
 
     const bookingDurationFromFetched = useMemo(() => {
         const checkIn = fetchedBooking?.check_in;
@@ -1462,6 +1526,22 @@ const Payment = () => {
                             </View>
 
                             <View style={[isPayable && {opacity: 0.7}]}>
+
+                                {highlightCount > 0 && (
+                                    <TouchableOpacity
+                                        style={styles.newPackageCallout}
+                                        onPress={() => setHighlightModalVisible(true)}
+                                        activeOpacity={0.85}
+                                    >
+                                        <Ionicons name="sparkles-outline" size={16} color="#0369A1" />
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.newPackageCalloutTitle}>
+                                                {highlightCount} new package{highlightCount > 1 ? 's' : ''} added yesterday
+                                            </Text>
+                                            <Text style={styles.newPackageCalloutSubtext}>Tap to preview destination highlights.</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                )}
                                 
                                 {!isPayable && !isConfirmed && guidePackages.length > 0 && (
                                     <>
@@ -2139,6 +2219,15 @@ const Payment = () => {
                     </View>
                 </Modal>
 
+                <NewPackageHighlightsModal
+                    visible={highlightModalVisible}
+                    onClose={() => setHighlightModalVisible(false)}
+                    destinationName={fetchedBooking?.destination_detail?.name || placeName || ''}
+                    targetDate={highlightTargetDate}
+                    packages={highlightPackages}
+                    onSelectPackage={handleSelectHighlightedPackage}
+                />
+
                 {isModalOpen && (
                     <PaymentReviewModal
                         isModalOpen={isModalOpen}
@@ -2197,6 +2286,20 @@ const styles = StyleSheet.create({
     verifiedTag: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 4, backgroundColor: '#ECFDF5', alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
     verifiedText: { fontSize: 11, color: '#059669', fontWeight: '600' },
     sectionTitle: { fontSize: 16, fontWeight: '700', color: TEXT_PRIMARY, marginBottom: 12 },
+    newPackageCallout: {
+        marginBottom: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#BAE6FD',
+        backgroundColor: '#E0F2FE',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    newPackageCalloutTitle: { fontSize: 12, fontWeight: '800', color: '#075985' },
+    newPackageCalloutSubtext: { fontSize: 11, color: '#0369A1', marginTop: 2 },
     sectionHeaderWithAction: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
     viewStopsButton: {
         flexDirection: 'row',

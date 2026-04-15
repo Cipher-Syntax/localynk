@@ -7,6 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import api from '../../api/api';
 import ScrollToTopButton from '../ScrollToTopButton';
+import NewPackageHighlightsModal from '../NewPackageHighlightsModal';
+import { fetchDestinationHighlights } from '../../utils/newPackageHighlights';
 
 const FALLBACK_IMAGE = require('../../assets/localynk_images/discover1.png'); 
 
@@ -99,6 +101,11 @@ const ExplorePlaces = () => {
     const [loadingMorePlaces, setLoadingMorePlaces] = useState(false);
     const [guideImageErrors, setGuideImageErrors] = useState({});
     const [favorites, setFavorites] = useState(new Set());
+    const [destinationHighlightCounts, setDestinationHighlightCounts] = useState({});
+    const [destinationHighlightsById, setDestinationHighlightsById] = useState({});
+    const [highlightsTargetDate, setHighlightsTargetDate] = useState(null);
+    const [highlightsModalVisible, setHighlightsModalVisible] = useState(false);
+    const [selectedHighlightDestination, setSelectedHighlightDestination] = useState(null);
 
     const bounceValue = useRef(new Animated.Value(0)).current;
     const exploreListRef = useRef(null);
@@ -320,6 +327,49 @@ const ExplorePlaces = () => {
         }, [refreshFavorites]),
     );
 
+    useEffect(() => {
+        let isMounted = true;
+
+        const destinationIds = places
+            .map((place) => Number.parseInt(place?.id, 10))
+            .filter((id) => Number.isFinite(id) && id > 0);
+
+        if (destinationIds.length === 0) {
+            setDestinationHighlightCounts({});
+            setDestinationHighlightsById({});
+            setHighlightsTargetDate(null);
+            return () => {
+                isMounted = false;
+            };
+        }
+
+        const loadHighlights = async () => {
+            try {
+                const highlights = await fetchDestinationHighlights({
+                    destinationIds,
+                    limitPerDestination: 3,
+                });
+
+                if (!isMounted) return;
+
+                setDestinationHighlightCounts(highlights.countsByDestinationId || {});
+                setDestinationHighlightsById(highlights.byDestinationId || {});
+                setHighlightsTargetDate(highlights.targetDate || null);
+            } catch (_error) {
+                if (!isMounted) return;
+                setDestinationHighlightCounts({});
+                setDestinationHighlightsById({});
+                setHighlightsTargetDate(null);
+            }
+        };
+
+        loadHighlights();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [places]);
+
     const getImageUrl = (imgPath) => {
         if (!imgPath) return null;
 
@@ -385,6 +435,22 @@ const ExplorePlaces = () => {
             };
         });
     };
+
+    const openPlaceHighlights = useCallback((place) => {
+        const placeIdKey = String(place?.id || '').trim();
+        if (!placeIdKey) return;
+
+        const highlightCount = Number(destinationHighlightCounts[placeIdKey] || 0);
+        const highlightsEntry = destinationHighlightsById[placeIdKey];
+
+        if (!highlightsEntry || highlightCount <= 0) return;
+
+        setSelectedHighlightDestination({
+            destinationName: place?.name || highlightsEntry.destination_name,
+            packages: Array.isArray(highlightsEntry.packages) ? highlightsEntry.packages : [],
+        });
+        setHighlightsModalVisible(true);
+    }, [destinationHighlightCounts, destinationHighlightsById]);
 
     const toggleFavorite = async (guideIdKey) => {
         if (!guideIdKey) return;
@@ -623,6 +689,8 @@ const ExplorePlaces = () => {
         const imageSource = placeImageUri
             ? { uri: placeImageUri }
             : FALLBACK_IMAGE;
+        const placeIdKey = String(item?.id || '').trim();
+        const highlightCount = Number(destinationHighlightCounts[placeIdKey] || 0);
 
         return (
             <TouchableOpacity 
@@ -643,6 +711,20 @@ const ExplorePlaces = () => {
                     <View style={styles.categoryBadge}>
                         <Text style={styles.categoryText}>{item.category}</Text>
                     </View>
+                )}
+
+                {highlightCount > 0 && (
+                    <TouchableOpacity
+                        style={styles.newPackageBadge}
+                        onPress={(event) => {
+                            event?.stopPropagation?.();
+                            openPlaceHighlights(item);
+                        }}
+                        activeOpacity={0.85}
+                    >
+                        <Ionicons name="sparkles-outline" size={10} color="#fff" />
+                        <Text style={styles.newPackageBadgeText}>NEW {highlightCount}</Text>
+                    </TouchableOpacity>
                 )}
 
                 <LinearGradient 
@@ -872,6 +954,14 @@ const ExplorePlaces = () => {
                 onPress={handleScrollToTop}
             />
 
+            <NewPackageHighlightsModal
+                visible={highlightsModalVisible}
+                onClose={() => setHighlightsModalVisible(false)}
+                destinationName={selectedHighlightDestination?.destinationName}
+                targetDate={highlightsTargetDate}
+                packages={selectedHighlightDestination?.packages || []}
+            />
+
             {/* Filter Bottom Sheet Modal */}
             <Modal
                 visible={isFilterModalVisible}
@@ -1052,6 +1142,22 @@ const styles = StyleSheet.create({
 
     categoryBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, zIndex: 5 },
     categoryText: { color: '#fff', fontSize: 9, fontWeight: '700', textTransform: 'uppercase' },
+    newPackageBadge: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        backgroundColor: 'rgba(2, 132, 199, 0.9)',
+        borderWidth: 1,
+        borderColor: 'rgba(186, 230, 253, 0.9)',
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 10,
+        zIndex: 6,
+    },
+    newPackageBadgeText: { color: '#fff', fontSize: 9, fontWeight: '800' },
 
     ratingContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 4, paddingVertical: 2, borderRadius: 4 },
     ratingText: { color: '#fff', fontSize: 9, fontWeight: '700', marginLeft: 2 },

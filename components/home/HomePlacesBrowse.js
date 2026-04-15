@@ -1,17 +1,19 @@
-import React from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import FallbackImage from '../../assets/localynk_images/discover1.png';
+import NewPackageHighlightsModal from '../NewPackageHighlightsModal';
+import { fetchDestinationHighlights } from '../../utils/newPackageHighlights';
 
 const GAP = 10;
 const PADDING = 15;
 const LARGE_HEIGHT = 220; 
 const SMALL_HEIGHT = (LARGE_HEIGHT - GAP) / 2;
 
-const PlaceCard = ({ item, style, onPress }) => {
+const PlaceCard = ({ item, style, onPress, highlightCount = 0, onOpenHighlights }) => {
     const imageSource = item.image || (item.images && item.images.length > 0 ? item.images[0].image : null) || FallbackImage;
 
     return (
@@ -23,6 +25,20 @@ const PlaceCard = ({ item, style, onPress }) => {
                 <View style={styles.categoryBadge}>
                     <Text style={styles.categoryText}>{item.category}</Text>
                 </View>
+            )}
+
+            {highlightCount > 0 && (
+                <TouchableOpacity
+                    style={styles.newPackageBadge}
+                    onPress={(event) => {
+                        event?.stopPropagation?.();
+                        onOpenHighlights?.(item);
+                    }}
+                    activeOpacity={0.85}
+                >
+                    <Ionicons name="sparkles-outline" size={10} color="#fff" />
+                    <Text style={styles.newPackageBadgeText}>NEW {highlightCount}</Text>
+                </TouchableOpacity>
             )}
 
             <LinearGradient colors={['transparent', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.8)']} style={styles.gradient} />
@@ -49,8 +65,76 @@ const PlaceCard = ({ item, style, onPress }) => {
 const HomePlacesBrowse = ({ isPublic = false, data = [] }) => {
     const router = useRouter();
     const { isAuthenticated } = useAuth();
+    const [destinationHighlightCounts, setDestinationHighlightCounts] = useState({});
+    const [destinationHighlightsById, setDestinationHighlightsById] = useState({});
+    const [highlightsTargetDate, setHighlightsTargetDate] = useState(null);
+    const [highlightsModalVisible, setHighlightsModalVisible] = useState(false);
+    const [selectedHighlightDestination, setSelectedHighlightDestination] = useState(null);
     
-    const destinations = data.slice(0, 12);
+    const destinations = useMemo(() => data.slice(0, 12), [data]);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const destinationIds = destinations
+            .map((destination) => Number.parseInt(destination?.id, 10))
+            .filter((id) => Number.isFinite(id) && id > 0);
+
+        if (destinationIds.length === 0) {
+            setDestinationHighlightCounts({});
+            setDestinationHighlightsById({});
+            setHighlightsTargetDate(null);
+            return () => {
+                isMounted = false;
+            };
+        }
+
+        const loadHighlights = async () => {
+            try {
+                const highlights = await fetchDestinationHighlights({
+                    destinationIds,
+                    limitPerDestination: 3,
+                });
+
+                if (!isMounted) return;
+
+                setDestinationHighlightCounts(highlights.countsByDestinationId || {});
+                setDestinationHighlightsById(highlights.byDestinationId || {});
+                setHighlightsTargetDate(highlights.targetDate || null);
+            } catch (_error) {
+                if (!isMounted) return;
+                setDestinationHighlightCounts({});
+                setDestinationHighlightsById({});
+                setHighlightsTargetDate(null);
+            }
+        };
+
+        loadHighlights();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [destinations]);
+
+    const openPlaceHighlights = useCallback((destination) => {
+        const destinationKey = String(destination?.id || '').trim();
+        if (!destinationKey) return;
+
+        const highlightCount = Number(destinationHighlightCounts[destinationKey] || 0);
+        const entry = destinationHighlightsById[destinationKey];
+
+        if (!entry || highlightCount <= 0) return;
+
+        setSelectedHighlightDestination({
+            destinationName: destination?.name || entry.destination_name,
+            packages: Array.isArray(entry.packages) ? entry.packages : [],
+        });
+        setHighlightsModalVisible(true);
+    }, [destinationHighlightCounts, destinationHighlightsById]);
+
+    const getHighlightCount = useCallback((destinationId) => {
+        return Number(destinationHighlightCounts[String(destinationId)] || 0);
+    }, [destinationHighlightCounts]);
 
     const handlePlacePress = (item) => {
         if (isPublic && !isAuthenticated) {
@@ -83,19 +167,19 @@ const HomePlacesBrowse = ({ isPublic = false, data = [] }) => {
                 <View style={styles.rowContainer}>
                     {isBigLeft ? (
                         <>
-                            <PlaceCard item={chunk[0]} style={{ width: '65%', height: LARGE_HEIGHT }} onPress={() => handlePlacePress(chunk[0])} />
+                            <PlaceCard item={chunk[0]} style={{ width: '65%', height: LARGE_HEIGHT }} onPress={() => handlePlacePress(chunk[0])} highlightCount={getHighlightCount(chunk[0]?.id)} onOpenHighlights={openPlaceHighlights} />
                             <View style={styles.columnContainer}>
-                                <PlaceCard item={chunk[1]} style={{ width: '100%', height: SMALL_HEIGHT }} onPress={() => handlePlacePress(chunk[1])} />
-                                <PlaceCard item={chunk[2]} style={{ width: '100%', height: SMALL_HEIGHT }} onPress={() => handlePlacePress(chunk[2])} />
+                                <PlaceCard item={chunk[1]} style={{ width: '100%', height: SMALL_HEIGHT }} onPress={() => handlePlacePress(chunk[1])} highlightCount={getHighlightCount(chunk[1]?.id)} onOpenHighlights={openPlaceHighlights} />
+                                <PlaceCard item={chunk[2]} style={{ width: '100%', height: SMALL_HEIGHT }} onPress={() => handlePlacePress(chunk[2])} highlightCount={getHighlightCount(chunk[2]?.id)} onOpenHighlights={openPlaceHighlights} />
                             </View>
                         </>
                     ) : (
                         <>
                             <View style={styles.columnContainer}>
-                                <PlaceCard item={chunk[0]} style={{ width: '100%', height: SMALL_HEIGHT }} onPress={() => handlePlacePress(chunk[0])} />
-                                <PlaceCard item={chunk[1]} style={{ width: '100%', height: SMALL_HEIGHT }} onPress={() => handlePlacePress(chunk[1])} />
+                                <PlaceCard item={chunk[0]} style={{ width: '100%', height: SMALL_HEIGHT }} onPress={() => handlePlacePress(chunk[0])} highlightCount={getHighlightCount(chunk[0]?.id)} onOpenHighlights={openPlaceHighlights} />
+                                <PlaceCard item={chunk[1]} style={{ width: '100%', height: SMALL_HEIGHT }} onPress={() => handlePlacePress(chunk[1])} highlightCount={getHighlightCount(chunk[1]?.id)} onOpenHighlights={openPlaceHighlights} />
                             </View>
-                            <PlaceCard item={chunk[2]} style={{ width: '65%', height: LARGE_HEIGHT }} onPress={() => handlePlacePress(chunk[2])} />
+                            <PlaceCard item={chunk[2]} style={{ width: '65%', height: LARGE_HEIGHT }} onPress={() => handlePlacePress(chunk[2])} highlightCount={getHighlightCount(chunk[2]?.id)} onOpenHighlights={openPlaceHighlights} />
                         </>
                     )}
                 </View>
@@ -104,15 +188,15 @@ const HomePlacesBrowse = ({ isPublic = false, data = [] }) => {
         if (chunk.length === 2) {
             return (
                 <View style={styles.rowContainer}>
-                    <PlaceCard item={chunk[0]} style={{ width: '48.5%', height: LARGE_HEIGHT }} onPress={() => handlePlacePress(chunk[0])} />
-                    <PlaceCard item={chunk[1]} style={{ width: '48.5%', height: LARGE_HEIGHT }} onPress={() => handlePlacePress(chunk[1])} />
+                    <PlaceCard item={chunk[0]} style={{ width: '48.5%', height: LARGE_HEIGHT }} onPress={() => handlePlacePress(chunk[0])} highlightCount={getHighlightCount(chunk[0]?.id)} onOpenHighlights={openPlaceHighlights} />
+                    <PlaceCard item={chunk[1]} style={{ width: '48.5%', height: LARGE_HEIGHT }} onPress={() => handlePlacePress(chunk[1])} highlightCount={getHighlightCount(chunk[1]?.id)} onOpenHighlights={openPlaceHighlights} />
                 </View>
             );
         }
         if (chunk.length === 1) {
             return (
                 <View style={styles.rowContainer}>
-                    <PlaceCard item={chunk[0]} style={{ width: '100%', height: LARGE_HEIGHT * 0.8 }} onPress={() => handlePlacePress(chunk[0])} />
+                    <PlaceCard item={chunk[0]} style={{ width: '100%', height: LARGE_HEIGHT * 0.8 }} onPress={() => handlePlacePress(chunk[0])} highlightCount={getHighlightCount(chunk[0]?.id)} onOpenHighlights={openPlaceHighlights} />
                 </View>
             );
         }
@@ -141,6 +225,14 @@ const HomePlacesBrowse = ({ isPublic = false, data = [] }) => {
                 scrollEnabled={false}
                 contentContainerStyle={styles.listContent}
             />
+
+            <NewPackageHighlightsModal
+                visible={highlightsModalVisible}
+                onClose={() => setHighlightsModalVisible(false)}
+                destinationName={selectedHighlightDestination?.destinationName}
+                targetDate={highlightsTargetDate}
+                packages={selectedHighlightDestination?.packages || []}
+            />
         </View>
     );
 };
@@ -168,6 +260,22 @@ const styles = StyleSheet.create({
     // --- Badge Styles ---
     categoryBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, zIndex: 5 },
     categoryText: { color: '#fff', fontSize: 9, fontWeight: '700', textTransform: 'uppercase' },
+    newPackageBadge: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        backgroundColor: 'rgba(2,132,199,0.92)',
+        borderWidth: 1,
+        borderColor: 'rgba(186,230,253,0.95)',
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 10,
+        zIndex: 6,
+    },
+    newPackageBadgeText: { color: '#fff', fontSize: 9, fontWeight: '800' },
     ratingContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 4, paddingVertical: 2, borderRadius: 4 },
     ratingText: { color: '#fff', fontSize: 9, fontWeight: '700', marginLeft: 2 }
 });

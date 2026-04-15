@@ -8,6 +8,8 @@ import { Calendar } from 'react-native-calendars';
 import api from '../../api/api';
 import StopDetailsModal from '../../components/itinerary/StopDetailsModal';
 import ScreenSafeArea from '../../components/ScreenSafeArea';
+import NewPackageHighlightsModal from '../../components/NewPackageHighlightsModal';
+import { fetchDestinationHighlights } from '../../utils/newPackageHighlights';
 
 const TouristGuideDetails = () => {
     const [guide, setGuide] = useState(null);
@@ -16,10 +18,14 @@ const TouristGuideDetails = () => {
     const [accommodations, setAccommodations] = useState([]); 
     const [loading, setLoading] = useState(true);
     const [blockedDates, setBlockedDates] = useState([]); 
+    const [highlightPackages, setHighlightPackages] = useState([]);
+    const [highlightTargetDate, setHighlightTargetDate] = useState(null);
+    const [highlightCount, setHighlightCount] = useState(0);
+    const [highlightModalVisible, setHighlightModalVisible] = useState(false);
 
     const router = useRouter();
     const params = useLocalSearchParams();
-    const { guideId, placeId } = params;
+    const { guideId, placeId, highlightTourId } = params;
     
     const [selectedTour, setSelectedTour] = useState(null);
     const [stopDetailsVisible, setStopDetailsVisible] = useState(false);
@@ -57,12 +63,13 @@ const TouristGuideDetails = () => {
                     return;
                 }
                 try {
-                    const [guideRes, destRes, toursRes, accomRes, blockedRes] = await Promise.all([
+                    const [guideRes, destRes, toursRes, accomRes, blockedRes, highlightsRes] = await Promise.all([
                         api.get(`/api/guides/${guideId}/`),
                         api.get(`/api/destinations/${placeId}/`),
                         api.get(`/api/destinations/${placeId}/tours/`),
                         api.get(`/api/accommodations/`, { params: { host_id: guideId } }),
-                        api.get(`/api/bookings/guide_blocked_dates/`, { params: { guide_id: guideId } }) 
+                        api.get(`/api/bookings/guide_blocked_dates/`, { params: { guide_id: guideId } }),
+                        fetchDestinationHighlights({ destinationId: placeId, limitPerDestination: 5 }).catch(() => null),
                     ]);
 
                     setGuide(guideRes.data);
@@ -73,7 +80,24 @@ const TouristGuideDetails = () => {
                     const toursData = Array.isArray(toursRes.data) ? toursRes.data : (toursRes.data?.results || []);
                     const guidesTours = toursData.filter(tour => Number(tour.guide) === Number(guideId));
                     setTourPackages(guidesTours);
-                    if(guidesTours.length > 0) setSelectedTour(guidesTours[0]);
+                    if (guidesTours.length > 0) {
+                        const preferredTourId = Number(highlightTourId);
+                        const preferredTour = guidesTours.find((tour) => Number(tour.id) === preferredTourId);
+                        setSelectedTour(preferredTour || guidesTours[0]);
+                    }
+
+                    const destinationKey = String(placeId || '').trim();
+                    const destinationEntry = highlightsRes?.byDestinationId?.[destinationKey];
+                    const destinationPackages = Array.isArray(destinationEntry?.packages) ? destinationEntry.packages : [];
+                    const destinationCount = Number(
+                        highlightsRes?.countsByDestinationId?.[destinationKey]
+                        || destinationEntry?.new_packages_count
+                        || 0
+                    );
+
+                    setHighlightPackages(destinationPackages);
+                    setHighlightCount(destinationCount);
+                    setHighlightTargetDate(highlightsRes?.targetDate || null);
                     
                     const itineraryAccomIds = new Set();
                     guidesTours.forEach(tour => {
@@ -105,8 +129,46 @@ const TouristGuideDetails = () => {
                 }
             };
             fetchData();
-        }, [guideId, placeId])
+        }, [guideId, placeId, highlightTourId])
     );
+
+    const handleSelectHighlightedPackage = useCallback((highlightedPackage) => {
+        const highlightedId = Number(highlightedPackage?.id);
+        const matchedPackage = tourPackages.find((pkg) => Number(pkg.id) === highlightedId);
+
+        if (matchedPackage) {
+            setSelectedTour(matchedPackage);
+            setHighlightModalVisible(false);
+            return;
+        }
+
+        const ownerType = String(highlightedPackage?.owner_type || '').toLowerCase();
+        const highlightedGuideId = Number(highlightedPackage?.guide_id);
+
+        if (ownerType === 'guide' && Number.isFinite(highlightedGuideId) && highlightedGuideId > 0) {
+            setHighlightModalVisible(false);
+            router.push({
+                pathname: '/(protected)/touristGuideDetails',
+                params: {
+                    guideId: highlightedGuideId,
+                    placeId: placeId,
+                    highlightTourId: highlightedPackage?.id,
+                },
+            });
+            return;
+        }
+
+        if (ownerType === 'agency') {
+            setHighlightModalVisible(false);
+            router.push({
+                pathname: '/(protected)/agencySelection',
+                params: {
+                    placeId: placeId,
+                    placeName: destination?.name || '',
+                },
+            });
+        }
+    }, [tourPackages, router, placeId, destination]);
 
     const getImageUrl = (imgPath) => {
         if (!imgPath) return 'https://via.placeholder.com/300';
@@ -293,6 +355,22 @@ const TouristGuideDetails = () => {
                                 <Text style={styles.detailsHeader}>Available Tour Packages</Text>
                             </View>
 
+                            {highlightCount > 0 && (
+                                <TouchableOpacity
+                                    style={styles.newPackageCallout}
+                                    onPress={() => setHighlightModalVisible(true)}
+                                    activeOpacity={0.85}
+                                >
+                                    <Ionicons name="sparkles-outline" size={16} color="#0369A1" />
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.newPackageCalloutTitle}>
+                                            {highlightCount} new package{highlightCount > 1 ? 's' : ''} added yesterday
+                                        </Text>
+                                        <Text style={styles.newPackageCalloutSubtext}>Tap to preview featured new packages for this destination.</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            )}
+
                             {/* --- MULTI-PACKAGE DYNAMIC SELECTION --- */}
                             {tourPackages.length > 0 && (
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.packageScroll}>
@@ -473,6 +551,15 @@ const TouristGuideDetails = () => {
                     accommodationCatalog={accommodations}
                     getImageUrl={getImageUrl}
                 />
+
+                <NewPackageHighlightsModal
+                    visible={highlightModalVisible}
+                    onClose={() => setHighlightModalVisible(false)}
+                    destinationName={destination?.name}
+                    targetDate={highlightTargetDate}
+                    packages={highlightPackages}
+                    onSelectPackage={handleSelectHighlightedPackage}
+                />
             </ScreenSafeArea>
         </ScrollView>
     );
@@ -514,6 +601,20 @@ const styles = StyleSheet.create({
     detailsSection: { marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: '#E0E6ED' },
     sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
     detailsHeader: { fontSize: 16, fontWeight: '700', color: '#1A2332', marginLeft: 8 },
+    newPackageCallout: {
+        marginBottom: 10,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#BAE6FD',
+        backgroundColor: '#E0F2FE',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    newPackageCalloutTitle: { fontSize: 12, fontWeight: '800', color: '#075985' },
+    newPackageCalloutSubtext: { fontSize: 11, color: '#0369A1', marginTop: 2 },
     
     packageScroll: { flexDirection: 'row', marginBottom: 10, marginTop: 5 },
     packagePill: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: '#fff', marginRight: 10, borderWidth: 1, borderColor: '#E2E8F0' },
