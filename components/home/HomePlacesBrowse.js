@@ -37,7 +37,10 @@ const PlaceCard = ({ item, style, onPress, highlightCount = 0, onOpenHighlights 
                     activeOpacity={0.85}
                 >
                     <Ionicons name="sparkles-outline" size={10} color="#fff" />
-                    <Text style={styles.newPackageBadgeText}>NEW {highlightCount}</Text>
+                    <View style={styles.newPackageBadgeTextWrap}>
+                        <Text style={styles.newPackageBadgeText} numberOfLines={1}>NEW TOUR PACKAGE {highlightCount}</Text>
+                        <Text style={styles.newPackageTapHint} numberOfLines={1}>TAP FOR DETAILS</Text>
+                    </View>
                 </TouchableOpacity>
             )}
 
@@ -265,17 +268,20 @@ const styles = StyleSheet.create({
         top: 8,
         right: 8,
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         gap: 4,
         backgroundColor: 'rgba(2,132,199,0.92)',
         borderWidth: 1,
         borderColor: 'rgba(186,230,253,0.95)',
         paddingHorizontal: 8,
-        paddingVertical: 3,
+        paddingVertical: 5,
         borderRadius: 10,
         zIndex: 6,
+        maxWidth: '82%',
     },
-    newPackageBadgeText: { color: '#fff', fontSize: 9, fontWeight: '800' },
+    newPackageBadgeTextWrap: { flexShrink: 1 },
+    newPackageBadgeText: { color: '#fff', fontSize: 8, fontWeight: '800', lineHeight: 10 },
+    newPackageTapHint: { color: '#E0F2FE', fontSize: 7, fontWeight: '700', lineHeight: 9, marginTop: 1 },
     ratingContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 4, paddingVertical: 2, borderRadius: 4 },
     ratingText: { color: '#fff', fontSize: 9, fontWeight: '700', marginLeft: 2 }
 });
