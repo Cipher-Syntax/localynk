@@ -458,7 +458,9 @@ const GuideProfile = () => {
                                 <Compass size={16} color="#1A2332" />
                                 <Text style={styles.detailText}>
                                     <Text style={styles.detailLabel}>Specialty: </Text>
-                                    {guide.specialty}
+                                    {Array.isArray(guide.specialties) && guide.specialties.length > 0
+                                        ? guide.specialties.join(', ')
+                                        : guide.specialty}
                                 </Text>
                             </View>
                             <View style={styles.infoItem}><Clock size={16} color="#1A2332" /><Text style={styles.detailText}><Text style={styles.detailLabel}>Experience: </Text>{guide.experience_years} years</Text></View>

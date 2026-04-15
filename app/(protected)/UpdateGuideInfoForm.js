@@ -1,12 +1,48 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Keyboard, Modal } from 'react-native';
+import { View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
 import api from '../../api/api'; 
 import { Calendar } from 'react-native-calendars';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenSafeArea from '../../components/ScreenSafeArea';
+
+const AVAILABLE_LANGUAGES = [
+    'English', 'Tagalog', 'Chavacano', 'Cebuano', 'Ilocano',
+    'Hiligaynon', 'Waray', 'Tausug', 'Kapampangan', 'Pangasinan',
+    'Bikolano', 'Maranao', 'Maguindanao', 'Yakan', 'Surigaonon'
+].sort();
+
+const normalizeTextList = (rawValue) => {
+    const source = Array.isArray(rawValue)
+        ? rawValue
+        : typeof rawValue === 'string'
+            ? rawValue.split(',')
+            : [];
+
+    const normalized = [];
+    const seen = new Set();
+
+    source.forEach((value) => {
+        const token = String(value || '').trim();
+        if (!token) return;
+
+        const key = token.toLowerCase();
+        if (seen.has(key)) return;
+
+        seen.add(key);
+        normalized.push(token);
+    });
+
+    return normalized;
+};
+
+const resolveIncomingSpecialties = (data) => {
+    if (Array.isArray(data?.specialties)) {
+        return normalizeTextList(data.specialties);
+    }
+    return normalizeTextList(data?.specialty || '');
+};
 
 const UpdateGuideInfoForm = () => {
     const router = useRouter();
@@ -19,8 +55,13 @@ const UpdateGuideInfoForm = () => {
 
     // Form States
     const [languages, setLanguages] = useState([]);
-    const [selectedSpecialty, setSelectedSpecialty] = useState('');
-    const [isSpecialtyModalVisible, setSpecialtyModalVisible] = useState(false);
+    const [languageSearchTerm, setLanguageSearchTerm] = useState('');
+    const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+
+    const [selectedSpecialties, setSelectedSpecialties] = useState([]);
+    const [specialtySearchTerm, setSpecialtySearchTerm] = useState('');
+    const [showSpecialtyDropdown, setShowSpecialtyDropdown] = useState(false);
+
     const [customSpecialty, setCustomSpecialty] = useState('');
     const [experience, setExperience] = useState('');
     const [price, setPrice] = useState('');
@@ -46,10 +87,6 @@ const UpdateGuideInfoForm = () => {
             seen.add(key);
             normalized.push(category);
         });
-
-        if (!seen.has('other')) {
-            normalized.push('Other');
-        }
 
         return normalized;
     }, []);
@@ -87,40 +124,55 @@ const UpdateGuideInfoForm = () => {
     };
 
     const populateForm = useCallback((data) => {
-        if (Array.isArray(data.languages)) {
-            setLanguages(data.languages);
-        } 
-        else if (typeof data.languages === 'string' && data.languages.length > 0) {
-            setLanguages(data.languages.split(',').map(l => l.trim()));
-        } 
-        else {
-            setLanguages([]);
-        }
+        setLanguages(normalizeTextList(data.languages));
+        setSelectedSpecialties(resolveIncomingSpecialties(data));
+        setLanguageSearchTerm('');
+        setSpecialtySearchTerm('');
+        setShowLanguageDropdown(false);
+        setShowSpecialtyDropdown(false);
+        setCustomSpecialty('');
 
         setExperience(data.experience_years ? data.experience_years.toString() : '');
         setPrice(data.price_per_day ? data.price_per_day.toString() : '');
         setAvailableDays(data.available_days || []);
-        
-        const incomingSpecialty = data.specialty || '';
-        if (incomingSpecialty) {
-            if (specialtyOptions.includes(incomingSpecialty)) {
-                setSelectedSpecialty(incomingSpecialty);
-                setCustomSpecialty('');
-            } 
-            else {
-                setSelectedSpecialty('Other');
-                setCustomSpecialty(incomingSpecialty);
-            }
-        } else {
-            setSelectedSpecialty(specialtyOptions[0] || 'Other');
-        }
 
         const existingMarkedDates = (data.specific_available_dates || []).reduce((acc, dateString) => {
             acc[dateString] = { selected: true, marked: true, selectedColor: '#007AFF' };
             return acc;
         }, {});
         setMarkedDates(existingMarkedDates);
-    }, [specialtyOptions]);
+    }, []);
+
+    const addLanguage = useCallback((language) => {
+        setLanguages((previous) => normalizeTextList([...previous, language]));
+        setLanguageSearchTerm('');
+        setShowLanguageDropdown(false);
+    }, []);
+
+    const removeLanguage = useCallback((language) => {
+        setLanguages((previous) => previous.filter((item) => item !== language));
+    }, []);
+
+    const addSpecialty = useCallback((specialty) => {
+        setSelectedSpecialties((previous) => normalizeTextList([...previous, specialty]));
+        setSpecialtySearchTerm('');
+        setShowSpecialtyDropdown(false);
+    }, []);
+
+    const removeSpecialty = useCallback((specialty) => {
+        setSelectedSpecialties((previous) => previous.filter((item) => item !== specialty));
+    }, []);
+
+    const addCustomSpecialty = useCallback(() => {
+        const customValue = String(customSpecialty || '').trim();
+        if (!customValue) {
+            showToast('Please enter a custom specialty first.', 'error');
+            return;
+        }
+
+        setSelectedSpecialties((previous) => normalizeTextList([...previous, customValue]));
+        setCustomSpecialty('');
+    }, [customSpecialty]);
 
     const toggleDay = (day) => {
         if (availableDays.includes(day)) {
@@ -176,13 +228,39 @@ const UpdateGuideInfoForm = () => {
         return disabled;
     }, [availableDays]);
 
+    const filteredLanguages = useMemo(() => {
+        const query = String(languageSearchTerm || '').trim().toLowerCase();
+        return AVAILABLE_LANGUAGES.filter((language) => {
+            if (languages.includes(language)) return false;
+            if (!query) return true;
+            return language.toLowerCase().includes(query);
+        });
+    }, [languageSearchTerm, languages]);
+
+    const filteredSpecialties = useMemo(() => {
+        const query = String(specialtySearchTerm || '').trim().toLowerCase();
+        return specialtyOptions.filter((specialty) => {
+            if (selectedSpecialties.includes(specialty)) return false;
+            if (!query) return true;
+            return specialty.toLowerCase().includes(query);
+        });
+    }, [specialtyOptions, specialtySearchTerm, selectedSpecialties]);
+
     const handleSubmit = async () => {
         Keyboard.dismiss();
         setIsSubmitting(true);
-        const finalSpecialty = selectedSpecialty === 'Other' ? customSpecialty : selectedSpecialty;
-        
-        if (selectedSpecialty === 'Other' && !customSpecialty.trim()) {
-            showToast("Please type your specific specialty.", "error");
+
+        const finalLanguages = normalizeTextList(languages);
+        const finalSpecialties = normalizeTextList(selectedSpecialties);
+
+        if (finalLanguages.length === 0) {
+            showToast('Please select at least one language.', 'error');
+            setIsSubmitting(false);
+            return;
+        }
+
+        if (finalSpecialties.length === 0) {
+            showToast('Please select at least one specialty.', 'error');
             setIsSubmitting(false);
             return;
         }
@@ -191,8 +269,9 @@ const UpdateGuideInfoForm = () => {
 
         try {
             await api.patch('api/guide/update-info/', {
-                languages, 
-                specialty: finalSpecialty,
+                languages: finalLanguages,
+                specialties: finalSpecialties,
+                specialty: finalSpecialties[0] || '',
                 experience_years: parseInt(experience, 10),
                 price_per_day: parseFloat(price),
                 available_days: availableDays,
@@ -269,37 +348,105 @@ const UpdateGuideInfoForm = () => {
                         <Text style={styles.cardTitle}>General Information</Text>
                         
                         <Text style={styles.inputLabel}>Languages</Text>
-                        <TextInput
-                            value={languages.join(', ')}
-                            onChangeText={text => setLanguages(text.split(',').map(l => l.trim()))}
-                            style={styles.input}
-                            placeholder="e.g. English, Tagalog"
-                            placeholderTextColor="#9CA3AF"
-                        />
+                        <View style={styles.multiSelectContainer}>
+                            {languages.map((language) => (
+                                <View key={language} style={styles.selectedChip}>
+                                    <Text style={styles.selectedChipText}>{language}</Text>
+                                    <TouchableOpacity onPress={() => removeLanguage(language)}>
+                                        <Ionicons name="close" size={14} color="#1F2937" />
+                                    </TouchableOpacity>
+                                </View>
+                            ))}
 
-                        <Text style={styles.inputLabel}>Specialty (Category)</Text>
-                        <TouchableOpacity
-                            style={[styles.input, { justifyContent: 'center', height: 50, marginBottom: 15 }]}
-                            onPress={() => setSpecialtyModalVisible(true)}
-                        >
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <Text style={{ color: '#1F2937' }}>{selectedSpecialty}</Text>
-                                <Ionicons name="chevron-down" size={20} color="#6B7280" />
-                            </View>
-                        </TouchableOpacity>
+                            <TextInput
+                                value={languageSearchTerm}
+                                onChangeText={(text) => {
+                                    setLanguageSearchTerm(text);
+                                    setShowLanguageDropdown(true);
+                                }}
+                                onFocus={() => setShowLanguageDropdown(true)}
+                                style={styles.multiSelectInput}
+                                placeholder="Type and select languages"
+                                placeholderTextColor="#9CA3AF"
+                            />
+                        </View>
 
-                        {selectedSpecialty === 'Other' && (
-                            <View style={{marginTop: 10}}>
-                                <Text style={styles.inputLabel}>Specify Specialty</Text>
-                                <TextInput
-                                    value={customSpecialty}
-                                    onChangeText={setCustomSpecialty}
-                                    style={styles.input}
-                                    placeholder="e.g. Bird Watching"
-                                    placeholderTextColor="#9CA3AF"
-                                />
+                        {showLanguageDropdown && (
+                            <View style={styles.dropdownContainer}>
+                                <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={{ maxHeight: 150 }}>
+                                    {filteredLanguages.length > 0 ? (
+                                        filteredLanguages.map((language) => (
+                                            <TouchableOpacity
+                                                key={language}
+                                                style={styles.dropdownItem}
+                                                onPress={() => addLanguage(language)}
+                                            >
+                                                <Text style={styles.dropdownItemText}>{language}</Text>
+                                            </TouchableOpacity>
+                                        ))
+                                    ) : (
+                                        <Text style={styles.dropdownEmptyText}>No languages found.</Text>
+                                    )}
+                                </ScrollView>
                             </View>
                         )}
+
+                        <Text style={styles.inputLabel}>Specialty (Category)</Text>
+                        <View style={styles.multiSelectContainer}>
+                            {selectedSpecialties.map((specialty) => (
+                                <View key={specialty} style={styles.selectedChip}>
+                                    <Text style={styles.selectedChipText}>{specialty}</Text>
+                                    <TouchableOpacity onPress={() => removeSpecialty(specialty)}>
+                                        <Ionicons name="close" size={14} color="#1F2937" />
+                                    </TouchableOpacity>
+                                </View>
+                            ))}
+
+                            <TextInput
+                                value={specialtySearchTerm}
+                                onChangeText={(text) => {
+                                    setSpecialtySearchTerm(text);
+                                    setShowSpecialtyDropdown(true);
+                                }}
+                                onFocus={() => setShowSpecialtyDropdown(true)}
+                                style={styles.multiSelectInput}
+                                placeholder="Type and select specialties"
+                                placeholderTextColor="#9CA3AF"
+                            />
+                        </View>
+
+                        {showSpecialtyDropdown && (
+                            <View style={styles.dropdownContainer}>
+                                <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={{ maxHeight: 150 }}>
+                                    {filteredSpecialties.length > 0 ? (
+                                        filteredSpecialties.map((specialty) => (
+                                            <TouchableOpacity
+                                                key={specialty}
+                                                style={styles.dropdownItem}
+                                                onPress={() => addSpecialty(specialty)}
+                                            >
+                                                <Text style={styles.dropdownItemText}>{specialty}</Text>
+                                            </TouchableOpacity>
+                                        ))
+                                    ) : (
+                                        <Text style={styles.dropdownEmptyText}>No specialties found.</Text>
+                                    )}
+                                </ScrollView>
+                            </View>
+                        )}
+
+                        <View style={styles.customSpecialtyRow}>
+                            <TextInput
+                                value={customSpecialty}
+                                onChangeText={setCustomSpecialty}
+                                style={[styles.input, styles.customSpecialtyInput]}
+                                placeholder="Add custom specialty"
+                                placeholderTextColor="#9CA3AF"
+                            />
+                            <TouchableOpacity style={styles.addCustomButton} onPress={addCustomSpecialty}>
+                                <Text style={styles.addCustomButtonText}>Add</Text>
+                            </TouchableOpacity>
+                        </View>
 
                         <View style={styles.rowInputs}>
                             <View style={{flex: 1}}>
@@ -394,47 +541,6 @@ const UpdateGuideInfoForm = () => {
                     )}
                 </TouchableOpacity>
             </ScreenSafeArea>
-
-            {/* Specialty Selection Modal */}
-            <Modal
-                visible={isSpecialtyModalVisible}
-                transparent={true}
-                animationType="slide"
-                onRequestClose={() => setSpecialtyModalVisible(false)}
-            >
-                <SafeAreaView edges={['bottom']} style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Select Specialty</Text>
-                            <TouchableOpacity onPress={() => setSpecialtyModalVisible(false)}>
-                                <Ionicons name="close" size={24} color="#1F2937" />
-                            </TouchableOpacity>
-                        </View>
-                        <ScrollView showsVerticalScrollIndicator={false}>
-                            {specialtyOptions.map((opt) => (
-                                <TouchableOpacity
-                                    key={opt}
-                                    style={styles.modalOption}
-                                    onPress={() => {
-                                        setSelectedSpecialty(opt);
-                                        setSpecialtyModalVisible(false);
-                                    }}
-                                >
-                                    <Text style={[
-                                        styles.modalOptionText,
-                                        selectedSpecialty === opt && styles.modalOptionTextSelected
-                                    ]}>
-                                        {opt}
-                                    </Text>
-                                    {selectedSpecialty === opt && (
-                                        <Ionicons name="checkmark" size={20} color="#007AFF" />
-                                    )}
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
-                    </View>
-                </SafeAreaView>
-            </Modal>
 
             {toast.visible && (
                 <View style={[
@@ -533,6 +639,90 @@ const styles = StyleSheet.create({
         backgroundColor: '#FAFAFA',
         fontSize: 14,
         color: '#1F2937'
+    },
+    multiSelectContainer: {
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        borderRadius: 8,
+        backgroundColor: '#FAFAFA',
+        padding: 8,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        marginBottom: 8,
+        minHeight: 48,
+        gap: 8,
+    },
+    selectedChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#DBEAFE',
+        borderColor: '#93C5FD',
+        borderWidth: 1,
+        borderRadius: 999,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        gap: 6,
+    },
+    selectedChipText: {
+        color: '#1E3A8A',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    multiSelectInput: {
+        flex: 1,
+        minWidth: 140,
+        paddingVertical: 8,
+        paddingHorizontal: 2,
+        color: '#1F2937',
+        fontSize: 14,
+    },
+    dropdownContainer: {
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        borderRadius: 8,
+        backgroundColor: '#fff',
+        marginBottom: 14,
+        overflow: 'hidden',
+    },
+    dropdownItem: {
+        paddingVertical: 12,
+        paddingHorizontal: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F3F4F6',
+    },
+    dropdownItemText: {
+        color: '#1F2937',
+        fontSize: 14,
+    },
+    dropdownEmptyText: {
+        color: '#9CA3AF',
+        fontSize: 13,
+        paddingVertical: 12,
+        paddingHorizontal: 12,
+    },
+    customSpecialtyRow: {
+        flexDirection: 'row',
+        gap: 8,
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    customSpecialtyInput: {
+        flex: 1,
+        marginBottom: 0,
+    },
+    addCustomButton: {
+        backgroundColor: '#2563EB',
+        borderRadius: 8,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    addCustomButtonText: {
+        color: '#fff',
+        fontWeight: '700',
+        fontSize: 13,
     },
     rowInputs: {
         flexDirection: 'row',
@@ -674,49 +864,7 @@ const styles = StyleSheet.create({
     toastError: { backgroundColor: '#ff5252' },
     toastText: { color: '#fff', fontSize: 14, fontWeight: '600', marginLeft: 12 },
     
-    // Modal Styles
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        justifyContent: 'flex-end',
-    },
-    modalContent: {
-        backgroundColor: '#fff',
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        paddingBottom: Platform.OS === 'ios' ? 40 : 20,
-        maxHeight: '60%',
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: '#E5E7EB',
-    },
-    modalTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#1F2937',
-    },
-    modalOption: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: 16,
-        paddingHorizontal: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F3F4F6',
-    },
-    modalOptionText: {
-        fontSize: 16,
-        color: '#4B5563',
-    },
-    modalOptionTextSelected: {
-        color: '#007AFF',
-        fontWeight: '600',
-    }
+    
 });
 
 export default UpdateGuideInfoForm;

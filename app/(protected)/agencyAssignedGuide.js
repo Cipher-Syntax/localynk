@@ -73,11 +73,19 @@ const AgencyAssignedGuide = () => {
             <View style={styles.detailsGrid}>
                 <View style={styles.detailItem}>
                     <Text style={styles.detailLabel}>Language</Text>
-                    <Text style={styles.detailValue}>{guide.language}</Text>
+                    <Text style={styles.detailValue}>
+                        {Array.isArray(guide.languages)
+                            ? guide.languages.join(', ')
+                            : (guide.languages || guide.language || 'N/A')}
+                    </Text>
                 </View>
                 <View style={styles.detailItem}>
                     <Text style={styles.detailLabel}>Specialty</Text>
-                    <Text style={styles.detailValue}>{guide.specialty}</Text>
+                    <Text style={styles.detailValue}>
+                        {Array.isArray(guide.specializations)
+                            ? guide.specializations.join(', ')
+                            : (guide.specialization || guide.specialty || 'General')}
+                    </Text>
                 </View>
                 <View style={styles.detailItem}>
                     <Text style={styles.detailLabel}>Years of Experience</Text>

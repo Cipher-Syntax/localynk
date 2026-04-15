@@ -312,7 +312,7 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [], onBo
                                     const gPhone = guide.contact_number ? formatPHPhoneLocal(guide.contact_number) : "N/A";
                                     const gEmail = guide.email || "N/A";
                                     
-                                    const rawSpecialty = guide.specialization;
+                                    const rawSpecialty = guide.specializations || guide.specialization;
                                     const gSpecialty = Array.isArray(rawSpecialty) ? rawSpecialty.join(', ') : (rawSpecialty || "General Tour");
                                     
                                     const rawLanguages = guide.languages;

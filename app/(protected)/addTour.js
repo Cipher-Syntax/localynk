@@ -82,14 +82,31 @@ const AddTour = () => {
         }
     }, []);
 
+    const normalizedUserSpecialties = useMemo(() => {
+        const specialties = Array.isArray(user?.specialties)
+            ? user.specialties
+            : [];
+
+        const normalizedList = specialties
+            .map((specialty) => String(specialty || '').trim().toLowerCase())
+            .filter(Boolean);
+
+        if (normalizedList.length > 0) {
+            return normalizedList;
+        }
+
+        const fallbackSpecialty = String(user?.specialty || '').trim().toLowerCase();
+        return fallbackSpecialty ? [fallbackSpecialty] : [];
+    }, [user?.specialties, user?.specialty]);
+
     const displayDestinations = useMemo(() => {
-        if (!user?.specialty || !destinations.length) return destinations;
+        if (!normalizedUserSpecialties.length || !destinations.length) return destinations;
         const matching = destinations.filter(d => {
             const destCategory = typeof d.category === 'object' ? d.category?.name : d.category;
-            return destCategory && destCategory.toLowerCase() === user.specialty.toLowerCase();
+            return destCategory && normalizedUserSpecialties.includes(destCategory.toLowerCase());
         });
         return matching.length > 0 ? matching : destinations;
-    }, [destinations, user?.specialty]);
+    }, [destinations, normalizedUserSpecialties]);
 
     const showToast = (message, type = 'success') => {
         setToast({ visible: true, message, type });

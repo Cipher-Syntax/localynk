@@ -422,7 +422,12 @@ const ExplorePlaces = () => {
     const filteredGuides = useMemo(() => {
         return guides.filter(guide => {
             const fullName = normalizeText(`${guide.first_name || ''} ${guide.last_name || ''}`);
-            const specialty = normalizeText(guide.specialty || guide.specialization);
+            const specialtySource = Array.isArray(guide.specialties) && guide.specialties.length > 0
+                ? guide.specialties
+                : (Array.isArray(guide.specializations) && guide.specializations.length > 0
+                    ? guide.specializations
+                    : [guide.specialty || guide.specialization]);
+            const specialty = normalizeText(specialtySource.join(' '));
             const locationText = normalizeText(guide.location || guide.address || guide.city);
             const languageText = Array.isArray(guide.languages)
                 ? normalizeText(guide.languages.join(' '))
@@ -574,7 +579,11 @@ const ExplorePlaces = () => {
             <View style={styles.detailsGrid}>
                 <View style={styles.detailItem}>
                     <Text style={styles.detailLabel}>Specialty</Text>
-                    <Text style={styles.detailValue} numberOfLines={1}>{item.specialty || 'General'}</Text>
+                    <Text style={styles.detailValue} numberOfLines={1}>
+                        {Array.isArray(item.specialties) && item.specialties.length > 0
+                            ? item.specialties.join(', ')
+                            : (item.specialty || 'General')}
+                    </Text>
                 </View>
                 <View style={styles.detailItem}>
                     <Text style={styles.detailLabel}>Language</Text>

@@ -234,10 +234,15 @@ const GuideSelection = () => {
             if (!query) return true;
 
             const guideName = guide.guide_name || `${guide.first_name || ''} ${guide.last_name || ''}`;
+            const specialtyText = Array.isArray(guide.specialties) && guide.specialties.length > 0
+                ? guide.specialties.join(' ')
+                : (Array.isArray(guide.specializations) && guide.specializations.length > 0
+                    ? guide.specializations.join(' ')
+                    : (guide.specialty || guide.specialization || ''));
             const haystack = [
                 guideName,
                 guide.location,
-                guide.specialty,
+                specialtyText,
                 Array.isArray(guide.languages) ? guide.languages.join(' ') : guide.languages,
             ]
                 .filter(Boolean)
@@ -438,7 +443,11 @@ const GuideSelection = () => {
                                     </View>
                                     <View style={styles.detailItem}>
                                         <Text style={styles.detailLabel}>Specialty</Text>
-                                        <Text style={styles.detailValue}>{guide.specialty || 'General'}</Text>
+                                        <Text style={styles.detailValue}>
+                                            {Array.isArray(guide.specialties) && guide.specialties.length > 0
+                                                ? guide.specialties.join(', ')
+                                                : (guide.specialty || 'General')}
+                                        </Text>
                                     </View>
                                     <View style={styles.detailItem}>
                                         <Text style={styles.detailLabel}>Experience</Text>

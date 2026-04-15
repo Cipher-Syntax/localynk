@@ -269,7 +269,11 @@ const Favorites = () => {
                                 </View>
                                 <View style={styles.detailItem}>
                                     <Text style={styles.detailLabel}>Specialty</Text>
-                                    <Text style={styles.detailValue}>{guide.specialty || 'General'}</Text>
+                                    <Text style={styles.detailValue}>
+                                        {Array.isArray(guide.specialties) && guide.specialties.length > 0
+                                            ? guide.specialties.join(', ')
+                                            : (guide.specialty || 'General')}
+                                    </Text>
                                 </View>
                                 <View style={styles.detailItem}>
                                     <Text style={styles.detailLabel}>Experience</Text>
