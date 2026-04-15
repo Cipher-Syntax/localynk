@@ -343,6 +343,42 @@ const MyBookings = () => {
     const handleOpenModal = (booking) => { setSelectedBooking(booking); setDetailsModalVisible(true); };
     const handleCloseModal = () => { setDetailsModalVisible(false); setSelectedBooking(null); };
 
+    const handleBookingJourneyUpdated = useCallback(async (bookingId) => {
+        const normalizedId = Number(bookingId);
+        if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
+            fetchBookings({ page: 1, reset: true });
+            return;
+        }
+
+        try {
+            const response = await api.get(`/api/bookings/${normalizedId}/`);
+            const freshBooking = response?.data;
+            if (!freshBooking || typeof freshBooking !== 'object') {
+                fetchBookings({ page: 1, reset: true });
+                return;
+            }
+
+            setSelectedBooking((previous) => (
+                previous && previous.id === normalizedId ? { ...previous, ...freshBooking } : previous
+            ));
+            setBookings((previous) => previous.map((item) => (
+                item.id === normalizedId ? { ...item, ...freshBooking } : item
+            )));
+            setSelectedDestinationGroup((previous) => {
+                if (!previous || !Array.isArray(previous.bookings)) return previous;
+                return {
+                    ...previous,
+                    bookings: previous.bookings.map((item) => (
+                        item.id === normalizedId ? { ...item, ...freshBooking } : item
+                    )),
+                };
+            });
+        } catch (error) {
+            console.error('Failed to refresh booking after journey update:', error);
+            fetchBookings({ page: 1, reset: true });
+        }
+    }, [fetchBookings]);
+
     const handleProceedToPayment = (booking) => {
         if (!booking?.id) return;
 
@@ -1192,6 +1228,7 @@ const MyBookings = () => {
                 visible={detailsModalVisible} 
                 onClose={handleCloseModal} 
                 allBookings={bookings} 
+                onBookingUpdated={handleBookingJourneyUpdated}
             />
 
             <Modal

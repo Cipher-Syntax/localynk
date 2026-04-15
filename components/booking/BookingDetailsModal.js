@@ -3,12 +3,17 @@ import { Modal, View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } fr
 import { Ionicons } from '@expo/vector-icons';
 import { formatPHPhoneLocal } from '../../utils/phoneNumber';
 import { buildPricingBreakdown } from '../../utils/pricingBreakdown';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../api/api';
 import StopDetailsModal from '../itinerary/StopDetailsModal';
+import JourneyTrackingModal from './JourneyTrackingModal';
 
-const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) => {
+const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [], onBookingUpdated }) => {
     // Always call hooks before any early return
     const [stopDetailsVisible, setStopDetailsVisible] = useState(false);
+    const [journeyVisible, setJourneyVisible] = useState(false);
+    const [journeyHasChanges, setJourneyHasChanges] = useState(false);
+    const { user } = useAuth();
 
     // Provide default values to avoid calling hooks conditionally
     const hasDestination = !!booking?.destination_detail;
@@ -177,6 +182,51 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
             return acc;
         }, {});
     }, [tourItineraryTimeline]);
+
+    const viewerId = Number(user?.id || 0);
+    const assignedGuideIds = useMemo(() => {
+        const ids = new Set();
+
+        if (Array.isArray(booking?.assigned_guides)) {
+            booking.assigned_guides.forEach((value) => {
+                const normalized = Number(value);
+                if (Number.isFinite(normalized) && normalized > 0) ids.add(normalized);
+            });
+        }
+
+        if (Array.isArray(booking?.assigned_guides_detail)) {
+            booking.assigned_guides_detail.forEach((guide) => {
+                const normalized = Number(guide?.id);
+                if (Number.isFinite(normalized) && normalized > 0) ids.add(normalized);
+            });
+        }
+
+        return ids;
+    }, [booking]);
+
+    const isTouristViewer = viewerId > 0 && Number(booking?.tourist_id) === viewerId;
+    const isProviderViewer = viewerId > 0 && (
+        Number(booking?.guide) === viewerId ||
+        Number(booking?.guide_detail?.id) === viewerId ||
+        Number(booking?.agency) === viewerId ||
+        Number(booking?.agency_detail?.id) === viewerId ||
+        Number(booking?.accommodation_detail?.host_id) === viewerId ||
+        assignedGuideIds.has(viewerId)
+    );
+    const isAdminViewer = Boolean(user?.is_staff || user?.is_superuser);
+    const canAccessJourneyTracker = viewerId > 0 && (isTouristViewer || isProviderViewer || isAdminViewer);
+    const canEditGuideRemarks = isProviderViewer || isAdminViewer;
+    const canEditTouristRemarks = isTouristViewer || isAdminViewer;
+
+    const handleJourneyClose = () => {
+        setJourneyVisible(false);
+        if (journeyHasChanges) {
+            setJourneyHasChanges(false);
+            if (typeof onBookingUpdated === 'function' && booking?.id) {
+                onBookingUpdated(booking.id);
+            }
+        }
+    };
 
     if (!booking) return null;
 
@@ -429,13 +479,25 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
                                 <View style={styles.sectionHeaderRow}>
                                     <Text style={[styles.sectionHeader, { marginBottom: 0 }]}>Booked Itinerary Schedule</Text>
                                     {tourItineraryTimeline.length > 0 && (
-                                        <TouchableOpacity
-                                            style={styles.viewStopDetailsButton}
-                                            onPress={() => setStopDetailsVisible(true)}
-                                        >
-                                            <Ionicons name="images-outline" size={14} color="#1D4ED8" />
-                                            <Text style={styles.viewStopDetailsText}>View Stop Details</Text>
-                                        </TouchableOpacity>
+                                        <>
+                                            <TouchableOpacity
+                                                style={styles.viewStopDetailsButton}
+                                                onPress={() => setStopDetailsVisible(true)}
+                                            >
+                                                <Ionicons name="images-outline" size={14} color="#1D4ED8" />
+                                                <Text style={styles.viewStopDetailsText}>View Stop Details</Text>
+                                            </TouchableOpacity>
+
+                                            {canAccessJourneyTracker && (
+                                                <TouchableOpacity
+                                                    style={styles.trackJourneyButton}
+                                                    onPress={() => setJourneyVisible(true)}
+                                                >
+                                                    <Ionicons name="navigate-outline" size={14} color="#FFFFFF" />
+                                                    <Text style={styles.trackJourneyText}>Track Journey</Text>
+                                                </TouchableOpacity>
+                                            )}
+                                        </>
                                     )}
                                 </View>
                                 {!!tourItineraryByDay ? (
@@ -636,6 +698,16 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [] }) =>
                 accommodationCatalog={booking?.accommodation_detail ? [booking.accommodation_detail] : []}
                 getImageUrl={getImageUrl}
             />
+
+            <JourneyTrackingModal
+                visible={journeyVisible}
+                bookingId={booking?.id}
+                canEditChecklist={canAccessJourneyTracker}
+                canEditGuideRemarks={canEditGuideRemarks}
+                canEditTouristRemarks={canEditTouristRemarks}
+                onJourneyUpdated={() => setJourneyHasChanges(true)}
+                onClose={handleJourneyClose}
+            />
         </Modal>
     );
 };
@@ -671,6 +743,18 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
     },
     viewStopDetailsText: { fontSize: 11, fontWeight: '700', color: '#1D4ED8' },
+    trackJourneyButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: '#1D4ED8',
+        borderWidth: 1,
+        borderColor: '#1D4ED8',
+        borderRadius: 999,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+    },
+    trackJourneyText: { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
     
     providerRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9FAFB', padding: 12, borderRadius: 12 },
     avatarImage: { width: 40, height: 40, borderRadius: 20, marginRight: 12, resizeMode: 'cover' },
