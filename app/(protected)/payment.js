@@ -24,6 +24,48 @@ const BACKGROUND_COLOR = '#F8F9FC';
 const TEXT_PRIMARY = '#1E293B';
 const TEXT_SECONDARY = '#64748B';
 
+const normalizeTransportCapacities = (rawValue) => {
+    const source = Array.isArray(rawValue)
+        ? rawValue
+        : typeof rawValue === 'string'
+            ? rawValue.split(',')
+            : [];
+
+    const normalized = [];
+    const seen = new Set();
+
+    source.forEach((value) => {
+        const parsed = Number.parseInt(String(value || '').trim(), 10);
+        if (!Number.isFinite(parsed) || parsed <= 0 || seen.has(parsed)) {
+            return;
+        }
+        seen.add(parsed);
+        normalized.push(parsed);
+    });
+
+    return normalized;
+};
+
+const normalizeTransportOptions = (rawValue) => {
+    const source = Array.isArray(rawValue) ? rawValue : [];
+    const normalized = [];
+
+    source.forEach((item) => {
+        const vehicleType = String(item?.vehicle_type || '').trim();
+        const capacities = normalizeTransportCapacities(item?.transport_capacities || []);
+        if (!vehicleType || capacities.length === 0) {
+            return;
+        }
+
+        normalized.push({
+            vehicle_type: vehicleType,
+            transport_capacities: capacities,
+        });
+    });
+
+    return normalized;
+};
+
 const Payment = () => {
     const params = useLocalSearchParams();
     const router = useRouter();
@@ -128,6 +170,7 @@ const Payment = () => {
     const [loadingConcurrent, setLoadingConcurrent] = useState(false);
     
     const [manifestModalVisible, setManifestModalVisible] = useState(false);
+    const [accommodationDetailsVisible, setAccommodationDetailsVisible] = useState(false);
 
     useEffect(() => {
         const fetchBookingDetails = async () => {
@@ -499,6 +542,23 @@ const Payment = () => {
     const accomEntity = (effectiveAccommodationId || effectiveAccommodationName)
         ? { name: effectiveAccommodationName || "Selected Accommodation", price: accomCost }
         : null;
+    const activeAccommodationDetail = selectedAccommodation || fetchedBooking?.accommodation_detail || null;
+    const activeAccommodationTransportOptions = useMemo(() => {
+        if (!activeAccommodationDetail) return [];
+
+        if (Array.isArray(activeAccommodationDetail.transport_options) && activeAccommodationDetail.transport_options.length > 0) {
+            return normalizeTransportOptions(activeAccommodationDetail.transport_options);
+        }
+
+        return normalizeTransportOptions([
+            {
+                vehicle_type: activeAccommodationDetail.vehicle_type,
+                transport_capacities: Array.isArray(activeAccommodationDetail.transport_capacities) && activeAccommodationDetail.transport_capacities.length > 0
+                    ? activeAccommodationDetail.transport_capacities
+                    : [activeAccommodationDetail.transport_capacity],
+            },
+        ]);
+    }, [activeAccommodationDetail]);
 
     const formatDateForCalendar = (date) => {
         const year = date.getFullYear();
@@ -1528,6 +1588,16 @@ const Payment = () => {
                                             <Text style={styles.detailsHeader}>Accommodation (Optional)</Text>
                                         </View>
 
+                                        {!!selectedAccommodation && (
+                                            <TouchableOpacity
+                                                style={styles.viewAccommodationButton}
+                                                onPress={() => setAccommodationDetailsVisible(true)}
+                                            >
+                                                <Ionicons name="eye-outline" size={14} color="#1D4ED8" />
+                                                <Text style={styles.viewAccommodationButtonText}>View Accommodation</Text>
+                                            </TouchableOpacity>
+                                        )}
+
                                         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.accScroll}>
                                             <TouchableOpacity
                                                 style={[styles.accCard, !selectedAccommodation && styles.accCardActive]}
@@ -1578,6 +1648,16 @@ const Payment = () => {
                                                 {accomCost > 0 ? `₱${accomCost.toLocaleString()}/day` : 'Included in booking'}
                                             </Text>
                                         </View>
+
+                                        {!!activeAccommodationDetail && (
+                                            <TouchableOpacity
+                                                style={styles.viewAccommodationButton}
+                                                onPress={() => setAccommodationDetailsVisible(true)}
+                                            >
+                                                <Ionicons name="eye-outline" size={14} color="#1D4ED8" />
+                                                <Text style={styles.viewAccommodationButtonText}>View Accommodation</Text>
+                                            </TouchableOpacity>
+                                        )}
                                     </View>
                                 )}
 
@@ -1972,6 +2052,80 @@ const Payment = () => {
                     getImageUrl={getImageUrl}
                 />
 
+                <Modal
+                    visible={accommodationDetailsVisible}
+                    transparent
+                    animationType="slide"
+                    onRequestClose={() => setAccommodationDetailsVisible(false)}
+                >
+                    <View style={styles.accommodationDetailsOverlay}>
+                        <View style={styles.accommodationDetailsSheet}>
+                            <View style={styles.accommodationDetailsHeader}>
+                                <Text style={styles.accommodationDetailsTitle}>Accommodation Details</Text>
+                                <TouchableOpacity
+                                    style={styles.accommodationDetailsCloseButton}
+                                    onPress={() => setAccommodationDetailsVisible(false)}
+                                >
+                                    <Ionicons name="close" size={20} color="#0F172A" />
+                                </TouchableOpacity>
+                            </View>
+
+                            {!activeAccommodationDetail ? (
+                                <View style={styles.accommodationDetailsEmpty}>
+                                    <Text style={styles.guideSub}>No accommodation selected yet.</Text>
+                                </View>
+                            ) : (
+                                <ScrollView contentContainerStyle={styles.accommodationDetailsContent}>
+                                    {!!getImageUrl(activeAccommodationDetail.photo || activeAccommodationDetail.image || activeAccommodationDetail.room_image) && (
+                                        <Image
+                                            source={{ uri: getImageUrl(activeAccommodationDetail.photo || activeAccommodationDetail.image || activeAccommodationDetail.room_image) }}
+                                            style={styles.accommodationDetailsHero}
+                                        />
+                                    )}
+
+                                    <Text style={styles.accommodationDetailsName}>
+                                        {activeAccommodationDetail.title || activeAccommodationDetail.name || 'Selected Accommodation'}
+                                    </Text>
+
+                                    {!!activeAccommodationDetail.location && (
+                                        <Text style={styles.accommodationDetailsMeta}>{activeAccommodationDetail.location}</Text>
+                                    )}
+
+                                    {Number(activeAccommodationDetail.price || 0) > 0 && (
+                                        <Text style={styles.accommodationDetailsRate}>
+                                            ₱{Number(activeAccommodationDetail.price).toLocaleString()}/day
+                                        </Text>
+                                    )}
+
+                                    <CompactMapCard
+                                        latitude={activeAccommodationDetail.latitude}
+                                        longitude={activeAccommodationDetail.longitude}
+                                        title="Accommodation Location"
+                                        subtitle={activeAccommodationDetail.location || ''}
+                                    />
+
+                                    <View style={styles.accommodationDetailsSection}>
+                                        <Text style={styles.accommodationDetailsSectionTitle}>Transportation</Text>
+
+                                        {activeAccommodationTransportOptions.length === 0 ? (
+                                            <Text style={styles.guideSub}>No transportation details listed.</Text>
+                                        ) : (
+                                            activeAccommodationTransportOptions.map((option, index) => (
+                                                <View key={`payment-transport-${index}`} style={styles.accommodationTransportCard}>
+                                                    <Text style={styles.accommodationTransportTitle}>{option.vehicle_type}</Text>
+                                                    <Text style={styles.accommodationTransportMeta}>
+                                                        Capacities: {option.transport_capacities.join(', ')} pax
+                                                    </Text>
+                                                </View>
+                                            ))
+                                        )}
+                                    </View>
+                                </ScrollView>
+                            )}
+                        </View>
+                    </View>
+                </Modal>
+
                 <Modal visible={errorModalVisible} transparent={true} animationType="fade">
                     <View style={styles.errorOverlay}>
                         <View style={styles.errorCard}>
@@ -2056,6 +2210,117 @@ const styles = StyleSheet.create({
         borderColor: '#BFDBFE',
     },
     viewStopsButtonText: { fontSize: 12, fontWeight: '700', color: '#1D4ED8' },
+    viewAccommodationButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        alignSelf: 'flex-start',
+        gap: 6,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 999,
+        backgroundColor: '#EFF6FF',
+        borderWidth: 1,
+        borderColor: '#BFDBFE',
+        marginBottom: 8,
+    },
+    viewAccommodationButtonText: { fontSize: 12, fontWeight: '700', color: '#1D4ED8' },
+
+    accommodationDetailsOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(15, 23, 42, 0.45)',
+        justifyContent: 'flex-end',
+    },
+    accommodationDetailsSheet: {
+        maxHeight: '88%',
+        minHeight: '45%',
+        backgroundColor: '#F8FAFC',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+    },
+    accommodationDetailsHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: '#E2E8F0',
+    },
+    accommodationDetailsTitle: {
+        fontSize: 16,
+        fontWeight: '800',
+        color: '#0F172A',
+    },
+    accommodationDetailsCloseButton: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#E2E8F0',
+    },
+    accommodationDetailsContent: {
+        paddingHorizontal: 16,
+        paddingTop: 12,
+        paddingBottom: 28,
+    },
+    accommodationDetailsHero: {
+        width: '100%',
+        height: 180,
+        borderRadius: 12,
+        backgroundColor: '#E2E8F0',
+        marginBottom: 12,
+    },
+    accommodationDetailsName: {
+        fontSize: 16,
+        fontWeight: '800',
+        color: '#0F172A',
+    },
+    accommodationDetailsMeta: {
+        marginTop: 4,
+        fontSize: 13,
+        color: '#475569',
+        fontWeight: '600',
+    },
+    accommodationDetailsRate: {
+        marginTop: 8,
+        fontSize: 13,
+        color: '#0369A1',
+        fontWeight: '800',
+    },
+    accommodationDetailsSection: {
+        marginTop: 12,
+    },
+    accommodationDetailsSectionTitle: {
+        fontSize: 14,
+        fontWeight: '800',
+        color: '#1E293B',
+        marginBottom: 8,
+    },
+    accommodationTransportCard: {
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#DDE5F0',
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 10,
+        paddingVertical: 9,
+        marginBottom: 8,
+    },
+    accommodationTransportTitle: {
+        fontSize: 13,
+        fontWeight: '800',
+        color: '#0F172A',
+    },
+    accommodationTransportMeta: {
+        marginTop: 3,
+        fontSize: 12,
+        color: '#475569',
+        fontWeight: '600',
+    },
+    accommodationDetailsEmpty: {
+        padding: 20,
+        alignItems: 'center',
+    },
     
     packageScroll: { flexDirection: 'row', marginBottom: 20 },
     packagePill: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: '#F1F5F9', marginRight: 10, borderWidth: 1, borderColor: '#E2E8F0' },

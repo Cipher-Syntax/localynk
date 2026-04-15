@@ -275,7 +275,7 @@ const MyTourPackages = () => {
 
     const handleUpdateTour = async () => {
         if (!editForm.name || !editForm.pricePerDay) {
-            Alert.alert("Validation Error", "Tour Name and Price Per Day are required.");
+            Alert.alert("Validation Error", "Tour Name and Group Price/Day are required.");
             return;
         }
 
@@ -490,7 +490,7 @@ const MyTourPackages = () => {
                             <Text style={styles.sectionSubTitle}>Pricing</Text>
                             <View style={styles.row}>
                                 <View style={{flex: 1, marginRight: 10}}>
-                                    <Text style={styles.inputLabel}>Price Per Day (₱) *</Text>
+                                    <Text style={styles.inputLabel}>Group Price/Day (₱) *</Text>
                                     <TextInput style={styles.input} value={editForm.pricePerDay} onChangeText={(t) => setEditForm({ ...editForm, pricePerDay: t })} placeholder="0.00" keyboardType="numeric" />
                                 </View>
                                 <View style={{flex: 1}}>

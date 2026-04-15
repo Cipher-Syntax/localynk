@@ -11,6 +11,48 @@ import ProfileLocationMapPicker from '../../components/location/ProfileLocationM
 
 const { width } = Dimensions.get('window');
 
+const normalizeTransportCapacities = (rawValue) => {
+    const source = Array.isArray(rawValue)
+        ? rawValue
+        : typeof rawValue === 'string'
+            ? rawValue.split(',')
+            : [];
+
+    const normalized = [];
+    const seen = new Set();
+
+    source.forEach((value) => {
+        const parsed = parseInt(String(value || '').trim(), 10);
+        if (!Number.isFinite(parsed) || parsed <= 0 || seen.has(parsed)) {
+            return;
+        }
+        seen.add(parsed);
+        normalized.push(parsed);
+    });
+
+    return normalized;
+};
+
+const normalizeTransportOptions = (rawValue) => {
+    const source = Array.isArray(rawValue) ? rawValue : [];
+    const normalized = [];
+
+    source.forEach((item) => {
+        const vehicleType = String(item?.vehicle_type || '').trim();
+        const capacities = normalizeTransportCapacities(item?.transport_capacities || []);
+        if (!vehicleType || capacities.length === 0) {
+            return;
+        }
+
+        normalized.push({
+            vehicle_type: vehicleType,
+            transport_capacities: capacities,
+        });
+    });
+
+    return normalized;
+};
+
 const AddAccommodation = () => {
     const router = useRouter();
     const insets = useSafeAreaInsets();
@@ -36,8 +78,10 @@ const AddAccommodation = () => {
             pool: false,
         },
         transportation: false,
-        vehicleType: '',
-        capacity: '',
+        transportOptions: [],
+        draftVehicleType: '',
+        draftTransportCapacities: [],
+        draftTransportCapacityInput: '',
     };
 
     const [formData, setFormData] = useState(initialFormState);
@@ -49,6 +93,7 @@ const AddAccommodation = () => {
 
     const accommodationTypes = ['Room', 'Hostel', 'Hotel', 'Apartment'];
     const roomTypes = ['Single', 'Double', 'Suite', 'Family'];
+    const vehicleTypeOptions = ['Van', 'Car', 'Boat', 'Tricycle', 'Motorcycle', 'Bus', 'SUV'];
 
     const showToast = (message, type = 'success') => {
         setToast({ visible: true, message, type });
@@ -83,6 +128,64 @@ const AddAccommodation = () => {
         }));
     };
 
+    const addTransportCapacity = () => {
+        const nextCapacities = normalizeTransportCapacities([
+            ...(formData.draftTransportCapacities || []),
+            formData.draftTransportCapacityInput,
+        ]);
+
+        if (nextCapacities.length === (formData.draftTransportCapacities || []).length) {
+            showToast('Enter a valid transport capacity before adding.', 'error');
+            return;
+        }
+
+        setFormData((prev) => ({
+            ...prev,
+            draftTransportCapacities: nextCapacities,
+            draftTransportCapacityInput: '',
+        }));
+    };
+
+    const removeTransportCapacity = (capacityToRemove) => {
+        setFormData((prev) => ({
+            ...prev,
+            draftTransportCapacities: (prev.draftTransportCapacities || []).filter((capacity) => capacity !== capacityToRemove),
+        }));
+    };
+
+    const addTransportOption = () => {
+        const vehicleType = String(formData.draftVehicleType || '').trim();
+        const capacities = normalizeTransportCapacities(formData.draftTransportCapacities || []);
+
+        if (!vehicleType) {
+            showToast('Select or type a vehicle type before adding transportation.', 'error');
+            return;
+        }
+
+        if (capacities.length === 0) {
+            showToast('Add at least one capacity for this vehicle.', 'error');
+            return;
+        }
+
+        setFormData((prev) => ({
+            ...prev,
+            transportOptions: normalizeTransportOptions([
+                ...(prev.transportOptions || []),
+                { vehicle_type: vehicleType, transport_capacities: capacities },
+            ]),
+            draftVehicleType: '',
+            draftTransportCapacities: [],
+            draftTransportCapacityInput: '',
+        }));
+    };
+
+    const removeTransportOption = (indexToRemove) => {
+        setFormData((prev) => ({
+            ...prev,
+            transportOptions: (prev.transportOptions || []).filter((_, index) => index !== indexToRemove),
+        }));
+    };
+
     const validateStep = (step) => {
         if (step === 1) {
             if (!formData.name || !formData.address || !formData.pricePerNight) {
@@ -90,6 +193,16 @@ const AddAccommodation = () => {
                 return false;
             }
         }
+
+        if (step === 3 && formData.transportation) {
+            const finalTransportOptions = normalizeTransportOptions(formData.transportOptions || []);
+
+            if (finalTransportOptions.length === 0) {
+                showToast('Please add at least one transportation entry.', 'error');
+                return false;
+            }
+        }
+
         return true;
     };
 
@@ -106,6 +219,7 @@ const AddAccommodation = () => {
     };
 
     const handleSubmit = async () => {
+        if (!validateStep(3)) return;
         setLoading(true);
         try {
             const data = new FormData();
@@ -129,8 +243,13 @@ const AddAccommodation = () => {
             data.append('offer_transportation', formData.transportation ? "true" : "false");
             
             if (formData.transportation) {
-                data.append('vehicle_type', formData.vehicleType);
-                data.append('transport_capacity', formData.capacity || 0);
+                const finalTransportOptions = normalizeTransportOptions(formData.transportOptions || []);
+                const firstTransport = finalTransportOptions[0] || null;
+
+                data.append('transport_options', JSON.stringify(finalTransportOptions));
+                data.append('vehicle_type', firstTransport?.vehicle_type || '');
+                data.append('transport_capacities', JSON.stringify(firstTransport?.transport_capacities || []));
+                data.append('transport_capacity', firstTransport?.transport_capacities?.[0] || 0);
             }
 
             const appendImage = (uri, fieldName) => {
@@ -344,7 +463,24 @@ const AddAccommodation = () => {
                 </View>
                 <TouchableOpacity 
                     style={[styles.toggle, formData.transportation && styles.toggleActive]}
-                    onPress={() => setFormData({ ...formData, transportation: !formData.transportation })}
+                    onPress={() => setFormData((prev) => {
+                        const nextState = !prev.transportation;
+                        if (!nextState) {
+                            return {
+                                ...prev,
+                                transportation: false,
+                                transportOptions: [],
+                                draftVehicleType: '',
+                                draftTransportCapacities: [],
+                                draftTransportCapacityInput: '',
+                            };
+                        }
+
+                        return {
+                            ...prev,
+                            transportation: true,
+                        };
+                    })}
                 >
                     <View style={[styles.toggleCircle, formData.transportation && styles.toggleCircleActive]} />
                 </TouchableOpacity>
@@ -352,27 +488,55 @@ const AddAccommodation = () => {
 
             {formData.transportation && (
                 <View style={styles.transportContainer}>
-                    <Text style={styles.label}>Vehicle Type</Text>
+                    <Text style={styles.label}>Vehicle Selection</Text>
+                    <View style={styles.pillContainer}>
+                        {vehicleTypeOptions.map((vehicleType) => (
+                            <TouchableOpacity
+                                key={vehicleType}
+                                style={[styles.pill, formData.draftVehicleType === vehicleType && styles.pillActive]}
+                                onPress={() => setFormData((prev) => ({ ...prev, draftVehicleType: vehicleType }))}
+                            >
+                                <Text style={[styles.pillText, formData.draftVehicleType === vehicleType && styles.pillTextActive]}>{vehicleType}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+
+                    <Text style={styles.label}>Vehicle Type (Editable)</Text>
                     <TextInput
                         style={styles.input}
                         placeholder="e.g. Van, Boat, Tricycle"
                         placeholderTextColor="#9CA3AF"
-                        value={formData.vehicleType}
-                        onChangeText={t => setFormData({ ...formData, vehicleType: t })}
+                        value={formData.draftVehicleType}
+                        onChangeText={t => setFormData({ ...formData, draftVehicleType: t })}
                     />
-                    
+
+                    <Text style={styles.label}>Transport Capacities (Pax)</Text>
+                    <View style={styles.capacityInputRow}>
+                        <TextInput
+                            style={[styles.input, styles.capacityInput]}
+                            placeholder="e.g. 4"
+                            placeholderTextColor="#9CA3AF"
+                            keyboardType="numeric"
+                            value={formData.draftTransportCapacityInput}
+                            onChangeText={t => setFormData({ ...formData, draftTransportCapacityInput: t })}
+                        />
+                        <TouchableOpacity style={styles.addCapacityButton} onPress={addTransportCapacity}>
+                            <Text style={styles.addCapacityButtonText}>Add</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.capacityChipsContainer}>
+                        {(formData.draftTransportCapacities || []).map((capacity) => (
+                            <View key={`capacity-${capacity}`} style={styles.capacityChip}>
+                                <Text style={styles.capacityChipText}>{capacity} pax</Text>
+                                <TouchableOpacity onPress={() => removeTransportCapacity(capacity)}>
+                                    <Ionicons name="close" size={14} color="#1F2937" />
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+                    </View>
+
                     <View style={{flexDirection: 'row', gap: 15}}>
-                        <View style={{flex: 1}}>
-                            <Text style={styles.label}>Capacity</Text>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Pax"
-                                placeholderTextColor="#9CA3AF"
-                                keyboardType="numeric"
-                                value={formData.capacity}
-                                onChangeText={t => setFormData({ ...formData, capacity: t })}
-                            />
-                        </View>
                         <View style={{flex: 1}}>
                             <Text style={styles.label}>Vehicle Photo</Text>
                             <TouchableOpacity style={styles.imageUploadSmall} onPress={() => pickImage('transport')}>
@@ -383,6 +547,24 @@ const AddAccommodation = () => {
                                 )}
                             </TouchableOpacity>
                         </View>
+                    </View>
+
+                    <TouchableOpacity style={styles.addTransportOptionButton} onPress={addTransportOption}>
+                        <Text style={styles.addTransportOptionButtonText}>Add Transportation</Text>
+                    </TouchableOpacity>
+
+                    <View style={styles.transportOptionsList}>
+                        {(formData.transportOptions || []).map((option, index) => (
+                            <View key={`transport-option-${index}`} style={styles.transportOptionCard}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.transportOptionTitle}>{option.vehicle_type}</Text>
+                                    <Text style={styles.transportOptionSubtitle}>Capacities: {option.transport_capacities.join(', ')} pax</Text>
+                                </View>
+                                <TouchableOpacity onPress={() => removeTransportOption(index)}>
+                                    <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                                </TouchableOpacity>
+                            </View>
+                        ))}
                     </View>
                 </View>
             )}
@@ -711,6 +893,85 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         borderWidth: 1,
         borderColor: '#E5E7EB'
+    },
+    capacityInputRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    capacityInput: {
+        flex: 1,
+    },
+    addCapacityButton: {
+        backgroundColor: '#0072FF',
+        borderRadius: 10,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+    },
+    addCapacityButtonText: {
+        color: '#fff',
+        fontSize: 13,
+        fontWeight: '700',
+    },
+    capacityChipsContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginTop: 10,
+        marginBottom: 6,
+    },
+    capacityChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: '#DBEAFE',
+        borderColor: '#93C5FD',
+        borderWidth: 1,
+        borderRadius: 999,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+    },
+    capacityChipText: {
+        color: '#1E3A8A',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    addTransportOptionButton: {
+        backgroundColor: '#0F766E',
+        borderRadius: 10,
+        paddingVertical: 12,
+        alignItems: 'center',
+        marginTop: 8,
+    },
+    addTransportOptionButtonText: {
+        color: '#fff',
+        fontSize: 13,
+        fontWeight: '700',
+    },
+    transportOptionsList: {
+        marginTop: 12,
+        gap: 8,
+    },
+    transportOptionCard: {
+        backgroundColor: '#F8FAFC',
+        borderColor: '#E2E8F0',
+        borderWidth: 1,
+        borderRadius: 10,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    transportOptionTitle: {
+        color: '#0F172A',
+        fontSize: 13,
+        fontWeight: '700',
+    },
+    transportOptionSubtitle: {
+        color: '#475569',
+        fontSize: 12,
+        marginTop: 2,
     },
     footer: {
         position: 'absolute',

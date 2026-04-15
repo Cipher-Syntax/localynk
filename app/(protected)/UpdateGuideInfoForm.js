@@ -64,7 +64,6 @@ const UpdateGuideInfoForm = () => {
 
     const [customSpecialty, setCustomSpecialty] = useState('');
     const [experience, setExperience] = useState('');
-    const [price, setPrice] = useState('');
     const [availableDays, setAvailableDays] = useState([]);
     const [markedDates, setMarkedDates] = useState({});
     
@@ -133,7 +132,6 @@ const UpdateGuideInfoForm = () => {
         setCustomSpecialty('');
 
         setExperience(data.experience_years ? data.experience_years.toString() : '');
-        setPrice(data.price_per_day ? data.price_per_day.toString() : '');
         setAvailableDays(data.available_days || []);
 
         const existingMarkedDates = (data.specific_available_dates || []).reduce((acc, dateString) => {
@@ -173,6 +171,18 @@ const UpdateGuideInfoForm = () => {
         setSelectedSpecialties((previous) => normalizeTextList([...previous, customValue]));
         setCustomSpecialty('');
     }, [customSpecialty]);
+
+    const addCustomLanguage = useCallback(() => {
+        const customValue = String(languageSearchTerm || '').trim();
+        if (!customValue) {
+            showToast('Please enter a language first.', 'error');
+            return;
+        }
+
+        setLanguages((previous) => normalizeTextList([...previous, customValue]));
+        setLanguageSearchTerm('');
+        setShowLanguageDropdown(false);
+    }, [languageSearchTerm]);
 
     const toggleDay = (day) => {
         if (availableDays.includes(day)) {
@@ -273,7 +283,6 @@ const UpdateGuideInfoForm = () => {
                 specialties: finalSpecialties,
                 specialty: finalSpecialties[0] || '',
                 experience_years: parseInt(experience, 10),
-                price_per_day: parseFloat(price),
                 available_days: availableDays,
                 specific_available_dates: specific_dates
             });
@@ -374,19 +383,21 @@ const UpdateGuideInfoForm = () => {
                         {showLanguageDropdown && (
                             <View style={styles.dropdownContainer}>
                                 <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={{ maxHeight: 150 }}>
-                                    {filteredLanguages.length > 0 ? (
-                                        filteredLanguages.map((language) => (
-                                            <TouchableOpacity
-                                                key={language}
-                                                style={styles.dropdownItem}
-                                                onPress={() => addLanguage(language)}
-                                            >
-                                                <Text style={styles.dropdownItemText}>{language}</Text>
-                                            </TouchableOpacity>
-                                        ))
-                                    ) : (
-                                        <Text style={styles.dropdownEmptyText}>No languages found.</Text>
-                                    )}
+                                    {filteredLanguages.length > 0 && filteredLanguages.map((language) => (
+                                        <TouchableOpacity
+                                            key={language}
+                                            style={styles.dropdownItem}
+                                            onPress={() => addLanguage(language)}
+                                        >
+                                            <Text style={styles.dropdownItemText}>{language}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+
+                                    <TouchableOpacity style={styles.dropdownItem} onPress={addCustomLanguage}>
+                                        <Text style={styles.dropdownAddText}>
+                                            Add custom language: {String(languageSearchTerm || '').trim() || 'Type a language above'}
+                                        </Text>
+                                    </TouchableOpacity>
                                 </ScrollView>
                             </View>
                         )}
@@ -448,30 +459,15 @@ const UpdateGuideInfoForm = () => {
                             </TouchableOpacity>
                         </View>
 
-                        <View style={styles.rowInputs}>
-                            <View style={{flex: 1}}>
-                                <Text style={styles.inputLabel}>Experience (Yrs)</Text>
-                                <TextInput
-                                    value={experience}
-                                    onChangeText={setExperience}
-                                    keyboardType="numeric"
-                                    style={styles.input}
-                                    placeholder="0"
-                                    placeholderTextColor="#9CA3AF"
-                                />
-                            </View>
-                            <View style={{flex: 1}}>
-                                <Text style={styles.inputLabel}>Price/Day (₱)</Text>
-                                <TextInput
-                                    value={price}
-                                    onChangeText={setPrice}
-                                    keyboardType="numeric"
-                                    style={styles.input}
-                                    placeholder="0.00"
-                                    placeholderTextColor="#9CA3AF"
-                                />
-                            </View>
-                        </View>
+                        <Text style={styles.inputLabel}>Experience (Yrs)</Text>
+                        <TextInput
+                            value={experience}
+                            onChangeText={setExperience}
+                            keyboardType="numeric"
+                            style={styles.input}
+                            placeholder="0"
+                            placeholderTextColor="#9CA3AF"
+                        />
                     </View>
 
                     <View style={styles.card}>
@@ -695,6 +691,11 @@ const styles = StyleSheet.create({
         color: '#1F2937',
         fontSize: 14,
     },
+    dropdownAddText: {
+        color: '#2563EB',
+        fontSize: 13,
+        fontWeight: '600',
+    },
     dropdownEmptyText: {
         color: '#9CA3AF',
         fontSize: 13,
@@ -723,10 +724,6 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontWeight: '700',
         fontSize: 13,
-    },
-    rowInputs: {
-        flexDirection: 'row',
-        gap: 12
     },
     statusBox: {
         backgroundColor: '#F0F9FF',

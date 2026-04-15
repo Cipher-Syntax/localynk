@@ -466,7 +466,7 @@ const AddTour = () => {
                 <View style={styles.pricingCard}>
                     <View style={styles.row}>
                         <View style={{ flex: 1, marginRight: 10 }}>
-                            <Text style={styles.labelSmall}>Price Per Day (₱) *</Text>
+                            <Text style={styles.labelSmall}>Group Price/Day (₱) *</Text>
                             <View style={styles.priceInputRow}>
                                 <Text style={styles.currency}>₱</Text>
                                 <TextInput

@@ -9,6 +9,48 @@ import StopDetailsModal from '../itinerary/StopDetailsModal';
 import JourneyTrackingModal from './JourneyTrackingModal';
 import CompactMapCard from '../location/CompactMapCard';
 
+const normalizeTransportCapacities = (rawValue) => {
+    const source = Array.isArray(rawValue)
+        ? rawValue
+        : typeof rawValue === 'string'
+            ? rawValue.split(',')
+            : [];
+
+    const normalized = [];
+    const seen = new Set();
+
+    source.forEach((value) => {
+        const parsed = Number.parseInt(String(value || '').trim(), 10);
+        if (!Number.isFinite(parsed) || parsed <= 0 || seen.has(parsed)) {
+            return;
+        }
+        seen.add(parsed);
+        normalized.push(parsed);
+    });
+
+    return normalized;
+};
+
+const normalizeTransportOptions = (rawValue) => {
+    const source = Array.isArray(rawValue) ? rawValue : [];
+    const normalized = [];
+
+    source.forEach((item) => {
+        const vehicleType = String(item?.vehicle_type || '').trim();
+        const capacities = normalizeTransportCapacities(item?.transport_capacities || []);
+        if (!vehicleType || capacities.length === 0) {
+            return;
+        }
+
+        normalized.push({
+            vehicle_type: vehicleType,
+            transport_capacities: capacities,
+        });
+    });
+
+    return normalized;
+};
+
 const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [], onBookingUpdated }) => {
     // Always call hooks before any early return
     const [stopDetailsVisible, setStopDetailsVisible] = useState(false);
@@ -184,6 +226,24 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [], onBo
         }, {});
     }, [tourItineraryTimeline]);
 
+    const accommodationTransportOptions = useMemo(() => {
+        const detail = booking?.accommodation_detail;
+        if (!detail) return [];
+
+        if (Array.isArray(detail.transport_options) && detail.transport_options.length > 0) {
+            return normalizeTransportOptions(detail.transport_options);
+        }
+
+        return normalizeTransportOptions([
+            {
+                vehicle_type: detail.vehicle_type,
+                transport_capacities: Array.isArray(detail.transport_capacities) && detail.transport_capacities.length > 0
+                    ? detail.transport_capacities
+                    : [detail.transport_capacity],
+            },
+        ]);
+    }, [booking]);
+
     const viewerId = Number(user?.id || 0);
     const assignedGuideIds = useMemo(() => {
         const ids = new Set();
@@ -299,6 +359,23 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [], onBo
                                             <Text style={styles.manifestLabelDetail}>Rate:</Text>
                                             <Text style={styles.manifestValueDetail}>₱ {Number(booking.accommodation_detail.price).toLocaleString()}/day</Text>
                                         </View>
+                                    )}
+
+                                    {accommodationTransportOptions.length > 0 && (
+                                        <>
+                                            <View style={[styles.manifestDivider, { marginVertical: 8 }]} />
+                                            <Text style={styles.manifestLabelDetail}>Transportation:</Text>
+                                            <View style={{ marginTop: 8 }}>
+                                                {accommodationTransportOptions.map((option, idx) => (
+                                                    <View key={`booking-transport-${idx}`} style={styles.accommodationTransportCard}>
+                                                        <Text style={styles.accommodationTransportTitle}>{option.vehicle_type}</Text>
+                                                        <Text style={styles.accommodationTransportMeta}>
+                                                            Capacities: {option.transport_capacities.join(', ')} pax
+                                                        </Text>
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        </>
                                     )}
                                 </View>
                             </View>
@@ -782,6 +859,26 @@ const styles = StyleSheet.create({
     manifestRowDetail: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
     manifestLabelDetail: { fontSize: 13, color: '#64748B', fontWeight: '500' },
     manifestValueDetail: { fontSize: 13, color: '#0F172A', fontWeight: '700' },
+    accommodationTransportCard: {
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#DDE5F0',
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+        marginBottom: 8,
+    },
+    accommodationTransportTitle: {
+        fontSize: 13,
+        fontWeight: '800',
+        color: '#0F172A',
+    },
+    accommodationTransportMeta: {
+        marginTop: 2,
+        fontSize: 12,
+        color: '#475569',
+        fontWeight: '600',
+    },
     itineraryDayBlock: {
         backgroundColor: '#F8FAFC',
         borderRadius: 12,

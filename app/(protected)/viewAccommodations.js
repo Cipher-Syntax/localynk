@@ -14,6 +14,48 @@ import ProfileLocationMapPicker from '../../components/location/ProfileLocationM
 
 const { width } = Dimensions.get('window');
 
+const normalizeTransportCapacities = (rawValue) => {
+    const source = Array.isArray(rawValue)
+        ? rawValue
+        : typeof rawValue === 'string'
+            ? rawValue.split(',')
+            : [];
+
+    const normalized = [];
+    const seen = new Set();
+
+    source.forEach((value) => {
+        const parsed = parseInt(String(value || '').trim(), 10);
+        if (!Number.isFinite(parsed) || parsed <= 0 || seen.has(parsed)) {
+            return;
+        }
+        seen.add(parsed);
+        normalized.push(parsed);
+    });
+
+    return normalized;
+};
+
+const normalizeTransportOptions = (rawValue) => {
+    const source = Array.isArray(rawValue) ? rawValue : [];
+    const normalized = [];
+
+    source.forEach((item) => {
+        const vehicleType = String(item?.vehicle_type || '').trim();
+        const capacities = normalizeTransportCapacities(item?.transport_capacities || []);
+        if (!vehicleType || capacities.length === 0) {
+            return;
+        }
+
+        normalized.push({
+            vehicle_type: vehicleType,
+            transport_capacities: capacities,
+        });
+    });
+
+    return normalized;
+};
+
 export default function ViewAccommodations() {
     const params = useLocalSearchParams();
     const router = useRouter();
@@ -61,8 +103,10 @@ export default function ViewAccommodations() {
         room_type: 'Single',
         amenities: { wifi: false, breakfast: false, ac: false, parking: false, pool: false },
         offer_transportation: false,
-        vehicle_type: '',
-        transport_capacity: '',
+        transport_options: [],
+        draft_vehicle_type: '',
+        draft_transport_capacities: [],
+        draft_transport_capacity_input: '',
     });
 
     const [editImages, setEditImages] = useState({
@@ -73,6 +117,7 @@ export default function ViewAccommodations() {
 
     const accommodationTypes = ['Room', 'Hostel', 'Hotel', 'Apartment'];
     const roomTypes = ['Single', 'Double', 'Suite', 'Family'];
+    const vehicleTypeOptions = ['Van', 'Car', 'Boat', 'Tricycle', 'Motorcycle', 'Bus', 'SUV'];
 
     const showToast = (message, type = 'success') => {
         setToast({ visible: true, message, type });
@@ -173,6 +218,17 @@ export default function ViewAccommodations() {
 
     const openEditModal = (acc) => {
         setEditingAcc(acc);
+
+        const resolvedTransportOptions = normalizeTransportOptions(
+            Array.isArray(acc.transport_options) && acc.transport_options.length > 0
+                ? acc.transport_options
+                : [{
+                    vehicle_type: acc.vehicle_type,
+                    transport_capacities: Array.isArray(acc.transport_capacities) && acc.transport_capacities.length > 0
+                        ? acc.transport_capacities
+                        : [acc.transport_capacity],
+                }]
+        );
         
         let parsedAmenities = { wifi: false, breakfast: false, ac: false, parking: false, pool: false };
         if (acc.amenities) {
@@ -197,8 +253,10 @@ export default function ViewAccommodations() {
             room_type: acc.room_type || 'Single',
             amenities: parsedAmenities,
             offer_transportation: !!acc.offer_transportation,
-            vehicle_type: acc.vehicle_type || '',
-            transport_capacity: (acc.transport_capacity || '').toString(),
+            transport_options: resolvedTransportOptions,
+            draft_vehicle_type: '',
+            draft_transport_capacities: [],
+            draft_transport_capacity_input: '',
         });
 
         setEditImages({
@@ -214,6 +272,64 @@ export default function ViewAccommodations() {
         setEditForm(prev => ({
             ...prev,
             amenities: { ...prev.amenities, [key]: !prev.amenities[key] }
+        }));
+    };
+
+    const addEditTransportCapacity = () => {
+        const nextCapacities = normalizeTransportCapacities([
+            ...(editForm.draft_transport_capacities || []),
+            editForm.draft_transport_capacity_input,
+        ]);
+
+        if (nextCapacities.length === (editForm.draft_transport_capacities || []).length) {
+            showToast('Enter a valid transport capacity before adding.', 'error');
+            return;
+        }
+
+        setEditForm((prev) => ({
+            ...prev,
+            draft_transport_capacities: nextCapacities,
+            draft_transport_capacity_input: '',
+        }));
+    };
+
+    const removeEditTransportCapacity = (capacityToRemove) => {
+        setEditForm((prev) => ({
+            ...prev,
+            draft_transport_capacities: (prev.draft_transport_capacities || []).filter((capacity) => capacity !== capacityToRemove),
+        }));
+    };
+
+    const addEditTransportOption = () => {
+        const vehicleType = String(editForm.draft_vehicle_type || '').trim();
+        const capacities = normalizeTransportCapacities(editForm.draft_transport_capacities || []);
+
+        if (!vehicleType) {
+            showToast('Select or type a vehicle type before adding transportation.', 'error');
+            return;
+        }
+
+        if (capacities.length === 0) {
+            showToast('Add at least one capacity for this vehicle.', 'error');
+            return;
+        }
+
+        setEditForm((prev) => ({
+            ...prev,
+            transport_options: normalizeTransportOptions([
+                ...(prev.transport_options || []),
+                { vehicle_type: vehicleType, transport_capacities: capacities },
+            ]),
+            draft_vehicle_type: '',
+            draft_transport_capacities: [],
+            draft_transport_capacity_input: '',
+        }));
+    };
+
+    const removeEditTransportOption = (indexToRemove) => {
+        setEditForm((prev) => ({
+            ...prev,
+            transport_options: (prev.transport_options || []).filter((_, index) => index !== indexToRemove),
         }));
     };
 
@@ -242,6 +358,15 @@ export default function ViewAccommodations() {
             return;
         }
 
+        const finalTransportOptions = editForm.offer_transportation
+            ? normalizeTransportOptions(editForm.transport_options || [])
+            : [];
+
+        if (editForm.offer_transportation && finalTransportOptions.length === 0) {
+            showToast('Please add at least one transportation entry.', 'error');
+            return;
+        }
+
         setIsUpdating(true);
         try {
             const payload = new FormData();
@@ -264,8 +389,16 @@ export default function ViewAccommodations() {
             payload.append('offer_transportation', editForm.offer_transportation ? "true" : "false");
             
             if (editForm.offer_transportation) {
-                payload.append('vehicle_type', editForm.vehicle_type);
-                payload.append('transport_capacity', editForm.transport_capacity || 0);
+                const firstTransport = finalTransportOptions[0] || null;
+                payload.append('transport_options', JSON.stringify(finalTransportOptions));
+                payload.append('vehicle_type', firstTransport?.vehicle_type || '');
+                payload.append('transport_capacities', JSON.stringify(firstTransport?.transport_capacities || []));
+                payload.append('transport_capacity', firstTransport?.transport_capacities?.[0] || 0);
+            } else {
+                payload.append('vehicle_type', '');
+                payload.append('transport_options', JSON.stringify([]));
+                payload.append('transport_capacities', JSON.stringify([]));
+                payload.append('transport_capacity', '');
             }
 
             const appendImage = (uri, fieldName) => {
@@ -602,7 +735,24 @@ export default function ViewAccommodations() {
                                 </View>
                                 <TouchableOpacity 
                                     style={[styles.toggle, editForm.offer_transportation && styles.toggleActive]}
-                                    onPress={() => setEditForm({ ...editForm, offer_transportation: !editForm.offer_transportation })}
+                                    onPress={() => setEditForm((prev) => {
+                                        const nextState = !prev.offer_transportation;
+                                        if (!nextState) {
+                                            return {
+                                                ...prev,
+                                                offer_transportation: false,
+                                                transport_options: [],
+                                                draft_vehicle_type: '',
+                                                draft_transport_capacities: [],
+                                                draft_transport_capacity_input: '',
+                                            };
+                                        }
+
+                                        return {
+                                            ...prev,
+                                            offer_transportation: true,
+                                        };
+                                    })}
                                 >
                                     <View style={[styles.toggleCircle, editForm.offer_transportation && styles.toggleCircleActive]} />
                                 </TouchableOpacity>
@@ -610,25 +760,53 @@ export default function ViewAccommodations() {
 
                             {editForm.offer_transportation && (
                                 <View style={styles.transportContainer}>
-                                    <Text style={styles.inputLabel}>Vehicle Type</Text>
+                                    <Text style={styles.inputLabel}>Vehicle Selection</Text>
+                                    <View style={styles.pillContainer}>
+                                        {vehicleTypeOptions.map((vehicleType) => (
+                                            <TouchableOpacity
+                                                key={vehicleType}
+                                                style={[styles.pill, editForm.draft_vehicle_type === vehicleType && styles.pillActive]}
+                                                onPress={() => setEditForm((prev) => ({ ...prev, draft_vehicle_type: vehicleType }))}
+                                            >
+                                                <Text style={[styles.pillText, editForm.draft_vehicle_type === vehicleType && styles.pillTextActive]}>{vehicleType}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+
+                                    <Text style={styles.inputLabel}>Vehicle Type (Editable)</Text>
                                     <TextInput
                                         style={styles.input}
                                         placeholder="e.g. Van, Boat, Tricycle"
-                                        value={editForm.vehicle_type}
-                                        onChangeText={t => setEditForm({ ...editForm, vehicle_type: t })}
+                                        value={editForm.draft_vehicle_type}
+                                        onChangeText={t => setEditForm({ ...editForm, draft_vehicle_type: t })}
                                     />
-                                    
+
+                                    <Text style={styles.inputLabel}>Transport Capacities (Pax)</Text>
+                                    <View style={styles.capacityInputRow}>
+                                        <TextInput
+                                            style={[styles.input, styles.capacityInput]}
+                                            placeholder="e.g. 4"
+                                            keyboardType="numeric"
+                                            value={editForm.draft_transport_capacity_input}
+                                            onChangeText={t => setEditForm({ ...editForm, draft_transport_capacity_input: t })}
+                                        />
+                                        <TouchableOpacity style={styles.addCapacityButton} onPress={addEditTransportCapacity}>
+                                            <Text style={styles.addCapacityButtonText}>Add</Text>
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    <View style={styles.capacityChipsContainer}>
+                                        {(editForm.draft_transport_capacities || []).map((capacity) => (
+                                            <View key={`edit-capacity-${capacity}`} style={styles.capacityChip}>
+                                                <Text style={styles.capacityChipText}>{capacity} pax</Text>
+                                                <TouchableOpacity onPress={() => removeEditTransportCapacity(capacity)}>
+                                                    <Ionicons name="close" size={14} color="#1F2937" />
+                                                </TouchableOpacity>
+                                            </View>
+                                        ))}
+                                    </View>
+
                                     <View style={{flexDirection: 'row', gap: 15}}>
-                                        <View style={{flex: 1}}>
-                                            <Text style={styles.inputLabel}>Capacity</Text>
-                                            <TextInput
-                                                style={styles.input}
-                                                placeholder="Pax"
-                                                keyboardType="numeric"
-                                                value={editForm.transport_capacity}
-                                                onChangeText={t => setEditForm({ ...editForm, transport_capacity: t })}
-                                            />
-                                        </View>
                                         <View style={{flex: 1}}>
                                             <Text style={styles.inputLabel}>Vehicle Photo</Text>
                                             <TouchableOpacity style={styles.imageUploadSmall} onPress={() => pickImage('transport_image')}>
@@ -639,6 +817,24 @@ export default function ViewAccommodations() {
                                                 )}
                                             </TouchableOpacity>
                                         </View>
+                                    </View>
+
+                                    <TouchableOpacity style={styles.addTransportOptionButton} onPress={addEditTransportOption}>
+                                        <Text style={styles.addTransportOptionButtonText}>Add Transportation</Text>
+                                    </TouchableOpacity>
+
+                                    <View style={styles.transportOptionsList}>
+                                        {(editForm.transport_options || []).map((option, index) => (
+                                            <View key={`edit-transport-option-${index}`} style={styles.transportOptionCard}>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={styles.transportOptionTitle}>{option.vehicle_type}</Text>
+                                                    <Text style={styles.transportOptionSubtitle}>Capacities: {option.transport_capacities.join(', ')} pax</Text>
+                                                </View>
+                                                <TouchableOpacity onPress={() => removeEditTransportOption(index)}>
+                                                    <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                                                </TouchableOpacity>
+                                            </View>
+                                        ))}
                                     </View>
                                 </View>
                             )}
@@ -787,6 +983,19 @@ const styles = StyleSheet.create({
     toggleCircleActive: { alignSelf: 'flex-end' },
     
     transportContainer: { backgroundColor: '#F9FAFB', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', marginTop: 10 },
+    capacityInputRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    capacityInput: { flex: 1 },
+    addCapacityButton: { backgroundColor: '#0072FF', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 12 },
+    addCapacityButtonText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+    capacityChipsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10, marginBottom: 6 },
+    capacityChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#DBEAFE', borderColor: '#93C5FD', borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
+    capacityChipText: { color: '#1E3A8A', fontSize: 12, fontWeight: '600' },
+    addTransportOptionButton: { backgroundColor: '#0F766E', borderRadius: 8, paddingVertical: 12, alignItems: 'center', marginTop: 8 },
+    addTransportOptionButtonText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+    transportOptionsList: { marginTop: 12, gap: 8 },
+    transportOptionCard: { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0', borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 10 },
+    transportOptionTitle: { color: '#0F172A', fontSize: 13, fontWeight: '700' },
+    transportOptionSubtitle: { color: '#475569', fontSize: 12, marginTop: 2 },
 
     saveButton: { backgroundColor: '#00A8FF', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 30 },
     saveButtonDisabled: { opacity: 0.7 },
