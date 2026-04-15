@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../api/api';
 import ScrollToTopButton from '../../components/ScrollToTopButton';
+import CompactMapCard from '../../components/location/CompactMapCard';
 
 const REVIEWS_PAGE_SIZE = 10;
 const SCROLL_TO_TOP_THRESHOLD = 320;
@@ -215,6 +216,15 @@ export default function PlacesDetails() {
                         <Text style={styles.infoLabel}>Location</Text>
                         <Text style={styles.infoText}>{destination.location}</Text>
                     </View>
+                </View>
+
+                <View style={{ paddingHorizontal: 15 }}>
+                    <CompactMapCard
+                        latitude={destination.latitude}
+                        longitude={destination.longitude}
+                        title="Destination Pin"
+                        subtitle={destination.location || destination.name}
+                    />
                 </View>
 
                 {/* DESCRIPTION */}

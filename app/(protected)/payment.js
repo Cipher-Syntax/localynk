@@ -16,6 +16,7 @@ import { formatPHPhoneLocal, normalizePHPhone } from '../../utils/phoneNumber';
 import { NAME_REGEX, NAME_ERROR_MESSAGE, PHONE_ERROR_MESSAGE } from '../../utils/validation';
 import { buildPricingBreakdown } from '../../utils/pricingBreakdown';
 import ScreenSafeArea from '../../components/ScreenSafeArea';
+import CompactMapCard from '../../components/location/CompactMapCard';
 
 const PRIMARY_COLOR = '#0072FF';
 const SURFACE_COLOR = '#FFFFFF';
@@ -1663,6 +1664,13 @@ const Payment = () => {
                                                 <Text style={styles.meetupValue}>{fetchedBooking.meetup_location}</Text>
                                             </View>
                                         </View>
+
+                                        <CompactMapCard
+                                            latitude={fetchedBooking.meetup_latitude}
+                                            longitude={fetchedBooking.meetup_longitude}
+                                            title="Meetup Point"
+                                            subtitle={fetchedBooking.meetup_location || ''}
+                                        />
                                         
                                         {fetchedBooking.meetup_time && (
                                             <View style={styles.meetupRow}>

@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../api/api';
 import StopDetailsModal from '../itinerary/StopDetailsModal';
 import JourneyTrackingModal from './JourneyTrackingModal';
+import CompactMapCard from '../location/CompactMapCard';
 
 const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [], onBookingUpdated }) => {
     // Always call hooks before any early return
@@ -287,6 +288,12 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [], onBo
                                             <Text style={styles.manifestValueDetail}>{booking.accommodation_detail.location}</Text>
                                         </View>
                                     )}
+                                    <CompactMapCard
+                                        latitude={booking.accommodation_detail?.latitude}
+                                        longitude={booking.accommodation_detail?.longitude}
+                                        title="Accommodation Location"
+                                        subtitle={booking.accommodation_detail?.location || ''}
+                                    />
                                     {!!booking.accommodation_detail?.price && (
                                         <View style={styles.manifestRowDetail}>
                                             <Text style={styles.manifestLabelDetail}>Rate:</Text>
@@ -459,6 +466,12 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [], onBo
                                             <Text style={styles.manifestLabelDetail}>Location:</Text>
                                             <Text style={styles.manifestValueDetail}>{booking.meetup_location}</Text>
                                         </View>
+                                        <CompactMapCard
+                                            latitude={booking.meetup_latitude}
+                                            longitude={booking.meetup_longitude}
+                                            title="Meetup Point"
+                                            subtitle={booking.meetup_location || ''}
+                                        />
                                         <View style={styles.manifestRowDetail}>
                                             <Text style={styles.manifestLabelDetail}>Time:</Text>
                                             <Text style={styles.manifestValueDetail}>{formatTime(booking.meetup_time)}</Text>

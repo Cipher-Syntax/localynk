@@ -12,7 +12,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.localynk.app",
-      "googleServicesFile": "./GoogleService-Info.plist"
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "LocaLynk uses your location to pin meetup and destination points accurately within Zamboanga City."
+      }
     },
     "android": {
       "softwareKeyboardLayoutMode": "resize",
@@ -27,7 +30,9 @@
       "package": "com.localynk.app",
       "googleServicesFile": "./google-services.json",
       "permissions": [
-        "POST_NOTIFICATIONS"
+        "POST_NOTIFICATIONS",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
     "web": {

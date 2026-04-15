@@ -12,6 +12,7 @@ import { formatPHPhoneLocal, normalizePHPhone } from '../../../utils/phoneNumber
 import { NAME_REGEX, NAME_ERROR_MESSAGE, PHONE_ERROR_MESSAGE } from '../../../utils/validation';
 import { isPayoutAccountIncomplete } from '../../../utils/profileCompleteness';
 import ScreenSafeArea from '../../../components/ScreenSafeArea';
+import ProfileLocationMapPicker from '../../../components/location/ProfileLocationMapPicker';
 
 const PAYOUT_CHANNEL_OPTIONS = [
     { key: 'gcash', label: 'GCash', icon: 'wallet' },
@@ -157,6 +158,8 @@ const EditProfile = () => {
             payout_account_number: user?.payout_account_number || '',
             payout_account_notes: user?.payout_account_notes || '',
             location: user?.location || '',
+            latitude: user?.latitude ?? null,
+            longitude: user?.longitude ?? null,
             bio: user?.bio || '',
         }
     });
@@ -224,6 +227,15 @@ const EditProfile = () => {
             formData.append('payout_account_number', payoutAccountNumber);
             formData.append('payout_account_notes', String(data.payout_account_notes || '').trim());
             formData.append('location', data.location);
+
+            if (data.latitude !== null && data.latitude !== undefined && String(data.latitude).trim() !== '') {
+                formData.append('latitude', String(data.latitude));
+            }
+
+            if (data.longitude !== null && data.longitude !== undefined && String(data.longitude).trim() !== '') {
+                formData.append('longitude', String(data.longitude));
+            }
+
             formData.append('bio', data.bio);
 
             if (profileImage) {
@@ -570,6 +582,15 @@ const EditProfile = () => {
                                     />
                                 </View>
                             )}
+                        />
+
+                        <ProfileLocationMapPicker
+                            latitude={watch('latitude')}
+                            longitude={watch('longitude')}
+                            onChangeCoordinates={({ latitude, longitude }) => {
+                                setValue('latitude', latitude, { shouldDirty: true });
+                                setValue('longitude', longitude, { shouldDirty: true });
+                            }}
                         />
 
                         <Text style={styles.label}>Bio</Text>

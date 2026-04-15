@@ -10,6 +10,7 @@ import api from '../../api/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import ScreenSafeArea from '../../components/ScreenSafeArea';
+import ProfileLocationMapPicker from '../../components/location/ProfileLocationMapPicker';
 
 const { width } = Dimensions.get('window');
 
@@ -53,6 +54,8 @@ export default function ViewAccommodations() {
         title: '',
         price: '',
         location: '',
+        latitude: null,
+        longitude: null,
         description: '',
         accommodation_type: 'Room',
         room_type: 'Single',
@@ -187,6 +190,8 @@ export default function ViewAccommodations() {
             title: acc.title || acc.name || '',
             price: (acc.price ?? acc.rate ?? '').toString(),
             location: acc.location || '',
+            latitude: acc.latitude ?? null,
+            longitude: acc.longitude ?? null,
             description: acc.description || '',
             accommodation_type: acc.accommodation_type || 'Room',
             room_type: acc.room_type || 'Single',
@@ -243,6 +248,15 @@ export default function ViewAccommodations() {
             payload.append('title', editForm.title);
             payload.append('price', parseFloat(editForm.price));
             payload.append('location', editForm.location);
+
+            if (editForm.latitude !== null && editForm.latitude !== undefined && String(editForm.latitude).trim() !== '') {
+                payload.append('latitude', String(editForm.latitude));
+            }
+
+            if (editForm.longitude !== null && editForm.longitude !== undefined && String(editForm.longitude).trim() !== '') {
+                payload.append('longitude', String(editForm.longitude));
+            }
+
             payload.append('description', editForm.description);
             payload.append('accommodation_type', editForm.accommodation_type);
             payload.append('room_type', editForm.room_type);
@@ -474,6 +488,14 @@ export default function ViewAccommodations() {
                                 value={editForm.location}
                                 onChangeText={(text) => setEditForm({ ...editForm, location: text })}
                                 placeholder="Address or Landmark"
+                            />
+
+                            <ProfileLocationMapPicker
+                                latitude={editForm.latitude}
+                                longitude={editForm.longitude}
+                                onChangeCoordinates={({ latitude, longitude }) => {
+                                    setEditForm(prev => ({ ...prev, latitude, longitude }));
+                                }}
                             />
 
                             <Text style={styles.inputLabel}>Price per Night (₱)</Text>

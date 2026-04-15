@@ -11,6 +11,7 @@ import api from '../../../api/api';
 import Toast from '../../../components/Toast';
 import { formatPHPhoneLocal, normalizePHPhone } from '../../../utils/phoneNumber';
 import { NAME_REGEX, NAME_ERROR_MESSAGE, PHONE_ERROR_MESSAGE } from '../../../utils/validation';
+import ProfileLocationMapPicker from '../../../components/location/ProfileLocationMapPicker';
 
 const ProfileSetupScreen = () => {
     const { user, refreshUser } = useAuth(); 
@@ -19,13 +20,15 @@ const ProfileSetupScreen = () => {
     const [profileImage, setProfileImage] = useState(null);
     const [toast, setToast] = useState({ visible: false, message: '', type: 'error' });
 
-    const { control, handleSubmit, formState: { errors } } = useForm({
+    const { control, handleSubmit, watch, setValue, formState: { errors } } = useForm({
         defaultValues: {
             first_name: user?.first_name || '',
             middle_name: user?.middle_name ||  '',
             last_name: user?.last_name || '',
             phone_number: formatPHPhoneLocal(user?.phone_number || ''),
             location: user?.location || '',
+            latitude: user?.latitude ?? null,
+            longitude: user?.longitude ?? null,
             bio: user?.bio || '',
         }
     });
@@ -65,6 +68,15 @@ const ProfileSetupScreen = () => {
             }
             formData.append('phone_number', normalizedPhone);
             formData.append('location', data.location);
+
+            if (data.latitude !== null && data.latitude !== undefined && String(data.latitude).trim() !== '') {
+                formData.append('latitude', String(data.latitude));
+            }
+
+            if (data.longitude !== null && data.longitude !== undefined && String(data.longitude).trim() !== '') {
+                formData.append('longitude', String(data.longitude));
+            }
+
             formData.append('bio', data.bio);
 
             if (profileImage) {
@@ -243,6 +255,15 @@ const ProfileSetupScreen = () => {
                                 )}
                             />
                             {errors.location && <Text style={styles.errorText}>{errors.location.message}</Text>}
+
+                            <ProfileLocationMapPicker
+                                latitude={watch('latitude')}
+                                longitude={watch('longitude')}
+                                onChangeCoordinates={({ latitude, longitude }) => {
+                                    setValue('latitude', latitude, { shouldDirty: true });
+                                    setValue('longitude', longitude, { shouldDirty: true });
+                                }}
+                            />
 
                             <Text style={styles.label}>Bio</Text>
                             <Controller

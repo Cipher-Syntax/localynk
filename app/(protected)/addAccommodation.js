@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import api from '../../api/api';
 import ScreenSafeArea from '../../components/ScreenSafeArea';
+import ProfileLocationMapPicker from '../../components/location/ProfileLocationMapPicker';
 
 const { width } = Dimensions.get('window');
 
@@ -23,6 +24,8 @@ const AddAccommodation = () => {
         type: 'Room',
         description: '',
         address: '',
+        latitude: null,
+        longitude: null,
         roomType: 'Single',
         pricePerNight: '',
         offerings: {
@@ -110,6 +113,15 @@ const AddAccommodation = () => {
             data.append('title', formData.name);
             data.append('description', formData.description);
             data.append('location', formData.address);
+
+            if (formData.latitude !== null && formData.latitude !== undefined && String(formData.latitude).trim() !== '') {
+                data.append('latitude', String(formData.latitude));
+            }
+
+            if (formData.longitude !== null && formData.longitude !== undefined && String(formData.longitude).trim() !== '') {
+                data.append('longitude', String(formData.longitude));
+            }
+
             data.append('price', formData.pricePerNight);
             data.append('accommodation_type', formData.type);
             data.append('room_type', formData.roomType);
@@ -202,6 +214,14 @@ const AddAccommodation = () => {
                     onChangeText={t => setFormData({ ...formData, address: t })}
                 />
             </View>
+
+            <ProfileLocationMapPicker
+                latitude={formData.latitude}
+                longitude={formData.longitude}
+                onChangeCoordinates={({ latitude, longitude }) => {
+                    setFormData(prev => ({ ...prev, latitude, longitude }));
+                }}
+            />
 
             <Text style={styles.label}>Property Type</Text>
             <View style={styles.pillContainer}>
