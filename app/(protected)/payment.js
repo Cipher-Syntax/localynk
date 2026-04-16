@@ -79,8 +79,11 @@ const Payment = () => {
         basePrice, soloPrice, accommodationPrice, accommodationId,
         accommodationName, additionalFee, placeId, tourPackageId, itineraryTimeline, packageDuration: paramPackageDuration,
         agencyDownPayment, agencyLogo, guideProfilePicture,
-        agencyAvailableDays, agencyOpeningTime, agencyClosingTime
+        agencyAvailableDays, agencyOpeningTime, agencyClosingTime,
+        isSkipProviderMode
     } = params;
+
+    const isSkipMode = isSkipProviderMode === 'true';
 
     const [fetchedBooking, setFetchedBooking] = useState(null);
     const [loadingBooking, setLoadingBooking] = useState(!!bookingId);
@@ -198,7 +201,7 @@ const Payment = () => {
     const normalizedBookingType = String(bookingType || '').trim().toLowerCase();
     const isAgency = normalizedBookingType === 'agency' || (!!fetchedBooking?.agency && !fetchedBooking?.guide);
     const isAgencyRequestMode = isAgency && !bookingId;
-    const resolvedName =
+    const resolvedName = isSkipMode ? "Self-Guided Tour" : (
         fetchedBooking?.guide_detail?.full_name ||
         `${fetchedBooking?.guide_detail?.first_name || ''} ${fetchedBooking?.guide_detail?.last_name || ''}`.trim() ||
         fetchedBooking?.guide_detail?.username ||
@@ -207,7 +210,11 @@ const Payment = () => {
         fetchedBooking?.agency_detail?.username ||
         entityName ||
         guideName ||
-        (isAgency ? "Selected Agency" : "Selected Guide");
+        (isAgency ? "Selected Agency" : "Selected Guide")
+    );
+
+
+
     const resolvedId = fetchedBooking?.guide || fetchedBooking?.agency || entityId || guideId;
     const selectedDestinationId = useMemo(() => {
         const rawId = fetchedBooking?.destination || fetchedBooking?.destination_detail?.id || placeId;
@@ -547,12 +554,13 @@ const Payment = () => {
         purpose: (fetchedBooking?.destination_detail?.name || placeName)
             ? `Tour at ${fetchedBooking?.destination_detail?.name || placeName}`
             : "Private Tour",
-        address: isAgency ? "Verified Agency" : "Local Guide",
-        basePrice: tourCostGroup, 
-        serviceFee: 50,
+        address: isSkipMode ? "Independent Exploration" : (isAgency ? "Verified Agency" : "Local Guide"),
+        basePrice: isSkipMode ? 0 : tourCostGroup, 
+        serviceFee: isSkipMode ? 0 : 50,
     };
 
     const providerLocationLabel = useMemo(() => {
+        if (isSkipMode) return placeName || 'Food Destination';
         const rawLocation = isAgency
             ? (
                 fetchedBooking?.agency_detail?.location
@@ -569,9 +577,10 @@ const Payment = () => {
         if (normalizedLocation) return normalizedLocation;
 
         return isAgency ? 'Agency location not set' : 'Guide location not set';
-    }, [isAgency, fetchedBooking, guideAvailability]);
+    }, [isAgency, fetchedBooking, guideAvailability, isSkipMode, placeName]);
 
     const providerRatingLabel = useMemo(() => {
+        if (isSkipMode) return 'N/A';
         const ratingCandidates = isAgency
             ? [
                 fetchedBooking?.agency_detail?.rating,
@@ -595,7 +604,7 @@ const Payment = () => {
             .find((value) => Number.isFinite(value) && value >= 0);
 
         return Number.isFinite(parsedRating) ? parsedRating.toFixed(1) : 'N/A';
-    }, [isAgency, fetchedBooking, guideAvailability]);
+    }, [isAgency, fetchedBooking, guideAvailability, isSkipMode]);
     
     const effectiveAccommodationId = accommodationInitialized
         ? (selectedAccommodation?.id || fetchedBooking?.accommodation_detail?.id || null)
@@ -803,7 +812,6 @@ const Payment = () => {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
-    const [country, setCountry] = useState('');
     const [email, setEmail] = useState('');
     const [billingErrors, setBillingErrors] = useState({});
     
@@ -970,7 +978,6 @@ const Payment = () => {
             setLastName(user.last_name || '');
             setEmail(user.email || '');
             setPhoneNumber(formatPHPhoneLocal(user.phone_number || ''));
-            setCountry(user.location || '');
             if (user.valid_id_image && !hasPendingLocalIdSelection) {
                 const persistedId = normalizeDisplayImageUri(user.valid_id_image);
                 if (persistedId) {
@@ -1352,7 +1359,10 @@ const Payment = () => {
         let guideFee = 0;
         let extraFees = 0;
 
-        if (selectedOption === 'solo') {
+        if (isSkipMode) {
+            guideFee = 0;
+            extraFees = 0;
+        } else if (selectedOption === 'solo') {
             groupSize = 1; 
             guideFee = tourCostSolo > 0 ? tourCostSolo : tourCostGroup; 
             extraFees = 0;
@@ -1378,7 +1388,7 @@ const Payment = () => {
         setTotalPrice(grandTotal);
         setDownPayment(calculatedDownPayment);
         setBalanceDue(calculatedBalance);
-    }, [startDate, endDate, selectedOption, numPeople, tourCostGroup, tourCostSolo, accomCost, extraPersonFee, activeDuration, fetchedBooking, agencyDownPayment]);
+    }, [startDate, endDate, selectedOption, numPeople, tourCostGroup, tourCostSolo, accomCost, extraPersonFee, activeDuration, fetchedBooking, agencyDownPayment,isSkipMode]);
 
     const profileImageSource = useMemo(() => {
         const buildSource = (rawPath) => {
@@ -1509,7 +1519,7 @@ const Payment = () => {
                                             <Text style={styles.guideRatingText}>{providerRatingLabel}</Text>
                                         </View>
                                         <Text style={styles.guideSub}>{bookingEntity.purpose}</Text>
-                                        {isAgency && (
+                                        {isAgency && !isSkipMode && (
                                             <View style={styles.providerScheduleWrap}>
                                                 <View style={styles.providerScheduleRow}>
                                                     <Text style={styles.providerScheduleLabel}>Operating Days:</Text>
@@ -1543,7 +1553,7 @@ const Payment = () => {
                                     </TouchableOpacity>
                                 )}
                                 
-                                {!isPayable && !isConfirmed && guidePackages.length > 0 && (
+                                {!isPayable && !isConfirmed && !isSkipMode && guidePackages.length > 0 && (
                                     <>
                                         <Text style={styles.sectionTitle}>Select Package</Text>
                                         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.packageScroll}>
@@ -1661,7 +1671,7 @@ const Payment = () => {
                                     </View>
                                 )}
 
-                                {!isPayable && !isConfirmed && (
+                                {!isPayable && !isConfirmed && !isSkipMode && (
                                     <View style={styles.accommodationSelectorCard}>
                                         <View style={styles.sectionHeader}>
                                             <Bed size={18} color="#1A2332" />
@@ -1923,7 +1933,7 @@ const Payment = () => {
                                 </>
                             )}
 
-                            {((!isAgencyRequestMode && isRequestMode) || isPayable || isConfirmed) && (
+                            {((!isAgencyRequestMode && isRequestMode && !isSkipMode) || isPayable || isConfirmed) && (
                                 <>
                                     <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Payment Method</Text>
                                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.paymentScroll}>
@@ -2028,7 +2038,7 @@ const Payment = () => {
                         </View>
                         <TouchableOpacity style={styles.payButton} onPress={handleReviewPress}>
                             <Text style={styles.payButtonText}>
-                                {isPayable ? "Confirm Payment" : (isAgencyRequestMode ? "Submit Request" : "Pay & Book")}
+                                {isPayable ? "Confirm Payment" : (isAgencyRequestMode || isSkipMode ? "Confirm Booking" : "Pay & Book")}
                             </Text>
                             <Ionicons name="arrow-forward" size={18} color="#fff" />
                         </TouchableOpacity>
@@ -2229,25 +2239,21 @@ const Payment = () => {
                 />
 
                 {isModalOpen && (
-                    <PaymentReviewModal
-                        isModalOpen={isModalOpen}
+                    <PaymentReviewModal 
+                        isModalOpen={isModalOpen} 
                         setIsModalOpen={setIsModalOpen}
                         paymentData={{
-                            [isAgency ? 'agency' : 'guide']: bookingEntity,
-                            accommodation: accomEntity, accommodationId: effectiveAccommodationId,
-                            tourPackageId: selectedPackage ? selectedPackage.id : tourPackageId,
-                            startDate, endDate, firstName, lastName, phoneNumber: normalizePHPhone(phoneNumber) || phoneNumber, country, email,
-                            basePrice: bookingEntity.basePrice, serviceFee: bookingEntity.serviceFee,
-                            totalPrice, downPayment, balanceDue, bookingId, placeId,
-                            paymentMethod: selectedPaymentMethod, groupType: selectedOption,
-                            numberOfPeople: selectedOption === 'group' ? (parseInt(numPeople) < 2 ? 2 : parseInt(numPeople)) : 1,
-                            additionalGuestNames: guestNames, 
-                            validIdImage, userSelfieImage, isNewKycImage: isLocalMediaUri(validIdImage),
-                            tourCost: currentGuideFee, accomCost, extraPersonFee,
+                            bookingId, guide: isAgency ? null : bookingEntity, agency: isAgency ? bookingEntity : null,
+                            startDate, endDate, firstName, lastName, email, phoneNumber,
+                            totalPrice, downPayment, balanceDue, tourCost: currentGuideFee, accomCost, extraPersonFee,
+                            accommodation: accomEntity, accommodationId: effectiveAccommodationId, tourPackageId: selectedPackage?.id || null,
+                            paymentMethod: selectedPaymentMethod, groupType: selectedOption, numberOfPeople: parseInt(numPeople) || 1,
+                            validIdImage, userSelfieImage, isNewKycImage: !isLocalMediaUri(validIdImage), placeId, additionalGuestNames: guestNames,
                             packageDurationDays: activeDuration,
                             status: currentStatus,
                             itineraryTimeline: activeItinerary,           
-                            accommodationName: effectiveAccommodationName 
+                            accommodationName: effectiveAccommodationName,
+                            isSkipProviderMode: isSkipMode // <-- Pass flag downwards
                         }}
                     />
                 )}

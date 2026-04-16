@@ -8,8 +8,10 @@ import ScreenSafeArea from '../../components/ScreenSafeArea';
 const BookingChoice = () => {
     const router = useRouter();
     const params = useLocalSearchParams();
-    const { placeId, placeName } = params;
+    const { placeId, placeName, placeCategory } = params;
     const [selectedOption, setSelectedOption] = useState(null);
+
+    const isFoodCategory = placeCategory && typeof placeCategory === 'string' && placeCategory.toLowerCase().includes('food');
 
     const handleCustomGuide = () => {
         router.push({
@@ -25,6 +27,17 @@ const BookingChoice = () => {
         router.push({
             pathname: '/(protected)/agencySelection',
             params: { placeId, placeName }
+        });
+    };
+
+    const handleSkipProvider = () => {
+        router.push({
+            pathname: '/(protected)/payment',
+            params: { 
+                placeId,
+                placeName,
+                isSkipProviderMode: 'true'
+            }
         });
     };
 
@@ -163,6 +176,25 @@ const BookingChoice = () => {
                         buttonText="Choose This"
                         onButtonPress={handleAgencyBooking}
                     />
+
+                    {isFoodCategory && (
+                        <OptionCard
+                            icon="🍽️"
+                            title="Self-Guided Food Trip"
+                            description="Explore local food spots independently"
+                            features={[
+                                'No guide required',
+                                'Instantly confirmed',
+                                'Zero booking fees',
+                                '100% flexible timing'
+                            ]}
+                            isSelected={selectedOption === 'Self-Guided Food Trip'}
+                            accentColor="#f59e0b"
+                            gradient={['#fffbeb', '#fffbeb']}
+                            buttonText="Proceed Independently"
+                            onButtonPress={handleSkipProvider}
+                        />
+                    )}
                 </View>
 
                 <View style={styles.comparisonBox}>

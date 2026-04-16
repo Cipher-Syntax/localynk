@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput, Platform, Dimensions, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Receipt, MapPin, Calendar, CreditCard, User, Mail, Users, AlertCircle, Phone } from 'lucide-react-native';
+import { Receipt, Calendar, CreditCard, User, Mail, Users, AlertCircle, Phone } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../api/api'; 
@@ -29,11 +29,12 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         additionalGuestNames,
         packageDurationDays,
         itineraryTimeline,   
-        accommodationName    
+        accommodationName,
+        isSkipProviderMode
     } = paymentData || {};
     
     const isPaymentMode = !!bookingId;
-    const isAgencyRequestMode = !isPaymentMode && !!agency && !guide;
+    const isAgencyRequestMode = !isPaymentMode && !!agency && !guide && !isSkipProviderMode;
     const [numPeople, setNumPeople] = useState(String(paymentData?.numberOfPeople || '1')); 
     const [currentTotalPrice, setCurrentTotalPrice] = useState(parseFloat(initialConfirmedPrice || '0'));
     
@@ -277,7 +278,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
             formData.append('guide', String(guide.id));
         } else if (agency && agency.id) {
             formData.append('agency', String(agency.id));
-        } else {
+        } else if (!isSkipProviderMode) {
              throw new Error("Guide or Agency information is missing.");
         }
         
@@ -343,7 +344,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
         setIsLoading(true);
 
         try {
-            if (isAgencyRequestMode) {
+            if (isAgencyRequestMode || isSkipProviderMode) {
                 if (!createdBookingId) {
                     const newBooking = await createBooking();
                     setCreatedBookingId(newBooking.id);
@@ -466,12 +467,11 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                                     <Text style={styles.itemSub}>{days} Day{days > 1 ? 's' : ''} Duration</Text>
                                 </View>
                             </View>
-                            <View style={styles.itemRow}>
-                                <View style={styles.itemIcon}><MapPin size={16} color="#64748B" /></View>
-                                <View style={{flex: 1}}>
-                                    <Text style={styles.itemTitle}>{guide?.name || agency?.name || 'Selected Provider'}</Text>
-                                    <Text style={styles.itemSub}>{guide ? 'Private Tour Guide' : 'Agency Partner'}</Text>
-                                </View>
+                            <View style={styles.ticketRow}>
+                                <Text style={styles.ticketLabel}>Amount Paid</Text>
+                                <Text style={styles.ticketValue}>
+                                    {isSkipProviderMode ? "Free" : (isAgencyRequestMode ? "Pending agency approval" : `₱${dpFloat.toLocaleString()}`)}
+                                </Text>
                             </View>
 
                             {(accommodation || accommodationName) && (
@@ -667,8 +667,8 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                                     <Text style={styles.payButtonText}>
                                         {isAwaitingExternalPayment
                                             ? 'Processing Payment...'
-                                            : (isAgencyRequestMode
-                                                ? 'Submit Request'
+                                            : (isAgencyRequestMode || isSkipProviderMode
+                                                ? 'Confirm Booking'
                                                 : `Pay ₱ ${dpFloat.toLocaleString()} Now`)}
                                     </Text>
                                 </>
@@ -704,7 +704,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                         </View>
                         <Text style={styles.successTitle}>
                             {isSuccess
-                                ? (isAgencyRequestMode ? "REQUEST SUBMITTED" : "PAYMENT SUCCESS")
+                                ? (isAgencyRequestMode ? "REQUEST SUBMITTED" : (isSkipProviderMode ? "BOOKING CONFIRMED" : "PAYMENT SUCCESS"))
                                 : "PAYMENT FAILED"}
                         </Text>
                         <Text style={styles.successSub}>
@@ -726,7 +726,7 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
                                 <View style={styles.ticketRow}>
                                     <Text style={styles.ticketLabel}>Amount Paid</Text>
                                     <Text style={styles.ticketValue}>
-                                        {isAgencyRequestMode ? "Pending agency approval" : `₱${dpFloat.toLocaleString()}`}
+                                        {isSkipProviderMode ? "Free" : (isAgencyRequestMode ? "Pending agency approval" : `₱${dpFloat.toLocaleString()}`)}
                                     </Text>
                                 </View>
                                 <View style={styles.ticketRow}>

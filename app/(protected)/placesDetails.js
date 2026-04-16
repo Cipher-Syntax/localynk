@@ -342,7 +342,8 @@ export default function PlacesDetails() {
                             pathname: '/(protected)/bookingChoice',
                             params: { 
                                 placeId: destination.id,
-                                placeName: destination.name
+                                placeName: destination.name,
+                                placeCategory: destination.category
                             }
                         })}
                     >
