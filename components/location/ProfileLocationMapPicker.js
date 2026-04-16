@@ -27,6 +27,14 @@ const toNumber = (value) => {
     return Number.isFinite(parsed) ? parsed : null;
 };
 
+const isInCoordinateRange = (latitude, longitude) => {
+    return latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
+};
+
+const isUnsetCoordinatePair = (latitude, longitude) => {
+    return Math.abs(latitude) < 0.000001 && Math.abs(longitude) < 0.000001;
+};
+
 const formatCoordinate = (value) => Number(value).toFixed(6);
 
 export default function ProfileLocationMapPicker({
@@ -53,6 +61,8 @@ export default function ProfileLocationMapPicker({
         const lng = toNumber(longitude);
 
         if (lat == null || lng == null) return null;
+        if (!isInCoordinateRange(lat, lng)) return null;
+        if (isUnsetCoordinatePair(lat, lng)) return null;
 
         return {
             latitude: lat,
@@ -83,7 +93,7 @@ export default function ProfileLocationMapPicker({
             },
             420,
         );
-    }, [marker?.latitude, marker?.longitude]);
+    }, [marker]);
 
     const updateCoordinates = (coordinate) => {
         if (!coordinate) return;
@@ -116,6 +126,7 @@ export default function ProfileLocationMapPicker({
                         ref={mapRef}
                         style={styles.map}
                         initialRegion={initialRegion}
+                        mapType="standard"
                         onPress={(event) => updateCoordinates(event.nativeEvent.coordinate)}
                         zoomEnabled
                         scrollEnabled
@@ -146,7 +157,7 @@ export default function ProfileLocationMapPicker({
                     ? 'Map pinning is unavailable in this app build.'
                     : marker
                         ? `Pinned at ${formatCoordinate(marker.latitude)}, ${formatCoordinate(marker.longitude)}`
-                        : 'Tap anywhere on the map to place a marker.'}
+                        : 'Type a location or tap anywhere on the map to place a marker.'}
             </Text>
         </View>
     );

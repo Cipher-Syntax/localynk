@@ -2,25 +2,36 @@ import React, { useState, useEffect } from 'react';
 import { 
     View, Text, TextInput, TouchableOpacity, ImageBackground, StyleSheet, 
     KeyboardAvoidingView, TouchableWithoutFeedback, 
-    Keyboard, ActivityIndicator, ScrollView 
+    Keyboard, ActivityIndicator, ScrollView, Platform
 } from 'react-native';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useForm, Controller } from 'react-hook-form';
 import { useRouter } from 'expo-router';
 import * as Linking from 'expo-linking'; 
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '../context/AuthContext'; 
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
-import { EMAIL_REGEX, EMAIL_ERROR_MESSAGE } from '../utils/validation';
+import {
+    NAME_REGEX,
+    NAME_ERROR_MESSAGE,
+    EMAIL_REGEX,
+    EMAIL_ERROR_MESSAGE,
+    validateAdultBirthDate,
+    parseYyyyMmDdToLocalDate,
+    formatDateAsYyyyMmDd,
+} from '../utils/validation';
 
 const AuthForm = ({ method }) => {
     const { login, register, googleLogin, resendVerificationEmail, reactivateAccount, message, messageType, clearMessage, setMessage } = useAuth(); 
 
-    const { control, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm();
+    const { control, handleSubmit, watch, trigger, formState: { errors, isSubmitting } } = useForm();
     const [remember, setRemember] = useState(false);
+    const [registerStep, setRegisterStep] = useState(1);
     
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [showBirthdatePicker, setShowBirthdatePicker] = useState(false);
     
     const [isGoogleLoading, setIsGoogleLoading] = useState(false);
     const [isReactivating, setIsReactivating] = useState(false); 
@@ -34,6 +45,7 @@ const AuthForm = ({ method }) => {
     const titleText = method === 'login' ? 'Welcome Back' : 'Start Journey';
     const subtitleText = method === 'login' ? 'Continue your adventure' : 'Join the community of explorers';
     const usernamePlaceholder = method === 'login' ? 'Username/Email' : 'Username';
+    const usernameRequiredMessage = method === 'login' ? 'Username or email is required' : 'Username is required';
     const normalizedMessage = typeof message === 'string' ? message.toLowerCase() : '';
 
     // Check if the current error means we need to reactivate
@@ -49,6 +61,18 @@ const AuthForm = ({ method }) => {
         (normalizedMessage.includes('verify') ||
             normalizedMessage.includes('verification') ||
             normalizedMessage.includes('resend'));
+
+    const registerStepTitles = {
+        1: 'Account Basics',
+        2: 'Personal Details',
+        3: 'Security Setup',
+    };
+
+    const getRegisterStepFields = (step) => {
+        if (step === 1) return ['username', 'email'];
+        if (step === 2) return ['first_name', 'middle_name', 'last_name', 'date_of_birth'];
+        return ['password', 'confirm_password'];
+    };
 
     useEffect(() => {
         if (method !== 'login') return;
@@ -80,17 +104,42 @@ const AuthForm = ({ method }) => {
         return () => subscription.remove();
     }, [method, setMessage]);
 
+    useEffect(() => {
+        if (method !== 'register') {
+            setRegisterStep(1);
+            setShowBirthdatePicker(false);
+            return;
+        }
+
+        if (registerStep !== 2) {
+            setShowBirthdatePicker(false);
+        }
+    }, [method, registerStep]);
+
     const handleNavigation = (user) => {
         if (user) {
             const isFirstNameMissing = !user.first_name || String(user.first_name).trim() === "";
             const isLastNameMissing = !user.last_name || String(user.last_name).trim() === "";
             const isPhoneMissing = !user.phone_number || String(user.phone_number).trim() === "";
             const isLocationMissing = !user.location || String(user.location).trim() === "";
+            const isGenderMissing = !user.gender || String(user.gender).trim() === "";
+            const isBirthdateMissing = !user.date_of_birth || String(user.date_of_birth).trim() === "";
+            const isReligionMissing = !user.religion || String(user.religion).trim() === "";
+            const isDialectMissing = !user.dialect || String(user.dialect).trim() === "";
 
             if (user.has_accepted_terms === false) {
                 router.replace('/(protected)/onboarding/terms_and_conditions');
             } 
-            else if (isFirstNameMissing || isLastNameMissing || isPhoneMissing || isLocationMissing) {
+            else if (
+                isFirstNameMissing
+                || isLastNameMissing
+                || isPhoneMissing
+                || isLocationMissing
+                || isGenderMissing
+                || isBirthdateMissing
+                || isReligionMissing
+                || isDialectMissing
+            ) {
                 router.replace('/(protected)/onboarding/profile_setup');
             } 
             else {
@@ -110,8 +159,12 @@ const AuthForm = ({ method }) => {
             const userData = {
                 username: data.username,
                 email: data.email,
+                first_name: String(data.first_name || '').trim(),
+                middle_name: String(data.middle_name || '').trim(),
+                last_name: String(data.last_name || '').trim(),
                 password: data.password,
-                confirm_password: data.confirm_password
+                confirm_password: data.confirm_password,
+                date_of_birth: String(data.date_of_birth || '').trim(),
             };
 
             const result = await register(userData);
@@ -120,6 +173,36 @@ const AuthForm = ({ method }) => {
                 router.replace('/auth/login')
             }
         }
+    };
+
+    const getDefaultBirthdate = () => {
+        const fallback = new Date();
+        fallback.setFullYear(fallback.getFullYear() - 18);
+        return fallback;
+    };
+
+    const handleBirthdateChange = (onChange) => (event, selectedDate) => {
+        if (Platform.OS === 'android') {
+            setShowBirthdatePicker(false);
+        }
+
+        if (event?.type === 'dismissed' || !selectedDate) {
+            return;
+        }
+
+        onChange(formatDateAsYyyyMmDd(selectedDate));
+    };
+
+    const goToNextRegisterStep = async () => {
+        const fieldsToValidate = getRegisterStepFields(registerStep);
+        const isStepValid = await trigger(fieldsToValidate);
+        if (!isStepValid) return;
+
+        setRegisterStep((prev) => Math.min(3, prev + 1));
+    };
+
+    const goToPreviousRegisterStep = () => {
+        setRegisterStep((prev) => Math.max(1, prev - 1));
     };
 
     const handleReactivate = async () => {
@@ -200,7 +283,11 @@ const AuthForm = ({ method }) => {
 
     // Determine what the main button should do and say
     let mainButtonAction = handleSubmit(onSubmit);
-    let mainButtonText = method === 'login' ? 'Log In' : 'Sign Up';
+    let mainButtonText = method === 'login' ? 'Log In' : (registerStep === 3 ? 'Sign Up' : 'Next Step');
+
+    if (method === 'register' && registerStep < 3) {
+        mainButtonAction = goToNextRegisterStep;
+    }
 
     if (isDeactivatedError) {
         mainButtonAction = handleReactivate;
@@ -211,7 +298,36 @@ const AuthForm = ({ method }) => {
         mainButtonText = 'Please wait...';
     }
 
-    const renderInput = (controlName, placeholder, iconName, isPassword = false, showPassState = false, setShowPassState = null, rules = {}) => (
+    const renderRegisterProgressBar = () => (
+        <View style={styles.progressContainer}>
+            <View style={styles.progressInner}>
+                {[1, 2, 3].map((step, index) => (
+                    <React.Fragment key={`register-step-${step}`}>
+                        <View style={[styles.stepDot, registerStep >= step && styles.stepDotActive]}>
+                            <Text style={[styles.stepNumber, registerStep >= step && styles.stepNumberActive]}>
+                                {step}
+                            </Text>
+                        </View>
+                        {index < 2 && <View style={[styles.stepLine, registerStep > step && styles.stepLineActive]} />}
+                    </React.Fragment>
+                ))}
+            </View>
+            <Text style={styles.stepCaption}>
+                {`Step ${registerStep} of 3 - ${registerStepTitles[registerStep]}`}
+            </Text>
+        </View>
+    );
+
+    const renderInput = (
+        controlName,
+        placeholder,
+        iconName,
+        isPassword = false,
+        showPassState = false,
+        setShowPassState = null,
+        rules = {},
+        inputProps = {}
+    ) => (
         <View style={styles.inputWrapper}>
             <Controller
                 control={control}
@@ -230,7 +346,9 @@ const AuthForm = ({ method }) => {
                             secureTextEntry={isPassword && !showPassState}
                             value={value}
                             onChangeText={onChange}
-                            autoCapitalize="none"
+                            autoCapitalize={inputProps.autoCapitalize ?? "none"}
+                            keyboardType={inputProps.keyboardType}
+                            maxLength={inputProps.maxLength}
                         />
                         {isPassword && (
                             <TouchableOpacity onPress={() => setShowPassState(!showPassState)} style={styles.eyeIcon}>
@@ -271,6 +389,7 @@ const AuthForm = ({ method }) => {
                                     </View>
 
                                     <View style={styles.formCard}>
+                                        {method === 'register' && renderRegisterProgressBar()}
                                         
                                         {message ? (
                                             <View style={[styles.messageBox, messageType === 'error' ? styles.msgError : styles.msgSuccess]}>
@@ -288,19 +407,109 @@ const AuthForm = ({ method }) => {
                                             </View>
                                         ) : null}
 
-                                        {renderInput('username', usernamePlaceholder, 'user', false, null, null, { required: 'Username or email is required' })}
+                                        {(method === 'login' || (method === 'register' && registerStep === 1)) &&
+                                            renderInput('username', usernamePlaceholder, 'user', false, null, null, { required: usernameRequiredMessage })
+                                        }
                                         
-                                        {method === 'register' && renderInput('email', 'Email Address', 'envelope', false, null, null, { 
+                                        {method === 'register' && registerStep === 1 && renderInput('email', 'Email Address', 'envelope', false, null, null, { 
                                             required: 'Email is required', 
                                             pattern: { value: EMAIL_REGEX, message: EMAIL_ERROR_MESSAGE } 
                                         })}
 
-                                        {renderInput('password', 'Password', 'lock', true, showPassword, setShowPassword, { 
-                                            required: 'Password is required', 
-                                            minLength: { value: 8, message: 'Min 8 characters' } 
+                                        {method === 'register' && registerStep === 2 && renderInput('first_name', 'First Name', 'user', false, null, null, {
+                                            validate: (value) => {
+                                                const trimmed = String(value || '').trim();
+                                                if (!trimmed) return 'First name is required';
+                                                return NAME_REGEX.test(trimmed) || NAME_ERROR_MESSAGE;
+                                            }
+                                        }, {
+                                            autoCapitalize: 'words'
                                         })}
 
-                                        {method === 'register' && renderInput('confirm_password', 'Confirm Password', 'lock', true, showConfirmPassword, setShowConfirmPassword, {
+                                        {method === 'register' && registerStep === 2 && renderInput('middle_name', 'Middle Name (Optional)', 'user', false, null, null, {
+                                            validate: (value) => {
+                                                const trimmed = String(value || '').trim();
+                                                if (!trimmed) return true;
+                                                return NAME_REGEX.test(trimmed) || NAME_ERROR_MESSAGE;
+                                            }
+                                        }, {
+                                            autoCapitalize: 'words'
+                                        })}
+
+                                        {method === 'register' && registerStep === 2 && renderInput('last_name', 'Last Name', 'user', false, null, null, {
+                                            validate: (value) => {
+                                                const trimmed = String(value || '').trim();
+                                                if (!trimmed) return 'Last name is required';
+                                                return NAME_REGEX.test(trimmed) || NAME_ERROR_MESSAGE;
+                                            }
+                                        }, {
+                                            autoCapitalize: 'words'
+                                        })}
+
+                                        {method === 'register' && registerStep === 2 && (
+                                            <View style={styles.inputWrapper}>
+                                                <Controller
+                                                    control={control}
+                                                    name="date_of_birth"
+                                                    defaultValue=""
+                                                    rules={{
+                                                        validate: (value) => validateAdultBirthDate(value, { required: true })
+                                                    }}
+                                                    render={({ field: { onChange, value } }) => {
+                                                        const pickerValue = parseYyyyMmDdToLocalDate(value) || getDefaultBirthdate();
+
+                                                        return (
+                                                            <>
+                                                                <TouchableOpacity
+                                                                    activeOpacity={0.85}
+                                                                    onPress={() => setShowBirthdatePicker(true)}
+                                                                >
+                                                                    <View style={[styles.inputContainer, errors.date_of_birth && styles.inputError]}>
+                                                                        <View style={styles.iconContainer}>
+                                                                            <FontAwesome name="calendar" size={20} color="#94A3B8" />
+                                                                        </View>
+                                                                        <Text style={[styles.dateValueText, !value && styles.datePlaceholderText]}>
+                                                                            {value || 'Birthdate'}
+                                                                        </Text>
+                                                                    </View>
+                                                                </TouchableOpacity>
+
+                                                                {showBirthdatePicker && (
+                                                                    <View style={styles.birthdatePickerWrap}>
+                                                                        <DateTimePicker
+                                                                            value={pickerValue}
+                                                                            mode="date"
+                                                                            display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                                                                            maximumDate={new Date()}
+                                                                            onChange={handleBirthdateChange(onChange)}
+                                                                        />
+
+                                                                        {Platform.OS === 'ios' && (
+                                                                            <TouchableOpacity
+                                                                                style={styles.birthdateDoneButton}
+                                                                                onPress={() => setShowBirthdatePicker(false)}
+                                                                            >
+                                                                                <Text style={styles.birthdateDoneText}>Done</Text>
+                                                                            </TouchableOpacity>
+                                                                        )}
+                                                                    </View>
+                                                                )}
+                                                            </>
+                                                        );
+                                                    }}
+                                                />
+                                                {errors.date_of_birth && <Text style={styles.errorText}>{errors.date_of_birth.message}</Text>}
+                                            </View>
+                                        )}
+
+                                        {(method === 'login' || (method === 'register' && registerStep === 3)) &&
+                                            renderInput('password', 'Password', 'lock', true, showPassword, setShowPassword, { 
+                                                required: 'Password is required', 
+                                                minLength: { value: 8, message: 'Min 8 characters' } 
+                                            })
+                                        }
+
+                                        {method === 'register' && registerStep === 3 && renderInput('confirm_password', 'Confirm Password', 'lock', true, showConfirmPassword, setShowConfirmPassword, {
                                             required: 'Confirm your password',
                                             validate: (val) => val === watch('password') || 'Passwords do not match'
                                         })}
@@ -324,6 +533,16 @@ const AuthForm = ({ method }) => {
                                             </View>
                                         )}
 
+                                        {method === 'register' && registerStep > 1 && (
+                                            <TouchableOpacity
+                                                style={styles.secondaryActionButton}
+                                                onPress={goToPreviousRegisterStep}
+                                                disabled={isSubmitting}
+                                            >
+                                                <Text style={styles.secondaryActionText}>Back</Text>
+                                            </TouchableOpacity>
+                                        )}
+
                                         <TouchableOpacity
                                             style={styles.mainButtonShadow}
                                             onPress={mainButtonAction}
@@ -343,30 +562,34 @@ const AuthForm = ({ method }) => {
                                         </TouchableOpacity>
 
                                         <View style={styles.footerContainer}>
-                                            <View style={styles.dividerRow}>
-                                                <View style={styles.divider} />
-                                                <Text style={styles.orText}>OR</Text>
-                                                <View style={styles.divider} />
-                                            </View>
+                                            {(method === 'login' || (method === 'register' && registerStep === 3)) && (
+                                                <>
+                                                    <View style={styles.dividerRow}>
+                                                        <View style={styles.divider} />
+                                                        <Text style={styles.orText}>OR</Text>
+                                                        <View style={styles.divider} />
+                                                    </View>
 
-                                            <TouchableOpacity 
-                                                style={styles.googleButton} 
-                                                onPress={handleGoogleLogin}
-                                                disabled={isGoogleLoading || isReactivating}
-                                            >
-                                                {isGoogleLoading ? (
-                                                    <ActivityIndicator size="small" color="#DB4437" />
-                                                ) : (
-                                                    <>
-                                                        <ImageBackground 
-                                                            source={{uri: 'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg'}} 
-                                                            style={{width: 20, height: 20}} 
-                                                        />
-                                                        <FontAwesome name="google" size={20} color="#DB4437" />
-                                                        <Text style={styles.googleText}>Continue with Google</Text>
-                                                    </>
-                                                )}
-                                            </TouchableOpacity>
+                                                    <TouchableOpacity 
+                                                        style={styles.googleButton} 
+                                                        onPress={handleGoogleLogin}
+                                                        disabled={isGoogleLoading || isReactivating}
+                                                    >
+                                                        {isGoogleLoading ? (
+                                                            <ActivityIndicator size="small" color="#DB4437" />
+                                                        ) : (
+                                                            <>
+                                                                <ImageBackground 
+                                                                    source={{uri: 'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg'}} 
+                                                                    style={{width: 20, height: 20}} 
+                                                                />
+                                                                <FontAwesome name="google" size={20} color="#DB4437" />
+                                                                <Text style={styles.googleText}>Continue with Google</Text>
+                                                            </>
+                                                        )}
+                                                    </TouchableOpacity>
+                                                </>
+                                            )}
 
                                             <View style={styles.switchContainer}>
                                                 <Text style={styles.switchText}>
@@ -446,6 +669,54 @@ const styles = StyleSheet.create({
         marginBottom: 20
     },
 
+    progressContainer: {
+        marginBottom: 18,
+    },
+    progressInner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    stepDot: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#F3F4F6',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    stepDotActive: {
+        backgroundColor: '#0072FF',
+        borderColor: '#0072FF',
+    },
+    stepNumber: {
+        color: '#9CA3AF',
+        fontWeight: '700',
+        fontSize: 13,
+    },
+    stepNumberActive: {
+        color: '#fff',
+    },
+    stepLine: {
+        width: 58,
+        height: 3,
+        backgroundColor: '#E5E7EB',
+        marginHorizontal: 4,
+        borderRadius: 2,
+    },
+    stepLineActive: {
+        backgroundColor: '#0072FF',
+    },
+    stepCaption: {
+        marginTop: 10,
+        textAlign: 'center',
+        color: '#475569',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+
     inputWrapper: { marginBottom: 15 },
     inputContainer: {
         flexDirection: 'row',
@@ -472,6 +743,34 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#0F172A',
         height: '100%',
+    },
+    dateValueText: {
+        flex: 1,
+        fontSize: 16,
+        color: '#0F172A',
+    },
+    datePlaceholderText: {
+        color: '#94A3B8',
+    },
+    birthdatePickerWrap: {
+        marginTop: 8,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        borderRadius: 12,
+        backgroundColor: '#F8FAFC',
+        overflow: 'hidden',
+    },
+    birthdateDoneButton: {
+        borderTopWidth: 1,
+        borderTopColor: '#E2E8F0',
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        alignItems: 'flex-end',
+    },
+    birthdateDoneText: {
+        color: '#0072FF',
+        fontSize: 14,
+        fontWeight: '700',
     },
     eyeIcon: {
         padding: 10,
@@ -540,6 +839,22 @@ const styles = StyleSheet.create({
     },
     rememberText: { color: '#64748B', fontSize: 14, fontWeight: '500' },
     forgotText: { color: '#0072FF', fontSize: 14, fontWeight: '600' },
+
+    secondaryActionButton: {
+        height: 46,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: '#CBD5E1',
+        backgroundColor: '#F8FAFC',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    secondaryActionText: {
+        color: '#334155',
+        fontSize: 15,
+        fontWeight: '700',
+    },
 
     mainButtonShadow: {
         shadowColor: '#0072FF',

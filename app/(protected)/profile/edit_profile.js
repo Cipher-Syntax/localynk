@@ -1,15 +1,24 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Image, Platform, ActivityIndicator, KeyboardAvoidingView } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Image, Platform, ActivityIndicator, KeyboardAvoidingView, Modal } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import api from '../../../api/api';
 import Toast from '../../../components/Toast';
 import { formatPHPhoneLocal, normalizePHPhone } from '../../../utils/phoneNumber';
-import { NAME_REGEX, NAME_ERROR_MESSAGE, PHONE_ERROR_MESSAGE } from '../../../utils/validation';
+import {
+    NAME_REGEX,
+    NAME_ERROR_MESSAGE,
+    PHONE_ERROR_MESSAGE,
+    validateAdultBirthDate,
+    parseYyyyMmDdToLocalDate,
+    formatDateAsYyyyMmDd,
+} from '../../../utils/validation';
+import { findCoordinatesForLocation } from '../../../utils/locationSearch';
 import { isPayoutAccountIncomplete } from '../../../utils/profileCompleteness';
 import ScreenSafeArea from '../../../components/ScreenSafeArea';
 import ProfileLocationMapPicker from '../../../components/location/ProfileLocationMapPicker';
@@ -19,6 +28,14 @@ const PAYOUT_CHANNEL_OPTIONS = [
     { key: 'paymaya', label: 'Maya', icon: 'card' },
     { key: 'qrph', label: 'QR Ph', icon: 'qr-code-outline' },
     { key: 'card', label: 'Card', icon: 'card-outline' },
+];
+
+const GENDER_OPTIONS = [
+    'Male',
+    'Female',
+    'Non-binary',
+    'Prefer not to say',
+    'Other',
 ];
 
 const normalizePayoutChannel = (value) => {
@@ -145,13 +162,21 @@ const EditProfile = () => {
     
     const [isLoading, setIsLoading] = useState(false);
     const [profileImage, setProfileImage] = useState(null);
+    const [showBirthdatePicker, setShowBirthdatePicker] = useState(false);
+    const [birthdateDraft, setBirthdateDraft] = useState(null);
+    const [showGenderModal, setShowGenderModal] = useState(false);
     const [toast, setToast] = useState({ visible: false, message: '', type: 'error' });
+    const locationLookupRef = useRef({ timerId: null, requestId: 0 });
 
     const { control, handleSubmit, watch, setValue, clearErrors, formState: { errors } } = useForm({
         defaultValues: {
             first_name: user?.first_name || '',
             middle_name: user?.middle_name || '',
             last_name: user?.last_name || '',
+            gender: user?.gender || '',
+            date_of_birth: user?.date_of_birth || '',
+            religion: user?.religion || '',
+            dialect: user?.dialect || '',
             phone_number: formatPHPhoneLocal(user?.phone_number || ''),
             payout_account_type: normalizePayoutChannel(user?.payout_account_type),
             payout_account_name: user?.payout_account_name || '',
@@ -194,6 +219,97 @@ const EditProfile = () => {
         }
     };
 
+    const getDefaultBirthdate = () => {
+        const fallback = new Date();
+        fallback.setFullYear(fallback.getFullYear() - 18);
+        return fallback;
+    };
+
+    const openBirthdatePicker = (currentValue) => {
+        const parsed = parseYyyyMmDdToLocalDate(currentValue);
+        setBirthdateDraft(parsed || getDefaultBirthdate());
+        setShowBirthdatePicker(true);
+    };
+
+    useEffect(() => {
+        return () => {
+            if (locationLookupRef.current.timerId) {
+                clearTimeout(locationLookupRef.current.timerId);
+            }
+        };
+    }, []);
+
+    const setCoordinatePair = (latitude, longitude) => {
+        setValue('latitude', latitude, { shouldDirty: true });
+        setValue('longitude', longitude, { shouldDirty: true });
+    };
+
+    const clearCoordinatePair = () => {
+        setCoordinatePair(null, null);
+    };
+
+    const hasCoordinatePair = (latitudeValue, longitudeValue) => {
+        const latitude = Number.parseFloat(latitudeValue);
+        const longitude = Number.parseFloat(longitudeValue);
+        return Number.isFinite(latitude) && Number.isFinite(longitude);
+    };
+
+    const syncCoordinatesFromLocation = async (locationText) => {
+        if (locationLookupRef.current.timerId) {
+            clearTimeout(locationLookupRef.current.timerId);
+            locationLookupRef.current.timerId = null;
+        }
+
+        const requestId = locationLookupRef.current.requestId + 1;
+        locationLookupRef.current.requestId = requestId;
+
+        const query = String(locationText || '').trim();
+        if (!query) {
+            clearCoordinatePair();
+            return null;
+        }
+
+        if (query.length < 2) {
+            return null;
+        }
+
+        const resolved = await findCoordinatesForLocation(query);
+        if (locationLookupRef.current.requestId !== requestId) return null;
+        if (!resolved) return null;
+
+        setCoordinatePair(resolved.latitude, resolved.longitude);
+        return resolved;
+    };
+
+    const scheduleCoordinatesSyncFromLocation = (locationText) => {
+        if (locationLookupRef.current.timerId) {
+            clearTimeout(locationLookupRef.current.timerId);
+            locationLookupRef.current.timerId = null;
+        }
+
+        const query = String(locationText || '').trim();
+        const requestId = locationLookupRef.current.requestId + 1;
+        locationLookupRef.current.requestId = requestId;
+
+        if (!query) {
+            clearCoordinatePair();
+            return;
+        }
+
+        if (query.length < 2) {
+            return;
+        }
+
+        locationLookupRef.current.timerId = setTimeout(async () => {
+            const resolved = await findCoordinatesForLocation(query);
+            if (locationLookupRef.current.requestId !== requestId) return;
+
+            if (!resolved) return;
+
+            setCoordinatePair(resolved.latitude, resolved.longitude);
+        }, 280);
+    };
+
     const onSubmit = async (data) => {
         setIsLoading(true);
         
@@ -203,6 +319,10 @@ const EditProfile = () => {
             formData.append('first_name', data.first_name);
             formData.append('last_name', data.last_name);
             if (data.middle_name) formData.append('middle_name', data.middle_name);
+            formData.append('gender', String(data.gender || '').trim());
+            formData.append('date_of_birth', String(data.date_of_birth || '').trim());
+            formData.append('religion', String(data.religion || '').trim());
+            formData.append('dialect', String(data.dialect || '').trim());
             const normalizedPhone = normalizePHPhone(data.phone_number);
             if (data.phone_number && !normalizedPhone) {
                 setToast({ visible: true, message: 'Please enter a valid PH mobile number.', type: 'error' });
@@ -228,12 +348,20 @@ const EditProfile = () => {
             formData.append('payout_account_notes', String(data.payout_account_notes || '').trim());
             formData.append('location', data.location);
 
-            if (data.latitude !== null && data.latitude !== undefined && String(data.latitude).trim() !== '') {
-                formData.append('latitude', String(data.latitude));
+            let latitudeToSubmit = data.latitude;
+            let longitudeToSubmit = data.longitude;
+
+            if (!hasCoordinatePair(latitudeToSubmit, longitudeToSubmit)) {
+                const resolved = await syncCoordinatesFromLocation(data.location);
+                if (resolved) {
+                    latitudeToSubmit = resolved.latitude;
+                    longitudeToSubmit = resolved.longitude;
+                }
             }
 
-            if (data.longitude !== null && data.longitude !== undefined && String(data.longitude).trim() !== '') {
-                formData.append('longitude', String(data.longitude));
+            if (hasCoordinatePair(latitudeToSubmit, longitudeToSubmit)) {
+                formData.append('latitude', String(latitudeToSubmit));
+                formData.append('longitude', String(longitudeToSubmit));
             }
 
             formData.append('bio', data.bio);
@@ -383,6 +511,231 @@ const EditProfile = () => {
                             )}
                         />
                         {errors.last_name && <Text style={styles.errorText}>{errors.last_name.message}</Text>}
+
+                        <Text style={styles.label}>Gender</Text>
+                        <Controller
+                            control={control}
+                            name="gender"
+                            rules={{
+                                validate: (value) => {
+                                    const trimmed = String(value || '').trim();
+                                    if (!trimmed) return 'Gender is required';
+                                    return true;
+                                }
+                            }}
+                            render={({ field: { onChange, value } }) => (
+                                <>
+                                    <TouchableOpacity
+                                        activeOpacity={0.85}
+                                        onPress={() => setShowGenderModal(true)}
+                                    >
+                                        <View style={[styles.inputContainer, styles.selectorInputContainer, errors.gender && styles.inputError]}>
+                                            <Ionicons name="male-female-outline" size={20} color="#6B7280" style={styles.inputIcon} />
+                                            <Text style={[styles.selectValueText, !value && styles.selectPlaceholderText]}>
+                                                {value || 'Select gender'}
+                                            </Text>
+                                            <Ionicons name="chevron-down" size={18} color="#6B7280" />
+                                        </View>
+                                    </TouchableOpacity>
+
+                                    <Modal
+                                        visible={showGenderModal}
+                                        transparent
+                                        animationType="slide"
+                                        onRequestClose={() => setShowGenderModal(false)}
+                                    >
+                                        <View style={styles.selectionModalOverlay}>
+                                            <View style={styles.selectionModalCard}>
+                                                <View style={styles.selectionModalHeader}>
+                                                    <Text style={styles.selectionModalTitle}>Select Gender</Text>
+                                                    <TouchableOpacity onPress={() => setShowGenderModal(false)}>
+                                                        <Ionicons name="close" size={22} color="#334155" />
+                                                    </TouchableOpacity>
+                                                </View>
+
+                                                {GENDER_OPTIONS.map((option) => {
+                                                    const isSelected = value === option;
+                                                    return (
+                                                        <TouchableOpacity
+                                                            key={option}
+                                                            style={[styles.selectionOption, isSelected && styles.selectionOptionActive]}
+                                                            onPress={() => {
+                                                                onChange(option);
+                                                                setShowGenderModal(false);
+                                                            }}
+                                                        >
+                                                            <Text style={[styles.selectionOptionText, isSelected && styles.selectionOptionTextActive]}>
+                                                                {option}
+                                                            </Text>
+                                                            {isSelected && <Ionicons name="checkmark" size={18} color="#0072FF" />}
+                                                        </TouchableOpacity>
+                                                    );
+                                                })}
+                                            </View>
+                                        </View>
+                                    </Modal>
+                                </>
+                            )}
+                        />
+                        {errors.gender && <Text style={styles.errorText}>{errors.gender.message}</Text>}
+
+                        <Text style={styles.label}>Birthdate</Text>
+                        <Controller
+                            control={control}
+                            name="date_of_birth"
+                            rules={{
+                                validate: (value) => validateAdultBirthDate(value, { required: true })
+                            }}
+                            render={({ field: { onChange, value } }) => (
+                                <>
+                                    <TouchableOpacity
+                                        activeOpacity={0.85}
+                                        onPress={() => {
+                                            if (Platform.OS === 'android') {
+                                                setBirthdateDraft(parseYyyyMmDdToLocalDate(value) || getDefaultBirthdate());
+                                                setShowBirthdatePicker(true);
+                                                return;
+                                            }
+
+                                            openBirthdatePicker(value);
+                                        }}
+                                    >
+                                        <View style={[styles.inputContainer, styles.selectorInputContainer, errors.date_of_birth && styles.inputError]}>
+                                            <Ionicons name="calendar-outline" size={20} color="#6B7280" style={styles.inputIcon} />
+                                            <Text style={[styles.dateValueText, !value && styles.datePlaceholderText]}>
+                                                {value || 'Birthdate'}
+                                            </Text>
+                                            <Ionicons name="chevron-down" size={18} color="#6B7280" />
+                                        </View>
+                                    </TouchableOpacity>
+
+                                    {Platform.OS === 'ios' && showBirthdatePicker && (
+                                        <Modal
+                                            visible={showBirthdatePicker}
+                                            transparent
+                                            animationType="slide"
+                                            onRequestClose={() => setShowBirthdatePicker(false)}
+                                        >
+                                            <View style={styles.selectionModalOverlay}>
+                                                <View style={styles.selectionModalCard}>
+                                                    <View style={styles.selectionModalHeader}>
+                                                        <Text style={styles.selectionModalTitle}>Select Birthdate</Text>
+                                                        <TouchableOpacity onPress={() => setShowBirthdatePicker(false)}>
+                                                            <Ionicons name="close" size={22} color="#334155" />
+                                                        </TouchableOpacity>
+                                                    </View>
+
+                                                    <View style={styles.birthdatePickerWrap}>
+                                                        <DateTimePicker
+                                                            value={birthdateDraft || parseYyyyMmDdToLocalDate(value) || getDefaultBirthdate()}
+                                                            mode="date"
+                                                            display="spinner"
+                                                            maximumDate={new Date()}
+                                                            onChange={(_event, selectedDate) => {
+                                                                if (!selectedDate) return;
+                                                                setBirthdateDraft(selectedDate);
+                                                            }}
+                                                        />
+                                                    </View>
+
+                                                    <View style={styles.birthdateActionsRow}>
+                                                        <TouchableOpacity
+                                                            style={styles.birthdateActionSecondary}
+                                                            onPress={() => setShowBirthdatePicker(false)}
+                                                        >
+                                                            <Text style={styles.birthdateActionSecondaryText}>Cancel</Text>
+                                                        </TouchableOpacity>
+                                                        <TouchableOpacity
+                                                            style={styles.birthdateActionPrimary}
+                                                            onPress={() => {
+                                                                const selected = birthdateDraft || parseYyyyMmDdToLocalDate(value) || getDefaultBirthdate();
+                                                                onChange(formatDateAsYyyyMmDd(selected));
+                                                                setShowBirthdatePicker(false);
+                                                            }}
+                                                        >
+                                                            <Text style={styles.birthdateActionPrimaryText}>Confirm</Text>
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                </View>
+                                            </View>
+                                        </Modal>
+                                    )}
+
+                                    {Platform.OS === 'android' && showBirthdatePicker && (
+                                        <DateTimePicker
+                                            value={birthdateDraft || parseYyyyMmDdToLocalDate(value) || getDefaultBirthdate()}
+                                            mode="date"
+                                            display="default"
+                                            maximumDate={new Date()}
+                                            onChange={(event, selectedDate) => {
+                                                if (event?.type === 'dismissed') {
+                                                    setShowBirthdatePicker(false);
+                                                    return;
+                                                }
+
+                                                if (selectedDate) {
+                                                    onChange(formatDateAsYyyyMmDd(selectedDate));
+                                                }
+                                                setShowBirthdatePicker(false);
+                                            }}
+                                        />
+                                    )}
+                                </>
+                            )}
+                        />
+                        {errors.date_of_birth && <Text style={styles.errorText}>{errors.date_of_birth.message}</Text>}
+
+                        <Text style={styles.label}>Religion</Text>
+                        <Controller
+                            control={control}
+                            name="religion"
+                            rules={{
+                                validate: (value) => {
+                                    const trimmed = String(value || '').trim();
+                                    if (!trimmed) return 'Religion is required';
+                                    return true;
+                                }
+                            }}
+                            render={({ field: { onChange, value } }) => (
+                                <View style={styles.inputContainer}>
+                                    <Ionicons name="people-outline" size={20} color="#6B7280" style={styles.inputIcon} />
+                                    <TextInput
+                                        placeholder="e.g. Roman Catholic"
+                                        style={styles.input}
+                                        value={value}
+                                        onChangeText={onChange}
+                                        placeholderTextColor="#6B7280"
+                                    />
+                                </View>
+                            )}
+                        />
+                        {errors.religion && <Text style={styles.errorText}>{errors.religion.message}</Text>}
+
+                        <Text style={styles.label}>Dialect</Text>
+                        <Controller
+                            control={control}
+                            name="dialect"
+                            rules={{
+                                validate: (value) => {
+                                    const trimmed = String(value || '').trim();
+                                    if (!trimmed) return 'Dialect is required';
+                                    return true;
+                                }
+                            }}
+                            render={({ field: { onChange, value } }) => (
+                                <View style={styles.inputContainer}>
+                                    <Ionicons name="chatbubbles-outline" size={20} color="#6B7280" style={styles.inputIcon} />
+                                    <TextInput
+                                        placeholder="e.g. Cebuano"
+                                        style={styles.input}
+                                        value={value}
+                                        onChangeText={onChange}
+                                        placeholderTextColor="#6B7280"
+                                    />
+                                </View>
+                            )}
+                        />
+                        {errors.dialect && <Text style={styles.errorText}>{errors.dialect.message}</Text>}
 
                         <Text style={styles.label}>Phone Number</Text>
                         <Controller
@@ -570,14 +923,21 @@ const EditProfile = () => {
                         <Controller
                             control={control}
                             name="location"
-                            render={({ field: { onChange, value } }) => (
+                            render={({ field: { onChange, onBlur, value } }) => (
                                 <View style={styles.inputContainer}>
                                     <Ionicons name="location-outline" size={20} color="#6B7280" style={styles.inputIcon} />
                                     <TextInput
                                         placeholder="City, Province"
                                         style={styles.input}
                                         value={value}
-                                        onChangeText={onChange}
+                                        onChangeText={(text) => {
+                                            onChange(text);
+                                            scheduleCoordinatesSyncFromLocation(text);
+                                        }}
+                                        onBlur={() => {
+                                            onBlur();
+                                            void syncCoordinatesFromLocation(value);
+                                        }}
                                         placeholderTextColor="#6B7280"
                                     />
                                 </View>
@@ -687,8 +1047,97 @@ const styles = StyleSheet.create({
     payoutOptionText: { fontSize: 12, color: '#475569', fontWeight: '700' },
     payoutOptionTextActive: { color: '#1E40AF' },
     inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9FAFB', borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 12, paddingHorizontal: 12 },
+    selectorInputContainer: { minHeight: 48 },
+    inputError: { borderColor: '#EF4444', backgroundColor: '#FEF2F2' },
     inputIcon: { marginRight: 10 },
     input: { flex: 1, height: 48, fontSize: 15, color: '#1F2937' },
+    selectValueText: { flex: 1, fontSize: 15, lineHeight: 20, color: '#1F2937' },
+    selectPlaceholderText: { color: '#6B7280' },
+    selectionModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(15, 23, 42, 0.45)',
+        justifyContent: 'flex-end',
+    },
+    selectionModalCard: {
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        paddingHorizontal: 16,
+        paddingTop: 14,
+        paddingBottom: 22,
+    },
+    selectionModalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    selectionModalTitle: {
+        fontSize: 16,
+        color: '#0F172A',
+        fontWeight: '700',
+    },
+    selectionOption: {
+        minHeight: 46,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        paddingHorizontal: 14,
+        marginTop: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    selectionOptionActive: {
+        borderColor: '#93C5FD',
+        backgroundColor: '#EFF6FF',
+    },
+    selectionOptionText: {
+        fontSize: 15,
+        color: '#1F2937',
+        fontWeight: '600',
+    },
+    selectionOptionTextActive: {
+        color: '#1E40AF',
+    },
+    dateValueText: { flex: 1, fontSize: 15, lineHeight: 20, color: '#1F2937' },
+    datePlaceholderText: { color: '#6B7280' },
+    birthdatePickerWrap: {
+        marginTop: 4,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        borderRadius: 12,
+        backgroundColor: '#fff',
+        overflow: 'hidden',
+    },
+    birthdateActionsRow: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 10,
+    },
+    birthdateActionSecondary: {
+        borderWidth: 1,
+        borderColor: '#CBD5E1',
+        borderRadius: 10,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        backgroundColor: '#F8FAFC',
+    },
+    birthdateActionSecondaryText: {
+        color: '#334155',
+        fontWeight: '700',
+    },
+    birthdateActionPrimary: {
+        borderRadius: 10,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        backgroundColor: '#0072FF',
+    },
+    birthdateActionPrimaryText: {
+        color: '#fff',
+        fontWeight: '700',
+    },
     bioInput: { height: 100, paddingTop: 12 },
     notesInput: { height: 82, paddingTop: 12 },
     errorText: { color: '#EF4444', fontSize: 12, marginTop: -8, marginBottom: 10, marginLeft: 4 },

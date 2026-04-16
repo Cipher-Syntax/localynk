@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking, Platform, UIManager } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, View, Text, StyleSheet, TouchableOpacity, Linking, Platform, UIManager } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { findCoordinatesForLocation } from '../../utils/locationSearch';
 
 let MapView = null;
 let Marker = null;
@@ -19,24 +20,93 @@ const toNumber = (value) => {
     return Number.isFinite(parsed) ? parsed : null;
 };
 
+const DEFAULT_REGION = {
+    latitude: 6.93,
+    longitude: 122.08,
+    latitudeDelta: 0.12,
+    longitudeDelta: 0.12,
+};
+
 export default function CompactMapCard({
     latitude,
     longitude,
     title = 'Pinned Location',
     subtitle = '',
+    locationText = '',
 }) {
     const lat = toNumber(latitude);
     const lng = toNumber(longitude);
 
-    const coordinates = useMemo(() => {
+    const explicitCoordinates = useMemo(() => {
         if (lat == null || lng == null) return null;
         return {
             latitude: lat,
             longitude: lng,
+        };
+    }, [lat, lng]);
+
+    const [resolvedCoordinates, setResolvedCoordinates] = useState(null);
+    const [isResolving, setIsResolving] = useState(false);
+
+    const searchQuery = useMemo(() => {
+        const query = String(locationText || subtitle || '').trim();
+        return query;
+    }, [locationText, subtitle]);
+
+    useEffect(() => {
+        let isCancelled = false;
+
+        if (explicitCoordinates) {
+            setResolvedCoordinates(null);
+            setIsResolving(false);
+            return () => {
+                isCancelled = true;
+            };
+        }
+
+        if (searchQuery.length < 2) {
+            setResolvedCoordinates(null);
+            setIsResolving(false);
+            return () => {
+                isCancelled = true;
+            };
+        }
+
+        setIsResolving(true);
+
+        (async () => {
+            const resolved = await findCoordinatesForLocation(searchQuery, { limit: 1 });
+            if (isCancelled) return;
+
+            if (resolved) {
+                setResolvedCoordinates({
+                    latitude: Number(resolved.latitude),
+                    longitude: Number(resolved.longitude),
+                });
+            } else {
+                setResolvedCoordinates(null);
+            }
+
+            setIsResolving(false);
+        })();
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [explicitCoordinates, searchQuery]);
+
+    const markerCoordinates = explicitCoordinates || resolvedCoordinates;
+
+    const mapRegion = useMemo(() => {
+        if (!markerCoordinates) return DEFAULT_REGION;
+
+        return {
+            latitude: markerCoordinates.latitude,
+            longitude: markerCoordinates.longitude,
             latitudeDelta: 0.02,
             longitudeDelta: 0.02,
         };
-    }, [lat, lng]);
+    }, [markerCoordinates]);
 
     const mapAvailable = useMemo(() => {
         if (Platform.OS === 'web') return false;
@@ -48,11 +118,14 @@ export default function CompactMapCard({
         return Boolean(getViewManagerConfig('AIRMap') || getViewManagerConfig('AIRGoogleMap'));
     }, []);
 
-    if (!coordinates) return null;
-
     const openExternalMap = async () => {
-        const label = encodeURIComponent(title || 'Pinned Location');
-        const url = `https://www.google.com/maps/search/?api=1&query=${coordinates.latitude},${coordinates.longitude}&query_place_id=${label}`;
+        const query = markerCoordinates
+            ? `${markerCoordinates.latitude},${markerCoordinates.longitude}`
+            : searchQuery;
+
+        if (!query) return;
+
+        const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
         try {
             await Linking.openURL(url);
         } catch (_error) {
@@ -71,19 +144,28 @@ export default function CompactMapCard({
             </View>
 
             {mapAvailable ? (
-                <MapView
-                    style={styles.map}
-                    initialRegion={coordinates}
-                    region={coordinates}
-                    scrollEnabled={false}
-                    rotateEnabled={false}
-                    pitchEnabled={false}
-                    zoomEnabled={false}
-                    toolbarEnabled={false}
-                    pointerEvents="none"
-                >
-                    <Marker coordinate={coordinates} />
-                </MapView>
+                <View>
+                    <MapView
+                        style={styles.map}
+                        initialRegion={mapRegion}
+                        region={mapRegion}
+                        scrollEnabled={false}
+                        rotateEnabled={false}
+                        pitchEnabled={false}
+                        zoomEnabled={false}
+                        toolbarEnabled={false}
+                        pointerEvents="none"
+                    >
+                        {markerCoordinates && <Marker coordinate={markerCoordinates} />}
+                    </MapView>
+
+                    {isResolving && (
+                        <View style={styles.resolvingOverlay}>
+                            <ActivityIndicator size="small" color="#1D4ED8" />
+                            <Text style={styles.resolvingText}>Resolving location...</Text>
+                        </View>
+                    )}
+                </View>
             ) : (
                 <View style={styles.mapUnavailable}>
                     <Ionicons name="warning-outline" size={16} color="#92400E" />
@@ -91,9 +173,17 @@ export default function CompactMapCard({
                 </View>
             )}
 
+            {markerCoordinates ? (
+                <Text style={styles.coordinatesText}>
+                    {`Pinned at ${markerCoordinates.latitude.toFixed(6)}, ${markerCoordinates.longitude.toFixed(6)}`}
+                </Text>
+            ) : (
+                <Text style={styles.coordinatesHint}>Pin is not available yet for this location.</Text>
+            )}
+
             <TouchableOpacity style={styles.openButton} onPress={openExternalMap}>
                 <Ionicons name="navigate" size={15} color="#1D4ED8" />
-                <Text style={styles.openButtonText}>Open in Maps</Text>
+                <Text style={styles.openButtonText}>{markerCoordinates ? 'Open in Maps' : 'Search in Maps'}</Text>
             </TouchableOpacity>
         </View>
     );
@@ -130,6 +220,18 @@ const styles = StyleSheet.create({
         borderRadius: 10,
         overflow: 'hidden',
     },
+    resolvingOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(255,255,255,0.75)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+    },
+    resolvingText: {
+        fontSize: 11,
+        color: '#1E3A8A',
+        fontWeight: '700',
+    },
     mapUnavailable: {
         width: '100%',
         height: 130,
@@ -144,6 +246,18 @@ const styles = StyleSheet.create({
     mapUnavailableText: {
         fontSize: 11,
         color: '#92400E',
+        fontWeight: '600',
+    },
+    coordinatesText: {
+        marginTop: 8,
+        fontSize: 11,
+        color: '#334155',
+        fontWeight: '700',
+    },
+    coordinatesHint: {
+        marginTop: 8,
+        fontSize: 11,
+        color: '#64748B',
         fontWeight: '600',
     },
     openButton: {

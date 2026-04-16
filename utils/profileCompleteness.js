@@ -10,6 +10,10 @@ export const isCoreProfileIncomplete = (user) => {
         || isBlank(user.last_name)
         || isBlank(user.phone_number)
         || isBlank(user.location)
+        || isBlank(user.gender)
+        || isBlank(user.date_of_birth)
+        || isBlank(user.religion)
+        || isBlank(user.dialect)
     );
 };
 

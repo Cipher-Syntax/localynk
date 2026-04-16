@@ -543,10 +543,42 @@ export function AuthProvider({ children }) {
             let errorMsg = "Registration failed.";
             if (error.response?.data) {
                 const data = error.response.data;
-                if (data.username) errorMsg = Array.isArray(data.username) ? data.username[0] : data.username;
-                else if (data.email) errorMsg = Array.isArray(data.email) ? data.email[0] : data.email;
-                else if (data.password) errorMsg = Array.isArray(data.password) ? data.password[0] : data.password;
-                else if (data.detail) errorMsg = data.detail;
+                const preferredErrorKeys = [
+                    'username',
+                    'email',
+                    'first_name',
+                    'last_name',
+                    'middle_name',
+                    'date_of_birth',
+                    'password',
+                    'confirm_password',
+                    'detail',
+                    'non_field_errors',
+                ];
+
+                const pickErrorMessage = (value) => {
+                    if (Array.isArray(value) && value.length > 0) return String(value[0]);
+                    if (typeof value === 'string' && value.trim()) return value;
+                    return null;
+                };
+
+                for (const key of preferredErrorKeys) {
+                    if (Object.prototype.hasOwnProperty.call(data, key)) {
+                        const candidate = pickErrorMessage(data[key]);
+                        if (candidate) {
+                            errorMsg = candidate;
+                            break;
+                        }
+                    }
+                }
+
+                if (errorMsg === "Registration failed.") {
+                    const firstKey = Object.keys(data || {})[0];
+                    if (firstKey) {
+                        const candidate = pickErrorMessage(data[firstKey]);
+                        if (candidate) errorMsg = candidate;
+                    }
+                }
             }
 
             setState(prev => ({

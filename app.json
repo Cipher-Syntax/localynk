@@ -29,6 +29,11 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.localynk.app",
       "googleServicesFile": "./google-services.json",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDfpJrO0zrW014fKpQ67tHQYJ9W9AroLIk"
+        }
+      },
       "permissions": [
         "POST_NOTIFICATIONS",
         "android.permission.ACCESS_COARSE_LOCATION",

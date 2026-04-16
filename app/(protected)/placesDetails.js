@@ -224,6 +224,7 @@ export default function PlacesDetails() {
                         longitude={destination.longitude}
                         title="Destination Pin"
                         subtitle={destination.location || destination.name}
+                        locationText={destination.location || destination.name}
                     />
                 </View>
 
