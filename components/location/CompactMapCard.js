@@ -3,17 +3,8 @@ import { ActivityIndicator, View, Text, StyleSheet, TouchableOpacity, Linking, P
 import { Ionicons } from '@expo/vector-icons';
 import { findCoordinatesForLocation } from '../../utils/locationSearch';
 
-let MapView = null;
-let Marker = null;
-
-try {
-    const mapsModule = require('react-native-maps');
-    MapView = mapsModule.default;
-    Marker = mapsModule.Marker;
-} catch {
-    MapView = null;
-    Marker = null;
-}
+// Import our new isolated map module
+import MapView, { Marker } from './NativeMap';
 
 const toNumber = (value) => {
     const parsed = Number.parseFloat(value);
@@ -39,18 +30,14 @@ export default function CompactMapCard({
 
     const explicitCoordinates = useMemo(() => {
         if (lat == null || lng == null) return null;
-        return {
-            latitude: lat,
-            longitude: lng,
-        };
+        return { latitude: lat, longitude: lng };
     }, [lat, lng]);
 
     const [resolvedCoordinates, setResolvedCoordinates] = useState(null);
     const [isResolving, setIsResolving] = useState(false);
 
     const searchQuery = useMemo(() => {
-        const query = String(locationText || subtitle || '').trim();
-        return query;
+        return String(locationText || subtitle || '').trim();
     }, [locationText, subtitle]);
 
     useEffect(() => {
@@ -59,17 +46,13 @@ export default function CompactMapCard({
         if (explicitCoordinates) {
             setResolvedCoordinates(null);
             setIsResolving(false);
-            return () => {
-                isCancelled = true;
-            };
+            return () => { isCancelled = true; };
         }
 
         if (searchQuery.length < 2) {
             setResolvedCoordinates(null);
             setIsResolving(false);
-            return () => {
-                isCancelled = true;
-            };
+            return () => { isCancelled = true; };
         }
 
         setIsResolving(true);
@@ -90,16 +73,13 @@ export default function CompactMapCard({
             setIsResolving(false);
         })();
 
-        return () => {
-            isCancelled = true;
-        };
+        return () => { isCancelled = true; };
     }, [explicitCoordinates, searchQuery]);
 
     const markerCoordinates = explicitCoordinates || resolvedCoordinates;
 
     const mapRegion = useMemo(() => {
         if (!markerCoordinates) return DEFAULT_REGION;
-
         return {
             latitude: markerCoordinates.latitude,
             longitude: markerCoordinates.longitude,
@@ -110,7 +90,6 @@ export default function CompactMapCard({
 
     const mapAvailable = useMemo(() => {
         if (Platform.OS === 'web') return false;
-        if (!MapView || !Marker) return false;
 
         const getViewManagerConfig = UIManager?.getViewManagerConfig;
         if (typeof getViewManagerConfig !== 'function') return true;
@@ -129,7 +108,7 @@ export default function CompactMapCard({
         try {
             await Linking.openURL(url);
         } catch (_error) {
-            // Silent fallback in UI-only helper
+            // Silent fallback
         }
     };
 
@@ -190,92 +169,17 @@ export default function CompactMapCard({
 }
 
 const styles = StyleSheet.create({
-    card: {
-        marginTop: 10,
-        borderWidth: 1,
-        borderColor: '#DBEAFE',
-        backgroundColor: '#EFF6FF',
-        borderRadius: 12,
-        padding: 10,
-    },
-    headerRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 8,
-    },
-    title: {
-        fontSize: 12,
-        fontWeight: '700',
-        color: '#1E3A8A',
-    },
-    subtitle: {
-        fontSize: 11,
-        color: '#334155',
-        marginTop: 1,
-    },
-    map: {
-        width: '100%',
-        height: 130,
-        borderRadius: 10,
-        overflow: 'hidden',
-    },
-    resolvingOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(255,255,255,0.75)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 6,
-    },
-    resolvingText: {
-        fontSize: 11,
-        color: '#1E3A8A',
-        fontWeight: '700',
-    },
-    mapUnavailable: {
-        width: '100%',
-        height: 130,
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: '#FCD34D',
-        backgroundColor: '#FFFBEB',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 4,
-    },
-    mapUnavailableText: {
-        fontSize: 11,
-        color: '#92400E',
-        fontWeight: '600',
-    },
-    coordinatesText: {
-        marginTop: 8,
-        fontSize: 11,
-        color: '#334155',
-        fontWeight: '700',
-    },
-    coordinatesHint: {
-        marginTop: 8,
-        fontSize: 11,
-        color: '#64748B',
-        fontWeight: '600',
-    },
-    openButton: {
-        marginTop: 8,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        alignSelf: 'flex-start',
-        backgroundColor: '#FFFFFF',
-        borderWidth: 1,
-        borderColor: '#BFDBFE',
-        borderRadius: 999,
-        paddingVertical: 6,
-        paddingHorizontal: 10,
-    },
-    openButtonText: {
-        fontSize: 11,
-        fontWeight: '700',
-        color: '#1D4ED8',
-    },
+    card: { marginTop: 10, borderWidth: 1, borderColor: '#DBEAFE', backgroundColor: '#EFF6FF', borderRadius: 12, padding: 10 },
+    headerRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+    title: { fontSize: 12, fontWeight: '700', color: '#1E3A8A' },
+    subtitle: { fontSize: 11, color: '#334155', marginTop: 1 },
+    map: { width: '100%', height: 130, borderRadius: 10, overflow: 'hidden' },
+    resolvingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.75)', alignItems: 'center', justifyContent: 'center', gap: 6 },
+    resolvingText: { fontSize: 11, color: '#1E3A8A', fontWeight: '700' },
+    mapUnavailable: { width: '100%', height: 130, borderRadius: 10, borderWidth: 1, borderColor: '#FCD34D', backgroundColor: '#FFFBEB', alignItems: 'center', justifyContent: 'center', gap: 4 },
+    mapUnavailableText: { fontSize: 11, color: '#92400E', fontWeight: '600' },
+    coordinatesText: { marginTop: 8, fontSize: 11, color: '#334155', fontWeight: '700' },
+    coordinatesHint: { marginTop: 8, fontSize: 11, color: '#64748B', fontWeight: '600' },
+    openButton: { marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#BFDBFE', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 10 },
+    openButtonText: { fontSize: 11, fontWeight: '700', color: '#1D4ED8' },
 });

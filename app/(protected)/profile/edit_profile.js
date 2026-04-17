@@ -22,6 +22,7 @@ import { findCoordinatesForLocation } from '../../../utils/locationSearch';
 import { isPayoutAccountIncomplete } from '../../../utils/profileCompleteness';
 import ScreenSafeArea from '../../../components/ScreenSafeArea';
 import ProfileLocationMapPicker from '../../../components/location/ProfileLocationMapPicker';
+import LocationSearchBar from '../../../components/location/LocationSearchBar';
 
 const PAYOUT_CHANNEL_OPTIONS = [
     { key: 'gcash', label: 'GCash', icon: 'wallet' },
@@ -920,38 +921,34 @@ const EditProfile = () => {
                         />
 
                         <Text style={styles.label}>Location</Text>
-                        <Controller
-                            control={control}
-                            name="location"
-                            render={({ field: { onChange, onBlur, value } }) => (
-                                <View style={styles.inputContainer}>
-                                    <Ionicons name="location-outline" size={20} color="#6B7280" style={styles.inputIcon} />
-                                    <TextInput
-                                        placeholder="City, Province"
-                                        style={styles.input}
+                        <View style={{ zIndex: 9999, elevation: 9999, position: 'relative' }}>
+                            <Controller
+                                control={control}
+                                name="location"
+                                render={({ field: { onChange, value } }) => (
+                                    <LocationSearchBar
                                         value={value}
-                                        onChangeText={(text) => {
-                                            onChange(text);
-                                            scheduleCoordinatesSyncFromLocation(text);
+                                        onSelectLocation={(loc) => {
+                                            onChange(loc.address);
+                                            setValue('latitude', loc.latitude, { shouldDirty: true });
+                                            setValue('longitude', loc.longitude, { shouldDirty: true });
                                         }}
-                                        onBlur={() => {
-                                            onBlur();
-                                            void syncCoordinatesFromLocation(value);
-                                        }}
-                                        placeholderTextColor="#6B7280"
                                     />
-                                </View>
-                            )}
-                        />
+                                )}
+                            />
+                        </View>
 
-                        <ProfileLocationMapPicker
-                            latitude={watch('latitude')}
-                            longitude={watch('longitude')}
-                            onChangeCoordinates={({ latitude, longitude }) => {
-                                setValue('latitude', latitude, { shouldDirty: true });
-                                setValue('longitude', longitude, { shouldDirty: true });
-                            }}
-                        />
+                        <View style={{ marginTop: 15 }}>
+                            <ProfileLocationMapPicker
+                                latitude={watch('latitude')}
+                                longitude={watch('longitude')}
+                                onChangeCoordinates={({ latitude, longitude }) => {
+                                    setValue('latitude', latitude, { shouldDirty: true });
+                                    setValue('longitude', longitude, { shouldDirty: true });
+                                }}
+                            />
+                        </View>
+
 
                         <Text style={styles.label}>Bio</Text>
                         <Controller

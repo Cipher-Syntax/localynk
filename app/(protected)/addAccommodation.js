@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import api from '../../api/api';
 import ScreenSafeArea from '../../components/ScreenSafeArea';
 import ProfileLocationMapPicker from '../../components/location/ProfileLocationMapPicker';
+import LocationSearchBar from '../../components/location/LocationSearchBar';
 
 const { width } = Dimensions.get('window');
 
@@ -323,24 +324,36 @@ const AddAccommodation = () => {
             />
 
             <Text style={styles.label}>Where is it located?</Text>
-            <View style={styles.inputIconRow}>
-                <Ionicons name="location-outline" size={20} color="#666" style={{ marginRight: 10 }} />
-                <TextInput
-                    style={{ flex: 1, color: '#1F2937' }}
-                    placeholder="Address or Landmark"
-                    placeholderTextColor="#9CA3AF"
+            
+            {/* 1. STANDALONE SEARCH BAR (Highest z-index so it drops over everything) */}
+            <View style={{ zIndex: 9999, elevation: 9999, position: 'relative' }}>
+                <LocationSearchBar 
                     value={formData.address}
-                    onChangeText={t => setFormData({ ...formData, address: t })}
+                    onSelectLocation={(loc) => {
+                        setFormData(prev => ({ 
+                            ...prev, 
+                            address: loc.address, 
+                            latitude: loc.latitude, 
+                            longitude: loc.longitude 
+                        }));
+                    }}
                 />
             </View>
 
-            <ProfileLocationMapPicker
-                latitude={formData.latitude}
-                longitude={formData.longitude}
-                onChangeCoordinates={({ latitude, longitude }) => {
-                    setFormData(prev => ({ ...prev, latitude, longitude }));
-                }}
-            />
+            {/* 2. STANDALONE MAP (Standard flow with positive margin to avoid overlap) */}
+            <View style={{ marginTop: 15 }}>
+                <ProfileLocationMapPicker
+                    latitude={formData.latitude}
+                    longitude={formData.longitude}
+                    onChangeCoordinates={(coords) => {
+                        setFormData(prev => ({ 
+                            ...prev, 
+                            latitude: coords.latitude, 
+                            longitude: coords.longitude 
+                        }));
+                    }}
+                />
+            </View>
 
             <Text style={styles.label}>Property Type</Text>
             <View style={styles.pillContainer}>
@@ -588,13 +601,13 @@ const AddAccommodation = () => {
                     ref={scrollViewRef}
                     contentContainerStyle={{ paddingBottom: 120 }}
                     showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled" 
                 >
                     {currentStep === 1 && renderStep1()}
                     {currentStep === 2 && renderStep2()}
                     {currentStep === 3 && renderStep3()}
                 </ScrollView>
 
-                {/* Footer Navigation - FIXED WITH INSETS */}
                 <View style={[styles.footer, { paddingBottom: insets.bottom + 20 }]}>
                     {currentStep > 1 && (
                         <TouchableOpacity style={styles.secondaryButton} onPress={prevStep}>
@@ -645,392 +658,67 @@ const AddAccommodation = () => {
 export default AddAccommodation;
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#F9FAFB',
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 15,
-        backgroundColor: '#fff',
-        borderBottomWidth: 1,
-        borderBottomColor: '#F3F4F6'
-    },
-    headerTitleText: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#1F2937'
-    },
-    progressContainer: {
-        backgroundColor: '#fff',
-        paddingVertical: 20,
-        marginBottom: 10,
-    },
-    progressInner: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: '90%',
-        margin: "auto"
-    },
-    stepDot: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: '#F3F4F6',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-        zIndex: 2,
-    },
-    stepDotActive: {
-        backgroundColor: '#0072FF',
-        borderColor: '#0072FF',
-        elevation: 4,
-        shadowColor: '#0072FF',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-    },
-    stepNumber: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: '#9CA3AF',
-    },
-    stepNumberActive: {
-        color: '#fff',
-    },
-    stepLine: {
-        width: 60,
-        height: 3,
-        backgroundColor: '#E5E7EB',
-        marginHorizontal: 4,
-        borderRadius: 2,
-    },
-    stepLineActive: {
-        backgroundColor: '#0072FF',
-    },
-    stepContainer: {
-        padding: 20,
-    },
-    stepTitle: {
-        fontSize: 24,
-        fontWeight: '800',
-        color: '#1F2937',
-        marginBottom: 5
-    },
-    stepSubtitle: {
-        fontSize: 14,
-        color: '#6B7280',
-        marginBottom: 25
-    },
-    label: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#374151',
-        marginBottom: 8,
-        marginTop: 15
-    },
-    input: {
-        backgroundColor: '#fff',
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-        borderRadius: 12,
-        paddingHorizontal: 15,
-        paddingVertical: 12,
-        fontSize: 15,
-        color: '#1F2937'
-    },
-    inputIconRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#fff',
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-        borderRadius: 12,
-        paddingHorizontal: 15,
-        paddingVertical: 12,
-    },
-    pillContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 10
-    },
-    pill: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
-        backgroundColor: '#F3F4F6',
-        borderWidth: 1,
-        borderColor: '#E5E7EB'
-    },
-    pillActive: {
-        backgroundColor: '#EFF6FF',
-        borderColor: '#0072FF'
-    },
-    pillText: {
-        fontSize: 13,
-        fontWeight: '600',
-        color: '#6B7280'
-    },
-    pillTextActive: {
-        color: '#0072FF'
-    },
-    gridContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 12
-    },
-    gridItem: {
-        width: (width - 64) / 3,
-        aspectRatio: 1,
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-        gap: 8
-    },
-    gridItemActive: {
-        backgroundColor: '#0072FF',
-        borderColor: '#0072FF'
-    },
-    gridText: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: '#6B7280'
-    },
-    gridTextActive: {
-        color: '#fff'
-    },
-    imageUploadLarge: {
-        height: 180,
-        backgroundColor: '#EFF6FF',
-        borderRadius: 16,
-        borderWidth: 2,
-        borderColor: '#DBEAFE',
-        borderStyle: 'dashed',
-        justifyContent: 'center',
-        alignItems: 'center',
-        overflow: 'hidden'
-    },
-    imageUploadSmall: {
-        height: 50,
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-        justifyContent: 'center',
-        alignItems: 'center',
-        overflow: 'hidden'
-    },
-    uploadedImage: {
-        width: '100%',
-        height: '100%',
-        resizeMode: 'cover'
-    },
-    uploadPlaceholder: {
-        alignItems: 'center',
-        gap: 10
-    },
-    uploadText: {
-        fontSize: 14,
-        color: '#0072FF',
-        fontWeight: '600'
-    },
-    divider: {
-        height: 1,
-        backgroundColor: '#E5E7EB',
-        marginVertical: 25
-    },
-    switchRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 15
-    },
-    switchTitle: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#1F2937'
-    },
-    switchSub: {
-        fontSize: 13,
-        color: '#6B7280'
-    },
-    toggle: {
-        width: 50,
-        height: 28,
-        backgroundColor: '#E5E7EB',
-        borderRadius: 14,
-        padding: 2,
-        justifyContent: 'center'
-    },
-    toggleActive: {
-        backgroundColor: '#0072FF'
-    },
-    toggleCircle: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        backgroundColor: '#fff',
-        shadowColor: '#000',
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2
-    },
-    toggleCircleActive: {
-        alignSelf: 'flex-end'
-    },
-    transportContainer: {
-        backgroundColor: '#fff',
-        padding: 15,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#E5E7EB'
-    },
-    capacityInputRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-    },
-    capacityInput: {
-        flex: 1,
-    },
-    addCapacityButton: {
-        backgroundColor: '#0072FF',
-        borderRadius: 10,
-        paddingHorizontal: 14,
-        paddingVertical: 12,
-    },
-    addCapacityButtonText: {
-        color: '#fff',
-        fontSize: 13,
-        fontWeight: '700',
-    },
-    capacityChipsContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-        marginTop: 10,
-        marginBottom: 6,
-    },
-    capacityChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        backgroundColor: '#DBEAFE',
-        borderColor: '#93C5FD',
-        borderWidth: 1,
-        borderRadius: 999,
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-    },
-    capacityChipText: {
-        color: '#1E3A8A',
-        fontSize: 12,
-        fontWeight: '600',
-    },
-    addTransportOptionButton: {
-        backgroundColor: '#0F766E',
-        borderRadius: 10,
-        paddingVertical: 12,
-        alignItems: 'center',
-        marginTop: 8,
-    },
-    addTransportOptionButtonText: {
-        color: '#fff',
-        fontSize: 13,
-        fontWeight: '700',
-    },
-    transportOptionsList: {
-        marginTop: 12,
-        gap: 8,
-    },
-    transportOptionCard: {
-        backgroundColor: '#F8FAFC',
-        borderColor: '#E2E8F0',
-        borderWidth: 1,
-        borderRadius: 10,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-    },
-    transportOptionTitle: {
-        color: '#0F172A',
-        fontSize: 13,
-        fontWeight: '700',
-    },
-    transportOptionSubtitle: {
-        color: '#475569',
-        fontSize: 12,
-        marginTop: 2,
-    },
-    footer: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        backgroundColor: '#fff',
-        borderTopWidth: 1,
-        borderTopColor: '#F3F4F6',
-        padding: 20,
-        flexDirection: 'row',
-        gap: 15,
-        elevation: 10,
-    },
-    secondaryButton: {
-        paddingHorizontal: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#F3F4F6',
-        borderRadius: 12,
-        height: 50
-    },
-    secondaryButtonText: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#4B5563'
-    },
-    primaryButton: {
-        flex: 1,
-        height: 50,
-        borderRadius: 12,
-        overflow: 'hidden'
-    },
-    gradientBtn: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center'
-    },
-    primaryButtonText: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#fff'
-    },
-    toastContainer: { 
-        position: 'absolute', 
-        bottom: 80, 
-        left: 20, 
-        right: 20, 
-        borderRadius: 12, 
-        padding: 16, 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        shadowColor: '#000', 
-        shadowOffset: { width: 0, height: 4 }, 
-        shadowOpacity: 0.3, 
-        shadowRadius: 8, 
-        elevation: 10, 
-        zIndex: 1000 
-    },
+    container: { flex: 1, backgroundColor: '#F9FAFB' },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+    headerTitleText: { fontSize: 18, fontWeight: '700', color: '#1F2937' },
+    progressContainer: { backgroundColor: '#fff', paddingVertical: 20, marginBottom: 10 },
+    progressInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: '90%', margin: "auto" },
+    stepDot: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', zIndex: 2 },
+    stepDotActive: { backgroundColor: '#0072FF', borderColor: '#0072FF', elevation: 4, shadowColor: '#0072FF', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4 },
+    stepNumber: { fontSize: 14, fontWeight: '700', color: '#9CA3AF' },
+    stepNumberActive: { color: '#fff' },
+    stepLine: { width: 60, height: 3, backgroundColor: '#E5E7EB', marginHorizontal: 4, borderRadius: 2 },
+    stepLineActive: { backgroundColor: '#0072FF' },
+    stepContainer: { padding: 20 },
+    stepTitle: { fontSize: 24, fontWeight: '800', color: '#1F2937', marginBottom: 5 },
+    stepSubtitle: { fontSize: 14, color: '#6B7280', marginBottom: 25 },
+    label: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8, marginTop: 15 },
+    input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, paddingHorizontal: 15, paddingVertical: 12, fontSize: 15, color: '#1F2937' },
+    inputIconRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, paddingHorizontal: 15, paddingVertical: 12 },
+    pillContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    pill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB' },
+    pillActive: { backgroundColor: '#EFF6FF', borderColor: '#0072FF' },
+    pillText: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
+    pillTextActive: { color: '#0072FF' },
+    gridContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+    gridItem: { width: (width - 64) / 3, aspectRatio: 1, backgroundColor: '#fff', borderRadius: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', gap: 8 },
+    gridItemActive: { backgroundColor: '#0072FF', borderColor: '#0072FF' },
+    gridText: { fontSize: 12, fontWeight: '600', color: '#6B7280' },
+    gridTextActive: { color: '#fff' },
+    imageUploadLarge: { height: 180, backgroundColor: '#EFF6FF', borderRadius: 16, borderWidth: 2, borderColor: '#DBEAFE', borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+    imageUploadSmall: { height: 50, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+    uploadedImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+    uploadPlaceholder: { alignItems: 'center', gap: 10 },
+    uploadText: { fontSize: 14, color: '#0072FF', fontWeight: '600' },
+    divider: { height: 1, backgroundColor: '#E5E7EB', marginVertical: 25 },
+    switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+    switchTitle: { fontSize: 16, fontWeight: '700', color: '#1F2937' },
+    switchSub: { fontSize: 13, color: '#6B7280' },
+    toggle: { width: 50, height: 28, backgroundColor: '#E5E7EB', borderRadius: 14, padding: 2, justifyContent: 'center' },
+    toggleActive: { backgroundColor: '#0072FF' },
+    toggleCircle: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
+    toggleCircleActive: { alignSelf: 'flex-end' },
+    transportContainer: { backgroundColor: '#fff', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB' },
+    capacityInputRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    capacityInput: { flex: 1 },
+    addCapacityButton: { backgroundColor: '#0072FF', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12 },
+    addCapacityButtonText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+    capacityChipsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10, marginBottom: 6 },
+    capacityChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#DBEAFE', borderColor: '#93C5FD', borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
+    capacityChipText: { color: '#1E3A8A', fontSize: 12, fontWeight: '600' },
+    addTransportOptionButton: { backgroundColor: '#0F766E', borderRadius: 10, paddingVertical: 12, alignItems: 'center', marginTop: 8 },
+    addTransportOptionButtonText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+    transportOptionsList: { marginTop: 12, gap: 8 },
+    transportOptionCard: { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0', borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 10 },
+    transportOptionTitle: { color: '#0F172A', fontSize: 13, fontWeight: '700' },
+    transportOptionSubtitle: { color: '#475569', fontSize: 12, marginTop: 2 },
+    footer: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#F3F4F6', padding: 20, flexDirection: 'row', gap: 15, elevation: 10 },
+    secondaryButton: { paddingHorizontal: 20, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F3F4F6', borderRadius: 12, height: 50 },
+    secondaryButtonText: { fontSize: 16, fontWeight: '600', color: '#4B5563' },
+    primaryButton: { flex: 1, height: 50, borderRadius: 12, overflow: 'hidden' },
+    gradientBtn: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    primaryButtonText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+    toastContainer: { position: 'absolute', bottom: 80, left: 20, right: 20, borderRadius: 12, padding: 16, flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 10, zIndex: 1000 },
     toastSuccess: { backgroundColor: '#00c853' },
     toastError: { backgroundColor: '#ff5252' },
     toastText: { color: '#fff', fontSize: 14, fontWeight: '600', marginLeft: 12 },

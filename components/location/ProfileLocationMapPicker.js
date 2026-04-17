@@ -1,112 +1,54 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Platform, StyleSheet, Text, UIManager, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-
-let MapView = null;
-let Marker = null;
-
-try {
-    const mapsModule = require('react-native-maps');
-    MapView = mapsModule.default;
-    Marker = mapsModule.Marker;
-} catch {
-    MapView = null;
-    Marker = null;
-}
+import MapView, { Marker } from './NativeMap'; // Safe Web Map Loading
 
 const CITY_SCOPE = 'Zamboanga City';
-const DEFAULT_REGION = {
-    latitude: 6.93,
-    longitude: 122.08,
-    latitudeDelta: 0.08,
-    longitudeDelta: 0.08,
-};
-
-const toNumber = (value) => {
-    const parsed = Number.parseFloat(value);
-    return Number.isFinite(parsed) ? parsed : null;
-};
-
-const isInCoordinateRange = (latitude, longitude) => {
-    return latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
-};
-
-const isUnsetCoordinatePair = (latitude, longitude) => {
-    return Math.abs(latitude) < 0.000001 && Math.abs(longitude) < 0.000001;
-};
-
-const formatCoordinate = (value) => Number(value).toFixed(6);
+const DEFAULT_REGION = { latitude: 6.93, longitude: 122.08, latitudeDelta: 0.08, longitudeDelta: 0.08 };
+const toNumber = (value) => { const parsed = Number.parseFloat(value); return Number.isFinite(parsed) ? parsed : null; };
+const isInCoordinateRange = (lat, lng) => lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+const isUnsetCoordinatePair = (lat, lng) => Math.abs(lat) < 0.000001 && Math.abs(lng) < 0.000001;
 
 export default function ProfileLocationMapPicker({
-    latitude,
-    longitude,
-    onChangeCoordinates,
-    title = 'Pin Your Location on Map',
-    subtitle,
+    latitude, longitude, onChangeCoordinates, title = 'Pin Your Location on Map', subtitle
 }) {
     const mapRef = useRef(null);
 
     const mapAvailable = useMemo(() => {
         if (Platform.OS === 'web') return false;
-        if (!MapView || !Marker) return false;
-
         const getViewManagerConfig = UIManager?.getViewManagerConfig;
         if (typeof getViewManagerConfig !== 'function') return true;
-
         return Boolean(getViewManagerConfig('AIRMap') || getViewManagerConfig('AIRGoogleMap'));
     }, []);
 
     const marker = useMemo(() => {
         const lat = toNumber(latitude);
         const lng = toNumber(longitude);
-
-        if (lat == null || lng == null) return null;
-        if (!isInCoordinateRange(lat, lng)) return null;
-        if (isUnsetCoordinatePair(lat, lng)) return null;
-
-        return {
-            latitude: lat,
-            longitude: lng,
-        };
+        if (lat == null || lng == null || !isInCoordinateRange(lat, lng) || isUnsetCoordinatePair(lat, lng)) return null;
+        return { latitude: lat, longitude: lng };
     }, [latitude, longitude]);
 
     const initialRegion = useMemo(() => {
         if (!marker) return DEFAULT_REGION;
-
-        return {
-            latitude: marker.latitude,
-            longitude: marker.longitude,
-            latitudeDelta: 0.025,
-            longitudeDelta: 0.025,
-        };
+        return { latitude: marker.latitude, longitude: marker.longitude, latitudeDelta: 0.025, longitudeDelta: 0.025 };
     }, [marker]);
 
     useEffect(() => {
         if (!marker || !mapRef.current) return;
-
-        mapRef.current.animateToRegion(
-            {
-                latitude: marker.latitude,
-                longitude: marker.longitude,
-                latitudeDelta: 0.025,
-                longitudeDelta: 0.025,
-            },
-            420,
-        );
+        mapRef.current.animateToRegion({
+            latitude: marker.latitude,
+            longitude: marker.longitude,
+            latitudeDelta: 0.025,
+            longitudeDelta: 0.025,
+        }, 420);
     }, [marker]);
 
     const updateCoordinates = (coordinate) => {
         if (!coordinate) return;
-
         const nextLat = toNumber(coordinate.latitude);
         const nextLng = toNumber(coordinate.longitude);
-
         if (nextLat == null || nextLng == null) return;
-
-        onChangeCoordinates?.({
-            latitude: Number(nextLat.toFixed(6)),
-            longitude: Number(nextLng.toFixed(6)),
-        });
+        onChangeCoordinates?.({ latitude: Number(nextLat.toFixed(6)), longitude: Number(nextLng.toFixed(6)) });
     };
 
     return (
@@ -145,85 +87,20 @@ export default function ProfileLocationMapPicker({
                     <View style={styles.mapUnavailable}>
                         <Ionicons name="warning-outline" size={18} color="#92400E" />
                         <Text style={styles.mapUnavailableTitle}>Map is unavailable in this build.</Text>
-                        <Text style={styles.mapUnavailableText}>
-                            Use a development build or rebuild the app after installing react-native-maps.
-                        </Text>
                     </View>
                 )}
             </View>
-
-            <Text style={styles.caption}>
-                {!mapAvailable
-                    ? 'Map pinning is unavailable in this app build.'
-                    : marker
-                        ? `Pinned at ${formatCoordinate(marker.latitude)}, ${formatCoordinate(marker.longitude)}`
-                        : 'Type a location or tap anywhere on the map to place a marker.'}
-            </Text>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    wrapper: {
-        marginTop: 2,
-        marginBottom: 10,
-        borderWidth: 1,
-        borderColor: '#DBEAFE',
-        borderRadius: 12,
-        backgroundColor: '#EFF6FF',
-        padding: 10,
-    },
-    headerRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-    },
-    title: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: '#1E3A8A',
-    },
-    subtitle: {
-        marginTop: 4,
-        fontSize: 12,
-        color: '#334155',
-    },
-    mapContainer: {
-        marginTop: 8,
-        borderRadius: 10,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: '#BFDBFE',
-    },
-    map: {
-        width: '100%',
-        height: 190,
-    },
-    mapUnavailable: {
-        minHeight: 150,
-        paddingHorizontal: 12,
-        paddingVertical: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#FFFBEB',
-    },
-    mapUnavailableTitle: {
-        marginTop: 6,
-        fontSize: 12,
-        fontWeight: '700',
-        color: '#78350F',
-        textAlign: 'center',
-    },
-    mapUnavailableText: {
-        marginTop: 4,
-        fontSize: 11,
-        color: '#92400E',
-        textAlign: 'center',
-    },
-    caption: {
-        marginTop: 8,
-        fontSize: 11,
-        color: '#334155',
-        fontWeight: '600',
-    },
+    wrapper: { marginTop: 2, marginBottom: 10, borderWidth: 1, borderColor: '#DBEAFE', borderRadius: 12, backgroundColor: '#EFF6FF', padding: 10 },
+    headerRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    title: { fontSize: 13, fontWeight: '700', color: '#1E3A8A' },
+    subtitle: { marginTop: 4, fontSize: 12, color: '#334155', marginBottom: 8 },
+    mapContainer: { borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#BFDBFE' },
+    map: { width: '100%', height: 190 },
+    mapUnavailable: { minHeight: 150, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFBEB' },
+    mapUnavailableTitle: { fontSize: 12, fontWeight: '700', color: '#78350F' },
 });
