@@ -15,7 +15,7 @@ export default {
 	ios: {
 	  supportsTablet: true,
 	  bundleIdentifier: "com.localynk.app",
-	  googleServicesFile: "./GoogleService-Info.plist",
+	  googleServicesFile: process.env.GOOGLE_SERVICES_PLIST,
 	  infoPlist: {
 		NSLocationWhenInUseUsageDescription: "LocaLynk uses your location to pin meetup and destination points accurately within Zamboanga City.",
 	  },
@@ -32,7 +32,7 @@ export default {
 	  edgeToEdgeEnabled: true,
 	  predictiveBackGestureEnabled: false,
 	  package: "com.localynk.app",
-	  googleServicesFile: "./google-services.json",
+	  googleServicesFile: process.env.GOOGLE_SERVICES_JSON,
 
 	  config: {
 		googleMaps: {
