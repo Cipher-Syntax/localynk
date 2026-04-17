@@ -31,7 +31,7 @@ const Home = () => {
                 ? preferences.map(p => (typeof p === 'object' ? p.id : p))
                 : [];
 
-            console.log("Fetched Preferences IDs:", preferredIds);
+            // console.log("Fetched Preferences IDs:", preferredIds);
 
             if (allDestinations.length > 0) {
                 const sortedByRating = [...allDestinations].sort((a, b) => parseFloat(b.average_rating || 0) - parseFloat(a.average_rating || 0));

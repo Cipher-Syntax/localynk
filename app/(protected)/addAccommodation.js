@@ -67,6 +67,7 @@ const AddAccommodation = () => {
         type: 'Room',
         description: '',
         address: '',
+        municipality: '',
         latitude: null,
         longitude: null,
         roomType: 'Single',
@@ -100,7 +101,7 @@ const AddAccommodation = () => {
         setToast({ visible: true, message, type });
         setTimeout(() => {
             setToast(prev => ({ ...prev, visible: false }));
-        }, 3000);
+        }, 4000);
     };
 
     const pickImage = async (type) => {
@@ -189,18 +190,29 @@ const AddAccommodation = () => {
 
     const validateStep = (step) => {
         if (step === 1) {
-            if (!formData.name || !formData.address || !formData.pricePerNight) {
-                showToast("Please fill in Name, Address, and Price.", "error");
+            if (!formData.name || !formData.address || !formData.pricePerNight || !formData.description) {
+                showToast("Please fill in Name, Address, Price and Description.", "error");
+                return false;
+            }
+            if (!formData.latitude || !formData.longitude) {
+                showToast("Please pin the exact location on the map.", "error");
                 return false;
             }
         }
 
-        if (step === 3 && formData.transportation) {
-            const finalTransportOptions = normalizeTransportOptions(formData.transportOptions || []);
-
-            if (finalTransportOptions.length === 0) {
-                showToast('Please add at least one transportation entry.', 'error');
+        if (step === 3) {
+            if (!images.accommodation) {
+                showToast("Cover Photo is required.", "error");
                 return false;
+            }
+
+            if (formData.transportation) {
+                const finalTransportOptions = normalizeTransportOptions(formData.transportOptions || []);
+
+                if (finalTransportOptions.length === 0) {
+                    showToast('Please add at least one transportation entry.', 'error');
+                    return false;
+                }
             }
         }
 
@@ -229,12 +241,17 @@ const AddAccommodation = () => {
             data.append('description', formData.description);
             data.append('location', formData.address);
 
+            if (formData.municipality) {
+                data.append('municipality', formData.municipality);
+            }
+
+            // Fix: Enforce exactly 6 decimal places for DRF DecimalField limit
             if (formData.latitude !== null && formData.latitude !== undefined && String(formData.latitude).trim() !== '') {
-                data.append('latitude', String(formData.latitude));
+                data.append('latitude', Number(formData.latitude).toFixed(6));
             }
 
             if (formData.longitude !== null && formData.longitude !== undefined && String(formData.longitude).trim() !== '') {
-                data.append('longitude', String(formData.longitude));
+                data.append('longitude', Number(formData.longitude).toFixed(6));
             }
 
             data.append('price', formData.pricePerNight);
@@ -281,8 +298,16 @@ const AddAccommodation = () => {
             
         } 
         catch (error) {
-            console.error("Submit Error:", error);
-            showToast("Failed to upload listing. Please try again.", "error");
+            console.error("Submit Error:", error.response?.data || error.message);
+            let errorMsg = "Failed to upload listing. Please try again.";
+            
+            if (error.response?.data) {
+                const firstKey = Object.keys(error.response.data)[0];
+                const firstError = error.response.data[firstKey];
+                errorMsg = `${firstKey}: ${Array.isArray(firstError) ? firstError[0] : firstError}`;
+            }
+            
+            showToast(errorMsg, "error");
         } 
         finally {
             setLoading(false);
@@ -333,6 +358,7 @@ const AddAccommodation = () => {
                         setFormData(prev => ({ 
                             ...prev, 
                             address: loc.address, 
+                            municipality: loc.municipality || '',
                             latitude: loc.latitude, 
                             longitude: loc.longitude 
                         }));
@@ -686,7 +712,7 @@ const styles = StyleSheet.create({
     gridText: { fontSize: 12, fontWeight: '600', color: '#6B7280' },
     gridTextActive: { color: '#fff' },
     imageUploadLarge: { height: 180, backgroundColor: '#EFF6FF', borderRadius: 16, borderWidth: 2, borderColor: '#DBEAFE', borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
-    imageUploadSmall: { height: 50, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+    imageUploadSmall: { height: 170, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
     uploadedImage: { width: '100%', height: '100%', resizeMode: 'cover' },
     uploadPlaceholder: { alignItems: 'center', gap: 10 },
     uploadText: { fontSize: 14, color: '#0072FF', fontWeight: '600' },
