@@ -25,41 +25,52 @@ const Home = () => {
 
             let allDestinations = destinationsRes.data?.results || destinationsRes.data?.data || destinationsRes.data || [];
 
+            let highlightCounts = {};
+            try {
+                const destinationIds = allDestinations.map(d => d.id).join(',');
+
+                if (destinationIds) {
+                    const highlightRes = await api.get('/api/destinations/new-package-highlights/', {
+                        params: { destination_ids: destinationIds }
+                    });
+
+                    highlightCounts = highlightRes.data?.destination_counts || {};
+                }
+            } catch (e) {
+                console.log("Highlight fetch failed:", e);
+            }
+
             const preferences = personalizationRes.data?.preferred_destinations;
 
             const preferredIds = (preferences && Array.isArray(preferences))
                 ? preferences.map(p => (typeof p === 'object' ? p.id : p))
                 : [];
 
-            // console.log("Fetched Preferences IDs:", preferredIds);
-
             if (allDestinations.length > 0) {
-                const sortedByRating = [...allDestinations].sort((a, b) => parseFloat(b.average_rating || 0) - parseFloat(a.average_rating || 0));
-                const highestRatedItem = sortedByRating[0];
 
-                let finalOrder = [];
-                const processedIds = new Set();
+                // 🔥 UPDATED SORTING LOGIC
+                const sorted = [...allDestinations].sort((a, b) => {
+                    const aHasHighlight = Number(highlightCounts[a.id] || 0) > 0;
+                    const bHasHighlight = Number(highlightCounts[b.id] || 0) > 0;
 
-                if (highestRatedItem) {
-                    finalOrder.push(highestRatedItem);
-                    processedIds.add(highestRatedItem.id);
-                }
+                    // 1. PRIORITY: has new package
+                    if (aHasHighlight !== bHasHighlight) {
+                        return bHasHighlight - aHasHighlight;
+                    }
 
-                const userChoices = allDestinations.filter(item =>
-                    preferredIds.includes(item.id) && !processedIds.has(item.id)
-                );
+                    // 2. USER PREFERENCES
+                    const aPreferred = preferredIds.includes(a.id);
+                    const bPreferred = preferredIds.includes(b.id);
 
-                userChoices.sort((a, b) => parseFloat(b.average_rating || 0) - parseFloat(a.average_rating || 0));
+                    if (aPreferred !== bPreferred) {
+                        return bPreferred - aPreferred;
+                    }
 
-                finalOrder = [...finalOrder, ...userChoices];
-                userChoices.forEach(item => processedIds.add(item.id));
+                    // 3. RATING
+                    return parseFloat(b.average_rating || 0) - parseFloat(a.average_rating || 0);
+                });
 
-                const remaining = allDestinations.filter(item => !processedIds.has(item.id));
-                remaining.sort((a, b) => parseFloat(b.average_rating || 0) - parseFloat(a.average_rating || 0));
-
-                finalOrder = [...finalOrder, ...remaining];
-
-                setDestinations(finalOrder);
+                setDestinations(sorted);
             } else {
                 setDestinations([]);
             }
