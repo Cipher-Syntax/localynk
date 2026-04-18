@@ -9,9 +9,14 @@ import api from '../../api/api';
 import StopDetailsModal from '../../components/itinerary/StopDetailsModal';
 import ScreenSafeArea from '../../components/ScreenSafeArea';
 import NewPackageHighlightsModal from '../../components/NewPackageHighlightsModal';
+import ConfirmationModal from '../../components/ConfirmationModal';
 import { fetchDestinationHighlights } from '../../utils/newPackageHighlights';
+import { useAuth } from '../../context/AuthContext';
 
 const TouristGuideDetails = () => {
+    const { user } = useAuth();
+    const [copyModalVisible, setCopyModalVisible] = useState(false);
+    
     const [guide, setGuide] = useState(null);
     const [destination, setDestination] = useState(null);
     const [tourPackages, setTourPackages] = useState([]); 
@@ -160,13 +165,24 @@ const TouristGuideDetails = () => {
 
         if (ownerType === 'agency') {
             setHighlightModalVisible(false);
-            router.push({
-                pathname: '/(protected)/agencySelection',
-                params: {
-                    placeId: placeId,
-                    placeName: destination?.name || '',
-                },
-            });
+            const agencyProfileId = Number(highlightedPackage?.agency_id);
+            if (Number.isFinite(agencyProfileId) && agencyProfileId > 0) {
+                router.push({
+                    pathname: '/(protected)/agencyProfile',
+                    params: {
+                        agencyId: agencyProfileId,
+                        placeId: placeId,
+                    },
+                });
+            } else {
+                router.push({
+                    pathname: '/(protected)/agencySelection',
+                    params: {
+                        placeId: placeId,
+                        placeName: destination?.name || '',
+                    },
+                });
+            }
         }
     }, [tourPackages, router, placeId, destination]);
 
@@ -392,9 +408,20 @@ const TouristGuideDetails = () => {
                                 </ScrollView>
                             )}
                             
-                            <Text style={[styles.detailsHeader, {marginTop: 10, marginBottom: 5}]}>
-                                {selectedTour ? selectedTour.name : "Guide's Plan"}
-                            </Text>
+                            <View style={[styles.subHeaderRow, {marginTop: 10, marginBottom: 5}]}>
+                                <Text style={styles.detailsHeader}>
+                                    {selectedTour ? selectedTour.name : "Guide's Plan"}
+                                </Text>
+                                {selectedTour && user && (user.role === 'guide' || user.is_local_guide || user.is_agency || user.role === 'agency') && Number(user.id) !== Number(guide.id) && (
+                                    <TouchableOpacity 
+                                        style={styles.copyPackageButton} 
+                                        onPress={() => setCopyModalVisible(true)}
+                                    >
+                                        <Ionicons name="copy-outline" size={14} color="#00A8FF" />
+                                        <Text style={styles.copyPackageText}>Copy Package</Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
                             <Text style={styles.bodyText}>
                                 {selectedTour ? selectedTour.description : "No specific tour details available."}
                             </Text>
@@ -560,6 +587,24 @@ const TouristGuideDetails = () => {
                     packages={highlightPackages}
                     onSelectPackage={handleSelectHighlightedPackage}
                 />
+
+                <ConfirmationModal
+                    visible={copyModalVisible}
+                    title="Copy Tour Package"
+                    description="Please review properly what you want to copy and remove what you do not want to include."
+                    confirmText="Proceed"
+                    cancelText="Cancel"
+                    onConfirm={() => {
+                        setCopyModalVisible(false);
+                        router.push({
+                            pathname: "/(protected)/addTour",
+                            params: {
+                                copiedPackage: JSON.stringify(selectedTour)
+                            }
+                        });
+                    }}
+                    onCancel={() => setCopyModalVisible(false)}
+                />
             </ScreenSafeArea>
         </ScrollView>
     );
@@ -676,6 +721,8 @@ const styles = StyleSheet.create({
     legendText: { fontSize: 12, color: '#666' },
     bookButton: { backgroundColor: '#00A8FF', paddingVertical: 16, borderRadius: 8, alignItems: 'center', marginVertical: 20, shadowColor: "#00A8FF", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 5 },
     bookButtonText: { color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 1 },
+    copyPackageButton: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#E0F2FE', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#BAE6FD' },
+    copyPackageText: { fontSize: 12, fontWeight: '600', color: '#0369A1' },
 });
 
 export default TouristGuideDetails;

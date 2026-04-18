@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../api/api';
 import { Calendar } from 'react-native-calendars';
 import StopDetailsModal from '../../components/itinerary/StopDetailsModal';
+import ConfirmationModal from '../../components/ConfirmationModal';
 
 import { useAuth } from '../../context/AuthContext'; 
 import ScreenSafeArea from '../../components/ScreenSafeArea';
@@ -22,6 +23,7 @@ const GuideProfile = () => {
     const [destination, setDestination] = useState(null);
     const [accommodations, setAccommodations] = useState([]); 
     const [loading, setLoading] = useState(true);
+    const [copyModalVisible, setCopyModalVisible] = useState(false);
 
     // --- MULTI-PACKAGE DYNAMIC STATE ---
     const [tourPackages, setTourPackages] = useState([]);
@@ -324,6 +326,15 @@ const GuideProfile = () => {
                                             </TouchableOpacity>
                                         </View>
                                     )}
+                                    {!isOwnProfile && selectedTour && user && (user.role === 'guide' || user.is_local_guide || user.is_agency || user.role === 'agency') && (
+                                        <TouchableOpacity 
+                                            style={styles.copyPackageButton} 
+                                            onPress={() => setCopyModalVisible(true)}
+                                        >
+                                            <Ionicons name="copy-outline" size={14} color="#00A8FF" />
+                                            <Text style={styles.copyPackageText}>Copy Package</Text>
+                                        </TouchableOpacity>
+                                    )}
                                 </View>
 
                                 <Text style={styles.itineraryText}>{selectedTour?.description || "No description provided."}</Text>
@@ -519,6 +530,24 @@ const GuideProfile = () => {
                     accommodationCatalog={accommodations}
                     getImageUrl={getImageUrl}
                 />
+
+                <ConfirmationModal
+                    visible={copyModalVisible}
+                    title="Copy Tour Package"
+                    description="Please review properly what you want to copy and remove what you do not want to include."
+                    confirmText="Proceed"
+                    cancelText="Cancel"
+                    onConfirm={() => {
+                        setCopyModalVisible(false);
+                        router.push({
+                            pathname: "/(protected)/addTour",
+                            params: {
+                                copiedPackage: JSON.stringify(selectedTour)
+                            }
+                        });
+                    }}
+                    onCancel={() => setCopyModalVisible(false)}
+                />
             </ScreenSafeArea>
         </ScrollView>
     );
@@ -569,6 +598,8 @@ const styles = StyleSheet.create({
     iconBtn: { padding: 6, backgroundColor: '#EBF6FF', borderRadius: 6 },
 
     packageScroll: { flexDirection: 'row', marginBottom: 10, marginTop: 5 },
+    copyPackageButton: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#E0F2FE', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#BAE6FD' },
+    copyPackageText: { fontSize: 12, fontWeight: '600', color: '#0369A1' },
     packagePill: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: '#fff', marginRight: 10, borderWidth: 1, borderColor: '#E2E8F0' },
     packagePillActive: { backgroundColor: '#EFF6FF', borderColor: '#00A8FF' },
     packagePillText: { fontSize: 14, fontWeight: '600', color: '#64748B' },

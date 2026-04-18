@@ -4,7 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import api from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
@@ -62,9 +62,56 @@ const AddTour = () => {
         additionalPerHeadPerDay: '',
     });
 
+    const { copiedPackage } = useLocalSearchParams();
+
     useEffect(() => {
         fetchInitialData();
     }, [fetchInitialData]);
+
+    useEffect(() => {
+        if (!isFetchingData && copiedPackage) {
+            try {
+                const pkg = JSON.parse(copiedPackage);
+                setFormData({
+                    name: `${pkg.name} (Copy)`,
+                    description: pkg.description || '',
+                    duration: pkg.duration || '',
+                    durationDays: pkg.duration_days?.toString() || '1',
+                    maxGroupSize: pkg.max_group_size?.toString() || '',
+                    whatToBring: pkg.what_to_bring || '',
+                    pricePerDay: pkg.price_per_day?.toString() || '',
+                    soloPricePerDay: pkg.solo_price?.toString() || '',
+                    additionalPerHeadPerDay: pkg.additional_fee_per_head?.toString() || '',
+                });
+
+                if (pkg.main_destination) {
+                    const destId = typeof pkg.main_destination === 'object' ? pkg.main_destination.id : pkg.main_destination;
+                    const dest = destinations.find(d => Number(d.id) === Number(destId));
+                    if (dest) setSelectedDest(dest);
+                }
+
+                if (pkg.stops && Array.isArray(pkg.stops)) {
+                    const stops = pkg.stops;
+                    setFeaturedPlaces(stops.map(s => {
+                        if (!s.image) return null;
+                        if (s.image.startsWith('http')) return s.image;
+                        const base = api.defaults.baseURL || 'http://127.0.0.1:8000';
+                        return `${base}${s.image}`;
+                    }));
+                    setPlaceNames(stops.map(s => s.name || ''));
+                }
+
+                if (pkg.itinerary_timeline) {
+                    const timelineData = typeof pkg.itinerary_timeline === 'string' 
+                        ? JSON.parse(pkg.itinerary_timeline) 
+                        : pkg.itinerary_timeline;
+                    setTimeline(Array.isArray(timelineData) ? timelineData : []);
+                }
+            } catch (e) {
+                console.error("Failed to parse copied package:", e);
+            }
+        }
+    }, [copiedPackage, isFetchingData, destinations]);
 
     const fetchInitialData = useCallback(async () => {
         try {
@@ -285,14 +332,21 @@ const AddTour = () => {
                 const name = placeNames[index];
                 data.append('stops_names', name || `Stop ${index + 1}`);
                 if (uri) {
-                    const filename = uri.split('/').pop();
-                    const match = /\.(\w+)$/.exec(filename);
-                    const type = match ? `image/${match[1]}` : `image/jpeg`;
-                    data.append('stops_images', {
-                        uri: Platform.OS === 'ios' ? uri.replace('file://', '') : uri,
-                        name: filename,
-                        type: type,
-                    });
+                    if (uri.startsWith('http') || uri.startsWith('/media/')) {
+                        data.append('existing_images_urls', uri);
+                    } else {
+                        const filename = uri.split('/').pop();
+                        const match = /\.(\w+)$/.exec(filename);
+                        const type = match ? `image/${match[1]}` : `image/jpeg`;
+                        data.append('stops_images', {
+                            uri: Platform.OS === 'ios' ? uri.replace('file://', '') : uri,
+                            name: filename,
+                            type: type,
+                        });
+                        data.append('existing_images_urls', '');
+                    }
+                } else {
+                    data.append('existing_images_urls', '');
                 }
             });
 

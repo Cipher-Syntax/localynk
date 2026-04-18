@@ -295,9 +295,20 @@ const AgencySelection = () => {
                     </View>
                     
                     <View style={styles.profileInfo}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Text style={styles.businessName} numberOfLines={1}>{item.business_name}</Text>
+                            <TouchableOpacity 
+                                onPress={() => router.push({
+                                    pathname: '/(protected)/agencyProfile',
+                                    params: { agencyId: item.id, placeId: params.placeId }
+                                })}
+                                style={styles.viewProfileMiniBtn}
+                            >
+                                <Text style={styles.viewProfileMiniText}>VIEW PROFILE</Text>
+                            </TouchableOpacity>
+                        </View>
+                        
                         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-                            <Text style={styles.businessName}>{item.business_name}</Text>
-                            
                             {isDeactivated ? (
                                 <View style={[styles.statusBadge, { backgroundColor: '#FEE2E2', borderColor: '#FCA5A5' }]}>
                                     <Text style={[styles.statusText, { color: '#EF4444' }]}>Deactivated</Text>
@@ -368,9 +379,9 @@ const AgencySelection = () => {
                     disabled={isOffline}
                 >
                     <Text style={[styles.detailsButtonText, isOffline && { color: '#94A3B8' }]}>
-                        {isOffline ? 'UNAVAILABLE' : 'VIEW DETAILS'}
+                        {isOffline ? 'UNAVAILABLE' : 'CHOOSE AGENCY'}
                     </Text>
-                    <Ionicons name={isOffline ? "lock-closed" : "eye-outline"} size={16} color={isOffline ? "#94A3B8" : "#0072FF"} />
+                    <Ionicons name={isOffline ? "lock-closed" : "arrow-forward"} size={16} color={isOffline ? "#94A3B8" : "#0072FF"} />
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -801,6 +812,19 @@ const styles = StyleSheet.create({
         fontWeight: '800',
         color: '#1E293B',
         marginBottom: 4,
+    },
+    viewProfileMiniBtn: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+        backgroundColor: '#F0F9FF',
+        borderWidth: 1,
+        borderColor: '#BAE6FD',
+    },
+    viewProfileMiniText: {
+        fontSize: 10,
+        fontWeight: '800',
+        color: '#00A8FF',
     },
     statusBadge: {
         paddingHorizontal: 6,
