@@ -14,8 +14,6 @@ const FALLBACK_IMAGE = require('../../assets/localynk_images/discover1.png');
 
 const GAP = 12;
 const PADDING = 16;
-const LARGE_HEIGHT = 280;
-const SMALL_HEIGHT = (LARGE_HEIGHT - GAP) / 2;
 const SEARCH_DEBOUNCE_MS = 400;
 const MIN_SEARCH_CHARS = 2;
 const EXPLORE_PAGE_SIZE = 10;
@@ -27,11 +25,9 @@ const normalizeText = (value) => String(value || '').trim().toLowerCase();
 
 const normalizeCategoryValue = (value) => {
     if (!value) return '';
-
     if (typeof value === 'object') {
         return normalizeText(value.name || value.label || value.title);
     }
-
     return normalizeText(value);
 };
 
@@ -110,8 +106,6 @@ const ExplorePlaces = () => {
     const bounceValue = useRef(new Animated.Value(0)).current;
     const exploreListRef = useRef(null);
     const [showScrollTopButton, setShowScrollTopButton] = useState(false);
-
-    
 
     useEffect(() => {
         const startBounce = () => {
@@ -470,7 +464,6 @@ const ExplorePlaces = () => {
         try {
             await api.post('/api/favorites/toggle/', { guide_id: payloadGuideId });
         } catch (error) {
-            // Revert optimistic update when request fails.
             setFavorites((previous) => {
                 const reverted = new Set(previous);
                 if (reverted.has(guideIdKey)) {
@@ -484,7 +477,6 @@ const ExplorePlaces = () => {
         }
     };
 
-    // OPTIMIZED: Memoized Guide Filters using debounced search
     const filteredGuides = useMemo(() => {
         return guides.filter(guide => {
             const fullName = normalizeText(`${guide.first_name || ''} ${guide.last_name || ''}`);
@@ -524,9 +516,10 @@ const ExplorePlaces = () => {
         });
     }, [guides, shouldApplySearchFilter, normalizedSearchQuery, selectedGuideLocation, minGuideGuests, withProfilePhotoOnly, minRating]);
 
-    // OPTIMIZED: Memoized Places Filters using debounced search
+    // ✨ RE-RENDER & SORTING FIX: 
+    // Added `destinationHighlightCounts` as a dependency so it re-sorts & re-renders when data lands.
     const filteredPlaces = useMemo(() => {
-        return places.filter(place => {
+        const result = places.filter(place => {
             const placeName = normalizeText(place.name);
             const placeLocation = normalizeText(place.location || place.address || place.city);
             const placeCategory = normalizeCategoryValue(place.category);
@@ -544,7 +537,14 @@ const ExplorePlaces = () => {
 
             return matchesSearch && matchesCategory && matchesRating;
         });
-    }, [places, shouldApplySearchFilter, normalizedSearchQuery, selectedCategoryNormalized, minRating]);
+
+        // ✨ SORTING FIX: Explicitly sort places with highlight counts to the top
+        return result.sort((a, b) => {
+            const aCount = Number(destinationHighlightCounts[String(a.id)] || 0);
+            const bCount = Number(destinationHighlightCounts[String(b.id)] || 0);
+            return bCount - aCount;
+        });
+    }, [places, shouldApplySearchFilter, normalizedSearchQuery, selectedCategoryNormalized, minRating, destinationHighlightCounts]);
 
     const chunkData = (data, size) => {
         if (!data || !Array.isArray(data)) return [];
@@ -555,7 +555,6 @@ const ExplorePlaces = () => {
         return chunks;
     };
 
-    // Helper: Check if there are any active filters to display the clear badge
     const hasActiveFilters = activeTab === 'places'
         ? (selectedCategoryNormalized !== '' || minRating > 0)
         : (minRating > 0 || minGuideGuests !== '' || selectedGuideLocation !== '' || withProfilePhotoOnly);
@@ -672,10 +671,7 @@ const ExplorePlaces = () => {
                 activeOpacity={0.8} 
                 onPress={() => router.push({
                     pathname: "/(protected)/guideTours",
-                    params: {
-                        guideId: item.id,
-                        guideName,
-                    },
+                    params: { guideId: item.id, guideName },
                 })}
             >
                 <Text style={styles.bookButton}>VIEW DESTINATIONS</Text>
@@ -684,71 +680,76 @@ const ExplorePlaces = () => {
     );
     };
 
-    const PlaceCardBento = ({ item, style }) => {
+    const PlaceCard = ({ item, onPress, highlightCount = 0, onOpenHighlights }) => {
         const placeImageUri = getImageUrl(item.image || item.first_image || item.thumbnail);
-        const imageSource = placeImageUri
-            ? { uri: placeImageUri }
-            : FALLBACK_IMAGE;
-        const placeIdKey = String(item?.id || '').trim();
-        const highlightCount = Number(destinationHighlightCounts[placeIdKey] || 0);
+        const imageSource = placeImageUri ? { uri: placeImageUri } : FALLBACK_IMAGE;
 
         return (
-            <TouchableOpacity 
-                style={[styles.placeCard, style]} 
-                onPress={() => router.push({
-                    pathname: "/(protected)/placesDetails",
-                    params: { id: item.id.toString() },
-                })}
-                activeOpacity={0.9}
-            >
-                <Image 
-                    source={imageSource} 
-                    style={styles.placeImage} 
-                    resizeMode="cover" 
-                />
+            <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
+                {/* Photo */}
+                <View style={styles.photoWrap}>
+                    <Image
+                        source={imageSource}
+                        style={styles.photo}
+                        resizeMode="cover"
+                    />
 
-                {item.category && (
-                    <View style={styles.categoryBadge}>
-                        <Text style={styles.categoryText}>{item.category}</Text>
-                    </View>
-                )}
+                    {/* New package highlight badge */}
+                    {highlightCount > 0 && (
+                        <TouchableOpacity
+                            style={styles.newBadge}
+                            onPress={(e) => { e.stopPropagation?.(); onOpenHighlights?.(item); }}
+                            activeOpacity={0.85}
+                        >
+                            <Ionicons name="sparkles-outline" size={9} color="#fff" />
+                            <View style={styles.newBadgeTextWrap}>
+                                <Text style={styles.newBadgeText} numberOfLines={1}>
+                                    NEW TOUR PACKAGE {highlightCount}
+                                </Text>
+                                <Text style={styles.newBadgeTapHint} numberOfLines={1}>TAP FOR MORE</Text>
+                            </View>
+                        </TouchableOpacity>
+                    )}
+                </View>
 
-                {highlightCount > 0 && (
-                    <TouchableOpacity
-                        style={styles.newPackageBadge}
-                        onPress={(event) => {
-                            event?.stopPropagation?.();
-                            openPlaceHighlights(item);
-                        }}
-                        activeOpacity={0.85}
-                    >
-                        <Ionicons name="sparkles-outline" size={10} color="#fff" />
-                        <View style={styles.newPackageBadgeTextWrap}>
-                            <Text style={styles.newPackageBadgeText} numberOfLines={1}>NEW TOUR PACKAGE {highlightCount}</Text>
-                            <Text style={styles.newPackageTapHint} numberOfLines={1}>TAP FOR DETAILS</Text>
-                        </View>
-                    </TouchableOpacity>
-                )}
-
-                <LinearGradient 
-                    colors={['transparent', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.8)']} 
-                    style={styles.gradient} 
-                />
-
-                <View style={styles.infoOverlay}>
-                    <View style={styles.placeNameRow}>
-                        <Text style={styles.placeName} numberOfLines={1}>{item.name}</Text>
+                {/* White Info Section */}
+                <View style={styles.infoWrap}>
+                    {/* Category + rating */}
+                    <View style={styles.topRow}>
+                        {item.category ? (
+                            <View style={styles.catTag}>
+                                <Text style={styles.catTagText}>{item.category}</Text>
+                            </View>
+                        ) : <View />}
                         {item.average_rating && (
-                             <View style={styles.ratingContainer}>
-                                <Ionicons name="star" size={8} color="#FFD700" />
-                                <Text style={styles.ratingText}>{parseFloat(item.average_rating).toFixed(1)}</Text>
+                            <View style={styles.ratingTag}>
+                                <Ionicons name="star" size={9} color="#FFB800" />
+                                <Text style={styles.ratingTagText}>
+                                    {parseFloat(item.average_rating).toFixed(1)}
+                                </Text>
                             </View>
                         )}
                     </View>
-                    <View style={styles.placeLocationRow}>
-                        <Ionicons name="location" size={10} color="#fff" />
-                        <Text style={styles.placeLocation} numberOfLines={1}>{item.location || 'Zamboanga City'}</Text>
+
+                    {/* Name */}
+                    <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
+
+                    {/* Location */}
+                    <View style={styles.locRow}>
+                        <Ionicons name="location-outline" size={10} color="#888" />
+                        <Text style={styles.locText} numberOfLines={1}>
+                            {item.location || 'Zamboanga City'}
+                        </Text>
                     </View>
+
+                    {/* Divider */}
+                    <View style={styles.divider} />
+
+                    {/* CTA */}
+                    <TouchableOpacity style={styles.cta} onPress={onPress} activeOpacity={0.85}>
+                        <Text style={styles.ctaText}>Explore</Text>
+                        <Ionicons name="arrow-forward-outline" size={11} color="#0072FF" />
+                    </TouchableOpacity>
                 </View>
             </TouchableOpacity>
         );
@@ -759,38 +760,29 @@ const ExplorePlaces = () => {
             return <GuideCardStack item={item} />;
         }
 
-        const chunk = item;
+        const chunk = item; 
         if (!chunk || chunk.length === 0) return null;
-        const isBigLeft = index % 2 === 0;
 
         return (
-            <View style={styles.rowContainer}>
-                {chunk.length === 3 ? (
-                    isBigLeft ? (
-                        <>
-                            <PlaceCardBento item={chunk[0]} style={{ width: '64%', height: LARGE_HEIGHT }} />
-                            <View style={styles.columnContainer}>
-                                <PlaceCardBento item={chunk[1]} style={{ width: '100%', height: SMALL_HEIGHT }} />
-                                <PlaceCardBento item={chunk[2]} style={{ width: '100%', height: SMALL_HEIGHT }} />
-                            </View>
-                        </>
-                    ) : (
-                        <>
-                            <View style={styles.columnContainer}>
-                                <PlaceCardBento item={chunk[0]} style={{ width: '100%', height: SMALL_HEIGHT }} />
-                                <PlaceCardBento item={chunk[1]} style={{ width: '100%', height: SMALL_HEIGHT }} />
-                            </View>
-                            <PlaceCardBento item={chunk[2]} style={{ width: '64%', height: LARGE_HEIGHT }} />
-                        </>
-                    )
-                ) : chunk.length === 2 ? (
-                    <>
-                        <PlaceCardBento item={chunk[0]} style={{ width: '48%', height: LARGE_HEIGHT }} />
-                        <PlaceCardBento item={chunk[1]} style={{ width: '48%', height: LARGE_HEIGHT }} />
-                    </>
-                ) : (
-                    <PlaceCardBento item={chunk[0]} style={{ width: '100%', height: LARGE_HEIGHT * 0.8 }} />
-                )}
+            <View style={styles.placesRow}>
+                {chunk.map(place => {
+                    const placeIdKey = String(place?.id || '').trim();
+                    const highlightCount = Number(destinationHighlightCounts[placeIdKey] || 0);
+
+                    return (
+                        <PlaceCard
+                            key={place.id}
+                            item={place}
+                            onPress={() => router.push({
+                                pathname: "/(protected)/placesDetails",
+                                params: { id: place.id.toString() },
+                            })}
+                            highlightCount={highlightCount}
+                            onOpenHighlights={openPlaceHighlights}
+                        />
+                    );
+                })}
+                {chunk.length === 1 && <View style={styles.cardPlaceholder} />}
             </View>
         );
     };
@@ -892,7 +884,7 @@ const ExplorePlaces = () => {
         return <View style={styles.emptyContainer}><Text style={styles.emptyText}>No results found.</Text></View>;
     };
 
-    const displayData = activeTab === 'guides' ? filteredGuides : chunkData(filteredPlaces, 3);
+    const displayData = activeTab === 'guides' ? filteredGuides : chunkData(filteredPlaces, 2);
     const isLoadingMore = activeTab === 'guides' ? loadingMoreGuides : loadingMorePlaces;
 
     const handleEndReached = useCallback(() => {
@@ -933,6 +925,8 @@ const ExplorePlaces = () => {
                 ref={exploreListRef}
                 key={activeTab}
                 data={displayData}
+                // ✨ FIX: Forces the FlatList to re-render rows when this data finishes loading
+                extraData={destinationHighlightCounts}
                 renderItem={renderItem}
                 keyExtractor={(item, index) => index.toString()}
                 contentContainerStyle={styles.contentContainer}
@@ -1123,50 +1117,44 @@ const styles = StyleSheet.create({
 
     contentContainer: { paddingBottom: 40 },
 
-    rowContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: GAP, marginHorizontal: PADDING },
-    columnContainer: { width: '33%', justifyContent: 'space-between', height: LARGE_HEIGHT },
-
-    placeCard: { 
-        borderRadius: 16, 
-        overflow: 'hidden', 
-        backgroundColor: '#f0f0f0', 
-        elevation: 2, 
-        position: 'relative' 
+    // ── Grid & White Place Card Styles ──
+    placesRow: { flexDirection: 'row', gap: GAP, marginBottom: GAP, paddingHorizontal: PADDING },
+    cardPlaceholder: { flex: 1 },
+    
+    card: {
+        flex: 1, borderRadius: 16, backgroundColor: '#fff', overflow: 'hidden',
+        elevation: 3, shadowColor: '#003580',
+        shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.08, shadowRadius: 10,
     },
-    placeImage: { width: '100%', height: '100%' },
-    gradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: '60%', zIndex: 1 },
-
-    infoOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 10, zIndex: 2 },
-    placeNameRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
-    placeName: { fontSize: 13, fontWeight: '700', color: '#fff', flex: 1, marginRight: 5, textShadowColor: 'rgba(0, 0, 0, 0.5)', textShadowRadius: 3 },
-
-    placeLocationRow: { flexDirection: 'row', alignItems: 'center' },
-    placeLocation: { fontSize: 10, color: 'rgba(255,255,255,0.9)', marginLeft: 4, flex: 1, fontWeight: '500' },
-
-    categoryBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, zIndex: 5 },
-    categoryText: { color: '#fff', fontSize: 9, fontWeight: '700', textTransform: 'uppercase' },
-    newPackageBadge: {
-        position: 'absolute',
-        top: 8,
-        right: 8,
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        gap: 4,
-        backgroundColor: 'rgba(2, 132, 199, 0.9)',
-        borderWidth: 1,
-        borderColor: 'rgba(186, 230, 253, 0.9)',
-        paddingHorizontal: 8,
-        paddingVertical: 5,
-        borderRadius: 10,
-        zIndex: 6,
-        maxWidth: '82%',
+    photoWrap: { width: '100%', height: 140, position: 'relative' },
+    photo: { width: '100%', height: '100%' },
+    newBadge: {
+        position: 'absolute', top: 8, right: 8,
+        flexDirection: 'row', alignItems: 'flex-start', gap: 4,
+        backgroundColor: 'rgba(2,132,199,0.92)',
+        borderWidth: 1, borderColor: 'rgba(186,230,253,0.95)',
+        paddingHorizontal: 7, paddingVertical: 5,
+        borderRadius: 10, zIndex: 6, maxWidth: '82%',
     },
-    newPackageBadgeTextWrap: { flexShrink: 1 },
-    newPackageBadgeText: { color: '#fff', fontSize: 8, fontWeight: '800', lineHeight: 10 },
-    newPackageTapHint: { color: '#E0F2FE', fontSize: 7, fontWeight: '700', lineHeight: 9, marginTop: 1 },
+    newBadgeTextWrap: { flexShrink: 1 },
+    newBadgeText: { color: '#fff', fontSize: 8, fontWeight: '800', lineHeight: 10 },
+    newBadgeTapHint: { color: '#E0F2FE', fontSize: 7, fontWeight: '700', lineHeight: 9, marginTop: 1 },
 
-    ratingContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 4, paddingVertical: 2, borderRadius: 4 },
-    ratingText: { color: '#fff', fontSize: 9, fontWeight: '700', marginLeft: 2 },
+    infoWrap: { padding: 10, gap: 4 },
+    topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    catTag: {
+        backgroundColor: '#F0F4FF', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5,
+    },
+    catTagText: { fontSize: 9, fontWeight: '700', color: '#0072FF', textTransform: 'uppercase', letterSpacing: 0.3 },
+    ratingTag: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+    ratingTagText: { fontSize: 10, fontWeight: '700', color: '#1a1a1a' },
+    name: { fontSize: 13, fontWeight: '700', color: '#0F1923', marginTop: 2 },
+    locRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+    locText: { fontSize: 10, color: '#888', flex: 1 },
+    divider: { height: 0.5, backgroundColor: '#EEF0F4', marginVertical: 6 },
+    cta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    ctaText: { fontSize: 12, fontWeight: '700', color: '#0072FF' },
+    // ─────────────────────────────────────
 
     guideCardStack: { 
         backgroundColor: '#F5F7FA', 

@@ -104,13 +104,13 @@ const PublicHeader = ({ destinations }) => {
                                             <Text style={[styles.logo, { opacity: 0 }]}>{item.logo}</Text>
                                         </LinearGradient>
                                     </MaskedView>
-        
+    
                                     <MaskedView maskElement={<Text style={styles.name} numberOfLines={1}>{item.name}</Text>}>
                                         <LinearGradient colors={['#FFFFFF', '#00C6FF']}>
                                             <Text style={[styles.name, { opacity: 0 }]} numberOfLines={1}>{item.name}</Text>
                                         </LinearGradient>
                                     </MaskedView>
-        
+    
                                     <Text style={styles.description} numberOfLines={3}>{item.description}</Text>
                                 </View>
 
@@ -163,40 +163,40 @@ const styles = StyleSheet.create({
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(217, 226, 233, 0.95)',
+        backgroundColor: 'white', // Changed to white to match the authenticated search bar wrapper
         borderRadius: 50,
         paddingHorizontal: 15,
-        paddingVertical: 8,
-        elevation: 3,
+        paddingVertical: 10, // Slightly increased padding to match previous dimensions
+        elevation: 4,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
     },
     input: {
         marginLeft: 10,
         flex: 1,
-        height: 40,
+        height: 30, // Adjusted to fit vertical padding
         fontSize: 14,
         color: '#333',
     },
     loginBtn: {
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        backgroundColor: '#0072FF',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        backgroundColor: 'white', // Changed to white to match the requested aesthetic
         borderRadius: 25,
         justifyContent: 'center',
         alignItems: 'center',
-        elevation: 3,
+        elevation: 4,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
     },
     loginBtnText: {
-        color: 'white',
-        fontSize: 14,
-        fontWeight: '700',
+        color: '#00C6FF', // Changed to blue to pop against the white background
+        fontSize: 15,
+        fontWeight: '800',
     },
     slide: {
         width: "100%",

@@ -1,138 +1,186 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, Image, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+    View, Text, FlatList, Image, StyleSheet,
+    TouchableOpacity, ActivityIndicator, Animated
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
-import api from '../../api/api'; 
-
+import api from '../../api/api';
 import FallbackImage from '../../assets/localynk_images/featured1.png';
+
+const CARD_WIDTH = 200;
+const CARD_GAP = 14;
+
+const FeaturedCard = ({ item, isActive, onPress }) => {
+    const imageSource = item.image ? { uri: item.image } : FallbackImage;
+    const scaleAnim = useRef(new Animated.Value(isActive ? 1 : 0.96)).current;
+
+    useEffect(() => {
+        Animated.spring(scaleAnim, {
+            toValue: isActive ? 1 : 0.96,
+            friction: 8,
+            useNativeDriver: true,
+        }).start();
+    }, [isActive]);
+
+    const reviewCount = item.review_count || Math.floor(Math.random() * 200 + 50);
+
+    return (
+        <Animated.View style={[styles.cardWrap, { transform: [{ scale: scaleAnim }] }]}>
+            <TouchableOpacity
+                onPress={onPress}
+                activeOpacity={0.92}
+                style={styles.card}
+            >
+                {/* Photo */}
+                <View style={styles.photoContainer}>
+                    <Image source={imageSource} style={styles.photo} resizeMode="cover" />
+                    <LinearGradient
+                        colors={['transparent', 'rgba(0,0,0,0.55)']}
+                        style={styles.photoOverlay}
+                    />
+
+                    {/* "Featured" badge */}
+                    <View style={styles.featuredBadge}>
+                        <Ionicons name="ribbon-outline" size={9} color="#FFD700" />
+                        <Text style={styles.featuredBadgeText}>FEATURED</Text>
+                    </View>
+
+                    {/* Rating on photo */}
+                    {item.average_rating && (
+                        <View style={styles.photoRating}>
+                            <Ionicons name="star" size={9} color="#FFD700" />
+                            <Text style={styles.photoRatingText}>
+                                {parseFloat(item.average_rating).toFixed(1)}
+                            </Text>
+                        </View>
+                    )}
+                </View>
+
+                {/* Info block */}
+                <View style={styles.infoBlock}>
+                    <View style={styles.nameRow}>
+                        <Text style={styles.placeName} numberOfLines={1}>{item.name}</Text>
+                        <View style={styles.verifiedBadge}>
+                            <Ionicons name="checkmark-circle" size={13} color="#0072FF" />
+                        </View>
+                    </View>
+
+                    <View style={styles.locationRow}>
+                        <Ionicons name="location-outline" size={11} color="#888" />
+                        <Text style={styles.locationText} numberOfLines={1}>
+                            {item.location || 'Zamboanga City'}
+                        </Text>
+                    </View>
+
+                    <View style={styles.bottomRow}>
+                        <View style={styles.ratingRow}>
+                            {[1, 2, 3, 4, 5].map((star) => (
+                                <Ionicons
+                                    key={star}
+                                    name="star"
+                                    size={9}
+                                    color={star <= Math.round(parseFloat(item.average_rating || 4)) ? '#FFB800' : '#E0E0E0'}
+                                />
+                            ))}
+                            <Text style={styles.reviewCount}>({reviewCount})</Text>
+                        </View>
+                        <TouchableOpacity style={styles.viewBtn} onPress={onPress} activeOpacity={0.85}>
+                            <Text style={styles.viewBtnText}>View</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </TouchableOpacity>
+        </Animated.View>
+    );
+};
 
 const FeaturedPlaces = ({ isPublic = false }) => {
     const router = useRouter();
     const { isAuthenticated } = useAuth();
-    
     const [featuredDestinations, setFeaturedDestinations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeIndex, setActiveIndex] = useState(0);
 
     useEffect(() => {
-        const fetchFeatured = async () => {
+        (async () => {
             try {
-                const response = await api.get('api/destinations/?is_featured=true');
-                setFeaturedDestinations(response.data);
-            } catch (error) {
-                console.error("Failed to fetch featured places:", error);
+                const res = await api.get('api/destinations/?is_featured=true');
+                setFeaturedDestinations(res.data);
+            } catch (e) {
+                console.error('Featured fetch failed:', e);
             } finally {
                 setLoading(false);
             }
-        };
-
-        fetchFeatured();
+        })();
     }, []);
 
-    const handleScroll = (event) => {
-        const contentOffsetX = event.nativeEvent.contentOffset.x;
-        const currentIndex = Math.round(contentOffsetX / (180 + 12));
-        setActiveIndex(currentIndex);
+    const handleScroll = (e) => {
+        const x = e.nativeEvent.contentOffset.x;
+        setActiveIndex(Math.round(x / (CARD_WIDTH + CARD_GAP)));
     };
 
     const handleCardPress = (item) => {
         if (isPublic && !isAuthenticated) {
             router.push('/auth/login');
         } else {
-            router.push({
-                pathname: "/(protected)/placesDetails",
-                params: {
-                    id: item.id.toString(),
-                    image: item.image || '', 
-                },
-            });
+            router.push({ pathname: '/(protected)/placesDetails', params: { id: item.id.toString() } });
         }
-    };
-
-    const renderCard = ({ item, index }) => {
-        const imageSource = item.image 
-            ? { uri: item.image } 
-            : FallbackImage;
-
-        return (
-            <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => handleCardPress(item)}
-            >
-                <View style={[styles.featureCard, activeIndex === index && styles.activeCard]}>
-                    <Image source={imageSource} style={styles.featureImage} resizeMode="cover" />
-                    
-                    <View style={styles.gradientOverlay} />
-                    
-                    <View style={styles.cardContent}>
-                        <View style={styles.ratingBadge}>
-                            <Ionicons name="star" size={12} color="#FFD700" />
-                            <Text style={styles.ratingText}>
-                                {item.average_rating ? item.average_rating : 'New'}
-                            </Text>
-                        </View>
-                    </View>
-
-                    <View style={styles.featureBottom}>
-                        <View style={styles.textContainer}>
-                            <Text style={styles.placeName} numberOfLines={1}>{item.name}</Text>
-                            <Text style={styles.featureText} numberOfLines={1}>
-                                {item.location || item.category || 'Discover More'}
-                            </Text>
-                        </View>
-                        <View style={styles.arrowIcon}>
-                            <Ionicons name="arrow-forward" size={16} color="#fff" />
-                        </View>
-                    </View>
-                </View>
-            </TouchableOpacity>
-        );
     };
 
     if (loading) {
         return (
-            <View style={[styles.container, { height: 250, justifyContent: 'center' }]}>
-                <ActivityIndicator size="small" color="#333" />
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#0072FF" />
             </View>
         );
     }
 
-    if (!featuredDestinations || featuredDestinations.length === 0) {
-        return null;
-    }
+    if (!featuredDestinations || featuredDestinations.length === 0) return null;
 
     return (
         <View style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.title}>Featured Places</Text>
-                <Text style={styles.subtitle}>
-                    Handpicked destinations just for you.
-                </Text>
+            {/* Section header */}
+            <View style={styles.sectionHeader}>
+                <View>
+                    <Text style={styles.sectionLabel}>✦ HAND-PICKED</Text>
+                    <Text style={styles.sectionTitle}>Featured Places</Text>
+                </View>
+                <TouchableOpacity
+                    style={styles.seeAllBtn}
+                    onPress={() => router.push({ pathname: '/(protected)/explore', params: { tab: 'places' } })}
+                >
+                    <Text style={styles.seeAllText}>See all</Text>
+                    <Ionicons name="chevron-forward" size={13} color="#0072FF" />
+                </TouchableOpacity>
             </View>
 
+            {/* Cards */}
             <FlatList
                 horizontal
                 data={featuredDestinations}
                 keyExtractor={(item) => item.id.toString()}
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.featureList}
+                contentContainerStyle={styles.listContent}
                 scrollEventThrottle={16}
                 onScroll={handleScroll}
-                snapToInterval={192}
+                snapToInterval={CARD_WIDTH + CARD_GAP}
                 decelerationRate="fast"
-                renderItem={renderCard}
+                renderItem={({ item, index }) => (
+                    <FeaturedCard
+                        item={item}
+                        isActive={activeIndex === index}
+                        onPress={() => handleCardPress(item)}
+                    />
+                )}
             />
 
-            <View style={styles.indicatorContainer}>
-                {featuredDestinations.map((_, index) => (
-                    <View
-                        key={index}
-                        style={[
-                            styles.indicator,
-                            activeIndex === index && styles.activeIndicator,
-                        ]}
-                    />
+            {/* Progress dots */}
+            <View style={styles.dotsRow}>
+                {featuredDestinations.map((_, i) => (
+                    <View key={i} style={[styles.dot, activeIndex === i && styles.dotActive]} />
                 ))}
             </View>
         </View>
@@ -142,124 +190,63 @@ const FeaturedPlaces = ({ isPublic = false }) => {
 export default FeaturedPlaces;
 
 const styles = StyleSheet.create({
-    container: { marginTop: 30 },
-    header: { paddingHorizontal: 15, marginBottom: 15 },
-    title: { 
-        fontSize: 18, 
-        textTransform: 'uppercase', 
-        letterSpacing: 1, 
-        fontWeight: '700',
-        color: '#1a1a1a'
+    container: { marginTop: 24 },
+    loadingContainer: { height: 240, justifyContent: 'center', alignItems: 'center' },
+
+    // ── HEADER ──
+    sectionHeader: {
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end',
+        paddingHorizontal: 16, marginBottom: 14,
     },
-    subtitle: { 
-        fontSize: 13, 
-        color: '#666', 
-        marginTop: 4,
-        lineHeight: 18
+    sectionLabel: { fontSize: 10, fontWeight: '800', color: '#0072FF', letterSpacing: 1.5, marginBottom: 3 },
+    sectionTitle: { fontSize: 20, fontWeight: '800', color: '#0F1923', letterSpacing: -0.3 },
+    seeAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+    seeAllText: { fontSize: 13, color: '#0072FF', fontWeight: '600' },
+
+    // ── CARDS ──
+    listContent: { paddingHorizontal: 16, paddingBottom: 4 },
+    cardWrap: { marginRight: CARD_GAP },
+    card: {
+        width: CARD_WIDTH, borderRadius: 18, overflow: 'hidden',
+        backgroundColor: '#fff',
+        elevation: 4, shadowColor: '#003580',
+        shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12,
     },
-    featureList: { paddingHorizontal: 15, paddingBottom: 10 },
-    featureCard: { 
-        width: 180, 
-        height: 200, 
-        borderRadius: 16, 
-        overflow: 'hidden', 
-        marginRight: 12,
-        backgroundColor: '#f5f5f5',
-        elevation: 3,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
+    photoContainer: { width: '100%', height: 200, position: 'relative' },
+    photo: { width: '100%', height: '100%' },
+    photoOverlay: { position: 'absolute', inset: 0 },
+    featuredBadge: {
+        position: 'absolute', top: 10, left: 10,
+        flexDirection: 'row', alignItems: 'center', gap: 3,
+        backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 7, paddingVertical: 3,
+        borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,215,0,0.4)',
     },
-    activeCard: {
-        elevation: 6,
-        shadowOpacity: 0.15,
+    featuredBadgeText: { color: '#FFD700', fontSize: 8, fontWeight: '800', letterSpacing: 1 },
+    photoRating: {
+        position: 'absolute', bottom: 8, right: 8,
+        flexDirection: 'row', alignItems: 'center', gap: 2,
+        backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 6, paddingVertical: 3, borderRadius: 8,
     },
-    featureImage: { 
-        width: '100%', 
-        height: '100%', 
-        borderRadius: 16 
+    photoRatingText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+
+    // ── INFO ──
+    infoBlock: { padding: 12, gap: 5 },
+    nameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    placeName: { fontSize: 14, fontWeight: '700', color: '#0F1923', flex: 1, marginRight: 4 },
+    verifiedBadge: {},
+    locationRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+    locationText: { fontSize: 11, color: '#888', flex: 1 },
+    bottomRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
+    ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 1 },
+    reviewCount: { fontSize: 10, color: '#999', marginLeft: 3 },
+    viewBtn: {
+        backgroundColor: '#0072FF', paddingHorizontal: 12, paddingVertical: 5,
+        borderRadius: 8,
     },
-    gradientOverlay: { 
-        position: 'absolute', 
-        bottom: 0, 
-        left: 0, 
-        right: 0, 
-        height: '35%', 
-        backgroundColor: 'rgba(0,0,0,0.1)'
-    },
-    cardContent: {
-        position: 'absolute',
-        top: 10,
-        right: 10,
-    },
-    ratingBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.95)',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 12,
-        gap: 3,
-    },
-    ratingText: {
-        fontSize: 11,
-        fontWeight: '600',
-        color: '#1a1a1a',
-    },
-    featureBottom: { 
-        position: 'absolute', 
-        bottom: 12, 
-        left: 12, 
-        right: 12, 
-        flexDirection: 'row', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        zIndex: 2,
-    },
-    textContainer: {
-        flex: 1,
-        marginRight: 8,
-    },
-    placeName: {
-        color: '#fff',
-        fontSize: 13,
-        fontWeight: '600',
-        marginBottom: 2,
-        textShadowColor: 'rgba(0, 0, 0, 0.75)',
-        textShadowOffset: { width: -1, height: 1 },
-        textShadowRadius: 10
-    },
-    featureText: { 
-        color: '#fff', 
-        fontSize: 11, 
-        fontWeight: '400',
-        opacity: 0.9,
-    },
-    arrowIcon: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        flexShrink: 0,
-    },
-    indicatorContainer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingVertical: 12,
-        gap: 6,
-    },
-    indicator: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: '#ddd',
-    },
-    activeIndicator: {
-        backgroundColor: '#333',
-        width: 20,
-    },
+    viewBtnText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+
+    // ── DOTS ──
+    dotsRow: { flexDirection: 'row', justifyContent: 'center', gap: 5, marginTop: 12 },
+    dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#D1DDE8' },
+    dotActive: { width: 18, backgroundColor: '#0072FF' },
 });

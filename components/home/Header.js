@@ -91,7 +91,7 @@ const Header = ({ destinations = [], unreadCount = 0 }) => {
                     style={styles.notificationBtn}
                     onPress={handleNotificationPress}
                 >
-                    <Ionicons name='notifications' size={24} color="white" />
+                    <Ionicons name='notifications' size={24} color="#00C6FF" />
                     {unreadCount > 0 && (
                         <View style={styles.notificationBadge}>
                             <Text style={styles.badgeText}>
@@ -120,6 +120,7 @@ const Header = ({ destinations = [], unreadCount = 0 }) => {
                                 style={styles.slide}
                                 resizeMode="cover"
                                 fadeDuration={300}
+                                blurRadius={2}
                             >
                                 <LinearGradient
                                     colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.7)']}
@@ -148,7 +149,7 @@ const Header = ({ destinations = [], unreadCount = 0 }) => {
                                         <Text style={styles.description} numberOfLines={2}>
                                             {item.location}
                                         </Text>
-                                        <Text style={{color: "white", fontSize: 11}} numberOfLines={2}>
+                                        <Text style={{color: "white", fontSize: 13}} numberOfLines={2}>
                                             {item.description}
                                         </Text>
                                     </View>
@@ -218,7 +219,7 @@ const styles = StyleSheet.create({
         width: 50,
         height: 50,
         borderRadius: 25,
-        backgroundColor: '#00C6FF',
+        backgroundColor: 'white', // Changed from '#00C6FF' to 'white'
         justifyContent: 'center',
         alignItems: 'center',
         elevation: 3,
