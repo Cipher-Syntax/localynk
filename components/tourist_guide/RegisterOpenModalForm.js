@@ -368,7 +368,7 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
                 onChangeText={(v) => handleInputChange("email", v)}
             />
 
-            <Text style={styles.label}>Mobile Number</Text>
+            <Text style={styles.label}>Mobile Number </Text>
             <TextInput
                 style={styles.input}
                 placeholder="0912 345 6789"

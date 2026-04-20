@@ -28,7 +28,7 @@ const PendingGuide = () => {
                     </Text>
                 </View>
 
-                <TouchableOpacity style={styles.contactButton} onPress={router.push({pathname: '(protected)/support.js'})}>
+                <TouchableOpacity style={styles.contactButton} onPress={router.push({pathname: '/(protected)/support'})}>
                     <Ionicons name="help-circle-outline" size={20} color="#fff" />
                     <Text style={styles.contactButtonText}>Contact Support</Text>
                 </TouchableOpacity>

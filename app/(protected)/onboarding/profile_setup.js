@@ -21,6 +21,7 @@ import {
 } from '../../../utils/validation';
 import { findCoordinatesForLocation } from '../../../utils/locationSearch';
 import ProfileLocationMapPicker from '../../../components/location/ProfileLocationMapPicker';
+import LocationSearchBar from '../../../components/location/LocationSearchBar';
 
 const ProfileSetupScreen = () => {
     const { user, refreshUser } = useAuth(); 
@@ -478,27 +479,41 @@ const ProfileSetupScreen = () => {
                             {errors.phone_number && <Text style={styles.errorText}>{errors.phone_number.message}</Text>}
 
                             <Text style={styles.label}>Location</Text>
-                            <Controller
-                                control={control}
-                                name="location"
-                                rules={{ required: 'Location is required' }}
-                                render={({ field: { onChange, onBlur, value } }) => (
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="City, Province"
-                                        value={value}
-                                        onChangeText={(text) => {
-                                            onChange(text);
-                                            scheduleCoordinatesSyncFromLocation(text);
-                                        }}
-                                        onBlur={() => {
-                                            onBlur();
-                                            void syncCoordinatesFromLocation(value);
-                                        }}
-                                        placeholderTextColor="#6B7280"
-                                    />
-                                )}
-                            />
+                            <View style={{ zIndex: 9999, elevation: 9999, position: 'relative' }}>
+                                <Controller
+                                    control={control}
+                                    name="location"
+                                    rules={{
+                                        validate: (value) => {
+                                            const trimmed = String(value || '').trim();
+                                            if (!trimmed) return 'Location is required';
+                                            return true;
+                                        }
+                                    }}
+                                    render={({ field: { onChange, onBlur, value } }) => (
+                                        <LocationSearchBar
+                                            value={value}
+                                            onChangeText={(text) => {
+                                                onChange(text);
+                                                scheduleCoordinatesSyncFromLocation(text);
+
+                                                if (!String(text || '').trim()) {
+                                                    clearCoordinatePair();
+                                                }
+                                            }}
+                                            onBlur={(text) => {
+                                                onBlur();
+                                                void syncCoordinatesFromLocation(text);
+                                            }}
+                                            onSelectLocation={(loc) => {
+                                                onChange(loc.address);
+                                                setCoordinatePair(loc.latitude, loc.longitude);
+                                            }}
+                                            placeholder="Search for a location..."
+                                        />
+                                    )}
+                                />
+                            </View>
                             {errors.location && <Text style={styles.errorText}>{errors.location.message}</Text>}
 
                             <ProfileLocationMapPicker
