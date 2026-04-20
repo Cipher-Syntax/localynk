@@ -143,40 +143,46 @@ const BookingChoice = () => {
                 </View>
 
                 <View style={styles.cardsContainer}>
-                    <OptionCard
-                        icon="👤"
-                        title="Local Guide"
-                        description="One-on-one personalized journey"
-                        features={[
-                            'Direct contact with your guide',
-                            'Fully flexible itinerary',
-                            'Authentic local stories',
-                            'Customized to your pace'
-                        ]}
-                        isSelected={selectedOption === 'Custom Local Guide'}
-                        accentColor="#0066ff"
-                        gradient={['#e8f1ff', '#f5f9ff']}
-                        buttonText="Choose This"
-                        onButtonPress={handleCustomGuide}
-                    />
 
-                    <OptionCard
-                        icon="🏢"
-                        title="Tour Agency"
-                        description="Curated tours by verified agencies"
-                        features={[
-                            'Verified & reviewed agencies',
-                            'Professional guide assignment',
-                            'Group-friendly options',
-                            'Structured & organized tours'
-                        ]}
-                        isSelected={selectedOption === 'Professional Agency'}
-                        accentColor="#00c853"
-                        gradient={['#e8f5e9', '#f1f8f5']}
-                        buttonText="Choose This"
-                        onButtonPress={handleAgencyBooking}
-                    />
+                    {!isFoodCategory && (
+                        <>
+                            <OptionCard
+                                icon="👤"
+                                title="Local Guide"
+                                description="One-on-one personalized journey"
+                                features={[
+                                    'Direct contact with your guide',
+                                    'Fully flexible itinerary',
+                                    'Authentic local stories',
+                                    'Customized to your pace'
+                                ]}
+                                isSelected={selectedOption === 'Local Guide'}
+                                accentColor="#0066ff"
+                                gradient={['#e8f1ff', '#f5f9ff']}
+                                buttonText="Choose This"
+                                onButtonPress={handleCustomGuide}
+                            />
 
+                            <OptionCard
+                                icon="🏢"
+                                title="Tour Agency"
+                                description="Curated tours by verified agencies"
+                                features={[
+                                    'Verified & reviewed agencies',
+                                    'Professional guide assignment',
+                                    'Group-friendly options',
+                                    'Structured & organized tours'
+                                ]}
+                                isSelected={selectedOption === 'Professional Agency'}
+                                accentColor="#00c853"
+                                gradient={['#e8f5e9', '#f1f8f5']}
+                                buttonText="Choose This"
+                                onButtonPress={handleAgencyBooking}
+                            />
+                        </>
+                    )}
+
+                    {/* SHOW ONLY IF FOOD */}
                     {isFoodCategory && (
                         <OptionCard
                             icon="🍽️"
@@ -195,6 +201,7 @@ const BookingChoice = () => {
                             onButtonPress={handleSkipProvider}
                         />
                     )}
+
                 </View>
 
                 <View style={styles.comparisonBox}>
