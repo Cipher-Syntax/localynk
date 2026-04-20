@@ -191,6 +191,7 @@ export const findCoordinatesForLocation = async (locationText, { limit = 1 } = {
                 q: query,
                 limit,
             },
+            skipAuth: true,
         });
 
         const results = Array.isArray(response.data) ? response.data : [];

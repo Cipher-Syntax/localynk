@@ -8,12 +8,14 @@ import ApplicationConfirmationModal from "./ApplicationConfirmationModal";
 import api from '../../api/api'; 
 import { useAuth } from "../../context/AuthContext";
 import { formatPHPhoneLocal, normalizePHPhone } from '../../utils/phoneNumber';
+import { findCoordinatesForLocation } from '../../utils/locationSearch';
 import ProfileLocationMapPicker from '../location/ProfileLocationMapPicker';
 import LocationSearchBar from '../location/LocationSearchBar';
 
 const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
     const { user } = useAuth();
     const scrollViewRef = useRef(null);
+    const locationLookupRef = useRef({ timerId: null, requestId: 0 });
 
     const getInitialValue = (key) => user?.[key] || "";
     
@@ -41,20 +43,40 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
     });
 
     useEffect(() => {
+        const lookupRefSnapshot = locationLookupRef.current;
+
+        return () => {
+            if (lookupRefSnapshot.timerId) {
+                clearTimeout(lookupRefSnapshot.timerId);
+            }
+        };
+    }, []);
+
+    useEffect(() => {
         if (!isModalOpen) return;
 
         setForm((prev) => ({
             ...prev,
-            firstName: user?.first_name || prev.firstName,
-            lastName: user?.last_name || prev.lastName,
+            firstName: user?.first_name ?? prev.firstName,
+            lastName: user?.last_name ?? prev.lastName,
             middleInitial: user?.middle_name ? user.middle_name.charAt(0).toUpperCase() : prev.middleInitial,
-            email: user?.email || prev.email,
-            phone: formatPHPhoneLocal(user?.phone_number || prev.phone),
-            location: user?.location || prev.location,
+            email: user?.email ?? prev.email,
+            phone: formatPHPhoneLocal(user?.phone_number ?? prev.phone),
+            location: user?.location ?? prev.location,
             latitude: user?.latitude ?? prev.latitude,
             longitude: user?.longitude ?? prev.longitude,
         }));
-    }, [isModalOpen, user]);
+    }, [
+        isModalOpen,
+        user?.first_name,
+        user?.last_name,
+        user?.middle_name,
+        user?.email,
+        user?.phone_number,
+        user?.location,
+        user?.latitude,
+        user?.longitude,
+    ]);
 
     const pickImage = async (field) => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -88,9 +110,78 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
         setForm((prev) => ({ ...prev, latitude, longitude }));
     };
 
+    const hasCoordinatePair = (latitudeValue, longitudeValue) => {
+        const latitude = Number.parseFloat(latitudeValue);
+        const longitude = Number.parseFloat(longitudeValue);
+        return Number.isFinite(latitude) && Number.isFinite(longitude);
+    };
+
+    const clearCoordinatePair = () => {
+        setCoordinatePair(null, null);
+    };
+
+    const syncCoordinatesFromLocation = async (locationText) => {
+        if (locationLookupRef.current.timerId) {
+            clearTimeout(locationLookupRef.current.timerId);
+            locationLookupRef.current.timerId = null;
+        }
+
+        const requestId = locationLookupRef.current.requestId + 1;
+        locationLookupRef.current.requestId = requestId;
+
+        const query = String(locationText || '').trim();
+        if (!query) {
+            clearCoordinatePair();
+            return null;
+        }
+
+        if (query.length < 2) {
+            return null;
+        }
+
+        const resolved = await findCoordinatesForLocation(query);
+        if (locationLookupRef.current.requestId !== requestId) return null;
+        if (!resolved) return null;
+
+        setCoordinatePair(resolved.latitude, resolved.longitude);
+        return resolved;
+    };
+
+    const scheduleCoordinatesSyncFromLocation = (locationText) => {
+        if (locationLookupRef.current.timerId) {
+            clearTimeout(locationLookupRef.current.timerId);
+            locationLookupRef.current.timerId = null;
+        }
+
+        const query = String(locationText || '').trim();
+        const requestId = locationLookupRef.current.requestId + 1;
+        locationLookupRef.current.requestId = requestId;
+
+        if (!query) {
+            clearCoordinatePair();
+            return;
+        }
+
+        if (query.length < 2) {
+            return;
+        }
+
+        locationLookupRef.current.timerId = setTimeout(async () => {
+            const resolved = await findCoordinatesForLocation(query);
+            if (locationLookupRef.current.requestId !== requestId) return;
+            if (!resolved) return;
+
+            setCoordinatePair(resolved.latitude, resolved.longitude);
+        }, 280);
+    };
+
     const validateStep = (step) => {
         if (step === 1) {
-            if (!form.firstName || !form.lastName || !form.location) {
+            const firstName = String(form.firstName || '').trim();
+            const lastName = String(form.lastName || '').trim();
+            const location = String(form.location || '').trim();
+
+            if (!firstName || !lastName || !location) {
                 Alert.alert("Missing Info", "Please fill in your Name and Location.");
                 return false;
             }
@@ -133,9 +224,20 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
             formData.append('last_name', form.lastName);
             formData.append('middle_name', form.middleInitial);
             formData.append('location', form.location);
-            if (form.latitude != null && form.longitude != null) {
-                formData.append('latitude', String(form.latitude));
-                formData.append('longitude', String(form.longitude));
+            let latitudeToSubmit = form.latitude;
+            let longitudeToSubmit = form.longitude;
+
+            if (!hasCoordinatePair(latitudeToSubmit, longitudeToSubmit)) {
+                const resolved = await syncCoordinatesFromLocation(form.location);
+                if (resolved) {
+                    latitudeToSubmit = resolved.latitude;
+                    longitudeToSubmit = resolved.longitude;
+                }
+            }
+
+            if (hasCoordinatePair(latitudeToSubmit, longitudeToSubmit)) {
+                formData.append('latitude', String(latitudeToSubmit));
+                formData.append('longitude', String(longitudeToSubmit));
             }
             formData.append('email', form.email);
             const normalizedPhone = normalizePHPhone(form.phone);
@@ -219,6 +321,19 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
             <View style={{ zIndex: 9999, elevation: 9999, position: 'relative' }}>
                 <LocationSearchBar
                     value={form.location}
+                    onChangeText={(text) => {
+                        handleInputChange("location", text);
+
+                        if (!String(text || '').trim()) {
+                            setCoordinatePair(null, null);
+                            return;
+                        }
+
+                        scheduleCoordinatesSyncFromLocation(text);
+                    }}
+                    onBlur={(text) => {
+                        void syncCoordinatesFromLocation(text);
+                    }}
                     onSelectLocation={(loc) => {
                         handleInputChange("location", loc.address);
                         setCoordinatePair(loc.latitude, loc.longitude);

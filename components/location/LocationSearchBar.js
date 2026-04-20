@@ -5,44 +5,94 @@ import api from '../../api/api';
 
 const CITY_SCOPE = 'Zamboanga City';
 
-export default function LocationSearchBar({ value, onSelectLocation, placeholder = "Search for a location..." }) {
+const toNumber = (value) => {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : null;
+};
+
+const normalizeResults = (responseData) => {
+    const rawItems = Array.isArray(responseData)
+        ? responseData
+        : Array.isArray(responseData?.results)
+            ? responseData.results
+            : Array.isArray(responseData?.data)
+                ? responseData.data
+                : Array.isArray(responseData?.items)
+                    ? responseData.items
+                    : Array.isArray(responseData?.suggestions)
+                        ? responseData.suggestions
+                        : Array.isArray(responseData?.features)
+                            ? responseData.features
+                            : [];
+
+    return rawItems
+        .map((item, index) => {
+            if (!item || typeof item !== 'object') return null;
+
+            const centerLongitude = Array.isArray(item.center) ? toNumber(item.center[0]) : null;
+            const centerLatitude = Array.isArray(item.center) ? toNumber(item.center[1]) : null;
+            const latitude = toNumber(item.latitude) ?? centerLatitude;
+            const longitude = toNumber(item.longitude) ?? centerLongitude;
+
+            const label = String(item.label || item.place_name || item.name || item.text || '').trim();
+            if (!label) return null;
+
+            return {
+                id: item.id ?? `${label}-${index}`,
+                label,
+                name: String(item.name || item.text || label).trim(),
+                municipality: String(item.municipality || item.city || item.town || CITY_SCOPE),
+                latitude,
+                longitude,
+                is_existing: Boolean(item.is_existing),
+                existing_name: item.existing_name,
+            };
+        })
+        .filter(Boolean);
+};
+
+export default function LocationSearchBar({ value, onSelectLocation, onChangeText, onBlur, placeholder = "Search for a location..." }) {
     const [searchQuery, setSearchQuery] = useState(value || '');
     const [results, setResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
+    const [searchError, setSearchError] = useState('');
 
     useEffect(() => {
-        if (value !== undefined && value !== searchQuery && !showDropdown) {
-            setSearchQuery(value);
-        }
-    }, [value]);
+        if (value === undefined || showDropdown) return;
+
+        setSearchQuery((previous) => {
+            if (value === previous) return previous;
+            return value;
+        });
+    }, [value, showDropdown]);
 
     useEffect(() => {
         if (!showDropdown) return;
         const query = searchQuery.trim();
         if (query.length < 2) {
             setResults([]);
+            setSearchError('');
             return;
         }
 
         let active = true;
         const timer = setTimeout(async () => {
             setIsSearching(true);
+            setSearchError('');
             try {
                 const response = await api.get('/api/locations/search/', {
                     params: { q: query, limit: 6 },
+                    skipAuth: true,
                 });
                 if (active) {
-                    // Extract data whether it's a direct array OR a Django DRF paginated object
-                    const responseData = response.data;
-                    const extractedItems = Array.isArray(responseData) 
-                        ? responseData 
-                        : (responseData?.results || responseData?.data || []);
-                        
-                    setResults(extractedItems);
+                    setResults(normalizeResults(response.data));
                 }
-            } catch (error) {
-                if (active) setResults([]);
+            } catch (_error) {
+                if (active) {
+                    setResults([]);
+                    setSearchError('Could not load matching places right now.');
+                }
             } finally {
                 if (active) setIsSearching(false);
             }
@@ -69,6 +119,27 @@ export default function LocationSearchBar({ value, onSelectLocation, placeholder
         }
     };
 
+    const useTypedLocation = () => {
+        const typedLocation = String(searchQuery || '').trim();
+        if (!typedLocation) return;
+
+        Keyboard.dismiss();
+        setShowDropdown(false);
+
+        onSelectLocation?.({
+            address: typedLocation,
+            latitude: null,
+            longitude: null,
+        });
+    };
+
+    const trimmedQuery = String(searchQuery || '').trim();
+    const hasSearchText = trimmedQuery.length >= 2;
+    const shouldShowSearchingRow = showDropdown && hasSearchText && isSearching;
+    const shouldShowNoResultAction = showDropdown && hasSearchText && !isSearching && !searchError && results.length === 0;
+    const shouldShowErrorAction = showDropdown && hasSearchText && !isSearching && Boolean(searchError) && results.length === 0;
+    const shouldShowDropdown = showDropdown && hasSearchText && (results.length > 0 || shouldShowSearchingRow || shouldShowNoResultAction || shouldShowErrorAction);
+
     return (
         <View style={styles.container}>
             <View style={styles.inputWrapper}>
@@ -81,35 +152,64 @@ export default function LocationSearchBar({ value, onSelectLocation, placeholder
                     onChangeText={(text) => {
                         setSearchQuery(text);
                         setShowDropdown(true);
+                        onChangeText?.(text);
                     }}
                     onFocus={() => setShowDropdown(true)}
+                    onBlur={(event) => {
+                        const text = event?.nativeEvent?.text ?? searchQuery;
+                        onBlur?.(text);
+                        setTimeout(() => setShowDropdown(false), 120);
+                    }}
                 />
                 {isSearching && <ActivityIndicator size="small" color="#0072FF" style={{ marginRight: 10 }} />}
             </View>
 
-            {showDropdown && results.length > 0 && (
+            {shouldShowDropdown && (
                 <View style={styles.dropdown}>
                     <ScrollView
                         keyboardShouldPersistTaps="handled"
                         nestedScrollEnabled={true}
                         style={{ maxHeight: 220 }}
                     >
-                        {results.map((item, index) => (
-                            <TouchableOpacity 
-                                key={item.id ? String(item.id) : String(index)} 
-                                style={styles.resultItem} 
-                                onPress={() => handleSelect(item)}
-                            >
-                                {item.is_existing && (
-                                    <View style={styles.existingBadge}>
-                                        <Ionicons name="pin" size={12} color="#0891B2" />
-                                        <Text style={styles.existingText}>Existing: {item.existing_name}</Text>
-                                    </View>
-                                )}
-                                <Text style={styles.resultName}>{item.label || item.name}</Text>
-                                <Text style={styles.resultSub}>{item.municipality || CITY_SCOPE}</Text>
+                        {shouldShowSearchingRow ? (
+                            <View style={styles.resultItem}>
+                                <Text style={styles.resultName}>Searching matching places...</Text>
+                                <Text style={styles.resultSub}>Please wait</Text>
+                            </View>
+                        ) : results.length > 0 ? (
+                            results.map((item, index) => (
+                                <TouchableOpacity 
+                                    key={item.id ? String(item.id) : String(index)} 
+                                    style={styles.resultItem} 
+                                    onPress={() => handleSelect(item)}
+                                >
+                                    {item.is_existing && (
+                                        <View style={styles.existingBadge}>
+                                            <Ionicons name="pin" size={12} color="#0891B2" />
+                                            <Text style={styles.existingText}>Existing: {item.existing_name}</Text>
+                                        </View>
+                                    )}
+                                    <Text style={styles.resultName}>{item.label || item.name}</Text>
+                                    <Text style={styles.resultSub}>{item.municipality || CITY_SCOPE}</Text>
+                                </TouchableOpacity>
+                            ))
+                        ) : shouldShowErrorAction ? (
+                            <>
+                                <View style={styles.resultItem}>
+                                    <Text style={styles.resultName}>Suggestions unavailable</Text>
+                                    <Text style={styles.resultSub}>{searchError}</Text>
+                                </View>
+                                <TouchableOpacity style={styles.resultItem} onPress={useTypedLocation}>
+                                    <Text style={styles.resultName}>Use typed location</Text>
+                                    <Text style={styles.resultSub}>{trimmedQuery}</Text>
+                                </TouchableOpacity>
+                            </>
+                        ) : (
+                            <TouchableOpacity style={styles.resultItem} onPress={useTypedLocation}>
+                                <Text style={styles.resultName}>Use typed location</Text>
+                                <Text style={styles.resultSub}>{trimmedQuery}</Text>
                             </TouchableOpacity>
-                        ))}
+                        )}
                     </ScrollView>
                 </View>
             )}
@@ -118,7 +218,7 @@ export default function LocationSearchBar({ value, onSelectLocation, placeholder
 }
 
 const styles = StyleSheet.create({
-    container: { position: 'relative', zIndex: 9999, elevation: 9999, marginBottom: 10 },
+    container: { position: 'relative', zIndex: 9999, elevation: 9999, marginBottom: 10, overflow: 'visible' },
     inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, paddingHorizontal: 12 },
     icon: { marginRight: 8 },
     input: { flex: 1, paddingVertical: 14, fontSize: 15, color: '#1F2937' },

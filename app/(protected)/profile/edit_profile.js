@@ -925,9 +925,29 @@ const EditProfile = () => {
                             <Controller
                                 control={control}
                                 name="location"
-                                render={({ field: { onChange, value } }) => (
+                                rules={{
+                                    validate: (value) => {
+                                        const trimmed = String(value || '').trim();
+                                        if (!trimmed) return 'Location is required';
+                                        return true;
+                                    }
+                                }}
+                                render={({ field: { onChange, onBlur, value } }) => (
                                     <LocationSearchBar
                                         value={value}
+                                        onChangeText={(text) => {
+                                            onChange(text);
+                                            scheduleCoordinatesSyncFromLocation(text);
+
+                                            if (!String(text || '').trim()) {
+                                                setValue('latitude', null, { shouldDirty: true });
+                                                setValue('longitude', null, { shouldDirty: true });
+                                            }
+                                        }}
+                                        onBlur={(text) => {
+                                            onBlur();
+                                            void syncCoordinatesFromLocation(text);
+                                        }}
                                         onSelectLocation={(loc) => {
                                             onChange(loc.address);
                                             setValue('latitude', loc.latitude, { shouldDirty: true });
@@ -937,6 +957,7 @@ const EditProfile = () => {
                                 )}
                             />
                         </View>
+                        {errors.location && <Text style={styles.errorText}>{errors.location.message}</Text>}
 
                         <View style={{ marginTop: 15 }}>
                             <ProfileLocationMapPicker
