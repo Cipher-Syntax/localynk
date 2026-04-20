@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { View, Text, TextInput, Modal, TouchableOpacity, ScrollView, Image, StyleSheet, ActivityIndicator, Alert, Platform } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
@@ -8,6 +8,8 @@ import ApplicationConfirmationModal from "./ApplicationConfirmationModal";
 import api from '../../api/api'; 
 import { useAuth } from "../../context/AuthContext";
 import { formatPHPhoneLocal, normalizePHPhone } from '../../utils/phoneNumber';
+import ProfileLocationMapPicker from '../location/ProfileLocationMapPicker';
+import LocationSearchBar from '../location/LocationSearchBar';
 
 const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
     const { user } = useAuth();
@@ -26,6 +28,8 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
         email: getInitialValue("email"),
         phone: formatPHPhoneLocal(getInitialValue("phone_number")),
         location: getInitialValue("location"), 
+        latitude: user?.latitude ?? null,
+        longitude: user?.longitude ?? null,
         landline: "",
     });
 
@@ -35,6 +39,22 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
         valid_id: null,
         nbi_clearance: null, 
     });
+
+    useEffect(() => {
+        if (!isModalOpen) return;
+
+        setForm((prev) => ({
+            ...prev,
+            firstName: user?.first_name || prev.firstName,
+            lastName: user?.last_name || prev.lastName,
+            middleInitial: user?.middle_name ? user.middle_name.charAt(0).toUpperCase() : prev.middleInitial,
+            email: user?.email || prev.email,
+            phone: formatPHPhoneLocal(user?.phone_number || prev.phone),
+            location: user?.location || prev.location,
+            latitude: user?.latitude ?? prev.latitude,
+            longitude: user?.longitude ?? prev.longitude,
+        }));
+    }, [isModalOpen, user]);
 
     const pickImage = async (field) => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -56,12 +76,16 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
     };
 
     const handleInputChange = (field, value) => {
-        setForm({ ...form, [field]: value });
+        setForm((prev) => ({ ...prev, [field]: value }));
     };
 
     const handleMiddleInitialChange = (text) => {
         const initial = text.length > 0 ? text.charAt(0).toUpperCase() : "";
         setForm(prev => ({ ...prev, middleInitial: initial }));
+    };
+
+    const setCoordinatePair = (latitude, longitude) => {
+        setForm((prev) => ({ ...prev, latitude, longitude }));
     };
 
     const validateStep = (step) => {
@@ -109,6 +133,10 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
             formData.append('last_name', form.lastName);
             formData.append('middle_name', form.middleInitial);
             formData.append('location', form.location);
+            if (form.latitude != null && form.longitude != null) {
+                formData.append('latitude', String(form.latitude));
+                formData.append('longitude', String(form.longitude));
+            }
             formData.append('email', form.email);
             const normalizedPhone = normalizePHPhone(form.phone);
             if (!normalizedPhone) {
@@ -188,12 +216,26 @@ const RegisterModalForm = ({ isModalOpen, setIsOpenModal, onSubmit }) => {
             </View>
 
             <Text style={styles.label}>Location / Address</Text>
-            <TextInput
-                style={styles.input}
-                placeholder="City, Province or Full Address"
-                value={form.location}
-                onChangeText={(v) => handleInputChange("location", v)}
-            />
+            <View style={{ zIndex: 9999, elevation: 9999, position: 'relative' }}>
+                <LocationSearchBar
+                    value={form.location}
+                    onSelectLocation={(loc) => {
+                        handleInputChange("location", loc.address);
+                        setCoordinatePair(loc.latitude, loc.longitude);
+                    }}
+                    placeholder="Search for a location..."
+                />
+            </View>
+
+            <View style={{ marginTop: 15 }}>
+                <ProfileLocationMapPicker
+                    latitude={form.latitude}
+                    longitude={form.longitude}
+                    onChangeCoordinates={({ latitude, longitude }) => {
+                        setCoordinatePair(latitude, longitude);
+                    }}
+                />
+            </View>
         </View>
     );
 
