@@ -1,8 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useState, useEffect, useRef } from 'react';
-import {
-    View, Text, FlatList, Image, StyleSheet,
-    TouchableOpacity, ActivityIndicator, Animated
-} from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -23,7 +21,7 @@ const FeaturedCard = ({ item, isActive, onPress }) => {
             friction: 8,
             useNativeDriver: true,
         }).start();
-    }, [isActive]);
+    }, [isActive, scaleAnim]);
 
     const reviewCount = item.review_count || Math.floor(Math.random() * 200 + 50);
 
@@ -36,7 +34,7 @@ const FeaturedCard = ({ item, isActive, onPress }) => {
             >
                 {/* Photo */}
                 <View style={styles.photoContainer}>
-                    <Image source={imageSource} style={styles.photo} resizeMode="cover" />
+                    <Image source={imageSource} style={styles.photo} contentFit="cover" />
                     <LinearGradient
                         colors={['transparent', 'rgba(0,0,0,0.55)']}
                         style={styles.photoOverlay}
@@ -171,7 +169,7 @@ const FeaturedPlaces = ({ isPublic = false }) => {
                 renderItem={({ item, index }) => (
                     <FeaturedCard
                         item={item}
-                        isActive={activeIndex === index}
+                        isActive={index === activeIndex}
                         onPress={() => handleCardPress(item)}
                     />
                 )}

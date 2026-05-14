@@ -21,6 +21,9 @@ import {
 } from '../utils/pushNotifications';
 
 const AuthContext = createContext();
+const AuthMessageContext = createContext();
+
+export const useAuthMessage = () => useContext(AuthMessageContext);
 
 export function AuthProvider({ children }) {
     const [state, setState] = useState({
@@ -28,10 +31,9 @@ export function AuthProvider({ children }) {
         user: null,
         token: null,
         isLoading: true,
-        message: null,
-        messageType: null,
     });
     
+    const [toastState, setToastState] = useState({ message: null, messageType: null });
     const [hasSkippedOnboarding, setHasSkippedOnboarding] = useState(false);
     const router = useRouter();
     const notificationListenerRef = useRef(null);
@@ -214,11 +216,11 @@ export function AuthProvider({ children }) {
     }, [clearPushRetryTimer, registerPushTokenWithBackend, unregisterPushTokenFromBackend]);
 
     const clearMessage = useCallback(() => {
-        setState(prev => ({ ...prev, message: null, messageType: null }));
+        setToastState({ message: null, messageType: null });
     }, []);
 
     const setMessage = useCallback((msg, type = 'error') => {
-        setState(prev => ({ ...prev, message: msg, messageType: type }));
+        setToastState({ message: msg, messageType: type });
     }, []);
 
     const fetchProfile = async () => {
@@ -259,17 +261,18 @@ export function AuthProvider({ children }) {
             const response = await api.patch('/api/profile/', profileData);
             setState(prev => ({
                 ...prev,
-                user: response.data,
+                user: response.data
+            }));
+            setToastState({
                 message: "Profile updated successfully.",
                 messageType: "success"
-            }));
+            });
             return true;
         } catch (_err) {
-            setState(prev => ({
-                ...prev,
+            setToastState({
                 message: "Failed to update profile.",
                 messageType: "error"
-            }));
+            });
             return false;
         }
     };
@@ -307,7 +310,9 @@ export function AuthProvider({ children }) {
                                 isAuthenticated: false,
                                 user: null,
                                 token: null,
-                                isLoading: false,
+                                isLoading: false
+                            });
+                            setToastState({
                                 message: `This account must sign in through the ${portalLabel}.`,
                                 messageType: 'error'
                             });
@@ -318,10 +323,9 @@ export function AuthProvider({ children }) {
                             isAuthenticated: true,
                             user,
                             token: access,
-                            isLoading: false,
-                            message: null,
-                            messageType: null
+                            isLoading: false
                         });
+                        setToastState({ message: null, messageType: null });
                     } else {
                         await logout(false);
                     }
@@ -419,10 +423,12 @@ export function AuthProvider({ children }) {
                 ...prev,
                 isLoading: false,
                 isAuthenticated: false,
-                user: null,
+                user: null
+            }));
+            setToastState({
                 message: "Please verify your email first.",
                 messageType: "error",
-            }));
+            });
             return false;
         }
 
@@ -436,10 +442,12 @@ export function AuthProvider({ children }) {
                 isLoading: false,
                 isAuthenticated: false,
                 user: null,
-                token: null,
+                token: null
+            }));
+            setToastState({
                 message: `This account must sign in through the ${portalLabel}.`,
                 messageType: 'error',
-            }));
+            });
             return false;
         }
 
@@ -447,7 +455,9 @@ export function AuthProvider({ children }) {
             isAuthenticated: true,
             user,
             token: access,
-            isLoading: false,
+            isLoading: false
+        });
+        setToastState({
             message: "Login successful!",
             messageType: "success"
         });
@@ -456,7 +466,8 @@ export function AuthProvider({ children }) {
     }, [isPortalOnlyAccount]);
 
     const login = useCallback(async (username, password) => {
-        setState(prev => ({ ...prev, isLoading: true, message: null }));
+        setState(prev => ({ ...prev, isLoading: true }));
+        setToastState({ message: null, messageType: null });
 
         try {
             const response = await api.post('/api/token/', { username, password });
@@ -467,10 +478,12 @@ export function AuthProvider({ children }) {
                 setState(prev => ({
                     ...prev,
                     isLoading: false,
-                    isAuthenticated: false,
+                    isAuthenticated: false
+                }));
+                setToastState({
                     message: error.response.data.detail,
                     messageType: "error"
-                }));
+                });
                 return { success: false, error: error.response.data };
             }
 
@@ -502,17 +515,20 @@ export function AuthProvider({ children }) {
             setState(prev => ({
                 ...prev,
                 isLoading: false,
-                isAuthenticated: false,
+                isAuthenticated: false
+            }));
+            setToastState({
                 message: msg,
                 messageType: "error"
-            }));
+            });
 
             return false;
         }
     }, [handleAuthResponse]);
 
     const googleLogin = useCallback(async (token) => {
-        setState(prev => ({ ...prev, isLoading: true, message: null }));
+        setState(prev => ({ ...prev, isLoading: true }));
+        setToastState({ message: null, messageType: null });
         try {
             const response = await api.post('/api/auth/google/', { token });
             return await handleAuthResponse(response.data);
@@ -521,10 +537,12 @@ export function AuthProvider({ children }) {
             setState(prev => ({
                 ...prev,
                 isLoading: false,
-                isAuthenticated: false,
+                isAuthenticated: false
+            }));
+            setToastState({
                 message: "Google Login failed. Please try again.",
                 messageType: "error"
-            }));
+            });
             return false;
         }
     }, [handleAuthResponse]);
@@ -532,11 +550,10 @@ export function AuthProvider({ children }) {
     const register = useCallback(async (data) => {
         try {
             await api.post('/api/register/', data);
-            setState(prev => ({
-                ...prev,
+            setToastState({
                 message: "Registration successful. Check your email to verify.",
                 messageType: "success"
-            }));
+            });
             return { success: true };
         } 
         catch (error) {
@@ -581,11 +598,10 @@ export function AuthProvider({ children }) {
                 }
             }
 
-            setState(prev => ({
-                ...prev,
+            setToastState({
                 message: errorMsg,
                 messageType: "error"
-            }));
+            });
             return false;
         }
     }, []);
@@ -594,11 +610,10 @@ export function AuthProvider({ children }) {
         const normalizedIdentifier = String(identifier || '').trim();
 
         if (!normalizedIdentifier) {
-            setState(prev => ({
-                ...prev,
+            setToastState({
                 message: 'Username or email is required.',
                 messageType: 'error'
-            }));
+            });
             return false;
         }
 
@@ -612,11 +627,10 @@ export function AuthProvider({ children }) {
                 },
                 { skipAuth: true }
             );
-            setState(prev => ({
-                ...prev,
+            setToastState({
                 message: response?.data?.detail || 'Verification email resent successfully. Please check your inbox.',
                 messageType: "success"
-            }));
+            });
             return true;
         } catch (error) {
             const detail =
@@ -628,27 +642,29 @@ export function AuthProvider({ children }) {
                 ? `Resend failed: ${detail}`
                 : 'Failed to resend verification email';
 
-            setState(prev => ({
-                ...prev,
+            setToastState({
                 message: resendErrorMessage,
                 messageType: "error"
-            }));
+            });
             return false;
         }
     }, []);
 
     const reactivateAccount = useCallback(async (username, password) => {
-        setState(prev => ({ ...prev, isLoading: true, message: null }));
+        setState(prev => ({ ...prev, isLoading: true }));
+        setToastState({ message: null, messageType: null });
         try {
             const response = await api.post('/api/auth/reactivate/', { username, password });
             return await handleAuthResponse(response.data);
         } catch (error) {
             setState(prev => ({
                 ...prev,
-                isLoading: false,
+                isLoading: false
+            }));
+            setToastState({
                 message: "Reactivation failed. " + (error.response?.data?.detail || ""),
                 messageType: "error"
-            }));
+            });
             return false;
         }
     }, [handleAuthResponse]);
@@ -679,7 +695,9 @@ export function AuthProvider({ children }) {
                 isAuthenticated: false,
                 user: null,
                 token: null,
-                isLoading: false,
+                isLoading: false
+            });
+            setToastState({
                 message: "Logged out successfully",
                 messageType: "success"
             });
@@ -693,7 +711,9 @@ export function AuthProvider({ children }) {
                 isAuthenticated: false,
                 user: null,
                 token: null,
-                isLoading: false,
+                isLoading: false
+            });
+            setToastState({
                 message: null,
                 messageType: null
             });
@@ -733,8 +753,6 @@ export function AuthProvider({ children }) {
             syncPushNotificationPreference,
             resendVerificationEmail,
             reactivateAccount,
-            clearMessage,
-            setMessage, 
         }
     }, [
         state,
@@ -747,15 +765,21 @@ export function AuthProvider({ children }) {
         refreshUser,
         syncPushNotificationPreference,
         resendVerificationEmail,
-        reactivateAccount,
-        clearMessage,
-        setMessage
+        reactivateAccount
     ]);
 
+    const messageValue = useMemo(() => ({
+        ...toastState,
+        setMessage,
+        clearMessage
+    }), [toastState, setMessage, clearMessage]);
+
     return (
-        <AuthContext.Provider value={value}>
-            {children}
-        </AuthContext.Provider>
+        <AuthMessageContext.Provider value={messageValue}>
+            <AuthContext.Provider value={value}>
+                {children}
+            </AuthContext.Provider>
+        </AuthMessageContext.Provider>
     );
 }
 

@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ShieldCheck, Map, Heart } from 'lucide-react-native';
 
@@ -34,7 +35,7 @@ const About = () => {
                         <Image 
                             source={require("../../assets/localynk_images/logo.png")} 
                             style={styles.logo} 
-                            resizeMode="contain" 
+                            contentFit="contain" 
                         />
                      </View>
 

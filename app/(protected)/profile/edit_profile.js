@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Image, Platform, ActivityIndicator, KeyboardAvoidingView, Modal } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Platform, ActivityIndicator, KeyboardAvoidingView, Modal } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../../context/AuthContext';
@@ -233,9 +234,10 @@ const EditProfile = () => {
     };
 
     useEffect(() => {
+        const locationLookup = locationLookupRef.current;
         return () => {
-            if (locationLookupRef.current.timerId) {
-                clearTimeout(locationLookupRef.current.timerId);
+            if (locationLookup.timerId) {
+                clearTimeout(locationLookup.timerId);
             }
         };
     }, []);

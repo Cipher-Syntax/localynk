@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, ScrollView, StyleSheet, Image, Text, TouchableOpacity, Modal, TextInput } from 'react-native';
+import { View, ScrollView, StyleSheet, Text, TouchableOpacity, Modal, TextInput } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
 import { User, Lock } from "lucide-react-native"; // Added Lock icon
 import { Ionicons } from '@expo/vector-icons';

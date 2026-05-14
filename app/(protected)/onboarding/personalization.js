@@ -1,17 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useState, useEffect } from 'react';
-import { 
-    View, 
-    Text, 
-    StyleSheet, 
-    TouchableOpacity, 
-    Image, 
-    ActivityIndicator, 
-    ScrollView, 
-    LayoutAnimation, 
-    Platform, 
-    UIManager,
-    Animated,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, LayoutAnimation, Platform, UIManager, Animated } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons'; 
 import { useAuth } from '../../../context/AuthContext';
@@ -167,7 +156,7 @@ export default function PersonalizationScreen() {
                 <Image 
                     source={imageUrl ? { uri: imageUrl } : { uri: 'https://via.placeholder.com/150' }} 
                     style={styles.gridImage} 
-                    resizeMode="cover" 
+                    contentFit="cover" 
                 />
                 
                 {isSelected && (

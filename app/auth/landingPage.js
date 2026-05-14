@@ -1,20 +1,12 @@
+import { Image } from 'expo-image';
 import React, { useEffect, useRef } from 'react';
-import {
-    View,
-    ImageBackground,
-    Text,
-    StyleSheet,
-    TouchableOpacity,
-    Image,
-    Animated,
-    Dimensions,
-} from 'react-native';
+import { View, ImageBackground, Text, StyleSheet, TouchableOpacity, Animated, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { useRouter } from 'expo-router';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 const LandingPage = () => {
     const router = useRouter();
@@ -51,7 +43,7 @@ const LandingPage = () => {
                 useNativeDriver: true,
             }),
         ]).start();
-    }, []);
+    }, [logoAnim, logoScale, textAnim, buttonAnim]);
 
     const handleTravelNow = () => {
         router.push('/public');
@@ -92,7 +84,7 @@ const LandingPage = () => {
                         <Image
                             source={require('../../assets/localynk_images/logo.png')}
                             style={styles.logo}
-                            resizeMode="contain"
+                            contentFit="contain"
                         />
                     </Animated.View>
 

@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useMemo, useState } from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
+import { Modal, View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { formatPHPhoneLocal } from '../../utils/phoneNumber';
 import { buildPricingBreakdown } from '../../utils/pricingBreakdown';
@@ -298,7 +299,7 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [], onBo
                     
                     <View style={styles.imageContainer}>
                         {heroImage ? (
-                            <Image source={heroImage} style={styles.heroImage} resizeMode="cover" />
+                            <Image source={heroImage} style={styles.heroImage} contentFit="cover" />
                         ) : (
                             <View style={[styles.heroImage, styles.placeholderImage]}>
                                 <Ionicons name="images-outline" size={50} color="#fff" />
@@ -492,7 +493,7 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [], onBo
                                                     <Image
                                                         source={{ uri: getImageUrl(booking.tourist_valid_id_image || booking?.tourist_detail?.valid_id_image) }}
                                                         style={{ width: '100%', aspectRatio: 1, borderRadius: 8, backgroundColor: '#E2E8F0', borderWidth: 1, borderColor: '#CBD5E1' }}
-                                                        resizeMode="cover"
+                                                        contentFit="cover"
                                                     />
                                                 ) : (
                                                     <View style={{ width: '100%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F8FAFC', borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed' }}>
@@ -509,7 +510,7 @@ const BookingDetailsModal = ({ booking, visible, onClose, allBookings = [], onBo
                                                     <Image
                                                         source={{ uri: getImageUrl(booking.tourist_selfie_image) }}
                                                         style={{ width: '100%', aspectRatio: 1, borderRadius: 8, backgroundColor: '#E2E8F0', borderWidth: 1, borderColor: '#CBD5E1' }}
-                                                        resizeMode="cover"
+                                                        contentFit="cover"
                                                     />
                                                 ) : (
                                                     <View style={{ width: '100%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F8FAFC', borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed' }}>

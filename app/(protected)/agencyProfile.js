@@ -1,14 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    Image,
-    ScrollView,
-    TouchableOpacity,
-    ActivityIndicator,
-    Dimensions,
-} from 'react-native';
+import { Image } from 'expo-image';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,8 +10,6 @@ import { useAuth } from '../../context/AuthContext';
 import ScreenSafeArea from '../../components/ScreenSafeArea';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import StopDetailsModal from '../../components/itinerary/StopDetailsModal';
-
-const { width } = Dimensions.get('window');
 
 const AgencyProfile = () => {
     const { user: currentUser } = useAuth();
@@ -93,7 +83,7 @@ const AgencyProfile = () => {
             return typeof selectedTour.itinerary_timeline === 'string'
                 ? JSON.parse(selectedTour.itinerary_timeline)
                 : selectedTour.itinerary_timeline;
-        } catch (e) {
+        } catch (_error) {
             return [];
         }
     }, [selectedTour]);

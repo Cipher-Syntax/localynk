@@ -1,9 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
-import { 
-    View, Text, ScrollView, ActivityIndicator, StyleSheet, 
-    Image, Dimensions, TouchableOpacity, Modal, TextInput, 
-    KeyboardAvoidingView, Platform 
-} from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, StyleSheet, Dimensions, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import api from '../../api/api';

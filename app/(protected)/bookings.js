@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useState, useCallback, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Image, Animated, ScrollView, Modal, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Animated, ScrollView, Modal, TextInput, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient'; 
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -56,6 +57,442 @@ const compareBookingsByPriority = (a, b) => {
     if (unreadDelta !== 0) return unreadDelta;
     return getBookingSortTimestamp(b) - getBookingSortTimestamp(a);
 };
+
+
+const getBookingTitle = (booking) => {
+        return booking.destination_detail?.name || booking.accommodation_detail?.title || 'Custom Booking';
+    }
+
+const getStatusStyle = (status) => {
+        const normalized = String(status || '').toLowerCase();
+        switch (normalized) {
+            case 'confirmed': 
+            case 'completed': 
+                return { badge: styles.acceptedBadge, text: styles.acceptedText, icon: 'checkmark-circle' };
+            case 'pending_payment': 
+                return { badge: styles.pendingBadge, text: styles.pendingText, icon: 'time' };
+            case 'refunded':
+                return { badge: styles.refundedBadge, text: styles.refundedText, icon: 'return-down-back' };
+            case 'cancelled': 
+            case 'declined': 
+                return { badge: styles.declinedBadge, text: styles.declinedText, icon: 'close-circle' };
+            default: 
+                return { badge: styles.defaultBadge, text: styles.defaultText, icon: 'help-circle' };
+        }
+    };
+
+const getBookingDateDisplay = (checkIn, checkOut) => {
+        if (!checkIn) return '';
+        if (!checkOut) return String(checkIn);
+
+        const start = new Date(checkIn);
+        const end = new Date(checkOut);
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+            return `${checkIn} — ${checkOut}`;
+        }
+
+        start.setHours(0, 0, 0, 0);
+        end.setHours(0, 0, 0, 0);
+        const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 0) return String(checkIn);
+        return `${checkIn} — ${checkOut}`;
+    };
+
+
+const BookingItemCard = React.memo(({ item, userId, onOpenModal, onProceedToPayment, onOpenMessage, onOpenRefundRequest, onInitiateCancellation, onInitiateMarkAsPaid, onReview }) => {
+        const { badge, text, icon } = getStatusStyle(item.status);
+        
+        const isMyTrip = item.tourist_id === userId; 
+        const isMyClient = !isMyTrip; 
+
+        const total = Number(item.total_price || 0);
+        const down = Number(item.down_payment || 0);
+        const commission = item.platform_fee ? Number(item.platform_fee) : (total * 0.02); 
+        
+        let netPayout = item.guide_payout_amount ? Number(item.guide_payout_amount) : (item.agency_payout_amount ? Number(item.agency_payout_amount) : 0);
+        if (netPayout === 0 && down > 0) {
+            netPayout = down - commission;
+        }
+
+        const currentBalanceDue = Number(item.balance_due || 0);
+        const originalBalance = total - down;
+
+        const pricingBreakdown = buildPricingBreakdown({
+            totalPrice: total,
+            startDate: item.check_in,
+            endDate: item.check_out,
+            packageDurationDays: item?.tour_package_detail?.duration_days,
+            numberOfPeople: item.num_guests,
+            groupType: Number(item.num_guests) > 1 ? 'group' : 'solo',
+            soloPricePerDay: item?.tour_package_detail?.solo_price,
+            groupPricePerDay: item?.tour_package_detail?.price_per_day,
+            extraPersonFeePerHead: item?.tour_package_detail?.additional_fee_per_head,
+            accommodationCostPerNight: item?.accommodation_detail?.price,
+            packageDetail: item?.tour_package_detail,
+            accommodationDetail: item?.accommodation_detail,
+        });
+
+        const normalizedStatus = String(item.status || '').toLowerCase();
+        const refundState = String(item?.refund_status || 'none').toLowerCase();
+        const hasOpenRefund = ['requested', 'under_review', 'approved'].includes(refundState);
+        const isRefundCompleted = refundState === 'completed' || normalizedStatus === 'refunded';
+        const refundStateLabel =
+            refundState === 'requested'
+                ? 'Refund Requested'
+                : refundState === 'under_review'
+                    ? 'Refund Under Review'
+                    : refundState === 'approved'
+                        ? 'Refund Approved'
+                        : isRefundCompleted
+                            ? 'Refunded'
+                            : '';
+        
+        let balanceDisplayColor = '#B45309'; 
+        let balanceIconColor = '#F59E0B'; 
+        let balanceText = `Collect Balance: ₱${currentBalanceDue.toLocaleString()}`;
+
+        if (originalBalance <= 0) {
+            balanceText = "100% Paid Online";
+            balanceDisplayColor = '#4B5563';
+            balanceIconColor = '#6B7280';
+        } else if (currentBalanceDue === 0) {
+            balanceText = `Balance Received: ₱${originalBalance.toLocaleString()}`;
+            balanceDisplayColor = '#15803D';
+            balanceIconColor = '#22C55E';
+        }
+
+        if (isMyClient && hasOpenRefund) {
+            balanceText = `Payout Locked: ${refundStateLabel}`;
+            balanceDisplayColor = '#1D4ED8';
+            balanceIconColor = '#2563EB';
+        } else if (isMyClient && isRefundCompleted) {
+            balanceText = 'Payout Closed: Refunded';
+            balanceDisplayColor = '#0F766E';
+            balanceIconColor = '#14B8A6';
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const checkInDate = new Date(item.check_in);
+        checkInDate.setHours(0, 0, 0, 0);
+        const hasTripStartedOrPassed = today >= checkInDate;
+        const daysUntilCheckIn = Number.isNaN(checkInDate.getTime())
+            ? null
+            : Math.round((checkInDate - today) / (1000 * 60 * 60 * 24));
+
+        const canCancel = isMyTrip 
+            ? ['confirmed', 'pending_payment'].includes(normalizedStatus) && !hasTripStartedOrPassed
+            : false;
+        
+        const assignedGuidesRaw = item?.assigned_agency_guides_detail;
+        const assignedGuides = Array.isArray(assignedGuidesRaw)
+            ? assignedGuidesRaw
+            : (assignedGuidesRaw ? [assignedGuidesRaw] : []);
+        const assignedGuideIds = Array.isArray(item?.assigned_agency_guides)
+            ? item.assigned_agency_guides
+            : [];
+        const hasAssignedAgencyGuide = assignedGuides.length > 0 || assignedGuideIds.length > 0;
+
+        const isAgencyPartner = !!item?.agency;
+        const canMarkPaid = isMyClient && normalizedStatus === 'confirmed' && currentBalanceDue > 0 && !hasOpenRefund && !isRefundCompleted;
+        const canReview = isMyTrip && normalizedStatus === 'completed'; 
+        const canProceedToPayment =
+            isMyTrip
+            && ['accepted', 'pending_payment'].includes(normalizedStatus)
+            && currentBalanceDue > 0
+            && (!isAgencyPartner || hasAssignedAgencyGuide);
+        const canMessageProvider = isMyTrip && Number(item?.agency || item?.guide || 0) > 0;
+
+        const hasPaidDownPayment = Boolean(item?.downpayment_paid_at) || normalizedStatus === 'confirmed';
+        const hasRefundableWorkflowStatus = ['accepted', 'confirmed'].includes(normalizedStatus);
+        const meetsAgencyRefundRequirements = !isAgencyPartner || hasAssignedAgencyGuide;
+        const refundPrerequisitesMet =
+            isMyTrip
+            && Number(item.down_payment || 0) > 0
+            && hasPaidDownPayment
+            && hasRefundableWorkflowStatus
+            && meetsAgencyRefundRequirements
+            && !['completed', 'refunded', 'declined', 'cancelled'].includes(normalizedStatus);
+
+        const canRequestRefund =
+            refundPrerequisitesMet
+            && (daysUntilCheckIn === null || daysUntilCheckIn >= REFUND_MIN_DAYS_BEFORE_CHECKIN);
+        const showRefundWindowHint = refundPrerequisitesMet;
+        const refundWindowClosed = showRefundWindowHint && daysUntilCheckIn !== null && daysUntilCheckIn < REFUND_MIN_DAYS_BEFORE_CHECKIN;
+
+        const titleName = getBookingTitle(item);
+        const typeLabel = item.destination_detail ? 'Tour' : (item.accommodation_detail ? 'Stay' : 'Tour');
+        
+        let otherPartyName = "Unknown";
+        if (isMyTrip) {
+            if (item.guide_detail) otherPartyName = `Guide: ${item.guide_detail.first_name} ${item.guide_detail.last_name}`;
+            else if (item.agency_detail) otherPartyName = `Agency: ${item.agency_detail.username}`;
+            else if (item.accommodation_detail) otherPartyName = `Host: ${item.accommodation_detail.host_full_name}`;
+        } else {
+            otherPartyName = `Tourist: ${item.tourist_username || "Guest"}`;
+        }
+
+        return (
+            <TouchableOpacity activeOpacity={0.9} onPress={() => onOpenModal(item)} style={styles.cardContainer}>
+                <View style={styles.bookingCard}>
+                    <View style={[styles.statusStrip, { backgroundColor: isMyTrip ? '#00A8FF' : '#FF9F43' }]} />
+                    
+                    <View style={styles.cardContent}>
+                        <View style={styles.cardHeader}>
+                            <View style={{flex: 1}}>
+                                <View style={[styles.roleTag, { backgroundColor: isMyTrip ? '#E0F2FE' : '#FFF3E0' }]}>
+                                    <Text style={[styles.roleTagText, { color: isMyTrip ? '#0072FF' : '#FF9F43' }]}>
+                                        {isMyTrip ? "MY TRIP" : "CLIENT BOOKING"}
+                                    </Text>
+                                </View>
+                                <Text style={styles.cardTitle} numberOfLines={1}>{titleName}</Text>
+                                <Text style={styles.cardType}>{typeLabel} • {otherPartyName}</Text>
+                            </View>
+                            <View style={[styles.statusBadge, badge]}>
+                                <Ionicons name={icon} size={12} color={text.color} style={{marginRight: 4}} />
+                                <Text style={text}>{item.status}</Text>
+                            </View>
+                        </View>
+                        
+                        <View style={styles.divider} />
+
+                        <View style={styles.detailsContainer}>
+                            <View style={styles.detailRow}>
+                                <Ionicons name="calendar" size={16} color="#3B82F6" style={styles.iconWidth} />
+                                <Text style={styles.detailText}>
+                                    {getBookingDateDisplay(item.check_in, item.check_out)}
+                                </Text>
+                            </View>
+
+                            <View style={styles.detailRow}>
+                                <Ionicons name="wallet" size={16} color={balanceIconColor} style={styles.iconWidth} />
+                                <Text style={[styles.detailText, { fontWeight: '600', color: balanceDisplayColor }]}>
+                                    {balanceText}
+                                </Text>
+                            </View>
+                            
+                            {isMyClient && (
+                                <View style={styles.financialBox}>
+                                    <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}>
+                                        <Text style={styles.finHeader}>PAYOUT BREAKDOWN</Text>
+                                        <Text style={{fontSize: 10, color: '#059669', fontWeight: '700', fontStyle: 'italic'}}>{item.is_payout_settled ? "Paid" : "Pending"}</Text>
+                                    </View>
+                                    
+                                    <View style={styles.finRow}>
+                                        <Text style={styles.finLabel}>Total Price</Text>
+                                        <Text style={styles.finValue}>₱{total.toLocaleString()}</Text>
+                                    </View>
+
+                                    {pricingBreakdown.hasBreakdownItems && (
+                                        <>
+                                            <View style={styles.finSubRow}>
+                                                <Text style={styles.finSubLabel}>
+                                                    Package ({pricingBreakdown.days} day{pricingBreakdown.days > 1 ? 's' : ''} x ₱{pricingBreakdown.packageRatePerDay.toLocaleString()}/day)
+                                                </Text>
+                                                <Text style={styles.finSubValue}>₱{pricingBreakdown.packageSubtotal.toLocaleString()}</Text>
+                                            </View>
+
+                                            {pricingBreakdown.extraGuests > 0 && pricingBreakdown.extraGuestSubtotal > 0 && (
+                                                <View style={styles.finSubRow}>
+                                                    <Text style={styles.finSubLabel}>
+                                                        Extra guests ({pricingBreakdown.extraGuests} x ₱{pricingBreakdown.extraFeePerHead.toLocaleString()} x {pricingBreakdown.days} day{pricingBreakdown.days > 1 ? 's' : ''})
+                                                    </Text>
+                                                    <Text style={styles.finSubValue}>₱{pricingBreakdown.extraGuestSubtotal.toLocaleString()}</Text>
+                                                </View>
+                                            )}
+
+                                            {pricingBreakdown.accommodationSubtotal > 0 && (
+                                                <View style={styles.finSubRow}>
+                                                    <Text style={styles.finSubLabel}>
+                                                        Accommodation ({pricingBreakdown.nights} night{pricingBreakdown.nights > 1 ? 's' : ''} x ₱{pricingBreakdown.accommodationRatePerNight.toLocaleString()}/night)
+                                                    </Text>
+                                                    <Text style={styles.finSubValue}>₱{pricingBreakdown.accommodationSubtotal.toLocaleString()}</Text>
+                                                </View>
+                                            )}
+
+                                            {pricingBreakdown.hasAdjustment && (
+                                                <View style={styles.finSubRow}>
+                                                    <Text style={styles.finSubLabel}>Adjustment</Text>
+                                                    <Text style={styles.finSubValue}>
+                                                        {pricingBreakdown.adjustmentAmount >= 0 ? '₱' : '- ₱'}
+                                                        {Math.abs(pricingBreakdown.adjustmentAmount).toLocaleString()}
+                                                    </Text>
+                                                </View>
+                                            )}
+                                        </>
+                                    )}
+                                    
+                                    <View style={styles.finRow}>
+                                        <Text style={styles.finLabel}>Down Payment (Paid Online)</Text>
+                                        <Text style={styles.finValue}>₱{down.toLocaleString()}</Text>
+                                    </View>
+
+                                    <View style={styles.finRow}>
+                                        <Text style={[styles.finLabel, {color: '#EF4444'}]}>Less: App Fee (2%)</Text>
+                                        <Text style={[styles.finValue, {color: '#EF4444'}]}>- ₱{commission.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
+                                    </View>
+
+                                    <View style={styles.finDivider} />
+
+                                    <View style={styles.finRow}>
+                                        <Text style={[styles.finLabel, {fontWeight:'700', color:'#059669'}]}>Net Payout ({item.is_payout_settled ? 'Received' : 'Incoming'})</Text>
+                                        <Text style={[styles.finValue, {fontWeight:'800', color:'#059669'}]}>₱{netPayout.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
+                                    </View>
+                                </View>
+                            )}
+
+                            {isMyTrip && (
+                                <View style={styles.financialBoxTourist}>
+                                    <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}>
+                                        <Text style={styles.finHeaderTourist}>PAYMENT BREAKDOWN</Text>
+                                        <Text style={{fontSize: 10, color: '#1D4ED8', fontWeight: '700', fontStyle: 'italic'}}>
+                                            {currentBalanceDue > 0 ? 'Balance Pending' : 'Paid'}
+                                        </Text>
+                                    </View>
+
+                                    <View style={styles.finRow}>
+                                        <Text style={styles.finLabel}>Total Price</Text>
+                                        <Text style={styles.finValue}>₱{total.toLocaleString()}</Text>
+                                    </View>
+
+                                    {pricingBreakdown.hasBreakdownItems && (
+                                        <>
+                                            <View style={styles.finSubRow}>
+                                                <Text style={styles.finSubLabel}>
+                                                    Package ({pricingBreakdown.days} day{pricingBreakdown.days > 1 ? 's' : ''} x ₱{pricingBreakdown.packageRatePerDay.toLocaleString()}/day)
+                                                </Text>
+                                                <Text style={styles.finSubValue}>₱{pricingBreakdown.packageSubtotal.toLocaleString()}</Text>
+                                            </View>
+
+                                            {pricingBreakdown.extraGuests > 0 && pricingBreakdown.extraGuestSubtotal > 0 && (
+                                                <View style={styles.finSubRow}>
+                                                    <Text style={styles.finSubLabel}>
+                                                        Extra guests ({pricingBreakdown.extraGuests} x ₱{pricingBreakdown.extraFeePerHead.toLocaleString()} x {pricingBreakdown.days} day{pricingBreakdown.days > 1 ? 's' : ''})
+                                                    </Text>
+                                                    <Text style={styles.finSubValue}>₱{pricingBreakdown.extraGuestSubtotal.toLocaleString()}</Text>
+                                                </View>
+                                            )}
+
+                                            {pricingBreakdown.accommodationSubtotal > 0 && (
+                                                <View style={styles.finSubRow}>
+                                                    <Text style={styles.finSubLabel}>
+                                                        Accommodation ({pricingBreakdown.nights} night{pricingBreakdown.nights > 1 ? 's' : ''} x ₱{pricingBreakdown.accommodationRatePerNight.toLocaleString()}/night)
+                                                    </Text>
+                                                    <Text style={styles.finSubValue}>₱{pricingBreakdown.accommodationSubtotal.toLocaleString()}</Text>
+                                                </View>
+                                            )}
+
+                                            {pricingBreakdown.hasAdjustment && (
+                                                <View style={styles.finSubRow}>
+                                                    <Text style={styles.finSubLabel}>Adjustment</Text>
+                                                    <Text style={styles.finSubValue}>
+                                                        {pricingBreakdown.adjustmentAmount >= 0 ? '₱' : '- ₱'}
+                                                        {Math.abs(pricingBreakdown.adjustmentAmount).toLocaleString()}
+                                                    </Text>
+                                                </View>
+                                            )}
+                                        </>
+                                    )}
+
+                                    <View style={styles.finRow}>
+                                        <Text style={styles.finLabel}>Down Payment (Paid Online)</Text>
+                                        <Text style={styles.finValue}>₱{down.toLocaleString()}</Text>
+                                    </View>
+
+                                    <View style={styles.finDivider} />
+
+                                    <View style={styles.finRow}>
+                                        <Text style={[styles.finLabel, {fontWeight:'700', color:'#B45309'}]}>Remaining Balance</Text>
+                                        <Text style={[styles.finValue, {fontWeight:'800', color:'#B45309'}]}>
+                                            ₱{Math.max(0, currentBalanceDue).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                        </Text>
+                                    </View>
+                                </View>
+                            )}
+                        </View>
+
+                        {showRefundWindowHint && (
+                            <Text style={[styles.refundPolicyText, refundWindowClosed && styles.refundPolicyTextWarning]}>
+                                {refundWindowClosed
+                                    ? `Refund window closed. Requests must be made at least ${REFUND_MIN_DAYS_BEFORE_CHECKIN} days before check-in.`
+                                    : `Refund requests are allowed until ${REFUND_MIN_DAYS_BEFORE_CHECKIN} days before check-in.`}
+                            </Text>
+                        )}
+
+                        <View style={styles.cardFooter}>
+                            {isMyClient && (hasOpenRefund || isRefundCompleted) && (
+                                <View style={styles.clientRefundStatePill}>
+                                    <Ionicons name="return-down-back-outline" size={14} color="#1D4ED8" style={{marginRight: 6}} />
+                                    <Text style={styles.clientRefundStateText}>{refundStateLabel}</Text>
+                                </View>
+                            )}
+
+                            {canProceedToPayment && (
+                                <TouchableOpacity style={styles.proceedButton} onPress={() => onProceedToPayment(item)}>
+                                    <Ionicons name="card-outline" size={14} color="#fff" style={{marginRight: 6}} />
+                                    <Text style={styles.proceedButtonText}>Proceed to Payment</Text>
+                                </TouchableOpacity>
+                            )}
+
+                            {canMessageProvider && (
+                                <TouchableOpacity style={styles.messageButton} onPress={() => onOpenMessage(item)}>
+                                    <Ionicons name="chatbubble-outline" size={14} color="#fff" style={{marginRight: 6}} />
+                                    <Text style={styles.messageButtonText}>{isAgencyPartner ? 'Message Agency' : 'Message Guide'}</Text>
+                                </TouchableOpacity>
+                            )}
+
+                            {canRequestRefund && (
+                                <TouchableOpacity style={styles.refundButton} onPress={() => onOpenRefundRequest(item)}>
+                                    <Ionicons name="return-down-back-outline" size={14} color="#fff" style={{marginRight: 6}} />
+                                    <Text style={styles.refundButtonText}>Request Refund</Text>
+                                </TouchableOpacity>
+                            )}
+
+                            {canCancel && (
+                                <TouchableOpacity style={styles.cancelButton} onPress={() => onInitiateCancellation(item.id)}>
+                                    <Text style={styles.cancelButtonText}>Cancel Booking</Text>
+                                </TouchableOpacity>
+                            )}
+
+                            {canMarkPaid && (
+                                <TouchableOpacity style={styles.paidButton} onPress={() => onInitiateMarkAsPaid(item.id)}>
+                                    <Ionicons name="checkmark-done-circle" size={16} color="#fff" style={{marginRight:6}} />
+                                    <Text style={styles.paidButtonText}>Confirm Balance Received</Text>
+                                </TouchableOpacity>
+                            )}
+
+                            {canReview && (
+                                <TouchableOpacity 
+                                    style={styles.reviewButton} 
+                                    onPress={() => onReview(item)}
+                                >
+                                    <Ionicons name="star" size={14} color="#fff" style={{marginRight:6}} />
+                                    <Text style={styles.reviewButtonText}>Leave a Review</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    </View>
+                </View>
+            </TouchableOpacity>
+        );
+});
+BookingItemCard.displayName = 'BookingItemCard';
+
+const BookingGroupCard = React.memo(({ item, onPress }) => {
+    const tourImageSource = item.image ? { uri: item.image } : require('../../assets/localynk_images/featured1.png');
+    return (
+        <TouchableOpacity style={styles.groupCard} onPress={() => onPress(item)}>
+            <Image source={tourImageSource} style={styles.groupImage} contentFit="cover" />
+            <View style={styles.groupContent}>
+                <Text style={styles.groupTitle}>{item.destination}</Text>
+                <Text style={styles.groupSubtitle}>{item.bookings.length} Bookings</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#CBD5E1" style={{ padding: 15 }} />
+        </TouchableOpacity>
+    );
+});
+BookingGroupCard.displayName = 'BookingGroupCard';
 
 const MyBookings = () => {
     const { user } = useAuth();
@@ -395,9 +832,7 @@ const MyBookings = () => {
                 bookingType: isAgencyBooking ? 'agency' : 'guide',
                 entityId: String(booking.agency || booking.guide || ''),
                 entityName,
-                placeId: booking.destination ? String(booking.destination) : '',
-                placeName: booking?.destination_detail?.name || '',
-                agencyId: booking?.accommodation_detail?.agency_id ? String(booking.accommodation_detail.agency_id) : '',
+ agencyId: booking?.accommodation_detail?.agency_id ? String(booking.accommodation_detail.agency_id) : '',
                 agencyLogo: booking?.agency_detail?.logo || booking?.agency_detail?.profile_picture || '',
             },
         });
@@ -517,7 +952,7 @@ const MyBookings = () => {
         if (!normalizedSearch) return groups;
 
         return groups.filter((group) => String(group.title).toLowerCase().includes(normalizedSearch));
-    }, [filteredBookings, getBookingTitle, destinationSearch]);
+    }, [filteredBookings, destinationSearch, getBookingTitle]);
 
     const openDestinationModal = (group) => {
         setSelectedDestinationGroup(group);
@@ -594,490 +1029,6 @@ const MyBookings = () => {
         resetDestinationModalListState();
     }, [resetDestinationModalListState]);
 
-    const getStatusStyle = (status) => {
-        const normalized = String(status || '').toLowerCase();
-        switch (normalized) {
-            case 'confirmed': 
-            case 'completed': 
-                return { badge: styles.acceptedBadge, text: styles.acceptedText, icon: 'checkmark-circle' };
-            case 'pending_payment': 
-                return { badge: styles.pendingBadge, text: styles.pendingText, icon: 'time' };
-            case 'refunded':
-                return { badge: styles.refundedBadge, text: styles.refundedText, icon: 'return-down-back' };
-            case 'cancelled': 
-            case 'declined': 
-                return { badge: styles.declinedBadge, text: styles.declinedText, icon: 'close-circle' };
-            default: 
-                return { badge: styles.defaultBadge, text: styles.defaultText, icon: 'help-circle' };
-        }
-    };
-
-    const getBookingDateDisplay = (checkIn, checkOut) => {
-        if (!checkIn) return '';
-        if (!checkOut) return String(checkIn);
-
-        const start = new Date(checkIn);
-        const end = new Date(checkOut);
-        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-            return `${checkIn} — ${checkOut}`;
-        }
-
-        start.setHours(0, 0, 0, 0);
-        end.setHours(0, 0, 0, 0);
-        const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24));
-
-        if (diffDays === 0) return String(checkIn);
-        return `${checkIn} — ${checkOut}`;
-    };
-
-    const getDestinationGroupImageSource = (group) => {
-        if (!group?.bookings?.length) return null;
-        const firstWithDestination = group.bookings.find((booking) => booking?.destination_detail);
-        const firstWithAccommodation = group.bookings.find((booking) => booking?.accommodation_detail);
-
-        const destinationImage = firstWithDestination?.destination_detail?.image
-            || firstWithDestination?.destination_detail?.images?.[0]?.image;
-        if (destinationImage) return { uri: destinationImage };
-
-        const accommodationImage = firstWithAccommodation?.accommodation_detail?.photo;
-        if (accommodationImage) return { uri: accommodationImage };
-
-        return null;
-    };
-
-    const renderBookingItem = (item) => {
-        const { badge, text, icon } = getStatusStyle(item.status);
-        
-        const isMyTrip = item.tourist_id === user?.id; 
-        const isMyClient = !isMyTrip; 
-
-        const total = Number(item.total_price || 0);
-        const down = Number(item.down_payment || 0);
-        const commission = item.platform_fee ? Number(item.platform_fee) : (total * 0.02); 
-        
-        let netPayout = item.guide_payout_amount ? Number(item.guide_payout_amount) : (item.agency_payout_amount ? Number(item.agency_payout_amount) : 0);
-        if (netPayout === 0 && down > 0) {
-            netPayout = down - commission;
-        }
-
-        const currentBalanceDue = Number(item.balance_due || 0);
-        const originalBalance = total - down;
-
-        const pricingBreakdown = buildPricingBreakdown({
-            totalPrice: total,
-            startDate: item.check_in,
-            endDate: item.check_out,
-            packageDurationDays: item?.tour_package_detail?.duration_days,
-            numberOfPeople: item.num_guests,
-            groupType: Number(item.num_guests) > 1 ? 'group' : 'solo',
-            soloPricePerDay: item?.tour_package_detail?.solo_price,
-            groupPricePerDay: item?.tour_package_detail?.price_per_day,
-            extraPersonFeePerHead: item?.tour_package_detail?.additional_fee_per_head,
-            accommodationCostPerNight: item?.accommodation_detail?.price,
-            packageDetail: item?.tour_package_detail,
-            accommodationDetail: item?.accommodation_detail,
-        });
-
-        const normalizedStatus = String(item.status || '').toLowerCase();
-        const refundState = String(item?.refund_status || 'none').toLowerCase();
-        const hasOpenRefund = ['requested', 'under_review', 'approved'].includes(refundState);
-        const isRefundCompleted = refundState === 'completed' || normalizedStatus === 'refunded';
-        const refundStateLabel =
-            refundState === 'requested'
-                ? 'Refund Requested'
-                : refundState === 'under_review'
-                    ? 'Refund Under Review'
-                    : refundState === 'approved'
-                        ? 'Refund Approved'
-                        : isRefundCompleted
-                            ? 'Refunded'
-                            : '';
-        
-        let balanceDisplayColor = '#B45309'; 
-        let balanceIconColor = '#F59E0B'; 
-        let balanceText = `Collect Balance: ₱${currentBalanceDue.toLocaleString()}`;
-
-        if (originalBalance <= 0) {
-            balanceText = "100% Paid Online";
-            balanceDisplayColor = '#4B5563';
-            balanceIconColor = '#6B7280';
-        } else if (currentBalanceDue === 0) {
-            balanceText = `Balance Received: ₱${originalBalance.toLocaleString()}`;
-            balanceDisplayColor = '#15803D';
-            balanceIconColor = '#22C55E';
-        }
-
-        if (isMyClient && hasOpenRefund) {
-            balanceText = `Payout Locked: ${refundStateLabel}`;
-            balanceDisplayColor = '#1D4ED8';
-            balanceIconColor = '#2563EB';
-        } else if (isMyClient && isRefundCompleted) {
-            balanceText = 'Payout Closed: Refunded';
-            balanceDisplayColor = '#0F766E';
-            balanceIconColor = '#14B8A6';
-        }
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const checkInDate = new Date(item.check_in);
-        checkInDate.setHours(0, 0, 0, 0);
-        const hasTripStartedOrPassed = today >= checkInDate;
-        const daysUntilCheckIn = Number.isNaN(checkInDate.getTime())
-            ? null
-            : Math.round((checkInDate - today) / (1000 * 60 * 60 * 24));
-
-        const canCancel = isMyTrip 
-            ? ['confirmed', 'pending_payment'].includes(normalizedStatus) && !hasTripStartedOrPassed
-            : false;
-        
-        const assignedGuidesRaw = item?.assigned_agency_guides_detail;
-        const assignedGuides = Array.isArray(assignedGuidesRaw)
-            ? assignedGuidesRaw
-            : (assignedGuidesRaw ? [assignedGuidesRaw] : []);
-        const assignedGuideIds = Array.isArray(item?.assigned_agency_guides)
-            ? item.assigned_agency_guides
-            : [];
-        const hasAssignedAgencyGuide = assignedGuides.length > 0 || assignedGuideIds.length > 0;
-
-        const isAgencyPartner = !!item?.agency;
-        const canMarkPaid = isMyClient && normalizedStatus === 'confirmed' && currentBalanceDue > 0 && !hasOpenRefund && !isRefundCompleted;
-        const canReview = isMyTrip && normalizedStatus === 'completed'; 
-        const canProceedToPayment =
-            isMyTrip
-            && ['accepted', 'pending_payment'].includes(normalizedStatus)
-            && currentBalanceDue > 0
-            && (!isAgencyPartner || hasAssignedAgencyGuide);
-        const canMessageProvider = isMyTrip && Number(item?.agency || item?.guide || 0) > 0;
-
-        const hasPaidDownPayment = Boolean(item?.downpayment_paid_at) || normalizedStatus === 'confirmed';
-        const hasRefundableWorkflowStatus = ['accepted', 'confirmed'].includes(normalizedStatus);
-        const meetsAgencyRefundRequirements = !isAgencyPartner || hasAssignedAgencyGuide;
-        const refundPrerequisitesMet =
-            isMyTrip
-            && Number(item.down_payment || 0) > 0
-            && hasPaidDownPayment
-            && hasRefundableWorkflowStatus
-            && meetsAgencyRefundRequirements
-            && !['completed', 'refunded', 'declined', 'cancelled'].includes(normalizedStatus);
-
-        const canRequestRefund =
-            refundPrerequisitesMet
-            && (daysUntilCheckIn === null || daysUntilCheckIn >= REFUND_MIN_DAYS_BEFORE_CHECKIN);
-        const showRefundWindowHint = refundPrerequisitesMet;
-        const refundWindowClosed = showRefundWindowHint && daysUntilCheckIn !== null && daysUntilCheckIn < REFUND_MIN_DAYS_BEFORE_CHECKIN;
-
-        const titleName = getBookingTitle(item);
-        const typeLabel = item.destination_detail ? 'Tour' : (item.accommodation_detail ? 'Stay' : 'Tour');
-        
-        let otherPartyName = "Unknown";
-        if (isMyTrip) {
-            if (item.guide_detail) otherPartyName = `Guide: ${item.guide_detail.first_name} ${item.guide_detail.last_name}`;
-            else if (item.agency_detail) otherPartyName = `Agency: ${item.agency_detail.username}`;
-            else if (item.accommodation_detail) otherPartyName = `Host: ${item.accommodation_detail.host_full_name}`;
-        } else {
-            otherPartyName = `Tourist: ${item.tourist_username || "Guest"}`;
-        }
-
-        return (
-            <TouchableOpacity activeOpacity={0.9} onPress={() => handleOpenModal(item)} style={styles.cardContainer}>
-                <View style={styles.bookingCard}>
-                    <View style={[styles.statusStrip, { backgroundColor: isMyTrip ? '#00A8FF' : '#FF9F43' }]} />
-                    
-                    <View style={styles.cardContent}>
-                        <View style={styles.cardHeader}>
-                            <View style={{flex: 1}}>
-                                <View style={[styles.roleTag, { backgroundColor: isMyTrip ? '#E0F2FE' : '#FFF3E0' }]}>
-                                    <Text style={[styles.roleTagText, { color: isMyTrip ? '#0072FF' : '#FF9F43' }]}>
-                                        {isMyTrip ? "MY TRIP" : "CLIENT BOOKING"}
-                                    </Text>
-                                </View>
-                                <Text style={styles.cardTitle} numberOfLines={1}>{titleName}</Text>
-                                <Text style={styles.cardType}>{typeLabel} • {otherPartyName}</Text>
-                            </View>
-                            <View style={[styles.statusBadge, badge]}>
-                                <Ionicons name={icon} size={12} color={text.color} style={{marginRight: 4}} />
-                                <Text style={text}>{item.status}</Text>
-                            </View>
-                        </View>
-                        
-                        <View style={styles.divider} />
-
-                        <View style={styles.detailsContainer}>
-                            <View style={styles.detailRow}>
-                                <Ionicons name="calendar" size={16} color="#3B82F6" style={styles.iconWidth} />
-                                <Text style={styles.detailText}>
-                                    {getBookingDateDisplay(item.check_in, item.check_out)}
-                                </Text>
-                            </View>
-
-                            <View style={styles.detailRow}>
-                                <Ionicons name="wallet" size={16} color={balanceIconColor} style={styles.iconWidth} />
-                                <Text style={[styles.detailText, { fontWeight: '600', color: balanceDisplayColor }]}>
-                                    {balanceText}
-                                </Text>
-                            </View>
-                            
-                            {isMyClient && (
-                                <View style={styles.financialBox}>
-                                    <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}>
-                                        <Text style={styles.finHeader}>PAYOUT BREAKDOWN</Text>
-                                        <Text style={{fontSize: 10, color: '#059669', fontWeight: '700', fontStyle: 'italic'}}>{item.is_payout_settled ? "Paid" : "Pending"}</Text>
-                                    </View>
-                                    
-                                    <View style={styles.finRow}>
-                                        <Text style={styles.finLabel}>Total Price</Text>
-                                        <Text style={styles.finValue}>₱{total.toLocaleString()}</Text>
-                                    </View>
-
-                                    {pricingBreakdown.hasBreakdownItems && (
-                                        <>
-                                            <View style={styles.finSubRow}>
-                                                <Text style={styles.finSubLabel}>
-                                                    Package ({pricingBreakdown.days} day{pricingBreakdown.days > 1 ? 's' : ''} x ₱{pricingBreakdown.packageRatePerDay.toLocaleString()}/day)
-                                                </Text>
-                                                <Text style={styles.finSubValue}>₱{pricingBreakdown.packageSubtotal.toLocaleString()}</Text>
-                                            </View>
-
-                                            {pricingBreakdown.extraGuests > 0 && pricingBreakdown.extraGuestSubtotal > 0 && (
-                                                <View style={styles.finSubRow}>
-                                                    <Text style={styles.finSubLabel}>
-                                                        Extra guests ({pricingBreakdown.extraGuests} x ₱{pricingBreakdown.extraFeePerHead.toLocaleString()} x {pricingBreakdown.days} day{pricingBreakdown.days > 1 ? 's' : ''})
-                                                    </Text>
-                                                    <Text style={styles.finSubValue}>₱{pricingBreakdown.extraGuestSubtotal.toLocaleString()}</Text>
-                                                </View>
-                                            )}
-
-                                            {pricingBreakdown.accommodationSubtotal > 0 && (
-                                                <View style={styles.finSubRow}>
-                                                    <Text style={styles.finSubLabel}>
-                                                        Accommodation ({pricingBreakdown.nights} night{pricingBreakdown.nights > 1 ? 's' : ''} x ₱{pricingBreakdown.accommodationRatePerNight.toLocaleString()}/night)
-                                                    </Text>
-                                                    <Text style={styles.finSubValue}>₱{pricingBreakdown.accommodationSubtotal.toLocaleString()}</Text>
-                                                </View>
-                                            )}
-
-                                            {pricingBreakdown.hasAdjustment && (
-                                                <View style={styles.finSubRow}>
-                                                    <Text style={styles.finSubLabel}>Adjustment</Text>
-                                                    <Text style={styles.finSubValue}>
-                                                        {pricingBreakdown.adjustmentAmount >= 0 ? '₱' : '- ₱'}
-                                                        {Math.abs(pricingBreakdown.adjustmentAmount).toLocaleString()}
-                                                    </Text>
-                                                </View>
-                                            )}
-                                        </>
-                                    )}
-                                    
-                                    <View style={styles.finRow}>
-                                        <Text style={styles.finLabel}>Down Payment (Paid Online)</Text>
-                                        <Text style={styles.finValue}>₱{down.toLocaleString()}</Text>
-                                    </View>
-
-                                    <View style={styles.finRow}>
-                                        <Text style={[styles.finLabel, {color: '#EF4444'}]}>Less: App Fee (2%)</Text>
-                                        <Text style={[styles.finValue, {color: '#EF4444'}]}>- ₱{commission.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
-                                    </View>
-
-                                    <View style={styles.finDivider} />
-
-                                    <View style={styles.finRow}>
-                                        <Text style={[styles.finLabel, {fontWeight:'700', color:'#059669'}]}>Net Payout ({item.is_payout_settled ? 'Received' : 'Incoming'})</Text>
-                                        <Text style={[styles.finValue, {fontWeight:'800', color:'#059669'}]}>₱{netPayout.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
-                                    </View>
-                                </View>
-                            )}
-
-                            {isMyTrip && (
-                                <View style={styles.financialBoxTourist}>
-                                    <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}>
-                                        <Text style={styles.finHeaderTourist}>PAYMENT BREAKDOWN</Text>
-                                        <Text style={{fontSize: 10, color: '#1D4ED8', fontWeight: '700', fontStyle: 'italic'}}>
-                                            {currentBalanceDue > 0 ? 'Balance Pending' : 'Paid'}
-                                        </Text>
-                                    </View>
-
-                                    <View style={styles.finRow}>
-                                        <Text style={styles.finLabel}>Total Price</Text>
-                                        <Text style={styles.finValue}>₱{total.toLocaleString()}</Text>
-                                    </View>
-
-                                    {pricingBreakdown.hasBreakdownItems && (
-                                        <>
-                                            <View style={styles.finSubRow}>
-                                                <Text style={styles.finSubLabel}>
-                                                    Package ({pricingBreakdown.days} day{pricingBreakdown.days > 1 ? 's' : ''} x ₱{pricingBreakdown.packageRatePerDay.toLocaleString()}/day)
-                                                </Text>
-                                                <Text style={styles.finSubValue}>₱{pricingBreakdown.packageSubtotal.toLocaleString()}</Text>
-                                            </View>
-
-                                            {pricingBreakdown.extraGuests > 0 && pricingBreakdown.extraGuestSubtotal > 0 && (
-                                                <View style={styles.finSubRow}>
-                                                    <Text style={styles.finSubLabel}>
-                                                        Extra guests ({pricingBreakdown.extraGuests} x ₱{pricingBreakdown.extraFeePerHead.toLocaleString()} x {pricingBreakdown.days} day{pricingBreakdown.days > 1 ? 's' : ''})
-                                                    </Text>
-                                                    <Text style={styles.finSubValue}>₱{pricingBreakdown.extraGuestSubtotal.toLocaleString()}</Text>
-                                                </View>
-                                            )}
-
-                                            {pricingBreakdown.accommodationSubtotal > 0 && (
-                                                <View style={styles.finSubRow}>
-                                                    <Text style={styles.finSubLabel}>
-                                                        Accommodation ({pricingBreakdown.nights} night{pricingBreakdown.nights > 1 ? 's' : ''} x ₱{pricingBreakdown.accommodationRatePerNight.toLocaleString()}/night)
-                                                    </Text>
-                                                    <Text style={styles.finSubValue}>₱{pricingBreakdown.accommodationSubtotal.toLocaleString()}</Text>
-                                                </View>
-                                            )}
-
-                                            {pricingBreakdown.hasAdjustment && (
-                                                <View style={styles.finSubRow}>
-                                                    <Text style={styles.finSubLabel}>Adjustment</Text>
-                                                    <Text style={styles.finSubValue}>
-                                                        {pricingBreakdown.adjustmentAmount >= 0 ? '₱' : '- ₱'}
-                                                        {Math.abs(pricingBreakdown.adjustmentAmount).toLocaleString()}
-                                                    </Text>
-                                                </View>
-                                            )}
-                                        </>
-                                    )}
-
-                                    <View style={styles.finRow}>
-                                        <Text style={styles.finLabel}>Down Payment (Paid Online)</Text>
-                                        <Text style={styles.finValue}>₱{down.toLocaleString()}</Text>
-                                    </View>
-
-                                    <View style={styles.finDivider} />
-
-                                    <View style={styles.finRow}>
-                                        <Text style={[styles.finLabel, {fontWeight:'700', color:'#B45309'}]}>Remaining Balance</Text>
-                                        <Text style={[styles.finValue, {fontWeight:'800', color:'#B45309'}]}>
-                                            ₱{Math.max(0, currentBalanceDue).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                                        </Text>
-                                    </View>
-                                </View>
-                            )}
-                        </View>
-
-                        {showRefundWindowHint && (
-                            <Text style={[styles.refundPolicyText, refundWindowClosed && styles.refundPolicyTextWarning]}>
-                                {refundWindowClosed
-                                    ? `Refund window closed. Requests must be made at least ${REFUND_MIN_DAYS_BEFORE_CHECKIN} days before check-in.`
-                                    : `Refund requests are allowed until ${REFUND_MIN_DAYS_BEFORE_CHECKIN} days before check-in.`}
-                            </Text>
-                        )}
-
-                        <View style={styles.cardFooter}>
-                            {isMyClient && (hasOpenRefund || isRefundCompleted) && (
-                                <View style={styles.clientRefundStatePill}>
-                                    <Ionicons name="return-down-back-outline" size={14} color="#1D4ED8" style={{marginRight: 6}} />
-                                    <Text style={styles.clientRefundStateText}>{refundStateLabel}</Text>
-                                </View>
-                            )}
-
-                            {canProceedToPayment && (
-                                <TouchableOpacity style={styles.proceedButton} onPress={() => handleProceedToPayment(item)}>
-                                    <Ionicons name="card-outline" size={14} color="#fff" style={{marginRight: 6}} />
-                                    <Text style={styles.proceedButtonText}>Proceed to Payment</Text>
-                                </TouchableOpacity>
-                            )}
-
-                            {canMessageProvider && (
-                                <TouchableOpacity style={styles.messageButton} onPress={() => handleOpenMessage(item)}>
-                                    <Ionicons name="chatbubble-outline" size={14} color="#fff" style={{marginRight: 6}} />
-                                    <Text style={styles.messageButtonText}>{isAgencyPartner ? 'Message Agency' : 'Message Guide'}</Text>
-                                </TouchableOpacity>
-                            )}
-
-                            {canRequestRefund && (
-                                <TouchableOpacity style={styles.refundButton} onPress={() => handleOpenRefundRequest(item)}>
-                                    <Ionicons name="return-down-back-outline" size={14} color="#fff" style={{marginRight: 6}} />
-                                    <Text style={styles.refundButtonText}>Request Refund</Text>
-                                </TouchableOpacity>
-                            )}
-
-                            {canCancel && (
-                                <TouchableOpacity style={styles.cancelButton} onPress={() => initiateCancellation(item.id)}>
-                                    <Text style={styles.cancelButtonText}>Cancel Booking</Text>
-                                </TouchableOpacity>
-                            )}
-
-                            {canMarkPaid && (
-                                <TouchableOpacity style={styles.paidButton} onPress={() => initiateMarkAsPaid(item.id)}>
-                                    <Ionicons name="checkmark-done-circle" size={16} color="#fff" style={{marginRight:6}} />
-                                    <Text style={styles.paidButtonText}>Confirm Balance Received</Text>
-                                </TouchableOpacity>
-                            )}
-
-                            {canReview && (
-                                <TouchableOpacity 
-                                    style={styles.reviewButton} 
-                                    onPress={() => router.push({ pathname: '/(protected)/reviewModal', params: { bookingId: item.id }})}
-                                >
-                                    <Ionicons name="star" size={14} color="#fff" style={{marginRight:6}} />
-                                    <Text style={styles.reviewButtonText}>Leave a Review</Text>
-                                </TouchableOpacity>
-                            )}
-                        </View>
-                    </View>
-                </View>
-            </TouchableOpacity>
-        );
-    };
-
-    const renderGroupItem = ({ item }) => {
-        const completedCount = item.bookings.filter((booking) => String(booking.status || '').toLowerCase() === 'completed').length;
-        const acceptedCount = item.bookings.filter((booking) => String(booking.status || '').toLowerCase() === 'accepted').length;
-        const pendingCount = item.bookings.filter((booking) => String(booking.status || '').toLowerCase() === 'pending_payment').length;
-        const confirmedCount = item.bookings.filter((booking) => String(booking.status || '').toLowerCase() === 'confirmed').length;
-        const groupImageSource = getDestinationGroupImageSource(item);
-
-        return (
-            <View style={styles.groupContainer}>
-                <View style={styles.groupHeaderCard}>
-                    <View style={styles.groupImageWrap}>
-                        {groupImageSource ? (
-                            <Image source={groupImageSource} style={styles.groupImage} resizeMode="cover" />
-                        ) : (
-                            <View style={styles.groupImageFallback}>
-                                <Ionicons name="image-outline" size={24} color="#D6D3D1" />
-                            </View>
-                        )}
-                        <LinearGradient
-                            colors={['transparent', 'rgba(0,0,0,0.45)']}
-                            style={styles.groupImageOverlay}
-                        />
-                        <View style={styles.groupImageBadge}>
-                            <Text style={styles.groupImageBadgeText}>{item.bookings.length} bookings</Text>
-                        </View>
-                    </View>
-
-                    <View style={styles.groupHeaderTop}>
-                        <View style={styles.groupTitleWrap}>
-                            <Ionicons name="location" size={18} color="#A16207" />
-                            <Text style={styles.groupTitle}>{item.title}</Text>
-                        </View>
-                    </View>
-
-                    <View style={styles.groupMetaRow}>
-                        <Text style={styles.groupMetaTextStrong}>
-                            Latest booking: {item.latestBooking ? getBookingDateDisplay(item.latestBooking.check_in, item.latestBooking.check_out) : 'N/A'}
-                        </Text>
-                        <Text style={styles.groupMetaText}>Accepted: {acceptedCount}</Text>
-                        <Text style={styles.groupMetaText}>Confirmed: {confirmedCount}</Text>
-                        <Text style={styles.groupMetaText}>Completed: {completedCount}</Text>
-                        <Text style={styles.groupMetaText}>Pending Payment: {pendingCount}</Text>
-                    </View>
-
-                    <TouchableOpacity style={styles.expandButton} onPress={() => openDestinationModal(item)}>
-                        <Text style={styles.expandButtonText}>
-                            View all bookings for this place
-                        </Text>
-                        <Ionicons name={'arrow-forward-circle'} size={18} color="#92400E" />
-                    </TouchableOpacity>
-                </View>
-            </View>
-        );
-    };
-
     if (loading) {
         return (
             <SafeAreaView edges={['bottom']} style={styles.mainContainer}>
@@ -1098,7 +1049,7 @@ const MyBookings = () => {
             <FlatList
                 ref={bookingsListRef}
                 data={groupedBookings}
-                renderItem={renderGroupItem}
+                renderItem={({ item }) => <BookingGroupCard item={item} onOpenDestinationModal={openDestinationModal} />}
                 keyExtractor={(item) => item.key}
                 contentContainerStyle={styles.listContainer}
                 onScroll={handleMainListScroll}
@@ -1313,7 +1264,17 @@ const MyBookings = () => {
                             ref={destinationModalListRef}
                             data={modalVisibleBookings}
                             keyExtractor={(item) => String(item.id)}
-                            renderItem={({ item }) => renderBookingItem(item)}
+                            renderItem={({ item }) => <BookingItemCard 
+                                item={item} 
+                                userId={user?.id}
+                                onOpenModal={handleOpenModal}
+                                onProceedToPayment={handleProceedToPayment}
+                                onOpenMessage={handleOpenMessage}
+                                onOpenRefundRequest={handleOpenRefundRequest}
+                                onInitiateCancellation={(id) => initiateCancellation(id)}
+                                onInitiateMarkAsPaid={(id) => initiateMarkAsPaid(id)}
+                                onReview={(item) => router.push({ pathname: '/(protected)/reviewModal', params: { bookingId: item.id }})}
+                            />}
                             contentContainerStyle={styles.destinationModalList}
                             onScroll={handleDestinationModalListScroll}
                             scrollEventThrottle={16}

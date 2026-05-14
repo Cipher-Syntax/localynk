@@ -1,7 +1,7 @@
+import { Image } from 'expo-image';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import FallbackImage from '../../assets/localynk_images/discover1.png';
@@ -25,7 +25,7 @@ const PlaceCard = ({ item, onPress, highlightCount = 0, onOpenHighlights }) => {
                 <Image
                     source={typeof imageSource === 'string' ? { uri: imageSource } : imageSource}
                     style={styles.photo}
-                    resizeMode="cover"
+                    contentFit="cover"
                 />
 
                 {/* New package highlight badge */}
@@ -229,8 +229,6 @@ const HomePlacesBrowse = ({ isPublic = false, data = [] }) => {
 };
 
 export default HomePlacesBrowse;
-
-const CARD_WIDTH = (335 - COLUMN_GAP) / 2; // approximate half width
 
 const styles = StyleSheet.create({
     container: { marginTop: 28 },

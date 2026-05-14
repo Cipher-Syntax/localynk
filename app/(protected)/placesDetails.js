@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ScrollView, View, Text, Image, StyleSheet, FlatList, TouchableOpacity, Animated, Easing } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, FlatList, TouchableOpacity, Animated, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Star, MapPin, Calendar } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -291,7 +292,7 @@ export default function PlacesDetails() {
                              <Image 
                                 source={require('../../assets/localynk_images/logo.png')} 
                                 style={styles.emptyReviewsImage}
-                                resizeMode="contain"
+                                contentFit="contain"
                             />
                             <Text style={styles.emptyReviewsTitle}>No Reviews Yet</Text>
                             <Text style={styles.emptyReviewsText}>Be the first to share your experience!</Text>

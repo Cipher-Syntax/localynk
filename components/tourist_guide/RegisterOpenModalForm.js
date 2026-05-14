@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useState, useRef, useEffect } from "react";
-import { View, Text, TextInput, Modal, TouchableOpacity, ScrollView, Image, StyleSheet, ActivityIndicator, Alert, Platform } from "react-native";
+import { View, Text, TextInput, Modal, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Alert, Platform } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";

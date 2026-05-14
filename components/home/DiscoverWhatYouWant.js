@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, Image, StyleSheet, Animated, TouchableOpacity, Easing, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Animated, TouchableOpacity, Easing, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';

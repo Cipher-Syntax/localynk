@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
-import { View, StyleSheet, Image, Text, TouchableOpacity, Animated, Easing, TextInput, FlatList, Modal, ScrollView } from 'react-native';
+import { View, StyleSheet, Text, TouchableOpacity, Animated, Easing, TextInput, FlatList, Modal, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from "expo-linear-gradient";
 import { User } from "lucide-react-native";
@@ -691,7 +692,7 @@ const ExplorePlaces = () => {
                     <Image
                         source={imageSource}
                         style={styles.photo}
-                        resizeMode="cover"
+                        contentFit="cover"
                     />
 
                     {/* New package highlight badge */}

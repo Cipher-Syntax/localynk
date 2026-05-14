@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, FlatList } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -408,9 +409,14 @@ const GuideAvailability = () => {
                             <Text style={styles.cardTitle}>Accommodation</Text>
                         </View>
                         <Text style={styles.highlightText}>Included in package</Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.accScroll}>
-                            {accommodations.map((acc, index) => (
-                                <View key={index} style={styles.accCard}>
+                        <FlatList
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            style={styles.accScroll}
+                            data={accommodations}
+                            keyExtractor={(acc, index) => acc.id?.toString() || index.toString()}
+                            renderItem={({ item: acc }) => (
+                                <View style={styles.accCard}>
                                     <Image source={{ uri: acc.image || 'https://via.placeholder.com/150' }} style={styles.accImage} />
                                     <View style={styles.accOverlay} />
                                     <View style={styles.accInfo}>
@@ -418,8 +424,8 @@ const GuideAvailability = () => {
                                         <Text style={styles.accPrice}>{acc.price || "Included"}</Text>
                                     </View>
                                 </View>
-                            ))}
-                        </ScrollView>
+                            )}
+                        />
                     </View>
                 )}
                 <View style={{height: 100}} />

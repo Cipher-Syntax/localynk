@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, ScrollView, StyleSheet, Image, Text, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, ScrollView, StyleSheet, Text, TouchableOpacity, ActivityIndicator, Alert, FlatList } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
 import { User, Calendar as CalendarIcon, Star, Compass, Clock, Languages, Package, MapPin, Bed, Wifi, Car, Coffee, CheckCircle } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
@@ -404,14 +405,14 @@ const GuideProfile = () => {
                                     <Text style={styles.detailsHeader}>Available Accommodations</Text>
                                 </View>
                                 
-                                <ScrollView 
+                                <FlatList 
                                     horizontal 
                                     showsHorizontalScrollIndicator={false} 
                                     contentContainerStyle={styles.accSwiperContainer}
-                                >
-                                    {accommodations.map((acc) => (
+                                    data={accommodations}
+                                    keyExtractor={acc => acc.id?.toString()}
+                                    renderItem={({ item: acc }) => (
                                         <TouchableOpacity 
-                                            key={acc.id} 
                                             style={styles.accCard}
                                             activeOpacity={0.9}
                                         >
@@ -451,8 +452,8 @@ const GuideProfile = () => {
                                                 </View>
                                             </View>
                                         </TouchableOpacity>
-                                    ))}
-                                </ScrollView>
+                                    )}
+                                />
                             </View>
                         )}
 

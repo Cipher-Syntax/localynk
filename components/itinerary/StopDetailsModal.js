@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useMemo } from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
+import { Modal, View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 const imageKeys = ['image', 'photo', 'stop_image', 'activityImage', 'activity_image', 'thumbnail', 'media_url'];
@@ -185,7 +186,7 @@ const StopDetailsModal = ({
                                         return (
                                             <View key={`itinerary-day-${dayKey}-stop-${index}`} style={styles.stopCard}>
                                                 {imageUri ? (
-                                                    <Image source={{ uri: imageUri }} style={styles.stopImage} resizeMode="cover" />
+                                                    <Image source={{ uri: imageUri }} style={styles.stopImage} contentFit="cover" />
                                                 ) : (
                                                     <View style={styles.stopImageFallback}>
                                                         <Ionicons name="image-outline" size={24} color="#94A3B8" />

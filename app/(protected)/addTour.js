@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { ScrollView, View, Text, Image, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Modal, FlatList, Platform, Dimensions, KeyboardAvoidingView } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Modal, FlatList, Platform, Dimensions, KeyboardAvoidingView } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';

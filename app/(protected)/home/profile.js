@@ -1,17 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useState, useEffect, useCallback } from "react";
-import { 
-    View, 
-    Text, 
-    ScrollView, 
-    StyleSheet, 
-    Image, 
-    TouchableOpacity, 
-    RefreshControl, 
-    Alert,
-    Modal,
-    Switch,
-    ActivityIndicator,
-} from "react-native";
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Alert, Modal, Switch, ActivityIndicator } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, AntDesign } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";

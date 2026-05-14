@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, Image, TextInput, TouchableOpacity, ActivityIndicator, Modal, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { CheckCircle2, UploadCloud, Calendar as CalendarIcon, ShieldCheck, AlertCircle } from 'lucide-react-native'; 
@@ -366,7 +367,7 @@ const AgencyBookingDetails = () => {
                                             <Image 
                                                 source={{ uri: agencyLogo.startsWith('http') ? agencyLogo : `${api.defaults.baseURL}${agencyLogo}` }} 
                                                 style={{ width: '100%', height: '100%', borderRadius: 28 }} 
-                                                resizeMode="cover"
+                                                contentFit="cover"
                                             />
                                         ) : (
                                             <Ionicons name="business" size={28} color="#fff" />

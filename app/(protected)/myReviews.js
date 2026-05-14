@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl, Image, ActivityIndicator, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, RefreshControl, ActivityIndicator, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -33,20 +34,22 @@ const hasNextReviewsPage = (payload, fallbackCount = 0) => {
     return Boolean(payload?.next);
 };
 
-const StarDisplay = ({ rating, size = 16, color = '#FFD700' }) => (
-    <View style={styles.starContainer}>
-        {[...Array(5)].map((_, index) => (
-            <Ionicons
-                key={index}
-                name={index < Math.round(rating) ? 'star' : 'star-outline'}
-                size={size}
-                color={index < Math.round(rating) ? color : '#E2E8F0'}
-            />
-        ))}
-    </View>
-);
+const StarDisplay = React.memo(function StarDisplay({ rating, size = 16, color = '#FFD700' }) {
+    return (
+        <View style={styles.starContainer}>
+            {[...Array(5)].map((_, index) => (
+                <Ionicons
+                    key={index}
+                    name={index < Math.round(rating) ? 'star' : 'star-outline'}
+                    size={size}
+                    color={index < Math.round(rating) ? color : '#E2E8F0'}
+                />
+            ))}
+        </View>
+    );
+});
 
-const ReviewCard = ({ review }) => {
+const ReviewCard = React.memo(function ReviewCard({ review }) {
     const initials = review.reviewer_username ? review.reviewer_username.charAt(0).toUpperCase() : 'A';
     
     return (
@@ -79,7 +82,7 @@ const ReviewCard = ({ review }) => {
             )}
         </View>
     );
-};
+});
 
 const MyReviews = () => {
     const router = useRouter();
@@ -308,7 +311,7 @@ const MyReviews = () => {
                         <Image 
                             source={require('../../assets/localynk_images/logo.png')} // Or any placeholder image
                             style={{width: 80, height: 80, opacity: 0.5, marginBottom: 15}}
-                            resizeMode="contain"
+                            contentFit="contain"
                         />
                         <Text style={styles.emptyTitle}>
                             {selectedRatingFilter === 'all'

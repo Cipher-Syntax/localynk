@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, RefreshControl, Modal, TextInput, KeyboardAvoidingView, Platform, Alert, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, TextInput, KeyboardAvoidingView, Platform, Alert, Dimensions, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -507,13 +508,18 @@ const MyTourPackages = () => {
 
                             <Text style={styles.sectionSubTitle}>Itinerary Builder</Text>
                             {durationNum > 1 && (
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dayTabsScroll}>
-                                    {dayTabs.map(day => (
-                                        <TouchableOpacity key={`edit-day-${day}`} style={[styles.dayTab, currentDayTab === day && styles.dayTabActive]} onPress={() => setCurrentDayTab(day)}>
+                                <FlatList
+                                    horizontal
+                                    showsHorizontalScrollIndicator={false}
+                                    style={styles.dayTabsScroll}
+                                    data={dayTabs}
+                                    keyExtractor={(day) => `edit-day-${day}`}
+                                    renderItem={({ item: day }) => (
+                                        <TouchableOpacity style={[styles.dayTab, currentDayTab === day && styles.dayTabActive]} onPress={() => setCurrentDayTab(day)}>
                                             <Text style={[styles.dayTabText, currentDayTab === day && styles.dayTabTextActive]}>Day {day}</Text>
                                         </TouchableOpacity>
-                                    ))}
-                                </ScrollView>
+                                    )}
+                                />
                             )}
 
                             <View style={styles.builderContainer}>

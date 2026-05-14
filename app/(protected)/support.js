@@ -1,9 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useState } from 'react';
-import { 
-    View, Text, StyleSheet, ScrollView, TouchableOpacity, 
-    Image, LayoutAnimation, Platform, UIManager, TextInput, Modal, 
-    KeyboardAvoidingView, Keyboard, ActivityIndicator 
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, LayoutAnimation, Platform, UIManager, TextInput, Modal, KeyboardAvoidingView, Keyboard, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';

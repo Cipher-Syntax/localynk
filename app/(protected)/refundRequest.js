@@ -1,17 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useCallback, useMemo, useState } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    TouchableOpacity,
-    TextInput,
-    Image,
-    ScrollView,
-    ActivityIndicator,
-    Platform,
-    StatusBar,
-    Linking,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Platform, StatusBar, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -320,7 +309,7 @@ export default function RefundRequestScreen() {
                                     <Image
                                         source={{ uri: selectedRequest.proof_attachment_url }}
                                         style={styles.attachmentPreview}
-                                        resizeMode="cover"
+                                        contentFit="cover"
                                     />
                                 ) : (
                                     <View style={styles.attachmentPlaceholder}>
@@ -370,7 +359,7 @@ export default function RefundRequestScreen() {
 
                     {!!proofUri && (
                         <View style={styles.proofPreviewWrap}>
-                            <Image source={{ uri: proofUri }} style={styles.proofPreview} resizeMode="cover" />
+                            <Image source={{ uri: proofUri }} style={styles.proofPreview} contentFit="cover" />
                             <Text style={styles.proofName} numberOfLines={1}>{proofName || 'Proof attachment selected'}</Text>
                         </View>
                     )}

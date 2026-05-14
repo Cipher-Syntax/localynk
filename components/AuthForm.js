@@ -10,7 +10,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { useRouter } from 'expo-router';
 import * as Linking from 'expo-linking'; 
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useAuth } from '../context/AuthContext'; 
+import { useAuth, useAuthMessage } from '../context/AuthContext'; 
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import {
     NAME_REGEX,
@@ -23,7 +23,8 @@ import {
 } from '../utils/validation';
 
 const AuthForm = ({ method }) => {
-    const { login, register, googleLogin, resendVerificationEmail, reactivateAccount, message, messageType, clearMessage, setMessage } = useAuth(); 
+    const { login, register, googleLogin, resendVerificationEmail, reactivateAccount } = useAuth(); 
+    const { message, messageType, clearMessage, setMessage } = useAuthMessage(); 
 
     const { control, handleSubmit, watch, trigger, formState: { errors, isSubmitting } } = useForm();
     const [remember, setRemember] = useState(false);

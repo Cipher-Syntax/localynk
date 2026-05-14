@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useState, useRef } from 'react';
-import { View, Text, ImageBackground, StyleSheet, TouchableOpacity, Dimensions, Image } from 'react-native';
+import { View, Text, ImageBackground, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Swiper from 'react-native-swiper';
 import MaskedView from '@react-native-masked-view/masked-view';
@@ -171,7 +172,7 @@ const Header = ({ destinations = [], unreadCount = 0 }) => {
                         <View>
                             <Image 
                                 source={require("../../assets/localynk_images/logo.png")}  
-                                resizeMode="cover" 
+                                contentFit="cover"
                             />
                             </View>
                         <Text style={{color:'#666'}}>No destinations found.</Text>
