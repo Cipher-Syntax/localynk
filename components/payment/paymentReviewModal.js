@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Modal, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput, Platform, Dimensions, Linking } from 'react-native';
+import { View, Text, Modal, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Platform, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Receipt, Calendar, CreditCard, User, Mail, Users, AlertCircle, Phone } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -7,11 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../api/api'; 
 import { useAuth } from '../../context/AuthContext';
 import { buildPricingBreakdown } from '../../utils/pricingBreakdown';
+import { styles } from './styles/paymentReviewModal.styles';
 
-const { height } = Dimensions.get('window');
-
-const SURFACE_COLOR = '#FFFFFF';
-const TEXT_PRIMARY = '#1E293B';
 const TEXT_SECONDARY = '#64748B';
 
 const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
@@ -753,65 +750,3 @@ const PaymentReviewModal = ({ isModalOpen, setIsModalOpen, paymentData }) => {
 };
 
 export default PaymentReviewModal;
-
-const styles = StyleSheet.create({
-    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-    receiptContainer: { width: '100%', maxHeight: height * 0.85, backgroundColor: '#fff', borderRadius: 20, overflow: 'hidden' },
-    receiptHeader: { padding: 20, borderBottomWidth: 1, borderBottomColor: '#F1F5F9', backgroundColor: '#FAFAFA' },
-    headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-    headerIconBg: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#E0F2FE', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
-    receiptTitle: { flex: 1, fontSize: 14, fontWeight: '800', color: '#1E293B', letterSpacing: 1 },
-    receiptDate: { fontSize: 11, color: '#94A3B8', marginLeft: 42 },
-    closeButton: { padding: 5 },
-    scrollArea: { padding: 20 },
-    section: { marginBottom: 20 },
-    sectionLabel: { fontSize: 10, fontWeight: '700', color: '#94A3B8', marginBottom: 12, letterSpacing: 1, textTransform: 'uppercase' },
-    itemRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 },
-    interactiveRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-    itemIcon: { width: 28, alignItems: 'center', paddingTop: 2 },
-    itemTitle: { fontSize: 14, fontWeight: '700', color: '#1E293B', marginBottom: 2 },
-    itemSub: { fontSize: 13, color: '#64748B' },
-    itemText: { fontSize: 14, color: '#334155', fontWeight: '500' },
-    scheduleDayGroup: { marginBottom: 10 },
-    scheduleDayTitle: { fontSize: 13, fontWeight: '700', color: '#1E293B', marginBottom: 4 },
-    scheduleActivity: { fontSize: 13, color: '#475569', lineHeight: 18, marginBottom: 2, paddingLeft: 8 },
-    smallInput: { width: 60, height: 36, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, textAlign: 'center', fontSize: 14, fontWeight: '700', color: '#1E293B', backgroundColor: '#F8FAFC' },
-    dashedLineContainer: { flexDirection: 'row', justifyContent: 'space-between', overflow: 'hidden', marginBottom: 20 },
-    dash: { width: 6, height: 1, backgroundColor: '#CBD5E1', marginRight: 4 },
-    billRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-    billLabel: { fontSize: 13, color: '#475569', fontWeight: '500' },
-    billValue: { fontSize: 13, color: '#1E293B', fontWeight: '600', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
-    billSubRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6, paddingLeft: 20 },
-    billSubLabel: { flex: 1, marginRight: 10, fontSize: 12, color: '#64748B', fontWeight: '500' },
-    billSubValue: { fontSize: 12, color: '#1E293B', fontWeight: '600', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
-    receiptFooter: { padding: 20, backgroundColor: '#F8FAFC', borderTopWidth: 1, borderTopColor: '#E2E8F0' },
-    pendingInfoBox: { backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE', borderRadius: 12, padding: 12, marginBottom: 10 },
-    pendingInfoTitle: { fontSize: 12, fontWeight: '700', color: '#1D4ED8', marginBottom: 4 },
-    pendingInfoText: { fontSize: 11, color: '#1E3A8A', lineHeight: 16 },
-    pendingInfoRef: { marginTop: 6, fontSize: 11, color: '#1E40AF', fontWeight: '700' },
-    payLaterButton: { marginTop: 10, paddingVertical: 8, backgroundColor: '#DBEAFE', borderRadius: 8, alignItems: 'center' },
-    payLaterText: { color: '#1D4ED8', fontWeight: '700', fontSize: 12 },
-    payButton: { backgroundColor: '#0072FF', paddingVertical: 16, borderRadius: 14, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', shadowColor: '#0072FF', shadowOffset: {width:0, height:4}, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4, marginBottom: 10 },
-    payButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-    secureText: { textAlign: 'center', fontSize: 10, color: '#94A3B8' },
-    successContainer: { flex: 1, backgroundColor: '#0072FF', justifyContent: 'center', alignItems: 'center' },
-    successContent: { width: '85%', alignItems: 'center' },
-    successIconCircle: { width: 90, height: 90, borderRadius: 45, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: 20, borderWidth: 2, borderColor: 'rgba(255,255,255,0.4)' },
-    successTitle: { fontSize: 22, fontWeight: '800', color: '#fff', marginBottom: 8, letterSpacing: 1 },
-    successSub: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginBottom: 30, textAlign: 'center' },
-    ticketStub: { backgroundColor: '#fff', width: '100%', borderRadius: 16, padding: 20, marginBottom: 30, shadowColor: '#000', shadowOffset: {width:0, height:10}, shadowOpacity: 0.2, shadowRadius: 20, elevation: 10 },
-    ticketRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-    ticketLabel: { fontSize: 13, color: '#64748B', fontWeight: '600' },
-    ticketValue: { fontSize: 14, color: '#1E293B', fontWeight: '700' },
-    ticketDivider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 15, borderStyle: 'dashed', borderWidth: 1, borderColor: '#E2E8F0' },
-    ticketNote: { fontSize: 12, color: '#64748B', textAlign: 'center', fontStyle: 'italic' },
-    homeButton: { backgroundColor: '#fff', paddingVertical: 14, paddingHorizontal: 30, borderRadius: 30 },
-    homeButtonText: { color: '#0072FF', fontWeight: '700', fontSize: 14 },
-    errorOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-    errorCard: { width: '85%', backgroundColor: SURFACE_COLOR, borderRadius: 24, padding: 24, alignItems: 'center', elevation: 10 },
-    errorIconBox: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#FEF2F2', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-    errorTitle: { fontSize: 20, fontWeight: '800', color: TEXT_PRIMARY, marginBottom: 8 },
-    errorMessage: { fontSize: 14, color: TEXT_SECONDARY, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
-    errorButton: { backgroundColor: '#EF4444', paddingVertical: 12, width: '100%', alignItems: 'center', borderRadius: 12 },
-    errorButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-});

@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Modal, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { CheckCircle2, UploadCloud, Calendar as CalendarIcon, ShieldCheck, AlertCircle } from 'lucide-react-native'; 
@@ -13,12 +13,12 @@ import AgencyPaymentReviewModal from './agencyPaymentReviewModal';
 import api from '../../api/api'; 
 import { formatPHPhoneLocal, normalizePHPhone } from '../../utils/phoneNumber';
 import { NAME_REGEX, NAME_ERROR_MESSAGE, EMAIL_REGEX, EMAIL_ERROR_MESSAGE, PHONE_ERROR_MESSAGE } from '../../utils/validation';
+import { styles } from './styles/agencyBookingDetails.styles';
+
 
 const PRIMARY_COLOR = '#0072FF';
-const SURFACE_COLOR = '#FFFFFF';
 const BACKGROUND_COLOR = '#F8F9FC';
 const TEXT_PRIMARY = '#1E293B';
-const TEXT_SECONDARY = '#64748B';
 
 const AgencyBookingDetails = () => {
     const params = useLocalSearchParams();
@@ -705,95 +705,3 @@ const AgencyBookingDetails = () => {
 };
 
 export default AgencyBookingDetails;
-
-const styles = StyleSheet.create({
-    container: { flex: 1 },
-    header: { height: 100, position: 'relative', marginBottom: 20 },
-    headerImage: { width: '100%', height: '100%', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
-    overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
-    headerContent: { position: 'absolute', bottom: 15, left: 20, right: 20, flexDirection: 'row', alignItems: 'center' },
-    backButton: { marginRight: 15, padding: 5 },
-    headerTitle: { color: '#fff', fontSize: 20, fontWeight: '800', letterSpacing: 0.5 },
-    contentContainer: { paddingHorizontal: 20 },
-    card: { backgroundColor: SURFACE_COLOR, borderRadius: 16, padding: 16, marginBottom: 24, shadowColor: '#000', shadowOffset: {width:0, height:4}, shadowOpacity:0.05, shadowRadius:8, elevation:2 },
-    guideHeader: { flexDirection: 'row', alignItems: 'center' },
-    avatarContainer: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#1E293B', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
-    guideInfo: { flex: 1 },
-    guideName: { fontSize: 18, fontWeight: '700', color: TEXT_PRIMARY },
-    guideSub: { fontSize: 13, color: TEXT_SECONDARY },
-    verifiedTag: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 4, backgroundColor: '#ECFDF5', alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
-    verifiedText: { fontSize: 11, color: '#059669', fontWeight: '600' },
-    sectionTitle: { fontSize: 16, fontWeight: '700', color: TEXT_PRIMARY, marginBottom: 12 },
-    datesRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
-    dateBox: { flex: 1, backgroundColor: SURFACE_COLOR, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0' },
-    dateLabel: { fontSize: 12, color: TEXT_SECONDARY, marginBottom: 4 },
-    dateValueRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    dateValue: { fontSize: 14, fontWeight: '700', color: TEXT_PRIMARY },
-    connector: { width: 10, height: 1, backgroundColor: '#CBD5E1', marginHorizontal: 10 },
-    switchContainer: { flexDirection: 'row', backgroundColor: '#F1F5F9', borderRadius: 12, padding: 4, marginBottom: 16 },
-    switchOption: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
-    switchActive: { backgroundColor: SURFACE_COLOR, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
-    switchText: { fontSize: 14, fontWeight: '600', color: TEXT_SECONDARY },
-    switchTextActive: { color: PRIMARY_COLOR, fontWeight: '700' },
-    modernInput: { backgroundColor: SURFACE_COLOR, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: TEXT_PRIMARY, marginBottom: 10 },
-    inputRow: { flexDirection: 'row', marginBottom: 10 },
-    fieldErrorText: { color: '#DC2626', fontSize: 12, lineHeight: 16, marginTop: -6, marginBottom: 8, fontWeight: '600' },
-    inputGroup: { marginBottom: 20 },
-    inputLabel: { fontSize: 13, fontWeight: '600', color: TEXT_SECONDARY, marginBottom: 8 },
-    
-    guestNamesContainer: { marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: '#E2E8F0' },
-
-    kycRow: { flexDirection: 'row', gap: 12 },
-    kycItem: { flex: 1, alignItems: 'center' },
-    kycCard: { width: '100%', height: 120, backgroundColor: '#F8FAFC', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
-    kycCardDone: { borderStyle: 'solid', borderColor: '#22C55E' },
-    kycPlaceholder: { alignItems: 'center', gap: 8 },
-    kycText: { fontSize: 13, fontWeight: '600', color: TEXT_SECONDARY },
-    kycImage: { width: '100%', height: '100%' },
-    kycItemLabel: { marginTop: 8, fontSize: 12, color: '#475569', fontWeight: '700' },
-    checkBubble: { position: 'absolute', top: 8, right: 8, backgroundColor: '#22C55E', borderRadius: 12, padding: 2 },
-    receiptCard: { backgroundColor: SURFACE_COLOR, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed', marginBottom: 20, marginTop: 24 },
-    receiptHeader: { alignItems: 'center', marginBottom: 16 },
-    receiptTitle: { fontSize: 14, fontWeight: '700', color: TEXT_SECONDARY, textTransform: 'uppercase', letterSpacing: 1 },
-    receiptRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-    receiptLabel: { fontSize: 14, color: TEXT_SECONDARY },
-    receiptValue: { fontSize: 14, fontWeight: '600', color: TEXT_PRIMARY },
-    receiptTotal: { fontSize: 18, fontWeight: '800', color: TEXT_PRIMARY },
-    receiptDivider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 12 },
-    receiptNote: { fontSize: 11, color: PRIMARY_COLOR, fontStyle: 'italic', textAlign: 'right' },
-    bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: SURFACE_COLOR, paddingHorizontal: 24, paddingVertical: 16, paddingBottom: 30, borderTopWidth: 1, borderTopColor: '#F1F5F9', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', shadowColor: '#000', shadowOffset: {width:0, height:-2}, shadowOpacity:0.05, shadowRadius:10, elevation:10 },
-    bottomLabel: { fontSize: 12, color: TEXT_SECONDARY, fontWeight: '600' },
-    bottomPrice: { fontSize: 20, color: TEXT_PRIMARY, fontWeight: '800' },
-    payButton: { backgroundColor: PRIMARY_COLOR, flexDirection: 'row', paddingVertical: 14, paddingHorizontal: 24, borderRadius: 14, alignItems: 'center', gap: 8, shadowColor: PRIMARY_COLOR, shadowOffset: {width:0, height:4}, shadowOpacity:0.3, shadowRadius:8, elevation:4 },
-    payButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
-    calendarCard: { backgroundColor: SURFACE_COLOR, borderRadius: 24, padding: 20 },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-    modalTitle: { fontSize: 18, fontWeight: '700', color: TEXT_PRIMARY },
-    closeBtn: { padding: 4, backgroundColor: '#F1F5F9', borderRadius: 20 },
-    errorOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-    errorCard: { width: '85%', backgroundColor: SURFACE_COLOR, borderRadius: 24, padding: 24, alignItems: 'center', elevation: 10 },
-    errorIconBox: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#FEF2F2', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-    errorTitle: { fontSize: 20, fontWeight: '800', color: TEXT_PRIMARY, marginBottom: 8 },
-    errorMessage: { fontSize: 14, color: TEXT_SECONDARY, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
-    errorButton: { backgroundColor: '#EF4444', paddingVertical: 12, width: '100%', alignItems: 'center', borderRadius: 12 },
-    errorButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-
-    viewManifestButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#EFF6FF', paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#BFDBFE', marginBottom: 20 },
-    viewManifestButtonText: { color: PRIMARY_COLOR, fontSize: 14, fontWeight: '700', marginLeft: 8 },
-    manifestModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-    manifestModalContainer: { backgroundColor: SURFACE_COLOR, borderTopLeftRadius: 24, borderTopRightRadius: 24, height: '70%', padding: 20 },
-    manifestModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-    manifestModalTitle: { fontSize: 18, fontWeight: '800', color: TEXT_PRIMARY },
-
-    manifestCard: { backgroundColor: '#F8FAFC', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 12 },
-    manifestHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-    manifestGuest: { flex: 1, fontSize: 15, fontWeight: '700', color: '#1E293B', marginLeft: 8 },
-    manifestPaxBadge: { backgroundColor: '#DBEAFE', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-    manifestPaxText: { color: '#1D4ED8', fontWeight: '800', fontSize: 12 },
-    manifestRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
-    manifestLabel: { fontSize: 13, color: '#64748B', width: 60 },
-    manifestValue: { fontSize: 13, color: '#1E293B', fontWeight: '600', flex: 1, textAlign: 'right' },
-    emptyManifest: { padding: 30, backgroundColor: '#F8FAFC', borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed', marginTop: 20 },
-    emptyManifestText: { color: '#64748B', fontStyle: 'italic', marginTop: 10, fontSize: 13 },
-});

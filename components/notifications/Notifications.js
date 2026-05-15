@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -9,6 +9,7 @@ import api from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
 import Toast from '../Toast';
 import ScrollToTopButton from '../ScrollToTopButton';
+import { styles } from './styles/Notification.styles';
 
 const PAGE_SIZE = 10;
 const SCROLL_TO_TOP_THRESHOLD = 280;
@@ -758,66 +759,3 @@ const Notifications = () => {
 };
 
 export default Notifications;
-
-const styles = StyleSheet.create({
-    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F8FB' },
-    emptyContainer: { alignItems: 'center', justifyContent: 'center', padding: 50, marginTop: 50 },
-    emptyText: { marginTop: 15, fontSize: 16, color: '#8B98A8', textAlign: 'center' },
-    container: { flex: 1, backgroundColor: '#F5F8FB' },
-    header: { position: 'relative', height: 120, justifyContent: 'center' },
-    headerImage: { width: '100%', height: '100%', resizeMode: 'cover', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
-    overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
-    headerTitle: { position: 'absolute', bottom: 15, left: 20, color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 1 },
-    
-    // --- ADDED BACK BUTTON STYLE ---
-    backButton: { 
-        position: 'absolute', 
-        top: 35,
-        left: 20, 
-        padding: 5, 
-        zIndex: 10 
-    },
-    filtersContainer: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 4, gap: 8 },
-    filterChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: '#EAF0F7' },
-    filterChipActive: { backgroundColor: '#0A2342' },
-    filterChipText: { color: '#344255', fontWeight: '600', fontSize: 12 },
-    filterChipTextActive: { color: '#FFFFFF' },
-
-    actionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginTop: 15 },
-    bulkActionButton: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#EAF3FF', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
-    deleteAllAction: { backgroundColor: '#FFECEC' },
-    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
-    sectionTitle: { fontWeight: '700', fontSize: 16, color: '#0A2342', marginHorizontal: 20, marginTop: 10 },
-    markAll: { color: '#007AFF', fontSize: 13, fontWeight: '600' },
-    deleteAllText: { color: '#FF3B30', fontSize: 13, fontWeight: '600' },
-    notificationCard: { backgroundColor: '#fff', borderRadius: 12, marginHorizontal: 20, marginVertical: 8, padding: 14, flexDirection: 'row', alignItems: 'flex-start', shadowColor: '#000', shadowOpacity: 0.05, shadowOffset: { width: 0, height: 2 }, shadowRadius: 4, elevation: 2, position: 'relative' },
-    unreadCard: { borderLeftWidth: 3, borderLeftColor: '#007AFF' },
-    iconContainer: { marginRight: 10, marginTop: 4 },
-    textContainer: { flex: 1, marginRight: 10 },
-    notificationTitle: { fontWeight: '700', color: '#0A2342', fontSize: 14 },
-    notificationDesc: { fontSize: 13, color: '#555', marginTop: 2 },
-    notificationTime: { fontSize: 12, color: '#777', marginTop: 4 },
-    actionsColumn: { alignItems: 'center', gap: 8, paddingTop: 2 },
-    iconActionButton: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F2F6FA' },
-    redDot: { width: 10, height: 10, backgroundColor: '#FF3B30', borderRadius: 5, position: 'absolute', top: 10, right: 10 },
-    swipeActionsContainer: { flexDirection: 'row', alignItems: 'stretch', marginVertical: 8, marginRight: 20 },
-    swipeActionButton: { width: 80, borderRadius: 12, alignItems: 'center', justifyContent: 'center', gap: 4, marginLeft: 8 },
-    swipeRead: { backgroundColor: '#007AFF' },
-    swipeDelete: { backgroundColor: '#FF3B30' },
-    swipeActionText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-    loadingMoreWrap: { alignItems: 'center', paddingVertical: 14 },
-    undoToast: { position: 'absolute', bottom: 24, left: 16, right: 16, backgroundColor: '#1F2937', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', zIndex: 20 },
-    undoToastText: { color: '#fff', fontSize: 13, fontWeight: '600', flex: 1, marginRight: 10 },
-    undoToastAction: { color: '#7DD3FC', fontSize: 13, fontWeight: '800' },
-    modalBackdrop: { flex: 1, backgroundColor: 'rgba(10, 35, 66, 0.35)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
-    modalCard: { width: '100%', maxWidth: 360, backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 14 },
-    modalTitle: { fontSize: 17, fontWeight: '700', color: '#0A2342' },
-    modalMessage: { marginTop: 10, fontSize: 14, color: '#495766', lineHeight: 20 },
-    modalActions: { marginTop: 18, flexDirection: 'row', justifyContent: 'flex-end', gap: 10 },
-    modalButton: { borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9 },
-    modalCancelButton: { backgroundColor: '#EEF2F6' },
-    modalConfirmButton: { backgroundColor: '#007AFF' },
-    modalDestructiveButton: { backgroundColor: '#FF3B30' },
-    modalCancelText: { color: '#344255', fontWeight: '700', fontSize: 13 },
-    modalConfirmText: { color: '#fff', fontWeight: '700', fontSize: 13 },
-});

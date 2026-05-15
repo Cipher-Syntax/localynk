@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Alert, Modal, Switch, ActivityIndicator } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, Alert, Modal, Switch, ActivityIndicator } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, AntDesign } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
@@ -18,6 +18,8 @@ import {
 } from "../../../utils/bookingNotifications";
 import { formatPHPhoneLocal } from "../../../utils/phoneNumber";
 import { hasProfileAttentionDot, isPayoutAccountIncomplete } from "../../../utils/profileCompleteness";
+
+import { styles } from './styles/profile.styles';
 
 const Profile = () => {
     const [loading, setLoading] = useState(true);
@@ -611,60 +613,3 @@ const Profile = () => {
 }
 
 export default Profile;
-
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F8FAFC' },
-    centerContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" },
-    header: { position: 'relative', height: 120, justifyContent: 'center' },
-    headerImage: { width: '100%', height: '100%', resizeMode: 'cover', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
-    overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
-    headerTitle: { position: 'absolute', bottom: 15, left: 20, color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 1 },
-    bodyContainer: { flex: 1, backgroundColor: '#F8FAFC', marginTop: 10, paddingHorizontal: 20, paddingBottom: 40 },
-    avatarContainer: { alignItems: 'center', marginTop: -60, marginBottom: 15 },
-    avatarWrapper: { position: 'relative', padding: 4, backgroundColor: '#fff', borderRadius: 60, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 5 },
-    avatarImage: { width: 100, height: 100, borderRadius: 50 },
-    editAvatarBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#0072FF', width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff' },
-    infoSection: { alignItems: 'center', marginBottom: 25 },
-    profileName: { fontSize: 22, fontWeight: '800', color: '#1E293B', marginBottom: 4 },
-    detailRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 10, marginTop: 4 },
-    detailItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    detailText: { fontSize: 13, color: '#64748B', fontWeight: '500' },
-    dotSeparator: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#CBD5E1', marginHorizontal: 4 },
-    bioText: { textAlign: 'center', fontSize: 14, color: '#475569', lineHeight: 20, marginHorizontal: 20 },
-    conversationChip: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6, marginBottom: 10, backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 },
-    conversationChipText: { fontSize: 12, fontWeight: '700', color: '#1D4ED8' },
-    statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', borderRadius: 16, paddingVertical: 15, paddingHorizontal: 30, marginBottom: 30, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
-    statItem: { alignItems: 'center', flex: 1 },
-    statValue: { fontSize: 18, fontWeight: '800', color: '#0F172A' },
-    statLabel: { fontSize: 12, color: '#94A3B8', marginTop: 2, fontWeight: '600' },
-    verticalDivider: { width: 1, height: 30, backgroundColor: '#E2E8F0' },
-    menuSection: { flex: 1 },
-    menuTitle: { fontSize: 16, fontWeight: '700', color: '#1E293B', marginBottom: 10, marginLeft: 5 },
-    menuContainer: { backgroundColor: '#fff', borderRadius: 16, paddingVertical: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 5, elevation: 2 },
-    notificationPreferenceWrap: { paddingHorizontal: 15, paddingTop: 12, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-    notificationPreferenceTitle: { fontSize: 13, fontWeight: '800', color: '#334155', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 10 },
-    notificationPreferenceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F8FAFC' },
-    notificationPreferenceRowLast: { borderBottomWidth: 0 },
-    notificationPreferenceTextWrap: { flex: 1, paddingRight: 12 },
-    notificationPreferenceLabel: { fontSize: 14, fontWeight: '700', color: '#0F172A', marginBottom: 2 },
-    notificationPreferenceHint: { fontSize: 12, fontWeight: '500', color: '#64748B' },
-    menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15, paddingHorizontal: 15, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-    menuItemLast: { borderBottomWidth: 0 },
-    menuIconBox: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 15 },
-    menuLabel: { flex: 1, fontSize: 15, fontWeight: '600', color: '#334155' },
-    menuBadgeDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#EF4444', marginRight: 8 },
-    logoutButton: { marginTop: 30, marginBottom: 10, alignItems: 'center', justifyContent: 'center', paddingVertical: 15, borderRadius: 16, backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA' },
-    logoutText: { color: '#EF4444', fontWeight: '700', fontSize: 15 },
-    versionText: { textAlign: 'center', color: '#CBD5E1', fontSize: 12, marginTop: 10 },
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-    modalContent: { backgroundColor: 'white', borderRadius: 20, padding: 24, width: '100%', maxWidth: 340, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
-    modalHeader: { marginBottom: 16 },
-    warningIconContainer: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#FEF2F2', justifyContent: 'center', alignItems: 'center' },
-    modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#1F2937', marginBottom: 12, textAlign: 'center' },
-    modalMessage: { fontSize: 15, color: '#6B7280', textAlign: 'center', marginBottom: 24, lineHeight: 22 },
-    modalButtons: { flexDirection: 'row', width: '100%', gap: 12 },
-    cancelButton: { flex: 1, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#fff', alignItems: 'center' },
-    cancelButtonText: { fontSize: 16, fontWeight: '600', color: '#374151' },
-    confirmButton: { flex: 1, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, backgroundColor: '#EF4444', alignItems: 'center' },
-    confirmButtonText: { fontSize: 16, fontWeight: '600', color: 'white' },
-});

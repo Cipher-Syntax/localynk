@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, TextInput, KeyboardAvoidingView, Platform, Alert, Dimensions, FlatList } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, TextInput, KeyboardAvoidingView, Platform, Alert, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -11,8 +11,8 @@ import { useAuth } from '../../context/AuthContext';
 import Toast from '../../components/Toast';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import ScreenSafeArea from '../../components/ScreenSafeArea';
+import { styles } from './styles/myTourPackages.styles';
 
-const { width } = Dimensions.get('window');
 
 const MyTourPackages = () => {
     const { user } = useAuth();
@@ -613,98 +613,3 @@ const MyTourPackages = () => {
 };
 
 export default MyTourPackages;
-
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F8FAFC' },
-    centerContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-    backButton: { padding: 4 },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: '#1E293B' },
-    scrollContent: { padding: 20 },
-    pageDescription: { fontSize: 14, color: '#64748B', marginBottom: 20, lineHeight: 20 },
-    cardContainer: { backgroundColor: '#fff', borderRadius: 16, marginBottom: 15, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 3, overflow: 'hidden' },
-    cardHeader: { flexDirection: 'row', padding: 12 },
-    cardImage: { width: 80, height: 80, borderRadius: 12, backgroundColor: '#E2E8F0' },
-    cardInfo: { flex: 1, marginLeft: 12, justifyContent: 'space-between' },
-    cardTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-    cardTitle: { fontSize: 16, fontWeight: '700', color: '#1E293B', flex: 1, marginRight: 8 },
-    deleteButton: { padding: 4 },
-    cardDetailRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
-    cardDetailText: { fontSize: 13, color: '#64748B', marginLeft: 4, flex: 1 },
-    cardBottomRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
-    badge: { backgroundColor: '#EFF6FF', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-    badgeText: { fontSize: 11, fontWeight: '600', color: '#0072FF' },
-    expandedContent: { backgroundColor: '#F8FAFC', padding: 15, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
-    sectionHeader: { fontSize: 14, fontWeight: '700', color: '#334155', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
-    itemRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 12, borderRadius: 10, marginBottom: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.02, shadowRadius: 2, elevation: 1 },
-    tourItemImage: { width: 45, height: 45, borderRadius: 8, marginRight: 12, backgroundColor: '#E2E8F0' },
-    itemTextContainer: { flex: 1 },
-    itemName: { fontSize: 14, fontWeight: '600', color: '#1E293B', marginBottom: 2 },
-    itemSubText: { fontSize: 12, color: '#94A3B8' },
-    tourActions: { alignItems: 'flex-end', justifyContent: 'center' },
-    itemPrice: { fontSize: 14, fontWeight: '700', color: '#0F172A' },
-    actionIconsRow: { flexDirection: 'row', gap: 6, marginTop: 4 },
-    iconBtn: { padding: 6, backgroundColor: '#EBF6FF', borderRadius: 6 },
-    emptyText: { fontSize: 13, color: '#94A3B8', fontStyle: 'italic', marginLeft: 5 },
-    emptyStateContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
-    emptyStateTitle: { fontSize: 18, fontWeight: '700', color: '#334155', marginTop: 15, marginBottom: 5 },
-    emptyStateText: { fontSize: 14, color: '#94A3B8', textAlign: 'center', paddingHorizontal: 20 },
-
-    // Modal Edit Styles
-    modalOverlayFull: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
-    modalContentFull: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '90%' },
-    modalHeaderFull: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-    modalTitleFull: { fontSize: 18, fontWeight: '800', color: '#1E293B' },
-    closeBtn: { padding: 4, backgroundColor: '#F1F5F9', borderRadius: 20 },
-    sectionSubTitle: { fontSize: 16, fontWeight: '700', color: '#1F2937', marginBottom: 5, marginTop: 10 },
-    row: { flexDirection: 'row', alignItems: 'center' },
-    inputLabel: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 6, marginTop: 15 },
-    input: { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 10, padding: 12, fontSize: 14, backgroundColor: '#F8FAFC', color: '#1E293B' },
-    textArea: { height: 80 },
-    divider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 20 },
-    
-    // Stop Grid
-    gridContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-    gridItemCard: { width: (width - 50) / 2, backgroundColor: '#fff', borderRadius: 12, padding: 8, borderWidth: 1, borderColor: '#E5E7EB' },
-    imageUploadSmall: { height: 100, backgroundColor: '#F3F4F6', borderRadius: 8, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', marginBottom: 8 },
-    uploadedImage: { width: '100%', height: '100%' },
-    removeIcon: { position: 'absolute', top: 5, right: 5, backgroundColor: 'rgba(0,0,0,0.5)', padding: 4, borderRadius: 10 },
-    cardInput: { fontSize: 12, textAlign: 'center', padding: 4, backgroundColor: '#F9FAFB', borderRadius: 4, color: '#1F2937' },
-    addStopButton: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 15, marginTop: 10, borderStyle: 'dashed', borderWidth: 1, borderColor: '#0072FF', borderRadius: 12, backgroundColor: '#EFF6FF' },
-    addStopText: { color: '#0072FF', fontWeight: '600', marginLeft: 8 },
-
-    // Itinerary Builder
-    dayTabsScroll: { marginBottom: 15, flexDirection: 'row', marginTop: 10 },
-    dayTab: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F1F5F9', marginRight: 10, borderWidth: 1, borderColor: '#E2E8F0' },
-    dayTabActive: { backgroundColor: '#EFF6FF', borderColor: '#0072FF' },
-    dayTabText: { fontSize: 13, fontWeight: '600', color: '#64748B' },
-    dayTabTextActive: { color: '#0072FF' },
-    builderContainer: { backgroundColor: '#fff', padding: 15, borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', marginTop: 5 },
-    timePickerButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 12 },
-    timePickerText: { fontSize: 14, color: '#1F2937' },
-    pickerTrigger: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, paddingHorizontal: 15, paddingVertical: 12, marginVertical: 12, backgroundColor: '#fff' },
-    addTimeBtn: { backgroundColor: '#0072FF', padding: 12, borderRadius: 8, alignItems: 'center', marginBottom: 15 },
-    addTimeBtnText: { color: '#fff', fontWeight: '700' },
-    
-    timelineList: { marginTop: 5 },
-    emptyTimelineText: { textAlign: 'center', color: '#9CA3AF', fontSize: 13, fontStyle: 'italic' },
-    timelineItemBox: { flexDirection: 'row', marginBottom: 12 },
-    timelineLeft: { width: 60, alignItems: 'center', marginRight: 10 },
-    timeTextItem: { fontSize: 11, fontWeight: '700', color: '#4B5563' },
-    dotLine: { width: 1, flex: 1, backgroundColor: '#D1D5DB', marginVertical: 2 },
-    timelineContentInner: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F3F4F6', padding: 10, borderRadius: 8 },
-    activityNameItem: { fontSize: 13, fontWeight: '600', color: '#1F2937' },
-
-    activityModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-    activityModalContent: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40, width: '100%', maxHeight: '60%' },
-    activityModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-    activityModalTitle: { fontSize: 18, fontWeight: '800', color: '#1F2937' },
-    activitySectionTitle: { fontSize: 13, fontWeight: '700', color: '#9CA3AF', marginBottom: 8, letterSpacing: 1 },
-    activityOption: { paddingVertical: 14, paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: '#F9FAFB' },
-    activityOptionText: { fontSize: 16, color: '#1F2937', fontWeight: '500' },
-    activityEmptyText: { color: '#9CA3AF', fontStyle: 'italic', paddingHorizontal: 10, marginVertical: 10 },
-
-    saveButton: { backgroundColor: '#0072FF', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 30 },
-    saveButtonDisabled: { opacity: 0.7 },
-    saveButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' }
-});

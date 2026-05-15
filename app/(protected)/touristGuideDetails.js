@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import React, { useState, useCallback, useMemo } from 'react'; 
-import { View, ScrollView, StyleSheet, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
 import { User, Calendar as CalendarIcon, Map, Star, Bed, CheckCircle } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +13,7 @@ import NewPackageHighlightsModal from '../../components/NewPackageHighlightsModa
 import ConfirmationModal from '../../components/ConfirmationModal';
 import { fetchDestinationHighlights } from '../../utils/newPackageHighlights';
 import { useAuth } from '../../context/AuthContext';
+import { styles } from './styles/touristGuideDetails.styles';
 
 const TouristGuideDetails = () => {
     const { user } = useAuth();
@@ -610,120 +611,5 @@ const TouristGuideDetails = () => {
         </ScrollView>
     );
 };
-
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#fff' },
-    loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" },
-    header: { position: 'relative', height: 120, justifyContent: 'center' },
-    headerImage: { width: '100%', height: '100%', resizeMode: 'cover', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
-    overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
-    headerTitle: { position: 'absolute', bottom: 15, left: 20, color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 1 },
-    backButton: { position: 'absolute', top: 20, left: 20, padding: 5, zIndex: 10 },
-    contentContainer: { padding: 16 },
-    guideCard: { backgroundColor: '#F5F7FA', borderRadius: 15, padding: 16, borderWidth: 1, borderColor: '#E0E6ED' },
-    cardProfileSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-    iconWrapper: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#1A2332', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
-    profilePicture: { width: '100%', height: '100%' },
-    profileInfo: { flex: 1, marginLeft: 12 },
-    guideName: { fontSize: 18, fontWeight: '700', color: '#1A2332' },
-    guideAddress: { fontSize: 13, color: '#8B98A8', marginTop: 4 },
-    ratingContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
-    guideRating: { fontSize: 13, color: '#C99700', marginLeft: 4 },
-    availabilityContainer: { flexDirection: 'row', gap: 4, marginTop: 4, marginBottom: 10 },
-    dayBadge: { width: 22, height: 22, borderRadius: 11, justifyContent: 'center', alignItems: 'center' },
-    dayAvailable: { backgroundColor: '#28A745' },
-    dayUnavailable: { backgroundColor: '#E0E0E0' },
-    dayText: { fontSize: 10, fontWeight: '700' },
-    dayTextAvailable: { color: '#fff' },
-    dayTextUnavailable: { color: '#A0A0A0' },
-    buttonRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-    actionButton: { flex: 1, backgroundColor: '#00A8FF', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 8, gap: 6 },
-    actionButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-    destinationImageContainer: { width: '100%', height: 200, borderRadius: 12, overflow: 'hidden', marginBottom: 20 },
-    destinationImage: { width: '100%', height: '100%' },
-    imageOverlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
-    destinationName: { position: 'absolute', bottom: 10, left: 10, color: '#fff', fontSize: 20, fontWeight: 'bold' },
-    
-    detailsSection: { marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: '#E0E6ED' },
-    sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-    detailsHeader: { fontSize: 16, fontWeight: '700', color: '#1A2332', marginLeft: 8 },
-    newPackageCallout: {
-        marginBottom: 10,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: '#BAE6FD',
-        backgroundColor: '#E0F2FE',
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    newPackageCalloutTitle: { fontSize: 12, fontWeight: '800', color: '#075985' },
-    newPackageCalloutSubtext: { fontSize: 11, color: '#0369A1', marginTop: 2 },
-    
-    packageScroll: { flexDirection: 'row', marginBottom: 10, marginTop: 5 },
-    packagePill: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: '#fff', marginRight: 10, borderWidth: 1, borderColor: '#E2E8F0' },
-    packagePillActive: { backgroundColor: '#EFF6FF', borderColor: '#00A8FF' },
-    packagePillText: { fontSize: 14, fontWeight: '600', color: '#64748B' },
-    packagePillTextActive: { color: '#00A8FF' },
-
-    bodyText: { fontSize: 14, color: '#555', lineHeight: 22 },
-    subHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 10, marginBottom: 8, flexWrap: 'wrap' },
-    subHeader: { fontSize: 13, fontWeight: '700', color: '#333' },
-    viewStopDetailsButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        backgroundColor: '#EFF6FF',
-        borderWidth: 1,
-        borderColor: '#BFDBFE',
-        borderRadius: 999,
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-    },
-    viewStopDetailsText: { fontSize: 11, fontWeight: '700', color: '#1D4ED8' },
-    divider: { height: 1, backgroundColor: '#eee', marginVertical: 12 },
-    emptyText: { fontSize: 13, color: '#888', fontStyle: 'italic', marginBottom: 10 },
-
-    seqDayLabel: { fontSize: 15, fontWeight: '800', color: '#00A8FF', marginBottom: 10 },
-    timelineContainer: { marginTop: 10 },
-    timelineItem: { flexDirection: 'row', marginBottom: 15 },
-    timeColumn: { width: 85, alignItems: 'center', paddingRight: 10 },
-    timeText: { fontSize: 12, fontWeight: '700', color: '#1A2332' },
-    timeSubText: { fontSize: 10, color: '#888', marginTop: 2 },
-    timeConnector: { flex: 1, width: 1, backgroundColor: '#E0E6ED', marginTop: 4 },
-    activityCard: { flex: 1, backgroundColor: '#fff', borderRadius: 8, padding: 10, borderWidth: 1, borderColor: '#E0E6ED' },
-    activityHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-    activityDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
-    activityTitle: { fontSize: 14, fontWeight: '700', color: '#333' },
-    typeBadge: { alignSelf: 'flex-start', backgroundColor: '#F5F7FA', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: '#eee' },
-    typeText: { fontSize: 10, color: '#666', fontWeight: '600' },
-
-    inclusionsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    inclusionTag: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FFF4', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, gap: 4, borderWidth: 1, borderColor: '#C3E6CB' },
-    inclusionText: { fontSize: 11, color: '#155724', fontWeight: '600' },
-
-    accScroll: { marginTop: 5 },
-    accCard: { width: 140, marginRight: 12, backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#eee', overflow: 'hidden', position: 'relative', height: 100 },
-    accImage: { width: '100%', height: '100%' },
-    accOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 50, backgroundColor: 'rgba(0,0,0,0.4)' },
-    accInfo: { position: 'absolute', bottom: 8, left: 8, right: 8 },
-    accTitle: { fontSize: 12, fontWeight: '700', color: '#fff', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 2 },
-    accPrice: { fontSize: 10, color: '#00A8FF', fontWeight: '700', marginTop: 2 },
-    highlightText: { fontSize: 12, color: '#00A8FF', fontStyle: 'italic', marginBottom: 10, fontWeight: '600' },
-
-    detailLabel: { fontWeight: '600', color: '#1A2332' },
-    calendarContainer: { backgroundColor: '#fff', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#eee' },
-    calendarStyle: { borderRadius: 8, overflow: 'hidden' },
-    legendContainer: { flexDirection: 'row', justifyContent: 'center', gap: 20, marginTop: 15, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
-    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    dot: { width: 8, height: 8, borderRadius: 4 },
-    legendText: { fontSize: 12, color: '#666' },
-    bookButton: { backgroundColor: '#00A8FF', paddingVertical: 16, borderRadius: 8, alignItems: 'center', marginVertical: 20, shadowColor: "#00A8FF", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 5 },
-    bookButtonText: { color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 1 },
-    copyPackageButton: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#E0F2FE', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#BAE6FD' },
-    copyPackageText: { fontSize: 12, fontWeight: '600', color: '#0369A1' },
-});
 
 export default TouristGuideDetails;

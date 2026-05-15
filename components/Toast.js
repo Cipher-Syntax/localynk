@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Text, StyleSheet } from 'react-native';
+import { Animated, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { styles } from './styles/Toast.styles';
 
 export default function Toast({ visible, message, type = 'success', onHide }) {
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -26,10 +27,3 @@ export default function Toast({ visible, message, type = 'success', onHide }) {
         </Animated.View>
     );
 }
-
-const styles = StyleSheet.create({
-    toastContainer: { position: 'absolute', top: 50, zIndex: 9999, alignSelf: 'center', backgroundColor: '#1F2937', flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, width: '90%', shadowOpacity: 0.2, elevation: 5 },
-    toastSuccess: { borderLeftWidth: 4, borderLeftColor: '#22C55E' },
-    toastError: { borderLeftWidth: 4, borderLeftColor: '#EF4444' },
-    toastText: { color: '#fff', marginLeft: 10, fontWeight: '600' }
-});
