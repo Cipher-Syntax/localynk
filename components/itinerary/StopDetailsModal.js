@@ -1,7 +1,8 @@
 import { Image } from 'expo-image';
 import React, { useMemo } from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { styles } from './styles/StopDetailsModal.styles';
 
 const imageKeys = ['image', 'photo', 'stop_image', 'activityImage', 'activity_image', 'thumbnail', 'media_url'];
 
@@ -222,116 +223,5 @@ const StopDetailsModal = ({
         </Modal>
     );
 };
-
-const styles = StyleSheet.create({
-    overlay: {
-        flex: 1,
-        backgroundColor: 'rgba(15, 23, 42, 0.45)',
-        justifyContent: 'flex-end',
-    },
-    sheet: {
-        maxHeight: '88%',
-        minHeight: '45%',
-        backgroundColor: '#F8FAFC',
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 14,
-        borderBottomWidth: 1,
-        borderBottomColor: '#E2E8F0',
-    },
-    headerTitle: {
-        fontSize: 16,
-        fontWeight: '800',
-        color: '#0F172A',
-    },
-    closeButton: {
-        width: 34,
-        height: 34,
-        borderRadius: 17,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#E2E8F0',
-    },
-    content: {
-        paddingHorizontal: 16,
-        paddingTop: 12,
-        paddingBottom: 28,
-    },
-    emptyBox: {
-        paddingVertical: 28,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#CBD5E1',
-        backgroundColor: '#F8FAFC',
-        alignItems: 'center',
-    },
-    emptyText: {
-        marginTop: 8,
-        color: '#64748B',
-        fontSize: 13,
-        fontWeight: '600',
-    },
-    dayBlock: {
-        marginBottom: 14,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#DDE5F0',
-        backgroundColor: '#FFFFFF',
-        padding: 12,
-    },
-    dayTitle: {
-        fontSize: 14,
-        fontWeight: '800',
-        color: '#1D4ED8',
-        marginBottom: 10,
-    },
-    stopCard: {
-        borderRadius: 10,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-        backgroundColor: '#F8FAFC',
-        marginBottom: 10,
-    },
-    stopImage: {
-        width: '100%',
-        height: 130,
-        backgroundColor: '#E2E8F0',
-    },
-    stopImageFallback: {
-        width: '100%',
-        height: 100,
-        backgroundColor: '#EEF2FF',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    stopBody: {
-        paddingHorizontal: 10,
-        paddingVertical: 10,
-    },
-    stopName: {
-        fontSize: 13,
-        fontWeight: '800',
-        color: '#0F172A',
-    },
-    stopMeta: {
-        marginTop: 4,
-        fontSize: 12,
-        color: '#475569',
-        fontWeight: '600',
-    },
-    stopDescription: {
-        marginTop: 6,
-        fontSize: 12,
-        color: '#64748B',
-        lineHeight: 18,
-    },
-});
 
 export default StopDetailsModal;

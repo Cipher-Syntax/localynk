@@ -1,0 +1,37 @@
+import { StyleSheet } from "react-native";
+
+export const styles = StyleSheet.create({
+    safeArea: { flex: 1, backgroundColor: '#f7f7f7' },
+    container: { padding: 20 },
+    centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    loadingHeader: { paddingHorizontal: 20, paddingTop: 20, marginBottom: 0 },
+    title: { flex: 1, textAlign: 'center', fontSize: 24, fontWeight: 'bold', color: '#111827' },
+    backButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        backgroundColor: '#FFFFFF',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    closeButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        backgroundColor: '#FFFFFF',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    reviewSection: { backgroundColor: '#fff', borderRadius: 10, padding: 15, marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2 },
+    sectionTitle: { fontSize: 18, fontWeight: '600', marginBottom: 5 },
+    sectionSubtitle: { fontSize: 16, color: '#666', marginBottom: 15 },
+    starContainer: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 15 },
+    textInput: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, height: 100, textAlignVertical: 'top', fontSize: 14 },
+    submitButton: { backgroundColor: '#007AFF', padding: 15, borderRadius: 10, alignItems: 'center', marginTop: 10 },
+    submitButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+});

@@ -1,8 +1,9 @@
 import React from 'react';
-import { Text, StyleSheet } from 'react-native';
+import { Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNetworkStatus } from '../utils/useNetworkStatus';
+import { styles } from './styles/OfflineBanner.styles';
 
 const OfflineBanner = () => {
     const isConnected = useNetworkStatus();
@@ -19,19 +20,3 @@ const OfflineBanner = () => {
 
 export default OfflineBanner;
 
-const styles = StyleSheet.create({
-    banner: {
-        backgroundColor: '#EF4444',
-        paddingBottom: 10,
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 999,
-    },
-    text: {
-        color: '#fff',
-        fontWeight: '700',
-        fontSize: 14,
-        marginLeft: 8,
-    }
-});

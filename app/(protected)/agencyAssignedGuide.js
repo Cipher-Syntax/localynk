@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
 import { User } from "lucide-react-native";
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../../api/api';
 import Toast from '../../components/Toast';
+import { styles } from './styles/agencyAssignedGuide.styles';
 
 const AgencyAssignedGuide = () => {
     const router = useRouter();
@@ -154,31 +155,3 @@ const AgencyAssignedGuide = () => {
 
 export default AgencyAssignedGuide;
 
-const styles = StyleSheet.create({
-    container: { flex: 1 },
-    header: { position: 'relative', height: 120, justifyContent: 'center' },
-    headerImage: { width: '100%', height: '100%', resizeMode: 'cover', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
-    overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
-    headerTitle: { position: 'absolute', bottom: 15, left: 20, color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 1 },
-    loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" },
-    contentContainer: { padding: 16, gap: 12 },
-    agencyMessage: { fontSize: 14, fontWeight: '600', color: '#1A2332', textAlign: 'center', marginBottom: 8 },
-    sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1A2332', marginBottom: 4, paddingHorizontal: 4 },
-    guideCard: { backgroundColor: '#fff', borderRadius: 15, padding: 16, borderWidth: 1, borderColor: '#E0E6ED', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 1, marginBottom: 8 },
-    cardProfileSection: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-    iconWrapper: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#EBF0F5', justifyContent: 'center', alignItems: 'center' },
-    profileInfo: { flex: 1, marginLeft: 12 },
-    guideName: { fontSize: 16, fontWeight: '800', color: '#1A2332' },
-    guideAddress: { fontSize: 12, color: '#8B98A8', marginTop: 2 },
-    guideRating: { fontSize: 14, color: '#C99700', fontWeight: '700', marginTop: 4 },
-    detailsGrid: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 0, gap: 8 },
-    detailItem: { width: '48%', paddingVertical: 8, paddingHorizontal: 10, backgroundColor: '#F5F7FA', borderRadius: 8 },
-    detailLabel: { fontSize: 11, color: '#8B98A8', fontWeight: '600' },
-    detailValue: { fontSize: 13, color: '#1A2332', fontWeight: '700', marginTop: 4 },
-    priceFooter: { backgroundColor: '#E8F4FF', padding: 12, borderRadius: 10, marginTop: 16, marginBottom: 16, alignItems: 'center', borderWidth: 1, borderColor: '#00A8FF' },
-    priceLabelFooter: { fontSize: 12, color: '#0088CC', fontWeight: '600' },
-    priceValueFooter: { fontSize: 22, color: '#28A745', fontWeight: '900', marginTop: 4 },
-    buttonContainer: { alignItems: 'center' },
-    bookButton: { backgroundColor: '#00A8FF', color: '#fff', paddingVertical: 12, paddingHorizontal: 40, borderRadius: 8, fontSize: 15, fontWeight: '700', overflow: 'hidden', textAlign: 'center', width: '100%' },
-    infoText: { fontSize: 12, color: '#666', textAlign: 'center', marginTop: 8, paddingHorizontal: 10 }
-});

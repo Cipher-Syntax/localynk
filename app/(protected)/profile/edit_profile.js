@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Platform, ActivityIndicator, KeyboardAvoidingView, Modal } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Platform, ActivityIndicator, KeyboardAvoidingView, Modal } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../../context/AuthContext';
@@ -24,6 +24,8 @@ import { isPayoutAccountIncomplete } from '../../../utils/profileCompleteness';
 import ScreenSafeArea from '../../../components/ScreenSafeArea';
 import ProfileLocationMapPicker from '../../../components/location/ProfileLocationMapPicker';
 import LocationSearchBar from '../../../components/location/LocationSearchBar';
+
+import { styles } from './styles/edit_profile.styles';
 
 const PAYOUT_CHANNEL_OPTIONS = [
     { key: 'gcash', label: 'GCash', icon: 'wallet' },
@@ -1022,146 +1024,3 @@ const EditProfile = () => {
 
 export default EditProfile;
 
-const styles = StyleSheet.create({
-    scrollContainer: { flexGrow: 1, paddingBottom: 40 },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-    backButton: { padding: 5 },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: '#1F2937' },
-    avatarContainer: { alignItems: 'center', marginVertical: 25 },
-    avatarWrapper: { position: 'relative', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 5, elevation: 5 },
-    avatarPlaceholder: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#DBEAFE', borderStyle: 'dashed' },
-    avatarImage: { width: 100, height: 100, borderRadius: 50, borderWidth: 2, borderColor: '#0072FF' },
-    avatarText: { fontSize: 10, color: '#6B7280', marginTop: 4, fontWeight: '600' },
-    editBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#0072FF', width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#fff' },
-    formContainer: { paddingHorizontal: 20, backgroundColor: '#fff', marginHorizontal: 15, borderRadius: 16, paddingVertical: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
-    label: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6, marginTop: 4 },
-    sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    sectionLabel: { fontSize: 12, fontWeight: '700', color: '#1E40AF', marginTop: 8, marginBottom: 8, textTransform: 'uppercase' },
-    sectionLabelAlert: { color: '#DC2626' },
-    sectionHintAlert: { color: '#DC2626', fontSize: 12, fontWeight: '600', marginTop: -2, marginBottom: 8 },
-    alertDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#EF4444' },
-    payoutOptionScroll: { marginBottom: 12 },
-    payoutOptionRow: { paddingRight: 4 },
-    payoutOption: {
-        marginRight: 10,
-        width: 90,
-        height: 84,
-        backgroundColor: '#F8FAFC',
-        borderRadius: 14,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    payoutOptionActive: { borderColor: '#0072FF', backgroundColor: '#EFF6FF' },
-    payoutIconCircle: {
-        width: 34,
-        height: 34,
-        borderRadius: 17,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#EEF2FF',
-        marginBottom: 8,
-    },
-    payoutIconCircleActive: { backgroundColor: '#0072FF' },
-    payoutOptionText: { fontSize: 12, color: '#475569', fontWeight: '700' },
-    payoutOptionTextActive: { color: '#1E40AF' },
-    inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9FAFB', borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 12, paddingHorizontal: 12 },
-    selectorInputContainer: { minHeight: 48 },
-    inputError: { borderColor: '#EF4444', backgroundColor: '#FEF2F2' },
-    inputIcon: { marginRight: 10 },
-    input: { flex: 1, height: 48, fontSize: 15, color: '#1F2937' },
-    selectValueText: { flex: 1, fontSize: 15, lineHeight: 20, color: '#1F2937' },
-    selectPlaceholderText: { color: '#6B7280' },
-    selectionModalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(15, 23, 42, 0.45)',
-        justifyContent: 'flex-end',
-    },
-    selectionModalCard: {
-        backgroundColor: '#fff',
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        paddingHorizontal: 16,
-        paddingTop: 14,
-        paddingBottom: 22,
-    },
-    selectionModalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 10,
-    },
-    selectionModalTitle: {
-        fontSize: 16,
-        color: '#0F172A',
-        fontWeight: '700',
-    },
-    selectionOption: {
-        minHeight: 46,
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-        paddingHorizontal: 14,
-        marginTop: 8,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    selectionOptionActive: {
-        borderColor: '#93C5FD',
-        backgroundColor: '#EFF6FF',
-    },
-    selectionOptionText: {
-        fontSize: 15,
-        color: '#1F2937',
-        fontWeight: '600',
-    },
-    selectionOptionTextActive: {
-        color: '#1E40AF',
-    },
-    dateValueText: { flex: 1, fontSize: 15, lineHeight: 20, color: '#1F2937' },
-    datePlaceholderText: { color: '#6B7280' },
-    birthdatePickerWrap: {
-        marginTop: 4,
-        marginBottom: 12,
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-        borderRadius: 12,
-        backgroundColor: '#fff',
-        overflow: 'hidden',
-    },
-    birthdateActionsRow: {
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-        gap: 10,
-    },
-    birthdateActionSecondary: {
-        borderWidth: 1,
-        borderColor: '#CBD5E1',
-        borderRadius: 10,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        backgroundColor: '#F8FAFC',
-    },
-    birthdateActionSecondaryText: {
-        color: '#334155',
-        fontWeight: '700',
-    },
-    birthdateActionPrimary: {
-        borderRadius: 10,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        backgroundColor: '#0072FF',
-    },
-    birthdateActionPrimaryText: {
-        color: '#fff',
-        fontWeight: '700',
-    },
-    bioInput: { height: 100, paddingTop: 12 },
-    notesInput: { height: 82, paddingTop: 12 },
-    errorText: { color: '#EF4444', fontSize: 12, marginTop: -8, marginBottom: 10, marginLeft: 4 },
-    submitButtonContainer: { marginTop: 20, height: 50, borderRadius: 12, overflow: 'hidden', shadowColor: '#0072FF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 5 },
-    gradientBtn: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    submitButtonText: { fontSize: 16, fontWeight: '700', color: '#fff' },
-});
