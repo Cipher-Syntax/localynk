@@ -482,14 +482,22 @@ BookingItemCard.displayName = 'BookingItemCard';
 const BookingGroupCard = React.memo(({ item, onPress }) => {
     const tourImageSource = item.image ? { uri: item.image } : require('../../assets/localynk_images/featured1.png');
     return (
-        <TouchableOpacity style={styles.groupCard} onPress={() => onPress(item)}>
-            <Image source={tourImageSource} style={styles.groupImage} contentFit="cover" />
-            <View style={styles.groupContent}>
-                <Text style={styles.groupTitle}>{item.destination}</Text>
-                <Text style={styles.groupSubtitle}>{item.bookings.length} Bookings</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#CBD5E1" style={{ padding: 15 }} />
-        </TouchableOpacity>
+        <View style={styles.groupContainer}>
+            <TouchableOpacity style={styles.groupHeaderCard} onPress={() => onPress(item)}>
+                <View style={styles.groupImageWrap}>
+                    <Image source={tourImageSource} style={styles.groupImage} contentFit="cover" />
+                </View>
+                <View style={styles.groupHeaderTop}>
+                    <View style={styles.groupTitleWrap}>
+                        <Text style={styles.groupTitle} numberOfLines={1}>{item.title}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
+                </View>
+                <View style={styles.groupMetaRow}>
+                    <Text style={styles.groupMetaText}>{item.bookings?.length || 0} Bookings</Text>
+                </View>
+            </TouchableOpacity>
+        </View>
     );
 });
 BookingGroupCard.displayName = 'BookingGroupCard';
@@ -1049,7 +1057,7 @@ const MyBookings = () => {
             <FlatList
                 ref={bookingsListRef}
                 data={groupedBookings}
-                renderItem={({ item }) => <BookingGroupCard item={item} onOpenDestinationModal={openDestinationModal} />}
+                renderItem={({ item }) => <BookingGroupCard item={item} onPress={openDestinationModal} />}
                 keyExtractor={(item) => item.key}
                 contentContainerStyle={styles.listContainer}
                 onScroll={handleMainListScroll}
@@ -1059,7 +1067,7 @@ const MyBookings = () => {
                 ListHeaderComponent={
                     <View>
                         <View style={styles.header}>
-                            <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} />
+                            <Image source={require('../../assets/localynk_images/header.png')} style={styles.headerImage} contentFit="cover" />
                             <LinearGradient colors={['rgba(0,0,0,0.6)', 'transparent']} style={styles.overlay} />
                             <View style={styles.headerContent}>
                                 <Text style={styles.headerTitle}>BOOKINGS MANAGER</Text>
@@ -1345,7 +1353,7 @@ const styles = StyleSheet.create({
     mainContainer: { flex: 1, backgroundColor: '#f8f9fa' },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     header: { position: 'relative', height: 120, justifyContent: 'center', marginBottom: 20 },
-    headerImage: { width: '100%', height: '100%', resizeMode: 'cover', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
+    headerImage: { width: '100%', height: '100%', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     overlay: { ...StyleSheet.absoluteFillObject, borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
     headerContent: { position: 'absolute', bottom: 15, left: 20 },
     headerTitle: { color: '#fff', fontSize: 22, fontWeight: '800' },
@@ -1552,7 +1560,7 @@ const styles = StyleSheet.create({
     refundPolicyText: { marginBottom: 10, color: '#0F766E', fontSize: 11, fontWeight: '700' },
     refundPolicyTextWarning: { color: '#B45309' },
     emptyContainer: { alignItems: 'center', marginTop: 60 },
-    emptyText: { fontSize: 18, fontWeight: '700', color: '#374151', marginTop: 10 },
+    emptyText: { fontSize: 15, fontWeight: '700', color: '#374151', marginTop: 10, textAlign: 'center', marginHorizontal: 10 },
     destinationModalBackdrop: {
         flex: 1,
         backgroundColor: 'rgba(15, 23, 42, 0.35)',
